@@ -1,3 +1,7 @@
 # DS_Store Files
 .DS_Store
 **/.DS_Store
+
+# Ignorar el entorno virtual de Python
+venv/
+.venv/
