@@ -1,5 +1,7 @@
 package com.example.plag_out
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 import com.google.gson.annotations.SerializedName
 import kotlinx.serialization.Serializable
 import java.util.Date
@@ -62,9 +64,11 @@ data class MonitoreoResponse(
     val monitoreos: List<Monitoreo>
 )*/
 
+@Entity(tableName = "monitoreos")
 @Serializable
 data class MonitoreoResponse(
     @SerializedName("id")
+    @PrimaryKey
     val monitoreo_id: Int,
     @SerializedName("plantacion_id")
     val plantacion_id: Int,
@@ -88,9 +92,11 @@ data class MonitoreoResponse(
     val nivel_alerta: Int
 )
 
+@Entity(tableName = "terrenos")
 @Serializable
 data class TerrenoResponse(
     @SerializedName("id")
+    @PrimaryKey
     val terreno_id: Int,
     @SerializedName("terreno_nombre")
     val terreno_nombre: String,
@@ -102,9 +108,11 @@ data class TerrenoResponse(
     val terreno_area: Float
 )
 
+@Entity(tableName = "plantaciones")
 @Serializable
 data class PlantacionesResponse(
     @SerializedName("id")
+    @PrimaryKey
     val plantacion_id: Int,
     @SerializedName("terreno_id")
     val terreno_id: Int,
