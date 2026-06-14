@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.google.gson.annotations.SerializedName
 import kotlinx.serialization.Serializable
+import java.time.LocalDate
 import java.util.Date
 
 /*
@@ -89,7 +90,9 @@ data class MonitoreoResponse(
     @SerializedName("progreso")
     val progreso: Float,
     @SerializedName("nivel_alerta")
-    val nivel_alerta: Int
+    val nivel_alerta: Int,
+    @SerializedName("fecha_actualizacion")
+    val fecha_actualizacion: LocalDate
 )
 
 @Entity(tableName = "terrenos")
@@ -123,7 +126,7 @@ data class PlantacionesResponse(
     @SerializedName("cultivo_nombre_cientifico")
     val cultivo_nombre_cientifico: String,
     @SerializedName("fecha_siembra")
-    val fecha_siembra: Date,
+    val fecha_siembra: LocalDate,
     @SerializedName("activa")
     val activa: Boolean
 )

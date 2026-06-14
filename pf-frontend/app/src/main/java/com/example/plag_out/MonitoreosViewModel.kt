@@ -35,7 +35,7 @@ class MonitoreosViewModel(context: Context, repository: MonitoreoRepository) : V
             val lastFetch = getLastFetchTime()
             val now = System.currentTimeMillis()
 
-            // Verificar si pasaron > 24 horas
+            // Verificar si pasaron > 24 horas o si nunca se consulto
             if (now - lastFetch > 24 * 60 * 60 * 1000 || lastFetch == 0L) {
                 _state.value = _state.value.copy(isLoading = true)
 

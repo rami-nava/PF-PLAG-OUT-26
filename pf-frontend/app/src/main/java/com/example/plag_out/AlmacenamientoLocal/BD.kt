@@ -1,6 +1,8 @@
 package com.example.plag_out.AlmacenamientoLocal
 
 import android.content.Context
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -9,11 +11,12 @@ import androidx.room.TypeConverters
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
+import java.time.LocalDate
 import java.util.Date
 
 @Database(
     entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class],
-    version = 3
+    version = 6
 )
 
 @TypeConverters(Converters::class)
@@ -43,12 +46,13 @@ abstract class AppDatabase : RoomDatabase() {
 
 class Converters {
     @TypeConverter
-    fun fromDate(date: Date?): Long? {
-        return date?.time
+    fun fromLocalDate(date: LocalDate?): String? {
+        return date?.toString()  // "2026-06-11"
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     @TypeConverter
-    fun toDate(timestamp: Long?): Date? {
-        return timestamp?.let { Date(it) }
+    fun toLocalDate(dateString: String?): LocalDate? {
+        return dateString?.let { LocalDate.parse(it) }
     }
 }

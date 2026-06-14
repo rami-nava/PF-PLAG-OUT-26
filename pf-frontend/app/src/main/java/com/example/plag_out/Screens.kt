@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.text.font.FontStyle
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
+import java.time.format.DateTimeFormatter
 
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -99,6 +100,7 @@ fun MonitoreosScreen(monitoreosViewModel: MonitoreosViewModel, plantacionesViewM
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MonitoreoCard(
     monitoreo: MonitoreoResponse,
@@ -120,12 +122,17 @@ fun MonitoreoCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(
-                        monitoreo.plaga_nombre,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2d5016)
-                    )
+                        Text("${monitoreo.fecha_actualizacion.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF718096)
+                        )
+                        Text(
+                            monitoreo.plaga_nombre,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2d5016)
+                        )
                     Text(
                         "${monitoreo.terreno_nombre} - ${monitoreo.cultivo_nombre}",
                         fontSize = 12.sp,
@@ -213,6 +220,7 @@ fun MonitoreoCard(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MonitoreosPorPlantacion(
     plantacionId: Int,
