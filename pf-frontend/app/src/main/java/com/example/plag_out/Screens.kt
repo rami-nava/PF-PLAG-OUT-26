@@ -672,8 +672,8 @@ fun PlantacionConPlagasCard(
 @Composable
 fun PlagaMiniCard(monitoreo: MonitoreoResponse) {
     val (colorAlerta, emojiAlerta) = when (monitoreo.nivel_alerta) {
-        1 -> Pair(Color(0xFF38A169), "✅")
-        2 -> Pair(Color(0xFFD69E2E), "⚠️")
+        0 -> Pair(Color(0xFF38A169), "✅")
+        1 -> Pair(Color(0xFFD69E2E), "⚠️")
         else -> Pair(Color(0xFFE53E3E), "🔴")
     }
 
