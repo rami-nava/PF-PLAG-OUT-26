@@ -33,9 +33,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.text.font.FontStyle
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
+import java.time.format.DateTimeFormatter
 
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -46,6 +49,7 @@ fun MonitoreosScreen(monitoreosViewModel: MonitoreosViewModel, plantacionesViewM
     LaunchedEffect(Unit) {
         monitoreosViewModel.getMonitoreos()
         plantacionesViewModel.getPlantaciones()
+        state.isLoading = false
     }
 
     Column(
@@ -53,8 +57,6 @@ fun MonitoreosScreen(monitoreosViewModel: MonitoreosViewModel, plantacionesViewM
             .fillMaxSize()
             .background(Color(0xFFF8F7F4))
             .padding(16.dp)
-
-
     ) {
         Text(
             "🌾 Mis Plagas",
@@ -65,19 +67,40 @@ fun MonitoreosScreen(monitoreosViewModel: MonitoreosViewModel, plantacionesViewM
         )
 
         if (state.isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
         } else if (state.monitoreos.isEmpty()) {
-            Text("Sin monitoreos", color = Color(0xFF718096))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Sin monitoreos", color = Color(0xFF718096))
+            }
         } else {
-            state.monitoreos.forEach { monitoreo ->
-                MonitoreoCard(monitoreo, {navController.navigate("plantacion/${monitoreo.plantacion_id}")})
+            LazyColumn(
+                modifier = Modifier.weight(1f)
+            ) {
+                items(state.monitoreos) { monitoreo ->
+                    MonitoreoCard(
+                        monitoreo
+                    ) {
+                        navController.navigate("plantacion/${monitoreo.plantacion_id}")
+                    }
+                }
             }
         }
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MonitoreoCard(
     monitoreo: MonitoreoResponse,
@@ -99,12 +122,17 @@ fun MonitoreoCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(
-                        monitoreo.plaga_nombre,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2d5016)
-                    )
+                        Text("${monitoreo.fecha_actualizacion.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF718096)
+                        )
+                        Text(
+                            monitoreo.plaga_nombre,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2d5016)
+                        )
                     Text(
                         "${monitoreo.terreno_nombre} - ${monitoreo.cultivo_nombre}",
                         fontSize = 12.sp,
@@ -126,7 +154,7 @@ fun MonitoreoCard(
                     Text(
                         when (monitoreo.nivel_alerta) {
                             0 -> "Normal"
-                            1 -> "Precacion"
+                            1 -> "Precaucion"
                             else -> "Peligro"
                         },
                         fontSize = 12.sp,
@@ -173,7 +201,7 @@ fun MonitoreoCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 LinearProgressIndicator(
-                    progress = (monitoreo.progreso / 100f).coerceIn(0f, 1f),
+                    progress = {(monitoreo.progreso / 100f).coerceIn(0f, 1f)},
                     modifier = Modifier
                         .weight(1f)
                         .height(10.dp),
@@ -192,6 +220,7 @@ fun MonitoreoCard(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MonitoreosPorPlantacion(
     plantacionId: Int,
@@ -254,6 +283,7 @@ fun TerrenosScreen(
 
     LaunchedEffect(Unit) {
         terrenoViewModel.getTerrenos()
+        state.isLoading = false
     }
 
     androidx.compose.material3.Scaffold(
@@ -269,40 +299,47 @@ fun TerrenosScreen(
                 Text("+", fontSize = 28.sp, fontWeight = FontWeight.Normal)
             }
         }
-    ) { paddingValues ->
-        LazyColumn(
+    ) { _ ->
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = paddingValues.calculateBottomPadding()) // Evita que el FAB pise las tarjetas
-                .padding(horizontal = 16.dp, vertical = 16.dp) // Margen limpio idéntico al de cultivos
+                .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
-            item {
-                Text(
-                    "📍 Mis Terrenos",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2d5016),
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            }
+            Text(
+                text = "📍 Mis Terrenos",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF2d5016),
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
 
-            if (state.isLoading) {
-                item {
+            when {
+                state.isLoading -> {
                     Box(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(color = Color(0xFF2d5016))
                     }
                 }
-            } else if (state.terrenos.isEmpty()) {
-                item {
-                    Text("Sin terrenos", color = Color(0xFF718096))
+                state.terrenos.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Sin terrenos", color = Color(0xFF718096))
+                    }
                 }
-            } else {
-                items(state.terrenos) { terreno ->
-                    TerrenoCard(terreno, monitoreosState.monitoreos) {
-                        navController.navigate("terreno/${terreno.terreno_id}")
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(state.terrenos) { terreno ->
+                            TerrenoCard(terreno, monitoreosState.monitoreos) {
+                                navController.navigate("terreno/${terreno.terreno_id}")
+                            }
+                        }
                     }
                 }
             }
@@ -323,7 +360,7 @@ fun TerrenoCard(
     val (colorAlerta, emojiAlerta, textAlerta) = when (alertaMaxima) {
         0 -> Triple(Color(0xFF38A169), "✅", "Normal")
         1 -> Triple(Color(0xFFD69E2E), "⚠️", "Precaucion")
-        2 -> Triple(Color(0xFFD69E2E), "🔴️", "Peligro")
+        2 -> Triple(Color(0xFFE53E3E), "🔴️", "Peligro")
         else -> Triple(Color.Gray, "", "Sin Monitorear")
     }
 
@@ -418,6 +455,285 @@ fun TerrenoCard(
                     )
                     Text("plagas", fontSize = 10.sp, color = Color(0xFF718096))
                 }
+            }
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun PlantacionesPorTerreno(
+    terrenoId: Int,
+    plantacionesViewModel: PlantacionesViewModel,
+    monitoreosViewModel: MonitoreosViewModel,
+    terrenoViewModel: TerrenosViewModel,
+    onBack: () -> Unit
+) {
+    val plantacionesState by plantacionesViewModel.state.collectAsState()
+    val monitoreosState by monitoreosViewModel.state.collectAsState()
+    val terreno = terrenoViewModel.state.collectAsState().value.terrenos.filter { t -> t.terreno_id == terrenoId  }[0]
+
+
+    // Filtrar plantaciones de este terreno
+    val plantacionesDelTerreno = plantacionesState.plantaciones.filter {
+        it.terreno_id == terrenoId
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8F7F4))
+            .padding(16.dp)
+    ) {
+        // Botón volver
+        item {
+            Button(
+                onClick = onBack,
+                modifier = Modifier.padding(bottom = 16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2d5016))
+            ) {
+                Text("← Volver")
+            }
+        }
+
+        // Header del terreno
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                terreno.terreno_nombre,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2d5016)
+                            )
+                            Text(
+                                "ID: $terrenoId",
+                                fontSize = 12.sp,
+                                color = Color(0xFF718096)
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFF2d5016).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                "🌾 ${terreno.terreno_area.toInt()} ha",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2d5016)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Ubicación
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("📍", fontSize = 16.sp, modifier = Modifier.padding(end = 8.dp))
+                        Text(
+                            "${terreno.terreno_latitud.toInt()}°, ${terreno.terreno_longitud.toInt()}°",
+                            fontSize = 12.sp,
+                            color = Color(0xFF718096)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Título Plantaciones
+        item {
+            Text(
+                "🌱 Plantaciones (${plantacionesDelTerreno.size})",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF2d5016),
+                modifier = Modifier.padding(bottom = 12.dp, top = 8.dp)
+            )
+        }
+
+        if (plantacionesDelTerreno.isEmpty()) {
+            item {
+                Text("Sin plantaciones", color = Color(0xFF718096))
+            }
+        } else {
+            items(plantacionesDelTerreno) { plantacion ->
+                PlantacionConPlagasCard(
+                    plantacion = plantacion,
+                    monitoreos = monitoreosState.monitoreos.filter {
+                        it.plantacion_id == plantacion.plantacion_id
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PlantacionConPlagasCard(
+    plantacion: PlantacionesResponse,
+    monitoreos: List<MonitoreoResponse>
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header plantación
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        plantacion.cultivo_nombre,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2d5016)
+                    )
+                    Text(
+                        plantacion.cultivo_nombre_cientifico,
+                        fontSize = 11.sp,
+                        color = Color(0xFF718096),
+                        fontStyle = FontStyle.Italic
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .background(
+                            if (plantacion.activa) Color(0xFF38A169).copy(alpha = 0.15f)
+                            else Color(0xFF718096).copy(alpha = 0.15f),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(6.dp)
+                ) {
+                    Text(
+                        if (plantacion.activa) "✅" else "⏸️",
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Fecha siembra
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("📅", fontSize = 14.sp, modifier = Modifier.padding(end = 8.dp))
+                Text(
+                    "Siembra: ${(plantacion.fecha_siembra)}",
+                    fontSize = 12.sp,
+                    color = Color(0xFF718096)
+                )
+            }
+
+            if (monitoreos.isEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "Sin plagas monitoreadas",
+                    fontSize = 12.sp,
+                    color = Color(0xFF718096),
+                    modifier = Modifier
+                        .background(Color(0xFFF8F7F4), RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                        .fillMaxWidth()
+                )
+            } else {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    "Plagas monitoreadas (${monitoreos.size})",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2d5016),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    monitoreos.forEach { monitoreo ->
+                        PlagaMiniCard(monitoreo)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PlagaMiniCard(monitoreo: MonitoreoResponse) {
+    val (colorAlerta, emojiAlerta) = when (monitoreo.nivel_alerta) {
+        0 -> Pair(Color(0xFF38A169), "✅")
+        1 -> Pair(Color(0xFFD69E2E), "⚠️")
+        else -> Pair(Color(0xFFE53E3E), "🔴")
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = colorAlerta.copy(alpha = 0.08f)
+        ),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, colorAlerta.copy(alpha = 0.3f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    monitoreo.plaga_nombre,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2d5016)
+                )
+                Text(
+                    "${monitoreo.gdd_acumulado.toInt()}/${monitoreo.gdd_objetivo.toInt()} GDD",
+                    fontSize = 11.sp,
+                    color = colorAlerta
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 12.dp)
+            ) {
+                LinearProgressIndicator(
+                    progress = (monitoreo.progreso / 100f).coerceIn(0f, 1f),
+                    modifier = Modifier
+                        .width(50.dp)
+                        .height(6.dp),
+                    color = colorAlerta,
+                    trackColor = Color(0xFFE2E8F0)
+                )
+                Text(
+                    " $emojiAlerta",
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
             }
         }
     }

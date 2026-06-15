@@ -1,7 +1,10 @@
 package com.example.plag_out
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 import com.google.gson.annotations.SerializedName
 import kotlinx.serialization.Serializable
+import java.time.LocalDate
 import java.util.Date
 
 /*
@@ -62,9 +65,11 @@ data class MonitoreoResponse(
     val monitoreos: List<Monitoreo>
 )*/
 
+@Entity(tableName = "monitoreos")
 @Serializable
 data class MonitoreoResponse(
     @SerializedName("id")
+    @PrimaryKey
     val monitoreo_id: Int,
     @SerializedName("plantacion_id")
     val plantacion_id: Int,
@@ -85,12 +90,16 @@ data class MonitoreoResponse(
     @SerializedName("progreso")
     val progreso: Float,
     @SerializedName("nivel_alerta")
-    val nivel_alerta: Int
+    val nivel_alerta: Int,
+    @SerializedName("fecha_actualizacion")
+    val fecha_actualizacion: LocalDate
 )
 
+@Entity(tableName = "terrenos")
 @Serializable
 data class TerrenoResponse(
     @SerializedName("id")
+    @PrimaryKey
     val terreno_id: Int,
     @SerializedName("terreno_nombre")
     val terreno_nombre: String,
@@ -102,9 +111,11 @@ data class TerrenoResponse(
     val terreno_area: Float
 )
 
+@Entity(tableName = "plantaciones")
 @Serializable
 data class PlantacionesResponse(
     @SerializedName("id")
+    @PrimaryKey
     val plantacion_id: Int,
     @SerializedName("terreno_id")
     val terreno_id: Int,
@@ -115,7 +126,7 @@ data class PlantacionesResponse(
     @SerializedName("cultivo_nombre_cientifico")
     val cultivo_nombre_cientifico: String,
     @SerializedName("fecha_siembra")
-    val fecha_siembra: Date,
+    val fecha_siembra: LocalDate,
     @SerializedName("activa")
     val activa: Boolean
 )
