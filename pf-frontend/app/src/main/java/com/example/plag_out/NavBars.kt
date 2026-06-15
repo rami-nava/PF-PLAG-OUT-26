@@ -29,8 +29,8 @@ fun BottomNavigationBar(navController: NavController){
         val currentDestination = navController.currentBackStackEntryAsState().value?.destination?.route
 
         val barItems = arrayOf(
-            BarItem("monitoreos"),
-            BarItem("terrenos")
+            BarItem("Monitoreos"),
+            BarItem("Terrenos")
             )
 
         barItems.forEach { item ->

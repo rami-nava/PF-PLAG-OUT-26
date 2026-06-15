@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from database import get_db
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from app.models import GDDSimulationRequest, GDDSimulationResponse
 from app.weather_service import WeatherService
 from app.gdd_calculator_service import GDDCalculatorService

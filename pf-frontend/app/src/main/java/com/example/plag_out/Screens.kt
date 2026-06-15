@@ -256,34 +256,54 @@ fun TerrenosScreen(
         terrenoViewModel.getTerrenos()
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8F7F4))
-            .padding(16.dp)
-    ) {
-        item {
-            Text(
-                "📍 Mis Terrenos",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2d5016),
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+    androidx.compose.material3.Scaffold(
+        containerColor = Color(0xFFF8F7F4),
+        floatingActionButton = {
+            androidx.compose.material3.FloatingActionButton(
+                onClick = { navController.navigate("seleccionar_cultivo") },
+                containerColor = Color(0xFFE8941A),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.padding(bottom = 16.dp, end = 8.dp)
+            ) {
+                Text("+", fontSize = 28.sp, fontWeight = FontWeight.Normal)
+            }
         }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = paddingValues.calculateBottomPadding()) // Evita que el FAB pise las tarjetas
+                .padding(horizontal = 16.dp, vertical = 16.dp) // Margen limpio idéntico al de cultivos
+        ) {
+            item {
+                Text(
+                    "📍 Mis Terrenos",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2d5016),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
 
-        if (state.isLoading) {
-            item {
-                CircularProgressIndicator()//modifier = Modifier.align(Alignment.CenterHorizontally))
-            }
-        } else if (state.terrenos.isEmpty()) {
-            item {
-                Text("Sin terrenos", color = Color(0xFF718096))
-            }
-        } else {
-            items(state.terrenos) { terreno ->
-                TerrenoCard(terreno,monitoreosState.monitoreos) {
-                    navController.navigate("terreno/${terreno.terreno_id}")
+            if (state.isLoading) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF2d5016))
+                    }
+                }
+            } else if (state.terrenos.isEmpty()) {
+                item {
+                    Text("Sin terrenos", color = Color(0xFF718096))
+                }
+            } else {
+                items(state.terrenos) { terreno ->
+                    TerrenoCard(terreno, monitoreosState.monitoreos) {
+                        navController.navigate("terreno/${terreno.terreno_id}")
+                    }
                 }
             }
         }

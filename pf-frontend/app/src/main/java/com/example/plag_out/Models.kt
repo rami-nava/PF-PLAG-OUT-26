@@ -119,3 +119,15 @@ data class PlantacionesResponse(
     @SerializedName("activa")
     val activa: Boolean
 )
+
+@Serializable
+data class CreateTerrenoRequest(
+    @SerializedName("nombre")
+    val nombre: String,
+    @SerializedName("latitud")
+    val latitud: Double,
+    @SerializedName("longitud")
+    val longitud: Double,
+    @SerializedName("cultivo")
+    val cultivo: String
+)
