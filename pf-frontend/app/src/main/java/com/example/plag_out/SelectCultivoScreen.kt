@@ -1,4 +1,4 @@
-package com.example.plag_out
+/* package com.example.plag_out
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -53,11 +53,11 @@ private val DiagonalShape = GenericShape { size, _ ->
 
 @Composable
 fun SelectCultivoScreen(
-    nuevoTerrenoViewModel: NuevoTerrenoViewModel,
+    nuevaPlantacionViewModel: NuevaPlantacionViewModel,
     onBack: () -> Unit,
     onContinue: () -> Unit
 ) {
-    val state by nuevoTerrenoViewModel.state.collectAsState()
+    val state by nuevaPlantacionViewModel.state.collectAsState()
 
     val cultivoOptions = listOf(
         CultivoOption("Maíz", "🌽", Color(0xFFF5D87A)),
@@ -111,7 +111,7 @@ fun SelectCultivoScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(100.dp)
-                        .clickable { nuevoTerrenoViewModel.seleccionarCultivo(cultivo.name) },
+                        .clickable { nuevaPlantacionViewModel.seleccionarCultivo(cultivo.name) },
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (isSelected) Color(0xFF2d5016).copy(alpha = 0.08f) else Color.White
@@ -188,3 +188,5 @@ fun SelectCultivoScreen(
         }
     }
 }
+
+*/

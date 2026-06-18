@@ -79,7 +79,7 @@ fun AppNavigation() {
                 MonitoreosScreen(monitoreosViewModel, plantacionesViewModel, navController)
             }
             composable("terrenos") {
-                TerrenosScreen(terrenosViewModel, monitoreosViewModel, navController)
+                TerrenosScreen(terrenosViewModel, monitoreosViewModel, nuevoTerrenoViewModel, navController)
             }
             composable("plantacion/{plantacion_id}") { backStackEntry ->
                 val plantacionId =
@@ -98,22 +98,27 @@ fun AppNavigation() {
                     navController.popBackStack()
                 }
             }
-            composable("seleccionar_cultivo") {
-                SelectCultivoScreen(
+            composable("datos_terreno") {
+                DatosDelTerrenoScreen(
                     nuevoTerrenoViewModel = nuevoTerrenoViewModel,
                     onBack = { navController.popBackStack() },
                     onContinue = { navController.navigate("seleccionar_ubicacion") }
                 )
             }
+            /*composable("seleccionar_cultivo") {
+                SelectCultivoScreen(
+                    nuevoTerrenoViewModel = nuevoTerrenoViewModel,
+                    onBack = { navController.popBackStack() },
+                    onContinue = { navController.navigate("") }
+                )
+            }*/
             composable("seleccionar_ubicacion") {
                 SelectLocationScreen(
                     nuevoTerrenoViewModel = nuevoTerrenoViewModel,
                     onBack = { navController.popBackStack() },
                     onConfirm = {
-                        nuevoTerrenoViewModel.registrarTerreno {
-                            navController.navigate("terrenos") {
-                                popUpTo("terrenos") { inclusive = false }
-                            }
+                        navController.navigate("terrenos") {
+                            popUpTo("terrenos") { inclusive = false }
                         }
                     }
                 )
@@ -126,6 +131,6 @@ fun AppNavigation() {
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("seleccionar_cultivo", "seleccionar_ubicacion")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo")
     return !screensWithoutNavBar.contains(currentScreen)
 }

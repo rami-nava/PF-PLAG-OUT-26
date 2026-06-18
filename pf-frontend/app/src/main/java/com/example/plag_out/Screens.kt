@@ -276,6 +276,7 @@ fun MonitoreosPorPlantacion(
 fun TerrenosScreen(
     terrenoViewModel: TerrenosViewModel,
     monitoreoViewModel: MonitoreosViewModel,
+    nuevoTerrenoViewModel: NuevoTerrenoViewModel,
     navController: NavController
 ) {
     val state by terrenoViewModel.state.collectAsState()
@@ -290,7 +291,10 @@ fun TerrenosScreen(
         containerColor = Color(0xFFF8F7F4),
         floatingActionButton = {
             androidx.compose.material3.FloatingActionButton(
-                onClick = { navController.navigate("seleccionar_cultivo") },
+                onClick = {
+                    nuevoTerrenoViewModel.resetState()
+                    navController.navigate("datos_terreno")
+                },
                 containerColor = Color(0xFFE8941A),
                 contentColor = Color.White,
                 shape = RoundedCornerShape(16.dp),

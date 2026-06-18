@@ -17,7 +17,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class NuevoTerrenoUIState(
-    val cultivoSeleccionado: String? = null,
+    val nombre: String = "",
+    val areaHectareas: String = "",
     val latitud: Double? = null,
     val longitud: Double? = null,
     val isLoading: Boolean = false,
@@ -32,8 +33,12 @@ class NuevoTerrenoViewModel(context: Context, repository: TerrenoRepository) : V
     val terrenoRepository = repository
     val context = context
 
-    fun seleccionarCultivo(cultivo: String?) {
-        _state.value = _state.value.copy(cultivoSeleccionado = cultivo)
+    fun actualizarNombre(nombre: String) {
+        _state.value = _state.value.copy(nombre = nombre, error = null)
+    }
+
+    fun actualizarArea(area: String) {
+        _state.value = _state.value.copy(areaHectareas = area, error = null)
     }
 
     fun actualizarUbicacion(latitud: Double?, longitud: Double?) {
@@ -48,15 +53,31 @@ class NuevoTerrenoViewModel(context: Context, repository: TerrenoRepository) : V
         _state.value = _state.value.copy(error = null)
     }
 
+    fun resetState() {
+        _state.value = NuevoTerrenoUIState()
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     fun registrarTerreno(onSuccess: () -> Unit) {
         val currentState = _state.value
-        val cultivo = currentState.cultivoSeleccionado
+        val nombre = currentState.nombre.trim()
+        val areaStr = currentState.areaHectareas.trim()
         val lat = currentState.latitud
         val lon = currentState.longitud
 
-        if (cultivo == null || lat == null || lon == null) {
-            _state.value = _state.value.copy(error = "Datos de terreno incompletos")
+        if (nombre.isEmpty()) {
+            _state.value = _state.value.copy(error = "El nombre del terreno no puede estar vacío")
+            return
+        }
+
+        val area = areaStr.toDoubleOrNull()
+        if (area == null || area <= 0.0) {
+            _state.value = _state.value.copy(error = "Las hectáreas deben ser un número decimal mayor a 0")
+            return
+        }
+
+        if (lat == null || lon == null) {
+            _state.value = _state.value.copy(error = "Debe seleccionar la ubicación")
             return
         }
 
@@ -69,36 +90,47 @@ class NuevoTerrenoViewModel(context: Context, repository: TerrenoRepository) : V
 
         viewModelScope.launch {
             try {
-                // TODO: Agregar en GDDService cuando el endpoint esté disponible:
-                //   @POST("/terrenos")
-                //   suspend fun createTerreno(@Body data: CreateTerrenoRequest): Response<TerrenoResponse>
-                //
-                // val request = CreateTerrenoRequest(
-                //     nombre = "Terreno $cultivo",
-                //     latitud = lat,
-                //     longitud = lon,
-                //     cultivo = cultivo
-                // )
-                // val response = withContext(Dispatchers.IO) {
-                //     RetrofitClient.gddService.createTerreno(request)
-                // }
-                // if (response.isSuccessful) {
-                //     val nuevoTerreno = response.body()!!
-                //     terrenoRepository.guardarTerrenos(listOf(nuevoTerreno))
-                //     _state.value = _state.value.copy(isLoading = false)
-                //     withContext(Dispatchers.Main) { onSuccess() }
-                // } else {
-                //     _state.value = _state.value.copy(
-                //         isLoading = false,
-                //         error = "Error del servidor al registrar terreno"
-                //     )
-                // }
-
-                // Simulación hasta que el endpoint esté implementado
-                kotlinx.coroutines.delay(1000)
-                _state.value = _state.value.copy(isLoading = false)
-                withContext(Dispatchers.Main) { onSuccess() }
-
+                val request = CreateTerrenoRequest(
+                    nombre = nombre,
+                    latitud = lat,
+                    longitud = lon,
+                    area_hectareas = area
+                )
+                
+                val response = withContext(Dispatchers.IO) {
+                    RetrofitClient.gddService.createTerreno(request)
+                }
+                
+                if (response.isSuccessful) {
+                    val createResponse = response.body()
+                    if (createResponse != null) {
+                        val terreno = TerrenoResponse(
+                            terreno_id = createResponse.terreno_id,
+                            terreno_nombre = createResponse.terreno_nombre,
+                            terreno_latitud = createResponse.terreno_latitud,
+                            terreno_longitud = createResponse.terreno_longitud,
+                            terreno_area = createResponse.terreno_area
+                        )
+                        
+                        withContext(Dispatchers.IO) {
+                            terrenoRepository.guardarTerreno(terreno)
+                        }
+                        
+                        _state.value = _state.value.copy(isLoading = false)
+                        withContext(Dispatchers.Main) { onSuccess() }
+                    } else {
+                        _state.value = _state.value.copy(
+                            isLoading = false,
+                            error = "Error: respuesta vacía del servidor"
+                        )
+                    }
+                } else {
+                    val errorMsg = response.errorBody()?.string() ?: "Error del servidor al registrar terreno"
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        error = errorMsg
+                    )
+                }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(isLoading = false, error = "Error: ${e.message}")
                 Log.e("NUEVO_TERRENO", "Error al registrar terreno: ${e.message}")

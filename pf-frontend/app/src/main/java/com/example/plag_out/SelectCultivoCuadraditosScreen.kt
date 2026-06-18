@@ -1,4 +1,4 @@
-package com.example.plag_out
+/*package com.example.plag_out
 //--------------------------Esta es otra opción pero queda muy vacía la pantalla
 
 import androidx.compose.foundation.BorderStroke
@@ -176,4 +176,4 @@ fun SelectCultivoCuadraditosScreen(
             )
         }
     }
-}
+}*/

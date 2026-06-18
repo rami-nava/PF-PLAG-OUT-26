@@ -139,6 +139,20 @@ data class CreateTerrenoRequest(
     val latitud: Double,
     @SerializedName("longitud")
     val longitud: Double,
-    @SerializedName("cultivo")
-    val cultivo: String
+    @SerializedName("area_hectareas")
+    val area_hectareas: Double
+)
+
+@Serializable
+data class TerrenoCreateResponse(
+    @SerializedName("id")
+    val terreno_id: Int,
+    @SerializedName("nombre")
+    val terreno_nombre: String,
+    @SerializedName("latitud")
+    val terreno_latitud: Float,
+    @SerializedName("longitud")
+    val terreno_longitud: Float,
+    @SerializedName("area_hectareas")
+    val terreno_area: Float
 )

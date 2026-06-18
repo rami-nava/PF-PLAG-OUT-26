@@ -22,6 +22,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -197,7 +198,7 @@ fun SelectLocationScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Alerta error
-        if (showError) {
+        if (showError || state.error != null) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -206,7 +207,7 @@ fun SelectLocationScreen(
                     .padding(12.dp)
             ) {
                 Text(
-                    text = "⚠️ Ubicación fuera de la República Argentina.\nLatitud permitida: -55.0 a -21.8\nLongitud permitida: -73.6 a -53.6",
+                    text = if (state.error != null) "⚠️ ${state.error}" else "⚠️ Ubicación fuera de la República Argentina.\nLatitud permitida: -55.0 a -21.8\nLongitud permitida: -73.6 a -53.6",
                     color = Color(0xFFE53E3E),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
@@ -230,7 +231,7 @@ fun SelectLocationScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Cultivo: ${state.cultivoSeleccionado ?: "Ninguno"}",
+                    text = "Terreno: ${state.nombre.ifEmpty { "-" }}",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF2d5016)
@@ -245,8 +246,8 @@ fun SelectLocationScreen(
         }
 
         Button(
-            onClick = onConfirm,
-            enabled = isValid,
+            onClick = { nuevoTerrenoViewModel.registrarTerreno { onConfirm() } },
+            enabled = isValid && !state.isLoading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
@@ -258,11 +259,18 @@ fun SelectLocationScreen(
                 disabledContentColor = Color.White.copy(alpha = 0.5f)
             )
         ) {
-            Text(
-                text = "✅ Confirmar ubicación",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
+            if (state.isLoading) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            } else {
+                Text(
+                    text = "💾 Guardar Terreno",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
