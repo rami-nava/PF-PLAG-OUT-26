@@ -11,6 +11,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.time.LocalDate
 import java.time.LocalTime
+import com.example.plag_out.BuildConfig
 
 object RetrofitClient {
     @RequiresApi(Build.VERSION_CODES.O)
@@ -29,12 +30,21 @@ object RetrofitClient {
         })
         .create()
 
-    private val client = OkHttpClient.Builder().build()
+    private val client = OkHttpClient.Builder()
+        .addInterceptor { chain ->
+            val request = chain.request().newBuilder()
+                .addHeader("Authorization", "Bearer ${BuildConfig.TEST_JWT}")
+                .build()
+            chain.proceed(request)
+        }
+        .build()    
+    
+    //private val client = OkHttpClient.Builder().build()
 
     @RequiresApi(Build.VERSION_CODES.O)
     private val retrofit = Retrofit.Builder()
         .addConverterFactory(GsonConverterFactory.create(gson))
-        .baseUrl("http://10.0.2.2:8080/")
+        .baseUrl("http://10.0.2.2:8000/")
         .client(client)
         .build()
 

@@ -1,10 +1,9 @@
 package com.example.plag_out
 
-import android.app.DatePickerDialog
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,97 +13,88 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.IconButton
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.Divider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.platform.LocalContext
-import java.util.Calendar
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.text.font.FontStyle
+import androidx.navigation.NavController
+import androidx.navigation.NavHostController
+import java.time.format.DateTimeFormatter
+
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun GDDApp(viewModel: GDDViewModel) {
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val state = viewModel.state.collectAsState(initial = AppState()).value
+fun MonitoreosScreen(monitoreosViewModel: MonitoreosViewModel, plantacionesViewModel: PlantacionesViewModel,navController: NavHostController) {
+    val state by monitoreosViewModel.state.collectAsState()
+
+    LaunchedEffect(Unit) {
+        monitoreosViewModel.getMonitoreos()
+        plantacionesViewModel.getPlantaciones()
+        state.isLoading = false
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF8F7F4))
-    ) {
-        // Header
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF2d5016))
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("🌾 PLAG-OUT", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Text("Predictor de desarrollo de plagas", fontSize = 12.sp, color = Color.White.copy(alpha = 0.9f))
-        }
-
-        // Tabs
-        TabRow(selectedTabIndex = selectedTab, modifier = Modifier.fillMaxWidth()) {
-            Tab(
-                selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
-                text = { Text("Simulador") }
-            )
-            Tab(
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
-                text = { Text("Configurar") }
-            )
-        }
-
-        // Content
-        Box(modifier = Modifier
-            .fillMaxSize()
             .padding(16.dp)
-            .verticalScroll(rememberScrollState())
-        ) {
-            when (selectedTab) {
-                0 -> SimulatorScreen(state, viewModel)
-                1 -> ConfigScreen(state, viewModel, {newTab -> selectedTab = newTab})
+    ) {
+        Text(
+            "🌾 Mis Plagas",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF2d5016),
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        if (state.isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else if (state.monitoreos.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Sin monitoreos", color = Color(0xFF718096))
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f)
+            ) {
+                items(state.monitoreos) { monitoreo ->
+                    MonitoreoCard(
+                        monitoreo
+                    ) {
+                        navController.navigate("plantacion/${monitoreo.plantacion_id}")
+                    }
+                }
             }
         }
     }
@@ -112,491 +102,643 @@ fun GDDApp(viewModel: GDDViewModel) {
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun SimulatorScreen(state: AppState, viewModel: GDDViewModel) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+fun MonitoreoCard(
+    monitoreo: MonitoreoResponse,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        // Mensajes
-        if (state.errorMessage != null) {
-            Card(
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFE53E3E).copy(alpha = 0.1f)),
-                shape = RoundedCornerShape(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    state.errorMessage!!,
-                    modifier = Modifier.padding(12.dp),
-                    color = Color(0xFFE53E3E),
-                    fontSize = 13.sp
-                )
-            }
-        }
-
-        if (state.successMessage != null) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF38A169).copy(alpha = 0.1f)),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    state.successMessage!!,
-                    modifier = Modifier.padding(12.dp),
-                    color = Color(0xFF38A169),
-                    fontSize = 13.sp
-                )
-            }
-        }
-
-        // Estado actual
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Estado Actual", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF718096))
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Column {
-                        Text(
-                            "${state.currentGDD}",
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2d5016)
-                        )
-                        Text("GDD Actual", fontSize = 12.sp, color = Color(0xFF718096))
-                    }
-                    Column {
-                        Text(
-                            formatDate(state.currentDate),
-                            fontSize = 28.sp,
+                Column {
+                        Text("${monitoreo.fecha_actualizacion.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF718096)
                         )
-                        Text("FECHA", fontSize = 12.sp, color = Color(0xFF718096))
-                    }
+                        Text(
+                            monitoreo.plaga_nombre,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2d5016)
+                        )
+                    Text(
+                        "${monitoreo.terreno_nombre} - ${monitoreo.cultivo_nombre}",
+                        fontSize = 12.sp,
+                        color = Color(0xFF718096)
+                    )
+                }
+
+                // Nivel de alerta
+                val nivelColor = when (monitoreo.nivel_alerta) {
+                    0 -> Color(0xFF38A169)  // Bajo
+                    1 -> Color(0xFFD69E2E)  // Medio
+                    else -> Color(0xFFE53E3E) // Alto
+                }
+                Box(
+                    modifier = Modifier
+                        .background(nivelColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        when (monitoreo.nivel_alerta) {
+                            0 -> "Normal"
+                            1 -> "Precaucion"
+                            else -> "Peligro"
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = nivelColor
+                    )
                 }
             }
-        }
 
-        // Progreso
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Progreso hacia Objetivo", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    val progress = (state.currentGDD.toFloat() / state.targetGDD) * 100
-                    Text("${progress.toInt()}%", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2d5016))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // GDD Info
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("GDD Acumulado", fontSize = 11.sp, color = Color(0xFF718096))
+                    Text(
+                        "${monitoreo.gdd_acumulado.toInt()}/${monitoreo.gdd_objetivo.toInt()}",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2d5016)
+                    )
                 }
-                Spacer(modifier = Modifier.height(12.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Diario", fontSize = 11.sp, color = Color(0xFF718096))
+                    Text(
+                        "+${monitoreo.gdd_diario.toInt()} GDD",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4a7c2c)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Progress Bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 LinearProgressIndicator(
-                    progress = (state.currentGDD.toFloat() / state.targetGDD).coerceIn(0f, 1f),
+                    progress = {(monitoreo.progreso / 100f).coerceIn(0f, 1f)},
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(12.dp),
+                        .weight(1f)
+                        .height(10.dp),
                     color = Color(0xFF2d5016),
                     trackColor = Color(0xFFE2E8F0)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("${state.currentGDD} GDD", fontSize = 12.sp, color = Color(0xFF718096))
-                    Text("/ ${state.targetGDD} GDD", fontSize = 12.sp, color = Color(0xFF718096))
-                }
+                Text(
+                    " ${monitoreo.progreso.toInt()}%",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2d5016),
+                    modifier = Modifier.padding(start = 8.dp)
+                )
             }
         }
+    }
+}
 
-        // Clima
-        if (state.lastResponse != null) {
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun MonitoreosPorPlantacion(
+    plantacionId: Int,
+    viewModel: MonitoreosViewModel,  // Mismo ViewModel
+    onBack: () -> Unit
+) {
+    val state by viewModel.state.collectAsState()
+
+    // Filtrar monitoreos de esta plantación
+    val monitoreosFiltrados = state.monitoreos.filter {
+        it.plantacion_id == plantacionId
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8F7F4))
+            .padding(16.dp)
+    ) {
+        item {
+            Button(onClick = onBack) { Text("← Volver") }
+        }
+
+        item {
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF4a7c2c).copy(alpha = 0.1f)),
-                shape = RoundedCornerShape(12.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text("Clima Hoy:", fontWeight = FontWeight.Bold, color = Color(0xFF2d5016))
-                    Spacer(modifier = Modifier.height(4.dp))
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "Temp Prom: ${state.lastResponse!!.avgTemp.toInt()}°C | GDD Ganados: ${state.lastResponse!!.gddGained.toInt()}",
-                        fontSize = 13.sp,
-                        color = Color(0xFF2d5016)
+                        monitoreosFiltrados.firstOrNull()?.terreno_nombre ?: "",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        monitoreosFiltrados.firstOrNull()?.cultivo_nombre ?: "",
+                        fontSize = 14.sp
                     )
                 }
             }
         }
 
-        // Info
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                InfoRow("Temp Base (Tbase):", "${state.baseTemp}°C")
-                InfoRow("GDD Objetivo:", "${state.targetGDD} GDD")
-                InfoRow("Cultivo/Plaga:", state.cropName)
-            }
-        }
-
-        // Botones
-        Button(
-            onClick = { viewModel.simulateDay() },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8941A)),
-            enabled = !state.isLoading
-        ) {
-            if (state.isLoading) {
-                CircularProgressIndicator(color = Color.White, modifier = Modifier.height(24.dp))
-            } else {
-                Text("➕ Simular 1 Día", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        Button(
-            onClick = { viewModel.resetSimulation() },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-        ) {
-            Text("🔄 Resetear", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2d5016))
+        items(monitoreosFiltrados) { monitoreo ->
+            MonitoreoCard(monitoreo) { }
         }
     }
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun ConfigScreen(state: AppState, viewModel: GDDViewModel, onTabChange: (Int) -> Unit) {
-    var showDatePicker by remember { mutableStateOf(false) }
-    var isDatePickerForStart by remember { mutableStateOf(true) }
-    val context = LocalContext.current
+fun TerrenosScreen(
+    terrenoViewModel: TerrenosViewModel,
+    monitoreoViewModel: MonitoreosViewModel,
+    nuevoTerrenoViewModel: NuevoTerrenoViewModel,
+    navController: NavController
+) {
+    val state by terrenoViewModel.state.collectAsState()
+    val monitoreosState by monitoreoViewModel.state.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // UBICACIÓN
-        Text(
-            "📍 Ubicación",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 8.dp)
-        )
+    LaunchedEffect(Unit) {
+        terrenoViewModel.getTerrenos()
+        state.isLoading = false
+    }
 
-        OutlinedTextField(
-            value = state.latitude.toString(),
-            onValueChange = {
-                viewModel.updateConfig(latitude = it.toDoubleOrNull() ?: 0.0)
-            },
-            label = { Text("Latitud") },
-            modifier = Modifier.fillMaxWidth(),
-            trailingIcon = {
-                if (state.latitude != 0.0) {
-                    IconButton(onClick = { viewModel.updateConfig(latitude = -34.6037) }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Limpiar")
-                    }
-                }
-            }
-        )
-
-        OutlinedTextField(
-            value = state.longitude.toString(),
-            onValueChange = {
-                viewModel.updateConfig(longitude = it.toDoubleOrNull() ?: 0.0)
-            },
-            label = { Text("Longitud") },
-            modifier = Modifier.fillMaxWidth(),
-            trailingIcon = {
-                if (state.longitude != -58.3816) {
-                    IconButton(onClick = { viewModel.updateConfig(longitude = -58.3816) }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Limpiar")
-                    }
-                }
-            }
-        )
-
-        Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-        // FECHAS
-        Text(
-            "📅 Fechas",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-
-        OutlinedTextField(
-            value = state.startDate,
-            onValueChange = {},
-            label = { Text("Fecha Inicio") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    showDatePicker = true
+    androidx.compose.material3.Scaffold(
+        containerColor = Color(0xFFF8F7F4),
+        floatingActionButton = {
+            androidx.compose.material3.FloatingActionButton(
+                onClick = {
+                    nuevoTerrenoViewModel.resetState()
+                    navController.navigate("datos_terreno")
                 },
-            readOnly = true,
-            trailingIcon = {
-                IconButton(onClick = {
-                    showDatePickerDialog(context, LocalDate.parse(state.startDate)) { newDate ->
-                        viewModel.updateConfig(startDate = newDate)
-                    }
-                }) {
-                    Icon(Icons.Default.DateRange, contentDescription = "Seleccionar fecha")
-                }
-            }
-        )
-
-
-
-
-
-        Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-        // PARÁMETROS GDD
-        Text(
-            "🌡️ Parámetros GDD",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-
-        OutlinedTextField(
-            value = if (state.baseTemp == 0.0) "" else state.baseTemp.toString(),
-            onValueChange = {
-                viewModel.updateConfig(baseTemp = it.toDoubleOrNull() ?: 0.0)
-            },
-            label = { Text("Temperatura Base (Tbase)") },
-            modifier = Modifier.fillMaxWidth(),
-            trailingIcon = {
-                if (state.baseTemp != 0.0) {
-                    IconButton(onClick = { viewModel.updateConfig(baseTemp = 10.0) }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Limpiar")
-                    }
-                }
-            }
-        )
-
-        OutlinedTextField(
-            value = state.initialGDD.toString(),
-            onValueChange = {
-                viewModel.updateConfig(initialGDD = it.toIntOrNull() ?: 0)
-            },
-            label = { Text("GDD Inicial") },
-            modifier = Modifier.fillMaxWidth(),
-            trailingIcon = {
-                if (state.initialGDD != 0) {
-                    IconButton(onClick = { viewModel.updateConfig(initialGDD = 0) }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Limpiar")
-                    }
-                }
-            }
-        )
-
-        OutlinedTextField(
-            value = if (state.targetGDD == 0) "" else state.targetGDD.toString(),
-            onValueChange = {
-                viewModel.updateConfig(targetGDD = it.toIntOrNull() ?: 0)
-            },
-            label = { Text("GDD Objetivo") },
-            modifier = Modifier.fillMaxWidth(),
-            trailingIcon = {
-                if (state.targetGDD != 500) {
-                    IconButton(onClick = { viewModel.updateConfig(targetGDD = 500) }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Limpiar")
-                    }
-                }
-            }
-        )
-
-        Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-        // CULTIVO Y NOTAS
-        Text(
-            "🌾 Cultivo y Notas",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-
-        OutlinedTextField(
-            value = state.cropName,
-            onValueChange = { viewModel.updateConfig(cropName = it) },
-            label = { Text("Cultivo / Plaga") },
-            modifier = Modifier.fillMaxWidth(),
-            trailingIcon = {
-                if (state.cropName.isNotEmpty()) {
-                    IconButton(onClick = { viewModel.updateConfig(cropName = "") }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Limpiar")
-                    }
-                }
-            }
-        )
-
-        OutlinedTextField(
-            value = state.notes,
-            onValueChange = { viewModel.updateConfig(notes = it) },
-            label = { Text("Notas") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(100.dp),
-            maxLines = 3,
-            trailingIcon = {
-                if (state.notes.isNotEmpty()) {
-                    IconButton(onClick = { viewModel.updateConfig(notes = "") }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Limpiar")
-                    }
-                }
-            }
-        )
-
-        Button(
-            onClick = {
-                viewModel.resetSimulation()
-                onTabChange(0)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8941A))
-        ) {
-            Text("💾 Guardar Configuración", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-        }
-
-        // Valores típicos
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2d5016).copy(alpha = 0.05f)),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Valores Típicos por Plaga:", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Mosca Blanca: Tbase=10°C, GDD=300-500", fontSize = 12.sp)
-                Text("Pulgón: Tbase=7°C, GDD=200-400", fontSize = 12.sp)
-                Text("Trips: Tbase=8°C, GDD=250-450", fontSize = 12.sp)
-                Text("Arañita Roja: Tbase=11°C, GDD=350-600", fontSize = 12.sp)
+                containerColor = Color(0xFFE8941A),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.padding(bottom = 16.dp, end = 8.dp)
+            ) {
+                Text("+", fontSize = 28.sp, fontWeight = FontWeight.Normal)
             }
         }
+    ) { _ ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+        ) {
+            Text(
+                text = "📍 Mis Terrenos",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF2d5016),
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
 
-        Spacer(modifier = Modifier.height(16.dp))
+            when {
+                state.isLoading -> {
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF2d5016))
+                    }
+                }
+                state.terrenos.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Sin terrenos", color = Color(0xFF718096))
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(state.terrenos) { terreno ->
+                            TerrenoCard(terreno, monitoreosState.monitoreos) {
+                                navController.navigate("terreno/${terreno.terreno_id}")
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
-// Composable para el selector de fechas
 @Composable
-fun DatePickerDialog(
-    onDateSelected: (String) -> Unit,
-    onDismiss: () -> Unit
+fun TerrenoCard(
+    terreno: TerrenoResponse,
+    monitoreos: List<MonitoreoResponse>,  // Pasar desde pantalla
+    onClick: () -> Unit
 ) {
-    val calendar = Calendar.getInstance()
-    var year by remember { mutableStateOf(calendar.get(Calendar.YEAR)) }
-    var month by remember { mutableStateOf(calendar.get(Calendar.MONTH)) }
-    var day by remember { mutableStateOf(calendar.get(Calendar.DAY_OF_MONTH)) }
+    // Monitoreos de este terreno
+    val monitoreosDelTerreno = monitoreos.filter { it.terreno_id == terreno.terreno_id }
+    val alertaMaxima = monitoreosDelTerreno.maxOfOrNull { it.nivel_alerta } ?: 0
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Seleccionar Fecha") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Año
-                OutlinedTextField(
-                    value = year.toString(),
-                    onValueChange = { year = it.toIntOrNull() ?: year },
-                    label = { Text("Año") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                // Mes
-                OutlinedTextField(
-                    value = (month + 1).toString(),
-                    onValueChange = { m ->
-                        val newMonth = m.toIntOrNull() ?: (month + 1)
-                        if (newMonth in 1..12) month = newMonth - 1
-                    },
-                    label = { Text("Mes (1-12)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                // Día
-                OutlinedTextField(
-                    value = day.toString(),
-                    onValueChange = { d ->
-                        val newDay = d.toIntOrNull() ?: day
-                        if (newDay in 1..31) day = newDay
-                    },
-                    label = { Text("Día") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                val selectedDate = String.format("%04d-%02d-%02d", year, month + 1, day)
-                onDateSelected(selectedDate)
-            }) {
-                Text("Aceptar")
-            }
-        },
-        dismissButton = {
-            Button(onClick = onDismiss) {
-                Text("Cancelar")
-            }
-        }
-    )
-}
-@Composable
-fun InfoRow(label: String, value: String) {
-    Row(
+    val (colorAlerta, emojiAlerta, textAlerta) = when (alertaMaxima) {
+        0 -> Triple(Color(0xFF38A169), "✅", "Normal")
+        1 -> Triple(Color(0xFFD69E2E), "⚠️", "Precaucion")
+        2 -> Triple(Color(0xFFE53E3E), "🔴️", "Peligro")
+        else -> Triple(Color.Gray, "", "Sin Monitorear")
+    }
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(bottom = 12.dp)
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        border = BorderStroke(2.dp, colorAlerta.copy(alpha = 0.3f))
     ) {
-        Text(label, fontSize = 12.sp, color = Color(0xFF718096), fontWeight = FontWeight.Bold)
-        Text(value, fontSize = 12.sp, color = Color(0xFF2d3748), fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header con nombre y alerta
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        terreno.terreno_nombre,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2d5016)
+                    )
+                    Text(
+                        "📍 ${terreno.terreno_latitud.toInt()}°, ${terreno.terreno_longitud.toInt()}°",
+                        fontSize = 11.sp,
+                        color = Color(0xFF718096)
+                    )
+                }
+
+                // Estado del terreno
+                Box(
+                    modifier = Modifier
+                        .background(colorAlerta.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(emojiAlerta, fontSize = 20.sp)
+                        Text(
+                            textAlerta,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colorAlerta
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Estadísticas
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF8F7F4), RoundedCornerShape(8.dp))
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // Hectáreas
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("🌾", fontSize = 20.sp)
+                    Text(
+                        "${terreno.terreno_area.toInt()}",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2d5016)
+                    )
+                    Text("ha", fontSize = 10.sp, color = Color(0xFF718096))
+                }
+
+                // Separator
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(40.dp)
+                        .background(Color(0xFFE2E8F0))
+                )
+
+                // Monitoreos
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("🐛", fontSize = 20.sp)
+                    Text(
+                        "${monitoreosDelTerreno.size}",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2d5016)
+                    )
+                    Text("plagas", fontSize = 10.sp, color = Color(0xFF718096))
+                }
+            }
+        }
     }
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
-fun formatDate(dateStr: String): String {
-    return try {
-        val date = LocalDate.parse(dateStr)
-        date.format(DateTimeFormatter.ofPattern("dd MMM"))
-    } catch (e: Exception) {
-        dateStr
-    }
-}
-
-@RequiresApi(Build.VERSION_CODES.O)
-fun showDatePickerDialog(
-    context: android.content.Context,
-    initialDate: LocalDate,
-    onDateSelected: (String) -> Unit
+@Composable
+fun PlantacionesPorTerreno(
+    terrenoId: Int,
+    plantacionesViewModel: PlantacionesViewModel,
+    monitoreosViewModel: MonitoreosViewModel,
+    terrenoViewModel: TerrenosViewModel,
+    onBack: () -> Unit
 ) {
-    val datePickerDialog = DatePickerDialog(
-        context,
-        { _, year, month, day ->
-            val selectedDate = String.format("%04d-%02d-%02d", year, month + 1, day)
-            onDateSelected(selectedDate)
-        },
-        initialDate.year,
-        initialDate.monthValue - 1,
-        initialDate.dayOfMonth
-    )
-    datePickerDialog.show()
+    val plantacionesState by plantacionesViewModel.state.collectAsState()
+    val monitoreosState by monitoreosViewModel.state.collectAsState()
+    val terreno = terrenoViewModel.state.collectAsState().value.terrenos.filter { t -> t.terreno_id == terrenoId  }[0]
+
+
+    // Filtrar plantaciones de este terreno
+    val plantacionesDelTerreno = plantacionesState.plantaciones.filter {
+        it.terreno_id == terrenoId
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8F7F4))
+            .padding(16.dp)
+    ) {
+        // Botón volver
+        item {
+            Button(
+                onClick = onBack,
+                modifier = Modifier.padding(bottom = 16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2d5016))
+            ) {
+                Text("← Volver")
+            }
+        }
+
+        // Header del terreno
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                terreno.terreno_nombre,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2d5016)
+                            )
+                            Text(
+                                "ID: $terrenoId",
+                                fontSize = 12.sp,
+                                color = Color(0xFF718096)
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFF2d5016).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                "🌾 ${terreno.terreno_area.toInt()} ha",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2d5016)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Ubicación
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("📍", fontSize = 16.sp, modifier = Modifier.padding(end = 8.dp))
+                        Text(
+                            "${terreno.terreno_latitud.toInt()}°, ${terreno.terreno_longitud.toInt()}°",
+                            fontSize = 12.sp,
+                            color = Color(0xFF718096)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Título Plantaciones
+        item {
+            Text(
+                "🌱 Plantaciones (${plantacionesDelTerreno.size})",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF2d5016),
+                modifier = Modifier.padding(bottom = 12.dp, top = 8.dp)
+            )
+        }
+
+        if (plantacionesDelTerreno.isEmpty()) {
+            item {
+                Text("Sin plantaciones", color = Color(0xFF718096))
+            }
+        } else {
+            items(plantacionesDelTerreno) { plantacion ->
+                PlantacionConPlagasCard(
+                    plantacion = plantacion,
+                    monitoreos = monitoreosState.monitoreos.filter {
+                        it.plantacion_id == plantacion.plantacion_id
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PlantacionConPlagasCard(
+    plantacion: PlantacionesResponse,
+    monitoreos: List<MonitoreoResponse>
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header plantación
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        plantacion.cultivo_nombre,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2d5016)
+                    )
+                    Text(
+                        plantacion.cultivo_nombre_cientifico,
+                        fontSize = 11.sp,
+                        color = Color(0xFF718096),
+                        fontStyle = FontStyle.Italic
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .background(
+                            if (plantacion.activa) Color(0xFF38A169).copy(alpha = 0.15f)
+                            else Color(0xFF718096).copy(alpha = 0.15f),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(6.dp)
+                ) {
+                    Text(
+                        if (plantacion.activa) "✅" else "⏸️",
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Fecha siembra
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("📅", fontSize = 14.sp, modifier = Modifier.padding(end = 8.dp))
+                Text(
+                    "Siembra: ${(plantacion.fecha_siembra)}",
+                    fontSize = 12.sp,
+                    color = Color(0xFF718096)
+                )
+            }
+
+            if (monitoreos.isEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "Sin plagas monitoreadas",
+                    fontSize = 12.sp,
+                    color = Color(0xFF718096),
+                    modifier = Modifier
+                        .background(Color(0xFFF8F7F4), RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                        .fillMaxWidth()
+                )
+            } else {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    "Plagas monitoreadas (${monitoreos.size})",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2d5016),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    monitoreos.forEach { monitoreo ->
+                        PlagaMiniCard(monitoreo)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PlagaMiniCard(monitoreo: MonitoreoResponse) {
+    val (colorAlerta, emojiAlerta) = when (monitoreo.nivel_alerta) {
+        0 -> Pair(Color(0xFF38A169), "✅")
+        1 -> Pair(Color(0xFFD69E2E), "⚠️")
+        else -> Pair(Color(0xFFE53E3E), "🔴")
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = colorAlerta.copy(alpha = 0.08f)
+        ),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, colorAlerta.copy(alpha = 0.3f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    monitoreo.plaga_nombre,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2d5016)
+                )
+                Text(
+                    "${monitoreo.gdd_acumulado.toInt()}/${monitoreo.gdd_objetivo.toInt()} GDD",
+                    fontSize = 11.sp,
+                    color = colorAlerta
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 12.dp)
+            ) {
+                LinearProgressIndicator(
+                    progress = (monitoreo.progreso / 100f).coerceIn(0f, 1f),
+                    modifier = Modifier
+                        .width(50.dp)
+                        .height(6.dp),
+                    color = colorAlerta,
+                    trackColor = Color(0xFFE2E8F0)
+                )
+                Text(
+                    " $emojiAlerta",
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+        }
+    }
 }
