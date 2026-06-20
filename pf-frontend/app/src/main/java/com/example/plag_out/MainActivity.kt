@@ -58,6 +58,7 @@ fun AppNavigation() {
     val terrenosViewModel: TerrenosViewModel = viewModel(factory = TerrenosViewModelFactory(context, terrenoRepository))
     val plantacionesViewModel: PlantacionesViewModel = viewModel(factory = PlantacionesViewModelFactory(context, plantacionRepository))
     val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
+    val agregarPlantacionViewModel: AgregarPlantacionViewModel = viewModel(factory = AgregarPlantacionViewModelFactory(context, plantacionRepository, terrenoRepository))
 
     val navController = rememberNavController()
 
@@ -93,10 +94,24 @@ fun AppNavigation() {
                     backStackEntry.arguments?.getString("terreno_id")?.toInt() ?: 0
                 PlantacionesPorTerreno(
                     terrenoId, plantacionesViewModel,
-                    monitoreosViewModel, terrenosViewModel
+                    monitoreosViewModel, terrenosViewModel,
+                    navController
                 ) {
                     navController.popBackStack()
                 }
+            }
+            composable("agregar_plantacion/{terreno_id}") { backStackEntry ->
+                val terrenoId =
+                    backStackEntry.arguments?.getString("terreno_id")?.toInt() ?: 0
+                AgregarPlantacionScreen(
+                    terrenoId = terrenoId,
+                    viewModel = agregarPlantacionViewModel,
+                    onBack = { navController.popBackStack() },
+                    onSuccess = {
+                        plantacionesViewModel.getPlantaciones()
+                        navController.popBackStack()
+                    }
+                )
             }
             composable("datos_terreno") {
                 DatosDelTerrenoScreen(
@@ -131,6 +146,6 @@ fun AppNavigation() {
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}")
     return !screensWithoutNavBar.contains(currentScreen)
 }

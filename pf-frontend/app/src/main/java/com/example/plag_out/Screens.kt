@@ -248,7 +248,7 @@ fun MonitoreosPorPlantacion(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = 16.dp, top = 16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -471,6 +471,7 @@ fun PlantacionesPorTerreno(
     plantacionesViewModel: PlantacionesViewModel,
     monitoreosViewModel: MonitoreosViewModel,
     terrenoViewModel: TerrenosViewModel,
+    navController: NavController,
     onBack: () -> Unit
 ) {
     val plantacionesState by plantacionesViewModel.state.collectAsState()
@@ -483,105 +484,122 @@ fun PlantacionesPorTerreno(
         it.terreno_id == terrenoId
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8F7F4))
-            .padding(16.dp)
-    ) {
-        // Botón volver
-        item {
-            Button(
-                onClick = onBack,
-                modifier = Modifier.padding(bottom = 16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2d5016))
+    androidx.compose.material3.Scaffold(
+        containerColor = Color(0xFFF8F7F4),
+        floatingActionButton = {
+            androidx.compose.material3.FloatingActionButton(
+                onClick = {
+                    navController.navigate("agregar_plantacion/$terrenoId")
+                },
+                containerColor = Color(0xFFE8941A),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.padding(bottom = 16.dp, end = 8.dp)
             ) {
-                Text("← Volver")
+                Text("+", fontSize = 28.sp, fontWeight = FontWeight.Normal)
             }
         }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF8F7F4))
+                .padding(16.dp)
+        ) {
+            // Botón volver
+            item {
+                Button(
+                    onClick = onBack,
+                    modifier = Modifier.padding(bottom = 16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2d5016))
+                ) {
+                    Text("← Volver")
+                }
+            }
 
-        // Header del terreno
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                shape = RoundedCornerShape(12.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
+            // Header del terreno
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    terreno.terreno_nombre,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF2d5016)
+                                )
+                                Text(
+                                    "ID: $terrenoId",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF718096)
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .background(Color(0xFF2d5016).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    "🌾 ${terreno.terreno_area.toInt()} ha",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF2d5016)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Ubicación
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("📍", fontSize = 16.sp, modifier = Modifier.padding(end = 8.dp))
                             Text(
-                                terreno.terreno_nombre,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2d5016)
-                            )
-                            Text(
-                                "ID: $terrenoId",
+                                "${terreno.terreno_latitud.toInt()}°, ${terreno.terreno_longitud.toInt()}°",
                                 fontSize = 12.sp,
                                 color = Color(0xFF718096)
                             )
                         }
-
-                        Box(
-                            modifier = Modifier
-                                .background(Color(0xFF2d5016).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                "🌾 ${terreno.terreno_area.toInt()} ha",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2d5016)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Ubicación
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("📍", fontSize = 16.sp, modifier = Modifier.padding(end = 8.dp))
-                        Text(
-                            "${terreno.terreno_latitud.toInt()}°, ${terreno.terreno_longitud.toInt()}°",
-                            fontSize = 12.sp,
-                            color = Color(0xFF718096)
-                        )
                     }
                 }
             }
-        }
 
-        // Título Plantaciones
-        item {
-            Text(
-                "🌱 Plantaciones (${plantacionesDelTerreno.size})",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2d5016),
-                modifier = Modifier.padding(bottom = 12.dp, top = 8.dp)
-            )
-        }
-
-        if (plantacionesDelTerreno.isEmpty()) {
+            // Título Plantaciones
             item {
-                Text("Sin plantaciones", color = Color(0xFF718096))
-            }
-        } else {
-            items(plantacionesDelTerreno) { plantacion ->
-                PlantacionConPlagasCard(
-                    plantacion = plantacion,
-                    monitoreos = monitoreosState.monitoreos.filter {
-                        it.plantacion_id == plantacion.plantacion_id
-                    }
+                Text(
+                    "🌱 Plantaciones (${plantacionesDelTerreno.size})",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2d5016),
+                    modifier = Modifier.padding(bottom = 12.dp, top = 8.dp)
                 )
+            }
+
+            if (plantacionesDelTerreno.isEmpty()) {
+                item {
+                    Text("Sin plantaciones", color = Color(0xFF718096))
+                }
+            } else {
+                items(plantacionesDelTerreno) { plantacion ->
+                    PlantacionConPlagasCard(
+                        plantacion = plantacion,
+                        monitoreos = monitoreosState.monitoreos.filter {
+                            it.plantacion_id == plantacion.plantacion_id
+                        }
+                    )
+                }
             }
         }
     }
@@ -726,7 +744,7 @@ fun PlagaMiniCard(monitoreo: MonitoreoResponse) {
                 modifier = Modifier.padding(start = 12.dp)
             ) {
                 LinearProgressIndicator(
-                    progress = (monitoreo.progreso / 100f).coerceIn(0f, 1f),
+                    progress = {(monitoreo.progreso / 100f).coerceIn(0f, 1f)},
                     modifier = Modifier
                         .width(50.dp)
                         .height(6.dp),

@@ -156,3 +156,41 @@ data class TerrenoCreateResponse(
     @SerializedName("area_hectareas")
     val terreno_area: Float
 )
+
+@Serializable
+data class CultivoResponse(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("nombre")
+    val nombre: String,
+    @SerializedName("nombre_cientifico")
+    val nombre_cientifico: String
+)
+
+@Serializable
+data class CreatePlantacionRequest(
+    @SerializedName("terreno_id")
+    val terreno_id: Int,
+    @SerializedName("cultivo_id")
+    val cultivo_id: Int,
+    @SerializedName("fecha_siembra")
+    val fecha_siembra: String,
+    @SerializedName("activa")
+    val activa: Boolean
+)
+
+@Serializable
+data class PlantacionCreateResponse(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("terreno_id")
+    val terreno_id: Int,
+    @SerializedName("cultivo_id")
+    val cultivo_id: Int,
+    @SerializedName("fecha_siembra")
+    val fecha_siembra: LocalDate,
+    @SerializedName("activa")
+    val activa: Boolean,
+    @SerializedName("cultivo")
+    val cultivo: CultivoResponse
+)
