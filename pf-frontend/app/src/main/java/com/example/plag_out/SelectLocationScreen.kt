@@ -1,5 +1,12 @@
 package com.example.plag_out
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
+import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -39,11 +46,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 
+@RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun SelectLocationScreen(
     nuevoTerrenoViewModel: NuevoTerrenoViewModel,
@@ -55,6 +69,11 @@ fun SelectLocationScreen(
     var selectedTabIndex by remember { mutableStateOf(1) }
     val tabs = listOf("🗺️ Mapa", "🔢 Coordenadas")
 
+    var isGranted by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val fusedLocationClient: FusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
+    var obteniendoUbicacion by remember { mutableStateOf(false) }
+
     // Estados locales para los campos de texto
     var latInput by remember { mutableStateOf(state.latitud?.toString() ?: "") }
     var lonInput by remember { mutableStateOf(state.longitud?.toString() ?: "") }
@@ -65,6 +84,24 @@ fun SelectLocationScreen(
         val lon = lonInput.toDoubleOrNull()
         nuevoTerrenoViewModel.actualizarUbicacion(lat, lon)
     }
+
+    //SI NO TENGO PERMISO PARA ACCEDER A SU UBICACION SE LO PIDO
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = {granted ->
+            if(granted){
+                isGranted = true
+            }else{
+                isGranted = false
+            }
+        }
+    )
+
+    LaunchedEffect(Unit) {
+        //Consultar si ya tengo permiso para acceder a la ubicacion
+        isGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    }
+
 
     // Rangos y validación de Argentina
     val latValida = state.latitud?.let { it in -55.0..-21.8 } ?: false
@@ -190,6 +227,49 @@ fun SelectLocationScreen(
                             },
                             modifier = Modifier.fillMaxWidth()
                         )
+                        Button(
+                            onClick = {
+                                if (isGranted) {
+
+                                    obteniendoUbicacion = true
+
+                                    fusedLocationClient
+                                        .getCurrentLocation(
+                                            Priority.PRIORITY_HIGH_ACCURACY,
+                                            null
+                                        )
+                                        .addOnSuccessListener { location ->
+
+                                            obteniendoUbicacion = false
+
+                                            location?.let {
+                                                latInput = it.latitude.toString()
+                                                lonInput = it.longitude.toString()
+                                            }
+                                        }
+                                        .addOnFailureListener {
+                                            obteniendoUbicacion = false
+                                        }
+
+                                } else {
+                                    launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                }
+                            },
+                            enabled = !obteniendoUbicacion,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            if (obteniendoUbicacion) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.White
+                                )
+                            } else {
+                                Text("📍 Usar ubicación actual")
+                            }
+                        }
                     }
                 }
             }
