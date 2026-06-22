@@ -71,6 +71,9 @@ dependencies {
     implementation("androidx.room:room-runtime:2.7.2")
     implementation("androidx.room:room-ktx:2.7.2")
     implementation(libs.play.services.location)
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
+    implementation(libs.ui)
+
 
     kapt("androidx.room:room-compiler:2.7.2")
     implementation(libs.androidx.navigation.compose)

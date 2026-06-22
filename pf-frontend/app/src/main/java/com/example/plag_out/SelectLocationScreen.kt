@@ -3,6 +3,7 @@ package com.example.plag_out
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.preference.PreferenceManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -51,10 +52,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapEventsReceiver
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.MapEventsOverlay
+import org.osmdroid.views.overlay.Marker
 
 @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
 @RequiresApi(Build.VERSION_CODES.O)
@@ -69,10 +78,14 @@ fun SelectLocationScreen(
     var selectedTabIndex by remember { mutableStateOf(1) }
     val tabs = listOf("🗺️ Mapa", "🔢 Coordenadas")
 
+    //UBICACION DE USUARIO
     var isGranted by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val fusedLocationClient: FusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
     var obteniendoUbicacion by remember { mutableStateOf(false) }
+
+    //UBICACION EN MAPA
+    var selectedLocation by remember { mutableStateOf<GeoPoint?>(null) }
 
     // Estados locales para los campos de texto
     var latInput by remember { mutableStateOf(state.latitud?.toString() ?: "") }
@@ -83,6 +96,11 @@ fun SelectLocationScreen(
         val lat = latInput.toDoubleOrNull()
         val lon = lonInput.toDoubleOrNull()
         nuevoTerrenoViewModel.actualizarUbicacion(lat, lon)
+
+        if(lat != null && lon != null){
+            selectedLocation = GeoPoint(lat, lon)
+        }
+
     }
 
     //SI NO TENGO PERMISO PARA ACCEDER A SU UBICACION SE LO PIDO
@@ -165,23 +183,117 @@ fun SelectLocationScreen(
                 .fillMaxWidth()
         ) {
             if (selectedTabIndex == 0) {
+
                 Card(
                     modifier = Modifier.fillMaxSize(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE2E8F0)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                    border = BorderStroke(1.dp, Color(0xFF718096).copy(alpha = 0.3f))
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color.White
+                    ),
+                    elevation = CardDefaults.cardElevation(
+                        defaultElevation = 4.dp
+                    )
                 ) {
-                    Box(
+
+                    AndroidView(
+
                         modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("🗺️ [Módulo de Google Maps en Standby]", fontWeight = FontWeight.Bold, color = Color(0xFF2d5016))
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text("Por favor, utilice la pestaña 'Coordenadas' para ingresar datos.", fontSize = 12.sp, color = Color(0xFF718096))
+
+                        factory = { ctx ->
+
+                            Configuration.getInstance().load(
+                                ctx,
+                                PreferenceManager.getDefaultSharedPreferences(ctx)
+                            )
+
+                            MapView(ctx).apply {
+
+                                setMultiTouchControls(true)
+
+                                setTileSource(
+                                    TileSourceFactory.MAPNIK
+                                )
+
+                                controller.setZoom(5.0)
+
+                                controller.setCenter(
+                                    GeoPoint(
+                                        -34.6037,
+                                        -58.3816
+                                    )
+                                )
+
+                                val receiver =
+                                    object : MapEventsReceiver {
+
+                                        override fun singleTapConfirmedHelper(
+                                            p: GeoPoint?
+                                        ): Boolean {
+
+                                            p?.let {
+
+                                                selectedLocation = it
+
+                                                latInput =
+                                                    it.latitude.toString()
+
+                                                lonInput =
+                                                    it.longitude.toString()
+                                            }
+
+                                            return true
+                                        }
+
+                                        override fun longPressHelper(
+                                            p: GeoPoint?
+                                        ): Boolean {
+                                            return false
+                                        }
+                                    }
+
+                                overlays.add(
+                                    MapEventsOverlay(receiver)
+                                )
+                            }
+                        },
+
+                        update = { map ->
+
+                            map.overlays.removeAll {
+                                it is Marker
+                            }
+
+                            val receiver =
+                                map.overlays.firstOrNull {
+                                    it is MapEventsOverlay
+                                }
+
+                            map.overlays.clear()
+
+                            receiver?.let {
+                                map.overlays.add(it)
+                            }
+
+                            selectedLocation?.let { point ->
+
+                                val marker = Marker(map)
+
+                                marker.position = point
+
+                                marker.title =
+                                    "Ubicación del terreno"
+
+                                marker.setAnchor(
+                                    Marker.ANCHOR_CENTER,
+                                    Marker.ANCHOR_BOTTOM
+                                )
+
+                                map.overlays.add(marker)
+                            }
+
+                            map.invalidate()
                         }
-                    }
+                    )
                 }
             } else {
                 // Pestaña coordenadas
