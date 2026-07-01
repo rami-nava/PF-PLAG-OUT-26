@@ -7,6 +7,8 @@ import com.example.plag_out.CreateTerrenoRequest
 import com.example.plag_out.TerrenoCreateResponse
 import com.example.plag_out.CultivoResponse
 import com.example.plag_out.CreatePlantacionRequest
+import com.example.plag_out.MonitoreoRequest
+import com.example.plag_out.PlagaResponse
 import com.example.plag_out.PlantacionCreateResponse
 import retrofit2.Response
 import retrofit2.http.GET
@@ -32,8 +34,14 @@ interface GDDService {
     @GET("/cultivos")
     suspend fun getCultivos(): Response<List<CultivoResponse>>
 
+    @GET("/plagas")
+    suspend fun getPlagas(): Response<List<PlagaResponse>>
+
     @POST("/plantaciones")
     suspend fun createPlantacion(@Body data: CreatePlantacionRequest): Response<PlantacionCreateResponse>
+
+    @POST("/monitoreos")
+    suspend fun createMonitoreo(@Body data: MonitoreoRequest): Response<MonitoreoResponse>
 
     @GET("api/gdd/health")
     suspend fun health(): Response<Unit>

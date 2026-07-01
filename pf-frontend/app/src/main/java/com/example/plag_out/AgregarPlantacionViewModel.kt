@@ -58,7 +58,7 @@ class AgregarPlantacionViewModel(
                 .toLocalDate()
             _state.value = _state.value.copy(fechaSiembra = date.toString(), error = null)
         } catch (e: Exception) {
-            _state.value = _state.value.copy(error = "Error al seleccionar fecha: ${e.message}")
+            _state.value = _state.value.copy(error = "Error al seleccionar fecha")
         }
     }
 
@@ -77,13 +77,13 @@ class AgregarPlantacionViewModel(
                 } else {
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        error = "Error al cargar cultivos: ${response.message()}"
+                        error = "Error al cargar cultivos"
                     )
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = "Error de red: ${e.message}"
+                    error = "Error de red"
                 )
             }
         }

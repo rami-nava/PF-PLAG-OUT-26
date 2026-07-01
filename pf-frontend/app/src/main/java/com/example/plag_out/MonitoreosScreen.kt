@@ -1,0 +1,293 @@
+package com.example.plag_out
+
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
+import java.time.format.DateTimeFormatter
+
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun MonitoreosScreen(monitoreosViewModel: MonitoreosViewModel, plantacionesViewModel: PlantacionesViewModel,navController: NavHostController) {
+    val state by monitoreosViewModel.state.collectAsState()
+
+    LaunchedEffect(Unit) {
+        monitoreosViewModel.getMonitoreos()
+        plantacionesViewModel.getPlantaciones()
+        state.isLoading = false
+    }
+    androidx.compose.material3.Scaffold(
+        containerColor = Color(0xFFF8F7F4),
+        floatingActionButton = {
+            androidx.compose.material3.FloatingActionButton(
+                onClick = {
+                    navController.navigate("agregar_monitoreo")
+                },
+                containerColor = Color(0xFFE8941A),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.padding(bottom = 16.dp, end = 8.dp)
+            ) {
+                Text("+", fontSize = 28.sp, fontWeight = FontWeight.Normal)
+            }
+        }
+    ) { paddingValues ->
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF8F7F4))
+                .padding(16.dp)
+        ) {
+            Text(
+                "🌾 Mis Plagas",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF2d5016),
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            if (state.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (state.monitoreos.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Sin monitoreos", color = Color(0xFF718096))
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    items(state.monitoreos) { monitoreo ->
+                        MonitoreoCard(
+                            monitoreo
+                        ) {
+                            navController.navigate("plantacion/${monitoreo.plantacion_id}")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun MonitoreoCard(
+    monitoreo: MonitoreoResponse,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("${monitoreo.fecha_actualizacion.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF718096)
+                    )
+                    Text(
+                        monitoreo.plaga_nombre,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2d5016)
+                    )
+                    Text(
+                        "${monitoreo.terreno_nombre} - ${monitoreo.cultivo_nombre}",
+                        fontSize = 12.sp,
+                        color = Color(0xFF718096)
+                    )
+                }
+
+                // Nivel de alerta
+                val nivelColor = when (monitoreo.nivel_alerta) {
+                    0 -> Color(0xFF38A169)  // Bajo
+                    1 -> Color(0xFFD69E2E)  // Medio
+                    else -> Color(0xFFE53E3E) // Alto
+                }
+                Box(
+                    modifier = Modifier
+                        .background(nivelColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        when (monitoreo.nivel_alerta) {
+                            0 -> "Normal"
+                            1 -> "Precaucion"
+                            else -> "Peligro"
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = nivelColor
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // GDD Info
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("GDD Acumulado", fontSize = 11.sp, color = Color(0xFF718096))
+                    Text(
+                        "${monitoreo.gdd_acumulado.toInt()}/${monitoreo.gdd_objetivo.toInt()}",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2d5016)
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Diario", fontSize = 11.sp, color = Color(0xFF718096))
+                    Text(
+                        "+${monitoreo.gdd_diario.toInt()} GDD",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4a7c2c)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Progress Bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                LinearProgressIndicator(
+                    progress = {(monitoreo.progreso / 100f).coerceIn(0f, 1f)},
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(10.dp),
+                    color = Color(0xFF2d5016),
+                    trackColor = Color(0xFFE2E8F0)
+                )
+                Text(
+                    " ${monitoreo.progreso.toInt()}%",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2d5016),
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+fun MonitoreosPorPlantacion(
+    plantacionId: Int,
+    viewModel: MonitoreosViewModel,  // Mismo ViewModel
+    onBack: () -> Unit
+) {
+    val state by viewModel.state.collectAsState()
+
+    // Filtrar monitoreos de esta plantación
+    val monitoreosFiltrados = state.monitoreos.filter {
+        it.plantacion_id == plantacionId
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8F7F4))
+            .padding(16.dp)
+    ) {
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Volver",
+                        tint = Color(0xFF2d5016)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = (monitoreosFiltrados.firstOrNull()?.terreno_nombre
+                        ?: "") + " (" + (monitoreosFiltrados.firstOrNull()?.cultivo_nombre ?: "") + ")",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2d5016)
+                )
+            }
+        }
+
+        items(monitoreosFiltrados) { monitoreo ->
+            MonitoreoCard(monitoreo) { }
+        }
+    }
+}

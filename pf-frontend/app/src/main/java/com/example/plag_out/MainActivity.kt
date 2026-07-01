@@ -57,8 +57,7 @@ fun AppNavigation() {
     val monitoreosViewModel: MonitoreosViewModel = viewModel(factory = MonitoreosViewModelFactory(context, monitoreoRepository))
     val terrenosViewModel: TerrenosViewModel = viewModel(factory = TerrenosViewModelFactory(context, terrenoRepository))
     val plantacionesViewModel: PlantacionesViewModel = viewModel(factory = PlantacionesViewModelFactory(context, plantacionRepository))
-    val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
-    val agregarPlantacionViewModel: AgregarPlantacionViewModel = viewModel(factory = AgregarPlantacionViewModelFactory(context, plantacionRepository, terrenoRepository))
+
 
     val navController = rememberNavController()
 
@@ -80,6 +79,8 @@ fun AppNavigation() {
                 MonitoreosScreen(monitoreosViewModel, plantacionesViewModel, navController)
             }
             composable("terrenos") {
+                val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
+
                 TerrenosScreen(terrenosViewModel, monitoreosViewModel, nuevoTerrenoViewModel, navController)
             }
             composable("plantacion/{plantacion_id}") { backStackEntry ->
@@ -101,6 +102,7 @@ fun AppNavigation() {
                 }
             }
             composable("agregar_plantacion/{terreno_id}") { backStackEntry ->
+                val agregarPlantacionViewModel: AgregarPlantacionViewModel = viewModel(factory = AgregarPlantacionViewModelFactory(context, plantacionRepository, terrenoRepository))
                 val terrenoId =
                     backStackEntry.arguments?.getString("terreno_id")?.toInt() ?: 0
                 AgregarPlantacionScreen(
@@ -114,10 +116,21 @@ fun AppNavigation() {
                 )
             }
             composable("datos_terreno") {
+                val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
+
                 DatosDelTerrenoScreen(
                     nuevoTerrenoViewModel = nuevoTerrenoViewModel,
                     onBack = { navController.popBackStack() },
                     onContinue = { navController.navigate("seleccionar_ubicacion") }
+                )
+            }
+            composable("agregar_monitoreo") {
+                val agregarMonitoreoViewModel: AgregarMonitoreoViewModel = viewModel(factory = AgregarMonitoreoViewModelFactory(context, monitoreoRepository, plantacionRepository, terrenoRepository))
+
+                AgregarMonitoreoScreen(
+                    viewModel = agregarMonitoreoViewModel,
+                    onBack = { navController.popBackStack() },
+                    onSuccess = { navController.navigate("monitoreos") }
                 )
             }
             /*composable("seleccionar_cultivo") {
@@ -128,6 +141,8 @@ fun AppNavigation() {
                 )
             }*/
             composable("seleccionar_ubicacion") {
+                val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
+
                 SelectLocationScreen(
                     nuevoTerrenoViewModel = nuevoTerrenoViewModel,
                     onBack = { navController.popBackStack() },
@@ -146,6 +161,6 @@ fun AppNavigation() {
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo")
     return !screensWithoutNavBar.contains(currentScreen)
 }

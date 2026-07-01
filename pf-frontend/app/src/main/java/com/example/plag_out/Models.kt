@@ -194,3 +194,23 @@ data class PlantacionCreateResponse(
     @SerializedName("cultivo")
     val cultivo: CultivoResponse
 )
+
+@Serializable
+data class PlagaResponse(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("nombre")
+    val nombre: String,
+    @SerializedName("nombre_cientifico")
+    val nombre_cientifico: String
+)
+
+@Serializable
+data class MonitoreoRequest(
+    @SerializedName("terreno_id")
+    val terreno_id: Int,
+    @SerializedName("plantacion_id")
+    val plantacion_id: Int,
+    @SerializedName("plaga_id")
+    val plaga_id: Int
+)
