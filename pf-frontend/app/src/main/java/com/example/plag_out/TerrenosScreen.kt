@@ -78,7 +78,10 @@ fun TerrenosScreen(
         containerColor = BgScreen,
         floatingActionButton = {
             androidx.compose.material3.FloatingActionButton(
-                onClick = { navController.navigate("datos_terreno") },
+                onClick = {
+                    nuevoTerrenoViewModel.resetState()
+                    navController.navigate("datos_terreno")
+                },
                 containerColor = Accent,
                 contentColor = Color.White,
                 shape = RoundedCornerShape(16.dp),
