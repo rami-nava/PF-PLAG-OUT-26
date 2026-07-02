@@ -1,5 +1,6 @@
 package com.example.plag_out
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -7,7 +8,6 @@ import android.preference.PreferenceManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
-import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -65,7 +65,7 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 
-@RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+@SuppressLint("MissingPermission")
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun SelectLocationScreen(

@@ -57,7 +57,7 @@ fun AppNavigation() {
     val monitoreosViewModel: MonitoreosViewModel = viewModel(factory = MonitoreosViewModelFactory(context, monitoreoRepository))
     val terrenosViewModel: TerrenosViewModel = viewModel(factory = TerrenosViewModelFactory(context, terrenoRepository))
     val plantacionesViewModel: PlantacionesViewModel = viewModel(factory = PlantacionesViewModelFactory(context, plantacionRepository))
-
+    val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
 
     val navController = rememberNavController()
 
@@ -79,8 +79,6 @@ fun AppNavigation() {
                 MonitoreosScreen(monitoreosViewModel, plantacionesViewModel, navController)
             }
             composable("terrenos") {
-                val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
-
                 TerrenosScreen(terrenosViewModel, monitoreosViewModel, nuevoTerrenoViewModel, navController)
             }
             composable("plantacion/{plantacion_id}") { backStackEntry ->
@@ -116,8 +114,6 @@ fun AppNavigation() {
                 )
             }
             composable("datos_terreno") {
-                val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
-
                 DatosDelTerrenoScreen(
                     nuevoTerrenoViewModel = nuevoTerrenoViewModel,
                     onBack = { navController.popBackStack() },
@@ -141,12 +137,11 @@ fun AppNavigation() {
                 )
             }*/
             composable("seleccionar_ubicacion") {
-                val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
-
                 SelectLocationScreen(
                     nuevoTerrenoViewModel = nuevoTerrenoViewModel,
                     onBack = { navController.popBackStack() },
                     onConfirm = {
+                        nuevoTerrenoViewModel.resetState()
                         navController.navigate("terrenos") {
                             popUpTo("terrenos") { inclusive = false }
                         }
