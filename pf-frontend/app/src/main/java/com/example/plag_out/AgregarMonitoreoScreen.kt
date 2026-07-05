@@ -2,6 +2,7 @@ package com.example.plag_out
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -117,6 +119,7 @@ fun AgregarMonitoreoScreen(
                     modifier    = Modifier
                         .menuAnchor()
                         .fillMaxWidth()
+                        .testTag("txtTerreno")
                 )
 
                 ExposedDropdownMenu(
@@ -189,6 +192,7 @@ fun AgregarMonitoreoScreen(
                     modifier    = Modifier
                         .menuAnchor()
                         .fillMaxWidth()
+                        .testTag("txtPlantacion")
                 )
 
                 ExposedDropdownMenu(
@@ -197,7 +201,10 @@ fun AgregarMonitoreoScreen(
                 ) {
                     if (state.plantaciones.isEmpty()) {
                         DropdownMenuItem(
-                            text    = { Text("Sin plantaciones en este terreno", color = ColorTextoSub) },
+                            text    = { Text(if(state.terrenoSeleccionado != null)
+                                                        "Sin plantaciones en este terreno"
+                                                     else
+                                                        "Seleccione un terreno", color = ColorTextoSub) },
                             onClick = { dropdownPlantacionExpanded = false }
                         )
                     } else {
@@ -241,7 +248,7 @@ fun AgregarMonitoreoScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ── Paso 2: Plaga ─────────────────────────────────────────────────
+            // ── Paso 3: Plaga ─────────────────────────────────────────────────
             StepLabel(numero = "3", texto = "Plaga a monitorear")
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -261,6 +268,7 @@ fun AgregarMonitoreoScreen(
                     modifier      = Modifier
                         .menuAnchor()
                         .fillMaxWidth()
+                        .testTag("txtPlaga")
                 )
 
                 ExposedDropdownMenu(
@@ -303,6 +311,15 @@ fun AgregarMonitoreoScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
+        // ── Umbral de Riesgo ──────────────────────────────────────────────────
+
+        UmbralDeRiesgoSlider(
+            umbralActual = state.umbralDeRiesgo,
+            onUmbralChange = { viewModel.actualizarUmbralDeRiesgo(it) }
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
         // ── Error ─────────────────────────────────────────────────────────────
         if (state.error != null) {
             Box(
@@ -329,7 +346,8 @@ fun AgregarMonitoreoScreen(
                     && state.plagaSeleccionada != null,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp),
+                .height(50.dp)
+                .testTag("btnGuardar"),
             shape  = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor         = ColorNaranja,
@@ -500,6 +518,101 @@ private fun PlagaPreviewCard(plaga: PlagaResponse) {
     }
 }
 
+@Composable
+fun UmbralDeRiesgoSlider(
+    umbralActual: Int,
+    onUmbralChange: (Int) -> Unit
+) {
+    val colorRiesgo = when {
+        umbralActual < 34 -> Color(0xFF2d5016)   // bajo - verde
+        umbralActual < 67 -> Color(0xFFB8860B)   // medio - ámbar
+        else -> Color(0xFFA13A2E)                 // alto - rojo tierra
+    }
+
+    val etiquetaRiesgo = when {
+        umbralActual < 50 -> "Riesgo bajo"
+        umbralActual < 75 -> "Riesgo medio"
+        else -> "Riesgo alto"
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("cardUmbralRiesgo"),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F9F5)),
+        border = BorderStroke(1.dp, Color(0xFFE0E6DA))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Header: label + valor destacado
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Umbral de riesgo",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    color = Color(0xFF2d5016)
+                )
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(colorRiesgo.copy(alpha = 0.12f))
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "$umbralActual%",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = colorRiesgo
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = etiquetaRiesgo,
+                fontSize = 12.sp,
+                color = colorRiesgo,
+                fontWeight = FontWeight.Medium
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Slider(
+                value = umbralActual.toFloat(),
+                onValueChange = { onUmbralChange(it.toInt()) },
+                valueRange = 0f..100f,
+                steps = 99,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("sliderUmbralRiesgo"),
+                colors = SliderDefaults.colors(
+                    thumbColor = colorRiesgo,
+                    activeTrackColor = colorRiesgo,
+                    inactiveTrackColor = colorRiesgo.copy(alpha = 0.15f)
+                )
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("0", fontSize = 11.sp, color = ColorTextoSub)
+                Text("50", fontSize = 11.sp, color = ColorTextoSub)
+                Text("100", fontSize = 11.sp, color = ColorTextoSub)
+            }
+        }
+    }
+}
 // ─── Helper de colores para OutlinedTextField ─────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

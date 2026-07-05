@@ -27,6 +27,7 @@ data class AgregarMonitoreoUIState(
     val plantaciones: List<PlantacionesResponse> = emptyList(),
     val plagas: List<PlagaResponse> = emptyList(),
     val plagaSeleccionada: PlagaResponse? = null,
+    val umbralDeRiesgo: Int = 0,
     val isLoading: Boolean = false,
     val isGuardando: Boolean = false,
     val error: String? = null
@@ -72,7 +73,7 @@ class AgregarMonitoreoViewModel(
 
     suspend fun cargarPlantaciones(terrenoId: Int){
         _state.value = _state.value.copy(
-            plantaciones = plantacionRepository.obtenerPlantaciones().filter { p -> p.terreno_id == terrenoId }.toList()
+            plantaciones = plantacionRepository.obtenerPlantaciones().filter { p -> p.terreno_id == terrenoId && p.activa }.toList()
         )
     }
 
@@ -100,11 +101,18 @@ class AgregarMonitoreoViewModel(
         )
     }
 
+    fun actualizarUmbralDeRiesgo(nuevoValor: Int) {
+        _state.value = _state.value.copy(
+            umbralDeRiesgo = nuevoValor
+        )
+    }
+
     fun guardarMonitoreo(onSuccess: () -> Unit) {
         val currentState = _state.value
         val plaga = currentState.plagaSeleccionada
         val terreno = currentState.terrenoSeleccionado
         val plantacion = currentState.plantacionSeleccionada
+        val umbralDeRiesgo = currentState.umbralDeRiesgo
 
         if (plaga == null) {
             _state.value = _state.value.copy(error = "Debe seleccionar una plaga")
@@ -128,7 +136,8 @@ class AgregarMonitoreoViewModel(
                 val request = MonitoreoRequest(
                     terreno_id = terreno.terreno_id,
                     plantacion_id = plantacion.plantacion_id,
-                    plaga_id = plaga.id
+                    plaga_id = plaga.id,
+                    umbral_riesgo = umbralDeRiesgo
                 )
 
                 val response = withContext(Dispatchers.IO) {
@@ -169,6 +178,13 @@ class AgregarMonitoreoViewModel(
                 Log.e("CREAR_MONITOREO", "Error al crear monitoreo: ${e.message}")
             }
         }
+    }
+
+    fun plagasParaTests(plagaResponse: PlagaResponse){
+
+        _state.value = _state.value.copy(
+            plagas = _state.value.plagas + plagaResponse
+        )
     }
 }
 

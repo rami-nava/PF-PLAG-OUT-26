@@ -75,6 +75,7 @@ dependencies {
     implementation(libs.ui)
 
 
+
     kapt("androidx.room:room-compiler:2.7.2")
     implementation(libs.androidx.navigation.compose)
     implementation("com.google.maps.android:maps-compose:4.3.3")

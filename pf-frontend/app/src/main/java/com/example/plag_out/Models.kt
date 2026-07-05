@@ -212,5 +212,7 @@ data class MonitoreoRequest(
     @SerializedName("plantacion_id")
     val plantacion_id: Int,
     @SerializedName("plaga_id")
-    val plaga_id: Int
+    val plaga_id: Int,
+    @SerializedName("umbral_riesgo")
+    val umbral_riesgo: Int
 )

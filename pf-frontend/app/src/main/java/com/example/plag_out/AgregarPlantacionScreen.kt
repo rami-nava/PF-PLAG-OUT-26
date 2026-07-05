@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -129,6 +130,7 @@ fun AgregarPlantacionScreen(
                     modifier = Modifier
                         .menuAnchor()
                         .fillMaxWidth()
+                        .testTag("txtCultivo")
                 )
                 
                 ExposedDropdownMenu(
@@ -237,7 +239,8 @@ fun AgregarPlantacionScreen(
             enabled = !state.isGuardando && state.cultivoSeleccionado != null && state.fechaSiembra.isNotEmpty(),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp),
+                .height(50.dp)
+                .testTag("btnGuardar"),
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFFE8941A),

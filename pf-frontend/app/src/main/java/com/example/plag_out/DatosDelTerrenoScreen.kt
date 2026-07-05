@@ -11,10 +11,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.text.isDigitsOnly
 
 @Composable
 fun DatosDelTerrenoScreen(
@@ -61,7 +63,7 @@ fun DatosDelTerrenoScreen(
             value = state.nombre,
             onValueChange = { nuevoTerrenoViewModel.actualizarNombre(it) },
             label = { Text("Nombre del Terreno") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("txtNombre"),
             singleLine = true
         )
 
@@ -69,10 +71,10 @@ fun DatosDelTerrenoScreen(
 
         OutlinedTextField(
             value = state.areaHectareas,
-            onValueChange = { nuevoTerrenoViewModel.actualizarArea(it) },
+            onValueChange = { if(it.isDigitsOnly()) nuevoTerrenoViewModel.actualizarArea(it) },
             label = { Text("Hectáreas") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("txtHectareas"),
             singleLine = true
         )
 
@@ -102,7 +104,8 @@ fun DatosDelTerrenoScreen(
             enabled = state.nombre.trim().isNotEmpty() && state.areaHectareas.trim().isNotEmpty(),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp),
+                .height(50.dp)
+                .testTag("btnGuardar"),
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFFE8941A),

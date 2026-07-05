@@ -48,12 +48,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.text.isDigitsOnly
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -77,6 +79,9 @@ fun SelectLocationScreen(
 
     var selectedTabIndex by remember { mutableStateOf(1) }
     val tabs = listOf("🗺️ Mapa", "🔢 Coordenadas")
+
+    //EXPRESION REGULAR PARA NUMEROS REALES
+    val regex = Regex("^-?\\d*\\.?\\d*$")
 
     //UBICACION DE USUARIO
     var isGranted by remember { mutableStateOf(false) }
@@ -312,7 +317,7 @@ fun SelectLocationScreen(
                     ) {
                         OutlinedTextField(
                             value = latInput,
-                            onValueChange = { newValue -> latInput = newValue },
+                            onValueChange = { newValue -> if(newValue.matches(regex)) latInput = newValue },
                             label = { Text("Latitud (Ej: -34.60)") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             trailingIcon = {
@@ -322,12 +327,12 @@ fun SelectLocationScreen(
                                     }
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().testTag("txtLatitud")
                         )
 
                         OutlinedTextField(
                             value = lonInput,
-                            onValueChange = { newValue -> lonInput = newValue },
+                            onValueChange = { newValue -> if(newValue.matches(regex)) lonInput = newValue },
                             label = { Text("Longitud (Ej: -58.38)") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             trailingIcon = {
@@ -337,7 +342,7 @@ fun SelectLocationScreen(
                                     }
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().testTag("txtLongitud")
                         )
                         Button(
                             onClick = {
@@ -442,7 +447,8 @@ fun SelectLocationScreen(
             enabled = isValid && !state.isLoading,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp),
+                .height(50.dp)
+                .testTag("btnGuardar"),
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFFE8941A),
