@@ -64,7 +64,7 @@ fun AgregarMonitoreoScreen(
 
         // ── Header ────────────────────────────────────────────────────────────
         Row(
-            modifier          = Modifier
+            modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 24.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -616,7 +616,7 @@ fun UmbralDeRiesgoSlider(
 // ─── Helper de colores para OutlinedTextField ─────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun outlinedColors() = OutlinedTextFieldDefaults.colors(
+fun outlinedColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = ColorVerde,
     focusedLabelColor  = ColorVerde,
     cursorColor        = ColorVerde

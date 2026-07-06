@@ -18,6 +18,7 @@
       </SelectionState>
       <SelectionState runConfigName="MainActivity">
         <option name="selectionMode" value="DROPDOWN" />
+        <DialogSelection />
       </SelectionState>
       <SelectionState runConfigName="datos_de_ubicacion_validos()">
         <option name="selectionMode" value="DROPDOWN" />

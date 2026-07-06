@@ -75,7 +75,7 @@ dependencies {
     implementation(libs.ui)
 
 
-
+    implementation("androidx.compose.material:material-icons-extended:1.7.5")
     kapt("androidx.room:room-compiler:2.7.2")
     implementation(libs.androidx.navigation.compose)
     implementation("com.google.maps.android:maps-compose:4.3.3")

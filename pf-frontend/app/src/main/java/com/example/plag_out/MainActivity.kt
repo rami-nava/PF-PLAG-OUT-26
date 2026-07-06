@@ -58,12 +58,16 @@ fun AppNavigation() {
     val terrenosViewModel: TerrenosViewModel = viewModel(factory = TerrenosViewModelFactory(context, terrenoRepository))
     val plantacionesViewModel: PlantacionesViewModel = viewModel(factory = PlantacionesViewModelFactory(context, plantacionRepository))
     val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
+    val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.AuthViewModelFactory())
 
     val navController = rememberNavController()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { TopBar() },
+        topBar = { if(shouldShowTopBar(navController)){
+                    TopBar()
+                    }
+                 },
         bottomBar = {
             if (shouldShowBottomBar(navController)) {
                 BottomNavigationBar(navController)
@@ -72,9 +76,15 @@ fun AppNavigation() {
     ) { paddingValues ->
         NavHost(
             navController = navController,
-            startDestination = "monitoreos",
+            startDestination = "logIn",
             modifier = Modifier.padding(paddingValues)
         ) {
+            composable("logIn") {
+                LoginScreen(authViewModel,{navController.navigate("monitoreos")}, {navController.navigate("crearCuenta")})
+            }
+            composable("crearCuenta") {
+                CrearCuentaScreen(authViewModel,{navController.navigate("monitoreos")},{navController.popBackStack()})
+            }
             composable("monitoreos") {
                 MonitoreosScreen(monitoreosViewModel, plantacionesViewModel, navController)
             }
@@ -156,6 +166,14 @@ fun AppNavigation() {
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo","logIn","crearCuenta")
+    return !screensWithoutNavBar.contains(currentScreen)
+}
+
+@Composable
+fun shouldShowTopBar(navController: NavController): Boolean {
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentScreen = navBackStackEntry?.destination?.route
+    val screensWithoutNavBar = listOf("logIn","crearCuenta")
     return !screensWithoutNavBar.contains(currentScreen)
 }
