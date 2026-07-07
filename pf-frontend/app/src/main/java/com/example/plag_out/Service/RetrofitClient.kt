@@ -11,9 +11,15 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.time.LocalDate
 import java.time.LocalTime
-import com.example.plag_out.BuildConfig
+import com.example.plag_out.SessionManager
 
 object RetrofitClient {
+    private var sessionManager: SessionManager? = null
+
+    fun setSessionManager(manager: SessionManager) {
+        sessionManager = manager
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     private val gson = GsonBuilder()
         .registerTypeAdapter(LocalDate::class.java, JsonDeserializer { json, _, _ ->
@@ -32,14 +38,13 @@ object RetrofitClient {
 
     private val client = OkHttpClient.Builder()
         .addInterceptor { chain ->
+            val token = sessionManager?.fetchAccessToken()
             val request = chain.request().newBuilder()
-                .addHeader("Authorization", "Bearer ${BuildConfig.TEST_JWT}")
+                .addHeader("Authorization", "Bearer $token")
                 .build()
             chain.proceed(request)
         }
         .build()    
-    
-    //private val client = OkHttpClient.Builder().build()
 
     @RequiresApi(Build.VERSION_CODES.O)
     private val retrofit = Retrofit.Builder()

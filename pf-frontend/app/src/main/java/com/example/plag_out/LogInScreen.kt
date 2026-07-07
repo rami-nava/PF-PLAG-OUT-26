@@ -142,10 +142,9 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick =
-                //authViewModel.iniciarSesion(onSuccess = onLoginSuccess)
-                onLoginSuccess
-            ,
+            onClick = {
+                authViewModel.iniciarSesion(onSuccess = onLoginSuccess)
+            },
             enabled = state.email.isNotBlank() && state.password.isNotBlank() && !state.cargando,
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2d5016)),
             modifier = Modifier

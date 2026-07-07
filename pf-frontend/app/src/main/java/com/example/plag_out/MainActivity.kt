@@ -24,6 +24,7 @@ import com.example.plag_out.AlmacenamientoLocal.AppDatabase
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
+import com.example.plag_out.Service.RetrofitClient
 import com.example.plag_out.ui.theme.PlagasGDDTheme
 import kotlin.collections.contains
 
@@ -58,7 +59,13 @@ fun AppNavigation() {
     val terrenosViewModel: TerrenosViewModel = viewModel(factory = TerrenosViewModelFactory(context, terrenoRepository))
     val plantacionesViewModel: PlantacionesViewModel = viewModel(factory = PlantacionesViewModelFactory(context, plantacionRepository))
     val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
-    val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.AuthViewModelFactory())
+    
+    val sessionManager = SessionManager(context)
+    RetrofitClient.setSessionManager(sessionManager)
+
+    val authViewModel: AuthViewModel = viewModel(
+        factory = AuthViewModel.AuthViewModelFactory(SupabaseProvider.client, sessionManager)
+    )
 
     val navController = rememberNavController()
 

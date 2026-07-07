@@ -257,10 +257,9 @@ fun CrearCuentaScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = 
-                //authViewModel.crearCuenta(onSuccess = onCuentaCreada)
-                onCuentaCreada
-            ,
+            onClick = {
+                authViewModel.crearCuenta(onSuccess = onCuentaCreada)
+            },
             enabled = formularioValido && !state.cargando,
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2d5016)),
             modifier = Modifier

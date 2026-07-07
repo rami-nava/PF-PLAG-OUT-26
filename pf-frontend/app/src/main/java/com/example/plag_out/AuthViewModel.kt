@@ -1,17 +1,17 @@
 package com.example.plag_out
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
-import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
-
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.exceptions.RestException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.JsonPrimitive
-
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 enum class Cargo(val label: String) {
     INGENIERO_AGRONOMO("Ingeniero Agrónomo"),
@@ -38,7 +38,8 @@ data class CrearCuentaState(
 )
 
 class AuthViewModel(
-    //private val supabaseClient: SupabaseClient
+    private val supabaseClient: SupabaseClient,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _loginState = MutableStateFlow(LoginState())
@@ -57,7 +58,7 @@ class AuthViewModel(
         _loginState.value = _loginState.value.copy(password = valor, error = null)
     }
 
-    /*fun iniciarSesion(onSuccess: () -> Unit) {
+    fun iniciarSesion(onSuccess: () -> Unit) {
         val email = _loginState.value.email
         val password = _loginState.value.password
 
@@ -65,10 +66,16 @@ class AuthViewModel(
 
         viewModelScope.launch {
             try {
-                //supabaseClient.auth.signInWith(Email) {
-                  //  this.email = email
-                    //this.password = password
-                //}
+                supabaseClient.auth.signInWith(Email) {
+                    this.email = email
+                    this.password = password
+                }
+                
+                // Guardar el token JWT en el SessionManager
+                supabaseClient.auth.currentAccessTokenOrNull()?.let {
+                    sessionManager.saveAccessToken(it)
+                }
+
                 _loginState.value = _loginState.value.copy(cargando = false)
                 onSuccess()
             } catch (e: RestException) {
@@ -83,7 +90,7 @@ class AuthViewModel(
                 )
             }
         }
-    }*
+    }
 
     private fun mapearErrorLogin(e: RestException): String {
         return when {
@@ -93,7 +100,7 @@ class AuthViewModel(
                 "Confirmá tu correo antes de iniciar sesión"
             else -> "No se pudo iniciar sesión. Intentá de nuevo."
         }
-    }*/
+    }
 
     // ---------- CREAR CUENTA ----------
 
@@ -121,7 +128,7 @@ class AuthViewModel(
         _crearCuentaState.value = _crearCuentaState.value.copy(repetirPassword = valor, error = null)
     }
 
-   /* fun crearCuenta(onSuccess: () -> Unit) {
+    fun crearCuenta(onSuccess: () -> Unit) {
         val state = _crearCuentaState.value
 
         if (state.password != state.repetirPassword) {
@@ -137,9 +144,9 @@ class AuthViewModel(
                     email = state.email
                     password = state.password
                     data = buildJsonObject {
-                        put("nombre", JsonPrimitive(state.nombre))
-                        put("apellido", JsonPrimitive(state.apellido))
-                        put("cargo", JsonPrimitive(state.cargo?.name ?: ""))
+                        put("nombre", state.nombre)
+                        put("apellido", state.apellido)
+                        put("cargo", state.cargo?.name ?: "")
                     }
                 }
 
@@ -167,24 +174,16 @@ class AuthViewModel(
                 "La contraseña no cumple los requisitos mínimos"
             else -> "No se pudo crear la cuenta. Intentá de nuevo."
         }
-    }*/
-
-    // ---------- Para tests ----------
-
-    fun setLoginStateParaTest(state: LoginState) {
-        _loginState.value = state
     }
-
-    fun setCrearCuentaStateParaTest(state: CrearCuentaState) {
-        _crearCuentaState.value = state
-    }
-
+    
     class AuthViewModelFactory(
+        private val client: SupabaseClient,
+        private val sessionManager: SessionManager
     ) : ViewModelProvider.Factory {
 
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return AuthViewModel() as T
+            return AuthViewModel(client, sessionManager) as T
         }
     }
 }
