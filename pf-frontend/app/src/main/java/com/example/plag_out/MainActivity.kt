@@ -71,10 +71,11 @@ fun AppNavigation() {
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { if(shouldShowTopBar(navController)){
-                    TopBar()
-                    }
-                 },
+        topBar = {
+            if (shouldShowTopBar(navController)) {
+                TopBar()
+            }
+        },
         bottomBar = {
             if (shouldShowBottomBar(navController)) {
                 BottomNavigationBar(navController)
@@ -90,13 +91,13 @@ fun AppNavigation() {
                 LoginScreen(authViewModel,{navController.navigate("monitoreos")}, {navController.navigate("crearCuenta")})
             }
             composable("crearCuenta") {
-                CrearCuentaScreen(authViewModel,{navController.navigate("monitoreos")},{navController.popBackStack()})
+                CrearCuentaScreen(authViewModel,{navController.navigate("logIn")},{navController.popBackStack()})
             }
             composable("monitoreos") {
                 MonitoreosScreen(monitoreosViewModel, plantacionesViewModel, navController)
             }
             composable("terrenos") {
-                TerrenosScreen(terrenosViewModel, monitoreosViewModel, nuevoTerrenoViewModel, navController)
+                TerrenoScreen(terrenosViewModel, monitoreosViewModel, plantacionesViewModel,nuevoTerrenoViewModel, navController)
             }
             composable("plantacion/{plantacion_id}") { backStackEntry ->
                 val plantacionId =

@@ -20,30 +20,37 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 
-data class BarItem(val nombre: String)//, val logoSeleccionado: Int, val logoNoSeleccionado: Int)
+// ─── Colores Base Coincidentes ──────────────────────────────────────────────
+private val ColorPrimary = Color(0xFF1B5E20)
+
+data class BarItem(val nombre: String, val icono: String)
+
 @Composable
 fun BottomNavigationBar(navController: NavController){
-    NavigationBar (containerColor = Color(0xFF2d5016),
+    NavigationBar (
+        containerColor = ColorPrimary,
         contentColor = Color.White,
-        modifier = Modifier.height(70.dp)){
+        modifier = Modifier.height(65.dp)
+    ) {
         val currentDestination = navController.currentBackStackEntryAsState().value?.destination?.route
 
         val barItems = arrayOf(
-            BarItem("Monitoreos"),
-            BarItem("Terrenos")
-            )
+            BarItem("Monitoreos", "🔬"),
+            BarItem("Terrenos", "🚜")
+        )
 
         barItems.forEach { item ->
             NavigationBarItem(
-                icon = { Text(item.nombre)},
+                icon = { Text(item.icono, fontSize = 20.sp) },
+                label = { Text(item.nombre, fontSize = 10.sp, fontWeight = FontWeight.Medium) },
                 selected = currentDestination == item.nombre,
-                onClick = {navController.navigate(item.nombre)},
+                onClick = { navController.navigate(item.nombre) },
                 colors = NavigationBarItemColors(
-                    selectedIconColor = Color.Gray,
-                    unselectedIconColor = Color.White,
-                    selectedTextColor = Color.Gray,
-                    unselectedTextColor = Color.White,
-                    selectedIndicatorColor = Color.Transparent,
+                    selectedIconColor = Color.White,
+                    unselectedIconColor = Color.White.copy(alpha = 0.6f),
+                    selectedTextColor = Color.White,
+                    unselectedTextColor = Color.White.copy(alpha = 0.6f),
+                    selectedIndicatorColor = Color.White.copy(alpha = 0.15f),
                     disabledIconColor = Color.Transparent,
                     disabledTextColor = Color.Transparent
                 )
@@ -53,20 +60,21 @@ fun BottomNavigationBar(navController: NavController){
 }
 
 @Composable
-fun TopBar(){
-        // TOP BAR
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF2d5016))
-                .padding(35.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                "🌾 PLAG-OUT",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-            )
-        }
+fun TopBar() {
+    // TOP BAR sin padding vertical excesivo para evitar separaciones visuales
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(ColorPrimary)
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            "PLAG-OUT",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            letterSpacing = 2.sp
+        )
+    }
 }

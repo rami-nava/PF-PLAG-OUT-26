@@ -1,8 +1,12 @@
 package com.example.plag_out
 
+import android.os.Build
+import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.plag_out.Service.RetrofitClient
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -11,13 +15,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-
-enum class Cargo(val label: String) {
-    INGENIERO_AGRONOMO("Ingeniero Agrónomo"),
-    PRODUCTOR("Productor"),
-    OTRO("Otro")
-}
 
 data class LoginState(
     val email: String = "",
@@ -29,7 +29,8 @@ data class LoginState(
 data class CrearCuentaState(
     val nombre: String = "",
     val apellido: String = "",
-    val cargo: Cargo? = null,
+    val cargosDisponibles: List<CargoResponse> = emptyList(),
+    val cargo: CargoResponse? = null,
     val email: String = "",
     val password: String = "",
     val repetirPassword: String = "",
@@ -58,6 +59,7 @@ class AuthViewModel(
         _loginState.value = _loginState.value.copy(password = valor, error = null)
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     fun iniciarSesion(onSuccess: () -> Unit) {
         val email = _loginState.value.email
         val password = _loginState.value.password
@@ -70,10 +72,53 @@ class AuthViewModel(
                     this.email = email
                     this.password = password
                 }
-                
+
                 // Guardar el token JWT en el SessionManager
-                supabaseClient.auth.currentAccessTokenOrNull()?.let {
+                val token = supabaseClient.auth.currentAccessTokenOrNull()
+                Log.d("AuthViewModel", "Login exitoso. Token: ${token?.take(10)}...")
+
+                token?.let {
                     sessionManager.saveAccessToken(it)
+                }
+
+                // Sincronizar con el backend de Plag-Out después de un login exitoso
+                val user = supabaseClient.auth.currentUserOrNull()
+                val metadata = user?.userMetadata
+                val nombre = metadata?.get("nombre")?.jsonPrimitive?.contentOrNull ?: ""
+                val apellido = metadata?.get("apellido")?.jsonPrimitive?.contentOrNull ?: ""
+
+                if (user != null) {
+                    try {
+                        val response = RetrofitClient.gddService.createUser(
+                            CreateUserRequest(
+                                email = user.email ?: "",
+                                nombre = nombre,
+                                apellido = apellido,
+                                cargo_id = 1
+                            )
+                        )
+                        if (response.isSuccessful) {
+                            Log.d(
+                                "AuthViewModel",
+                                if(response.body()?.created == false) "El usuario ya existe en el backend"
+                                        else "Usuario creado exitosamente en el backend: ${response.body()?.usuario_id}"
+                            )
+                        } else {
+                            Log.e(
+                                "AuthViewModel",
+                                "Error al crear usuario en backend: ${response.code()} ${
+                                    response.errorBody()?.string()
+                                }"
+                            )
+                        }
+                    } catch (e: Exception) {
+                        Log.e("AuthViewModel", "Excepción al sincronizar usuario con el backend", e)
+                    }
+                } else {
+                    Log.w(
+                        "AuthViewModel",
+                        "No se encontró el usuario en Supabase después del login"
+                    )
                 }
 
                 _loginState.value = _loginState.value.copy(cargando = false)
@@ -96,8 +141,10 @@ class AuthViewModel(
         return when {
             e.message?.contains("Invalid login credentials", ignoreCase = true) == true ->
                 "Correo o contraseña incorrectos"
+
             e.message?.contains("Email not confirmed", ignoreCase = true) == true ->
                 "Confirmá tu correo antes de iniciar sesión"
+
             else -> "No se pudo iniciar sesión. Intentá de nuevo."
         }
     }
@@ -112,7 +159,7 @@ class AuthViewModel(
         _crearCuentaState.value = _crearCuentaState.value.copy(apellido = valor, error = null)
     }
 
-    fun actualizarCargo(valor: Cargo) {
+    fun actualizarCargo(valor: CargoResponse) {
         _crearCuentaState.value = _crearCuentaState.value.copy(cargo = valor, error = null)
     }
 
@@ -125,9 +172,31 @@ class AuthViewModel(
     }
 
     fun actualizarRepetirPassword(valor: String) {
-        _crearCuentaState.value = _crearCuentaState.value.copy(repetirPassword = valor, error = null)
+        _crearCuentaState.value =
+            _crearCuentaState.value.copy(repetirPassword = valor, error = null)
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun cargarCargos() {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.gddService.getCargos()
+                if (response.isSuccessful()) {
+                    val cargos = response.body() ?: emptyList()
+                    _crearCuentaState.value =
+                        _crearCuentaState.value.copy(cargosDisponibles = cargos)
+                }
+            } catch (e: Exception) {
+                _crearCuentaState.value = _crearCuentaState.value.copy(
+                    cargando = false,
+                    error = "No se pudieron cargar los cargos"
+                )
+                Log.e("CARGOS", "Error: ${e.message}")
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
     fun crearCuenta(onSuccess: () -> Unit) {
         val state = _crearCuentaState.value
 
@@ -140,27 +209,30 @@ class AuthViewModel(
 
         viewModelScope.launch {
             try {
+                // 1. Crear usuario en Supabase (esto enviará el mail de confirmación)
                 supabaseClient.auth.signUpWith(Email) {
                     email = state.email
                     password = state.password
                     data = buildJsonObject {
                         put("nombre", state.nombre)
                         put("apellido", state.apellido)
-                        put("cargo", state.cargo?.name ?: "")
+                        put("cargo", state.cargo?.tipo ?: "")
                     }
                 }
 
                 _crearCuentaState.value = _crearCuentaState.value.copy(cargando = false)
                 onSuccess()
+
             } catch (e: RestException) {
                 _crearCuentaState.value = _crearCuentaState.value.copy(
                     cargando = false,
                     error = mapearErrorRegistro(e)
                 )
             } catch (e: Exception) {
+                Log.e("Supabase", "Error creando cuenta", e)
                 _crearCuentaState.value = _crearCuentaState.value.copy(
                     cargando = false,
-                    error = "Ocurrió un error inesperado. Intentá de nuevo."
+                    error = "No se pudo crear la cuenta. Intentá de nuevo."
                 )
             }
         }
@@ -170,12 +242,14 @@ class AuthViewModel(
         return when {
             e.message?.contains("already registered", ignoreCase = true) == true ->
                 "Ya existe una cuenta con este correo"
+
             e.message?.contains("Password should be", ignoreCase = true) == true ->
                 "La contraseña no cumple los requisitos mínimos"
+
             else -> "No se pudo crear la cuenta. Intentá de nuevo."
         }
     }
-    
+
     class AuthViewModelFactory(
         private val client: SupabaseClient,
         private val sessionManager: SessionManager
@@ -187,3 +261,4 @@ class AuthViewModel(
         }
     }
 }
+
