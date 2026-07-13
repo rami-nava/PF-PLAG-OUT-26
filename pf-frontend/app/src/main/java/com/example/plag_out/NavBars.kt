@@ -2,9 +2,12 @@ package com.example.plag_out
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Terrain
@@ -73,6 +76,7 @@ fun TopBar() {
         modifier = Modifier
             .fillMaxWidth()
             .background(PlagOutColors.Forest)
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(vertical = 14.dp),
         contentAlignment = Alignment.Center
     ) {

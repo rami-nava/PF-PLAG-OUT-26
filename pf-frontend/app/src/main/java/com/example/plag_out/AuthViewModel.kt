@@ -86,6 +86,7 @@ class AuthViewModel(
                 val metadata = user?.userMetadata
                 val nombre = metadata?.get("nombre")?.jsonPrimitive?.contentOrNull ?: ""
                 val apellido = metadata?.get("apellido")?.jsonPrimitive?.contentOrNull ?: ""
+                val cargoId = metadata?.get("cargo")?.jsonPrimitive?.contentOrNull ?: ""
 
                 if (user != null) {
                     try {
@@ -94,7 +95,7 @@ class AuthViewModel(
                                 email = user.email ?: "",
                                 nombre = nombre,
                                 apellido = apellido,
-                                cargo_id = 1
+                                cargo_id = cargoId.toIntOrNull() ?: 1
                             )
                         )
                         if (response.isSuccessful) {
@@ -216,7 +217,7 @@ class AuthViewModel(
                     data = buildJsonObject {
                         put("nombre", state.nombre)
                         put("apellido", state.apellido)
-                        put("cargo", state.cargo?.tipo ?: "")
+                        put("cargo", state.cargo?.id.toString())
                     }
                 }
 
