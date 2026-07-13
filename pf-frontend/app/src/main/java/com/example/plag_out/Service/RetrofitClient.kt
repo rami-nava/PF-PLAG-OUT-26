@@ -11,9 +11,17 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.time.LocalDate
 import java.time.LocalTime
-import com.example.plag_out.BuildConfig
+import com.example.plag_out.SessionManager
+import com.example.plag_out.SupabaseProvider
+import io.github.jan.supabase.auth.auth
 
 object RetrofitClient {
+    private var sessionManager: SessionManager? = null
+
+    fun setSessionManager(manager: SessionManager) {
+        sessionManager = manager
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     private val gson = GsonBuilder()
         .registerTypeAdapter(LocalDate::class.java, JsonDeserializer { json, _, _ ->
@@ -32,14 +40,17 @@ object RetrofitClient {
 
     private val client = OkHttpClient.Builder()
         .addInterceptor { chain ->
-            val request = chain.request().newBuilder()
-                .addHeader("Authorization", "Bearer ${BuildConfig.TEST_JWT}")
-                .build()
-            chain.proceed(request)
+            // El token de Supabase expira (~1h) y el SDK lo renueva en memoria:
+            // leerlo en cada request evita mandar un JWT vencido. SessionManager
+            val token = runCatching { SupabaseProvider.client.auth.currentAccessTokenOrNull() }
+                .getOrNull() ?: sessionManager?.fetchAccessToken()
+            val builder = chain.request().newBuilder()
+            if (token != null) {
+                builder.addHeader("Authorization", "Bearer $token")
+            }
+            chain.proceed(builder.build())
         }
-        .build()    
-    
-    //private val client = OkHttpClient.Builder().build()
+        .build()
 
     @RequiresApi(Build.VERSION_CODES.O)
     private val retrofit = Retrofit.Builder()

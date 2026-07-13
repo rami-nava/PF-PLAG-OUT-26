@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    kotlin("kapt")
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -44,12 +44,17 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
+
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+}
+
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
     }
 }
 
@@ -68,18 +73,28 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:5.0.0-alpha.14")
     // Room
-    implementation("androidx.room:room-runtime:2.7.2")
-    implementation("androidx.room:room-ktx:2.7.2")
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
     implementation(libs.play.services.location)
     implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation(libs.ui)
 
 
     implementation("androidx.compose.material:material-icons-extended:1.7.5")
-    kapt("androidx.room:room-compiler:2.7.2")
+    ksp(libs.room.compiler)
     implementation(libs.androidx.navigation.compose)
     implementation("com.google.maps.android:maps-compose:4.3.3")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
+
+    // Supabase
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.auth)
+    implementation(libs.supabase.postgrest)
+    implementation(libs.ktor.client.android)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

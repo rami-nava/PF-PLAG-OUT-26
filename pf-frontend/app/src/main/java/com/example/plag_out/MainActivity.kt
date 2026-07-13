@@ -5,14 +5,21 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -24,7 +31,11 @@ import com.example.plag_out.AlmacenamientoLocal.AppDatabase
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
+import com.example.plag_out.Service.RetrofitClient
+import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.PlagasGDDTheme
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.status.SessionStatus
 import kotlin.collections.contains
 
 class MainActivity : ComponentActivity() {
@@ -49,7 +60,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation() {
     val db = AppDatabase.getDatabase(LocalContext.current)
-    val context = LocalContext.current
+    // applicationContext: los ViewModels sobreviven a la Activity (rotación) y
+    // guardarles el context de la Activity la dejaría retenida en memoria
+    val context = LocalContext.current.applicationContext
     val monitoreoRepository = MonitoreoRepository(db.monitoreoDao())
     val terrenoRepository = TerrenoRepository(db.terrenoDao())
     val plantacionRepository = PlantacionRepository(db.plantacionDao())
@@ -58,16 +71,38 @@ fun AppNavigation() {
     val terrenosViewModel: TerrenosViewModel = viewModel(factory = TerrenosViewModelFactory(context, terrenoRepository))
     val plantacionesViewModel: PlantacionesViewModel = viewModel(factory = PlantacionesViewModelFactory(context, plantacionRepository))
     val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
-    val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.AuthViewModelFactory())
+    
+    val sessionManager = SessionManager(context)
+    RetrofitClient.setSessionManager(sessionManager)
+
+    val authViewModel: AuthViewModel = viewModel(
+        factory = AuthViewModel.AuthViewModelFactory(SupabaseProvider.client, sessionManager)
+    )
+
+    // Supabase restaura la sesión guardada al iniciar (y renueva el token si hace
+    // falta). Mientras tanto el estado es Initializing: mostramos un splash y recién
+    // después decidimos si arrancar en el home o en el login.
+    val sessionStatus by SupabaseProvider.client.auth.sessionStatus.collectAsState()
+    if (sessionStatus is SessionStatus.Initializing) {
+        PantallaCargandoSesion()
+        return
+    }
+    val startDestination = remember {
+        if (sessionStatus is SessionStatus.Authenticated) "monitoreos" else "logIn"
+    }
 
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val fullBleedScreens = listOf("logIn", "crearCuenta")
+    val isFullBleedRoute = fullBleedScreens.contains(navBackStackEntry?.destination?.route)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { if(shouldShowTopBar(navController)){
-                    TopBar()
-                    }
-                 },
+        topBar = {
+            if (shouldShowTopBar(navController)) {
+                TopBar()
+            }
+        },
         bottomBar = {
             if (shouldShowBottomBar(navController)) {
                 BottomNavigationBar(navController)
@@ -76,20 +111,29 @@ fun AppNavigation() {
     ) { paddingValues ->
         NavHost(
             navController = navController,
-            startDestination = "logIn",
-            modifier = Modifier.padding(paddingValues)
+            startDestination = startDestination,
+            modifier = Modifier.padding(if (isFullBleedRoute) PaddingValues(0.dp) else paddingValues)
         ) {
             composable("logIn") {
-                LoginScreen(authViewModel,{navController.navigate("monitoreos")}, {navController.navigate("crearCuenta")})
+                LoginScreen(
+                    authViewModel,
+                    // Sacar el login del back stack: "atrás" desde home no debe volver al login
+                    {
+                        navController.navigate("monitoreos") {
+                            popUpTo("logIn") { inclusive = true }
+                        }
+                    },
+                    { navController.navigate("crearCuenta") }
+                )
             }
             composable("crearCuenta") {
-                CrearCuentaScreen(authViewModel,{navController.navigate("monitoreos")},{navController.popBackStack()})
+                CrearCuentaScreen(authViewModel,{navController.popBackStack()},{navController.popBackStack()})
             }
             composable("monitoreos") {
                 MonitoreosScreen(monitoreosViewModel, plantacionesViewModel, navController)
             }
             composable("terrenos") {
-                TerrenosScreen(terrenosViewModel, monitoreosViewModel, nuevoTerrenoViewModel, navController)
+                TerrenoScreen(terrenosViewModel, monitoreosViewModel, plantacionesViewModel,nuevoTerrenoViewModel, navController)
             }
             composable("plantacion/{plantacion_id}") { backStackEntry ->
                 val plantacionId =
@@ -136,7 +180,7 @@ fun AppNavigation() {
                 AgregarMonitoreoScreen(
                     viewModel = agregarMonitoreoViewModel,
                     onBack = { navController.popBackStack() },
-                    onSuccess = { navController.navigate("monitoreos") }
+                    onSuccess = { navController.popBackStack() }
                 )
             }
             /*composable("seleccionar_cultivo") {
@@ -159,6 +203,18 @@ fun AppNavigation() {
                 )
             }
         }
+    }
+}
+
+/** Splash mostrado mientras Supabase restaura la sesión guardada. */
+@Composable
+private fun PantallaCargandoSesion() {
+    Box(modifier = Modifier.fillMaxSize()) {
+        FondoVerdeAuth()
+        CircularProgressIndicator(
+            color = PlagOutColors.TextOnDark,
+            modifier = Modifier.align(Alignment.Center)
+        )
     }
 }
 

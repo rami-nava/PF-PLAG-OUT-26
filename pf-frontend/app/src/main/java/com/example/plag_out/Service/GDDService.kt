@@ -1,5 +1,6 @@
 package com.example.plag_out.Service
 
+import com.example.plag_out.CargoResponse
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
@@ -10,6 +11,8 @@ import com.example.plag_out.CreatePlantacionRequest
 import com.example.plag_out.MonitoreoRequest
 import com.example.plag_out.PlagaResponse
 import com.example.plag_out.PlantacionCreateResponse
+import com.example.plag_out.CreateUserRequest
+import com.example.plag_out.CreateUserResponse
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -42,6 +45,12 @@ interface GDDService {
 
     @POST("/monitoreos")
     suspend fun createMonitoreo(@Body data: MonitoreoRequest): Response<MonitoreoResponse>
+
+    @POST("/usuarios")
+    suspend fun createUser(@Body data: CreateUserRequest): Response<CreateUserResponse>
+
+    @GET("/cargos")
+    suspend fun getCargos(): Response<List<CargoResponse>>
 
     @GET("api/gdd/health")
     suspend fun health(): Response<Unit>

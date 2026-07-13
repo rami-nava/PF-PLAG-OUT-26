@@ -4,8 +4,8 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.google.gson.annotations.SerializedName
 import kotlinx.serialization.Serializable
+import java.io.Serial
 import java.time.LocalDate
-import java.util.Date
 
 /*
 @Serializable
@@ -215,4 +215,32 @@ data class MonitoreoRequest(
     val plaga_id: Int,
     @SerializedName("umbral_riesgo")
     val umbral_riesgo: Int
+)
+
+@Serializable
+data class CreateUserRequest(
+    @SerializedName("email")
+    val email: String,
+    @SerializedName("nombre")
+    val nombre: String,
+    @SerializedName("apellido")
+    val apellido: String,
+    @SerializedName("cargo_id")
+    val cargo_id: Int
+)
+
+@Serializable
+data class CargoResponse(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("tipo")
+    val tipo: String
+)
+
+@Serializable
+data class CreateUserResponse(
+    @SerializedName("usuario_id")
+    val usuario_id: String,
+    @SerializedName("created")
+    val created: Boolean
 )

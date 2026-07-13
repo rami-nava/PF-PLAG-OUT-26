@@ -2,22 +2,39 @@ package com.example.plag_out
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.plag_out.ui.theme.PlagOutColors
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,7 +47,7 @@ fun AgregarPlantacionScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var dropdownExpanded by remember { mutableStateOf(false) }
-    
+
     val datePickerState = rememberDatePickerState()
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -40,28 +57,22 @@ fun AgregarPlantacionScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        datePickerState.selectedDateMillis?.let {
-                            viewModel.seleccionarFecha(it)
-                        }
+                        datePickerState.selectedDateMillis?.let { viewModel.seleccionarFecha(it) }
                         showDatePicker = false
                     }
-                ) {
-                    Text("Aceptar", color = Color(0xFF2d5016))
-                }
+                ) { Text("Aceptar", color = PlagOutColors.Forest) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancelar", color = Color(0xFF2d5016))
-                }
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancelar", color = PlagOutColors.Forest) }
             }
         ) {
             DatePicker(
                 state = datePickerState,
                 colors = DatePickerDefaults.colors(
-                    selectedDayContainerColor = Color(0xFF2d5016),
-                    todayContentColor = Color(0xFF2d5016),
-                    titleContentColor = Color(0xFF2d5016),
-                    headlineContentColor = Color(0xFF2d5016)
+                    selectedDayContainerColor = PlagOutColors.Forest,
+                    todayContentColor = PlagOutColors.Forest,
+                    titleContentColor = PlagOutColors.Forest,
+                    headlineContentColor = PlagOutColors.Forest
                 )
             )
         }
@@ -70,193 +81,232 @@ fun AgregarPlantacionScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8F7F4))
-            .padding(16.dp)
+            .background(PlagOutColors.Cream)
     ) {
-        // Header
-        Row(
+        HeaderAgregarPlantacion(onBack = onBack)
+
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 24.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .padding(20.dp)
         ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Volver",
-                    tint = Color(0xFF2d5016)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Text(
-                text = "Agregar Plantación",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2d5016)
-            )
-        }
-
-        if (state.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = Color(0xFF2d5016))
-            }
-        } else {
-            // Dropdown de Cultivos
-            ExposedDropdownMenuBox(
-                expanded = dropdownExpanded,
-                onExpandedChange = { dropdownExpanded = !dropdownExpanded },
+            Surface(
+                color = PlagOutColors.Surface,
+                shape = RoundedCornerShape(22.dp),
+                shadowElevation = 2.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                OutlinedTextField(
-                    readOnly = true,
-                    value = state.cultivoSeleccionado?.nombre ?: "",
-                    onValueChange = {},
-                    label = { Text("Seleccionar Cultivo") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF2d5016),
-                        focusedLabelColor = Color(0xFF2d5016)
-                    ),
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth()
-                        .testTag("txtCultivo")
-                )
-                
-                ExposedDropdownMenu(
-                    expanded = dropdownExpanded,
-                    onDismissRequest = { dropdownExpanded = false }
-                ) {
-                    state.cultivos.forEach { cultivo ->
-                        DropdownMenuItem(
-                            text = { Text(cultivo.nombre) },
-                            onClick = {
-                                viewModel.actualizarCultivo(cultivo)
-                                dropdownExpanded = false
-                            }
+                Column(Modifier.padding(20.dp)) {
+                    if (state.isLoading) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().height(120.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = PlagOutColors.Forest)
+                        }
+                    } else {
+                        Text(
+                            "Detalle del cultivo",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PlagOutColors.TextMain
                         )
+                        Text(
+                            "Elegí qué se sembró y cuándo empezó el ciclo.",
+                            fontSize = 12.sp,
+                            color = PlagOutColors.TextSecondary,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
+                        )
+
+                        ExposedDropdownMenuBox(
+                            expanded = dropdownExpanded,
+                            onExpandedChange = { dropdownExpanded = !dropdownExpanded },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                readOnly = true,
+                                value = state.cultivoSeleccionado?.nombre ?: "",
+                                onValueChange = {},
+                                label = { Text("Seleccionar cultivo") },
+                                leadingIcon = { Icon(Icons.Outlined.Grass, contentDescription = null, tint = PlagOutColors.Forest) },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = camposColors(),
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
+                                    .testTag("txtCultivo")
+                            )
+
+                            ExposedDropdownMenu(
+                                expanded = dropdownExpanded,
+                                onDismissRequest = { dropdownExpanded = false }
+                            ) {
+                                state.cultivos.forEach { cultivo ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text(cultivo.nombre, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
+                                                Text(
+                                                    cultivo.nombre_cientifico,
+                                                    fontSize = 11.sp,
+                                                    color = PlagOutColors.TextSecondary
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            viewModel.actualizarCultivo(cultivo)
+                                            dropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(
+                                value = state.fechaSiembra,
+                                onValueChange = {},
+                                label = { Text("Fecha de siembra") },
+                                readOnly = true,
+                                leadingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = PlagOutColors.Forest) },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = camposColors(),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable { showDatePicker = true }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(PlagOutColors.Cream, RoundedCornerShape(16.dp))
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Plantación activa", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
+                                Text(
+                                    if (state.activa) "Se hará seguimiento de plagas" else "Sin seguimiento por ahora",
+                                    fontSize = 11.sp,
+                                    color = PlagOutColors.TextSecondary
+                                )
+                            }
+                            Switch(
+                                checked = state.activa,
+                                onCheckedChange = { viewModel.actualizarActiva(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = PlagOutColors.TextOnDark,
+                                    checkedTrackColor = PlagOutColors.Forest,
+                                    uncheckedThumbColor = PlagOutColors.Surface,
+                                    uncheckedTrackColor = PlagOutColors.RiskUnknown
+                                )
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Selector de Fecha
-            Box(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = state.fechaSiembra,
-                    onValueChange = {},
-                    label = { Text("Fecha de Siembra") },
-                    readOnly = true,
-                    trailingIcon = {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.DateRange ?: Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Seleccionar Fecha",
-                            tint = Color(0xFF2d5016)
-                        )
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF2d5016),
-                        focusedLabelColor = Color(0xFF2d5016)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Box(
+            AnimatedVisibility(
+                visible = state.error != null,
+                enter = fadeIn(tween(220)) + expandVertically(tween(220)),
+                exit = fadeOut(tween(160)) + shrinkVertically(tween(160))
+            ) {
+                Row(
                     modifier = Modifier
-                        .matchParentSize()
-                        .clickable { showDatePicker = true }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Switch de Estado
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Plantación Activa",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF2d5016)
-                )
-                Switch(
-                    checked = state.activa,
-                    onCheckedChange = { viewModel.actualizarActiva(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = Color(0xFF2d5016),
-                        uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = Color.LightGray
-                    )
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Box de error
-        if (state.error != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-                    .background(Color(0xFFE53E3E).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                    .padding(12.dp)
-            ) {
-                Text(
-                    text = "⚠️ ${state.error}",
-                    color = Color(0xFFE53E3E),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Botón Guardar
-        Button(
-            onClick = {
-                viewModel.guardarPlantacion(terrenoId) {
-                    onSuccess()
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
+                        .background(PlagOutColors.RiskDanger.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.ErrorOutline, contentDescription = null, tint = PlagOutColors.RiskDanger, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(state.error ?: "", color = PlagOutColors.RiskDanger, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
-            },
-            enabled = !state.isGuardando && state.cultivoSeleccionado != null && state.fechaSiembra.isNotEmpty(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .testTag("btnGuardar"),
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFE8941A),
-                disabledContainerColor = Color(0xFFE8941A).copy(alpha = 0.5f),
-                contentColor = Color.White,
-                disabledContentColor = Color.White.copy(alpha = 0.5f)
-            )
-        ) {
-            if (state.isGuardando) {
-                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-            } else {
-                Text(
-                    text = "Guardar plantación",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Button(
+                onClick = { viewModel.guardarPlantacion(terrenoId) { onSuccess() } },
+                enabled = !state.isGuardando && state.cultivoSeleccionado != null && state.fechaSiembra.isNotEmpty(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .testTag("btnGuardar"),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PlagOutColors.Forest,
+                    disabledContainerColor = PlagOutColors.Forest.copy(alpha = 0.4f),
+                    contentColor = PlagOutColors.TextOnDark,
+                    disabledContentColor = PlagOutColors.TextOnDark.copy(alpha = 0.6f)
                 )
+            ) {
+                if (state.isGuardando) {
+                    CircularProgressIndicator(color = PlagOutColors.TextOnDark, modifier = Modifier.size(22.dp))
+                } else {
+                    Text("Guardar plantación", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeaderAgregarPlantacion(onBack: () -> Unit) {
+    val respiracion = rememberInfiniteTransition(label = "respiracionHeaderPlantacion")
+    val escalaDecorativa by respiracion.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(tween(4200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "escalaDecorativa"
+    )
+
+    val forma = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                brush = Brush.verticalGradient(listOf(PlagOutColors.Forest, PlagOutColors.Leaf)),
+                shape = forma
+            )
+            .clip(forma)
+    ) {
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 50.dp, y = (-40).dp)
+                .size(150.dp)
+                .graphicsLayer { scaleX = escalaDecorativa; scaleY = escalaDecorativa }
+                .background(PlagOutColors.TextOnDark.copy(alpha = 0.06f), CircleShape)
+        )
+
+        Row(
+            modifier = Modifier.padding(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 22.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextOnDark)
+            }
+            Column {
+                Text(
+                    "Nueva plantación",
+                    color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.3.sp
+                )
+                Text("Agregar Plantación", color = PlagOutColors.TextOnDark, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
     }

@@ -2,44 +2,56 @@ package com.example.plag_out
 
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Grass
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.plag_out.ui.theme.AnilloProgreso
+import com.example.plag_out.ui.theme.EstadoSinResultados
+import com.example.plag_out.ui.theme.EstadoVacioFlotante
+import com.example.plag_out.ui.theme.EtiquetaInfo
+import com.example.plag_out.ui.theme.FiltroChipsRow
+import com.example.plag_out.ui.theme.OpcionFiltro
+import com.example.plag_out.ui.theme.PlagOutColors
+import com.example.plag_out.ui.theme.SelloDeNivel
+import com.example.plag_out.ui.theme.SkeletonCargando
+import com.example.plag_out.ui.theme.StaggeredAppear
+import com.example.plag_out.ui.theme.estiloDeNivel
+import com.example.plag_out.ui.theme.rememberPressScale
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.util.Locale
 
+private const val FILTRO_TODAS = -1
+private const val FILTRO_ACTIVAS = 1
+private const val FILTRO_PAUSADAS = 0
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -53,169 +65,251 @@ fun PlantacionesPorTerreno(
 ) {
     val plantacionesState by plantacionesViewModel.state.collectAsState()
     val monitoreosState by monitoreosViewModel.state.collectAsState()
-    val terreno = terrenoViewModel.state.collectAsState().value.terrenos.filter { t -> t.terreno_id == terrenoId  }[0]
+    val terrenosState by terrenoViewModel.state.collectAsState()
 
+    val terreno = terrenosState.terrenos.find { it.terreno_id == terrenoId }
+    val plantacionesDelTerreno = plantacionesState.plantaciones.filter { it.terreno_id == terrenoId }
 
-    // Filtrar plantaciones de este terreno
-    val plantacionesDelTerreno = plantacionesState.plantaciones.filter {
-        it.terreno_id == terrenoId
+    var filtro by rememberSaveable { mutableStateOf(FILTRO_TODAS) }
+
+    val ordenadas = remember(plantacionesDelTerreno, monitoreosState.monitoreos) {
+        plantacionesDelTerreno.sortedWith(
+            compareByDescending<PlantacionesResponse> { it.activa }
+                .thenByDescending { p ->
+                    monitoreosState.monitoreos.filter { it.plantacion_id == p.plantacion_id }.maxOfOrNull { it.nivel_alerta } ?: -1
+                }
+        )
+    }
+    val filtradas = remember(ordenadas, filtro) {
+        when (filtro) {
+            FILTRO_ACTIVAS -> ordenadas.filter { it.activa }
+            FILTRO_PAUSADAS -> ordenadas.filter { !it.activa }
+            else -> ordenadas
+        }
     }
 
-    androidx.compose.material3.Scaffold(
-        containerColor = Color(0xFFF8F7F4),
+    Scaffold(
+        containerColor = PlagOutColors.Cream,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
-            androidx.compose.material3.FloatingActionButton(
-                onClick = {
-                    navController.navigate("agregar_plantacion/$terrenoId")
-                },
-                containerColor = Color(0xFFE8941A),
-                contentColor = Color.White,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.padding(bottom = 16.dp, end = 8.dp)
+            ExtendedFloatingActionButton(
+                onClick = { navController.navigate("agregar_plantacion/$terrenoId") },
+                containerColor = PlagOutColors.Forest,
+                contentColor = PlagOutColors.TextOnDark,
+                shape = CircleShape,
+                modifier = Modifier.padding(bottom = 16.dp)
             ) {
-                Text("+", fontSize = 28.sp, fontWeight = FontWeight.Normal)
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Nueva Plantación", fontWeight = FontWeight.SemiBold)
             }
         }
-    ) { paddingValues ->
-        LazyColumn(
+    ) { padding ->
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF8F7F4))
-                .padding(16.dp)
+                .padding(padding)
         ) {
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            tint = Color(0xFF2d5016)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = Brush.verticalGradient(listOf(PlagOutColors.Forest, PlagOutColors.Leaf)),
+                        shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+                    )
+                    .padding(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 18.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextOnDark)
+                    }
+                    Column {
+                        Text(
+                            terreno?.terreno_nombre ?: "Terreno",
+                            color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text("Plantaciones", color = PlagOutColors.TextOnDark, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                        Spacer(Modifier.height(4.dp))
+                        val activas = plantacionesDelTerreno.count { it.activa }
+                        Text(
+                            if (plantacionesDelTerreno.isEmpty()) "Sin plantaciones registradas"
+                            else "$activas activa${if (activas == 1) "" else "s"} de ${plantacionesDelTerreno.size}",
+                            color = PlagOutColors.TextOnDark.copy(alpha = 0.8f),
+                            fontSize = 13.sp
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "🌱 Plantaciones (${plantacionesDelTerreno.size})",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2d5016)
-                    )
                 }
             }
 
-            if (plantacionesDelTerreno.isEmpty()) {
-                item {
-                    Text("Sin plantaciones", color = Color(0xFF718096))
-                }
-            } else {
-                items(plantacionesDelTerreno) { plantacion ->
-                    PlantacionConPlagasCard(
-                        plantacion = plantacion,
-                        monitoreos = monitoreosState.monitoreos.filter {
-                            it.plantacion_id == plantacion.plantacion_id
+            val opciones = remember(plantacionesDelTerreno) {
+                listOf(
+                    OpcionFiltro(FILTRO_TODAS, "Todas", plantacionesDelTerreno.size),
+                    OpcionFiltro(FILTRO_ACTIVAS, "Activas", plantacionesDelTerreno.count { it.activa }, colorIcono = PlagOutColors.Leaf),
+                    OpcionFiltro(FILTRO_PAUSADAS, "Pausadas", plantacionesDelTerreno.count { !it.activa }, colorIcono = PlagOutColors.Bark)
+                )
+            }
+            FiltroChipsRow(opciones = opciones, seleccionado = filtro, onSeleccion = { filtro = it })
+
+            Box(modifier = Modifier.weight(1f)) {
+                AnimatedContent(
+                    targetState = when {
+                        plantacionesDelTerreno.isEmpty() -> "vacio"
+                        filtradas.isEmpty() -> "sin-resultados"
+                        else -> "lista-$filtro"
+                    },
+                    transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(180)) },
+                    label = "plantacionesContent"
+                ) { target ->
+                    when (target) {
+                        "vacio" -> EstadoVacioFlotante(
+                            icono = Icons.Outlined.Grass,
+                            titulo = "No hay plantaciones",
+                            subtitulo = "Registrá un cultivo en este terreno para empezar a monitorear plagas."
+                        )
+                        "sin-resultados" -> EstadoSinResultados(subtitulo = "No hay plantaciones en este estado.")
+                        else -> LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            itemsIndexed(filtradas, key = { _, p -> p.plantacion_id }) { index, plantacion ->
+                                StaggeredAppear(index = index) {
+                                    PlantacionCard(
+                                        plantacion = plantacion,
+                                        monitoreos = monitoreosState.monitoreos.filter { it.plantacion_id == plantacion.plantacion_id },
+                                        onClick = { navController.navigate("plantacion/${plantacion.plantacion_id}") }
+                                    )
+                                }
+                            }
                         }
-                    )
+                    }
                 }
             }
         }
     }
 }
 
+// ── Card de plantación ───────────────────────────────────────────────────────
+
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun PlantacionConPlagasCard(
+fun PlantacionCard(
     plantacion: PlantacionesResponse,
-    monitoreos: List<MonitoreoResponse>
+    monitoreos: List<MonitoreoResponse>,
+    onClick: () -> Unit = {}
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    val nivelMax = monitoreos.maxOfOrNull { it.nivel_alerta } ?: -1
+    val estadoColor = if (plantacion.activa) estiloDeNivel(nivelMax).color else PlagOutColors.RiskUnknown
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val escala = rememberPressScale(interactionSource)
+
+    val diasDesdeSiembra = ChronoUnit.DAYS.between(plantacion.fecha_siembra, LocalDate.now()).toInt()
+
+    Surface(
+        onClick = onClick,
+        interactionSource = interactionSource,
+        color = PlagOutColors.Surface,
+        shape = RoundedCornerShape(22.dp),
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth().graphicsLayer { scaleX = escala; scaleY = escala }
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Header plantación
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        plantacion.cultivo_nombre,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2d5016)
-                    )
-                    Text(
-                        plantacion.cultivo_nombre_cientifico,
-                        fontSize = 11.sp,
-                        color = Color(0xFF718096),
-                        fontStyle = FontStyle.Italic
-                    )
-                }
+        Row(Modifier.height(IntrinsicSize.Min)) {
+            Box(
+                Modifier
+                    .width(5.dp)
+                    .fillMaxHeight()
+                    .background(estadoColor)
+            )
 
-                Box(
-                    modifier = Modifier
-                        .background(
-                            if (plantacion.activa) Color(0xFF38A169).copy(alpha = 0.15f)
-                            else Color(0xFF718096).copy(alpha = 0.15f),
-                            RoundedCornerShape(8.dp)
+            Column(Modifier.padding(start = 17.dp, end = 18.dp, top = 16.dp, bottom = 14.dp).fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                    Column(Modifier.weight(1f)) {
+                        Surface(
+                            color = (if (plantacion.activa) PlagOutColors.Leaf else PlagOutColors.Bark).copy(alpha = 0.12f),
+                            shape = CircleShape
+                        ) {
+                            Text(
+                                if (plantacion.activa) "ACTIVA" else "PAUSADA",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.3.sp,
+                                color = if (plantacion.activa) PlagOutColors.Leaf else PlagOutColors.Bark
+                            )
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            plantacion.cultivo_nombre,
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PlagOutColors.TextMain,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        .padding(6.dp)
+                        Text(
+                            plantacion.cultivo_nombre_cientifico,
+                            fontSize = 12.sp,
+                            fontStyle = FontStyle.Italic,
+                            color = PlagOutColors.TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (monitoreos.isNotEmpty()) {
+                        Spacer(Modifier.width(14.dp))
+                        AnilloProgreso(
+                            progreso = monitoreos.maxOf { it.progreso },
+                            color = estiloDeNivel(nivelMax).color,
+                            tamano = 58.dp,
+                            grosor = 6.dp
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(PlagOutColors.Cream, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 9.dp)
                 ) {
+                    Icon(Icons.Outlined.CalendarToday, contentDescription = null, tint = PlagOutColors.Bark, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
-                        if (plantacion.activa) "✅" else "⏸️",
-                        fontSize = 12.sp
+                        "Sembrada el ${plantacion.fecha_siembra.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale("es")))}",
+                        fontSize = 12.sp,
+                        color = PlagOutColors.TextSecondary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        if (diasDesdeSiembra >= 0) "$diasDesdeSiembra días" else "—",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PlagOutColors.Forest
                     )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
 
-            // Fecha siembra
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("📅", fontSize = 14.sp, modifier = Modifier.padding(end = 8.dp))
-                Text(
-                    "Siembra: ${(plantacion.fecha_siembra)}",
-                    fontSize = 12.sp,
-                    color = Color(0xFF718096)
-                )
-            }
-
-            if (monitoreos.isEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    "Sin plagas monitoreadas",
-                    fontSize = 12.sp,
-                    color = Color(0xFF718096),
-                    modifier = Modifier
-                        .background(Color(0xFFF8F7F4), RoundedCornerShape(8.dp))
-                        .padding(12.dp)
-                        .fillMaxWidth()
-                )
-            } else {
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    "Plagas monitoreadas (${monitoreos.size})",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2d5016),
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    monitoreos.forEach { monitoreo ->
-                        PlagaMiniCard(monitoreo)
+                if (monitoreos.isEmpty()) {
+                    EtiquetaInfo(Icons.Outlined.Grass, "Sin plagas bajo seguimiento", PlagOutColors.RiskUnknown)
+                } else {
+                    Text(
+                        "Monitoreos (${monitoreos.size})",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PlagOutColors.TextMain
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        monitoreos.forEach { monitoreo ->
+                            PlagaMiniFila(monitoreo)
+                        }
                     }
                 }
             }
@@ -224,62 +318,25 @@ fun PlantacionConPlagasCard(
 }
 
 @Composable
-fun PlagaMiniCard(monitoreo: MonitoreoResponse) {
-    val (colorAlerta, emojiAlerta) = when (monitoreo.nivel_alerta) {
-        0 -> Pair(Color(0xFF38A169), "✅")
-        1 -> Pair(Color(0xFFD69E2E), "⚠️")
-        else -> Pair(Color(0xFFE53E3E), "🔴")
-    }
-
-    Card(
+private fun PlagaMiniFila(monitoreo: MonitoreoResponse) {
+    val estilo = estiloDeNivel(monitoreo.nivel_alerta)
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = colorAlerta.copy(alpha = 0.08f)
-        ),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, colorAlerta.copy(alpha = 0.3f))
+            .background(PlagOutColors.Cream, RoundedCornerShape(14.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    monitoreo.plaga_nombre,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2d5016)
-                )
-                Text(
-                    "${monitoreo.gdd_acumulado.toInt()}/${monitoreo.gdd_objetivo.toInt()} GDD",
-                    fontSize = 11.sp,
-                    color = colorAlerta
-                )
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 12.dp)
-            ) {
-                LinearProgressIndicator(
-                    progress = {(monitoreo.progreso / 100f).coerceIn(0f, 1f)},
-                    modifier = Modifier
-                        .width(50.dp)
-                        .height(6.dp),
-                    color = colorAlerta,
-                    trackColor = Color(0xFFE2E8F0)
-                )
-                Text(
-                    " $emojiAlerta",
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
+        Column(Modifier.weight(1f)) {
+            Text(monitoreo.plaga_nombre, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+            Text(
+                "${monitoreo.gdd_acumulado.toInt()} / ${monitoreo.gdd_objetivo.toInt()} GDD",
+                fontSize = 11.sp,
+                color = PlagOutColors.TextSecondary,
+                fontWeight = FontWeight.Medium
+            )
         }
+        Spacer(Modifier.width(8.dp))
+        SelloDeNivel(estilo, pulsante = monitoreo.nivel_alerta >= 2)
     }
 }
