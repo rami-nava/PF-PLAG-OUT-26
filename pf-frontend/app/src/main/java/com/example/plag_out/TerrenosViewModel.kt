@@ -7,6 +7,7 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
 import com.example.plag_out.Service.RetrofitClient
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +19,7 @@ import kotlinx.coroutines.withContext
 
 data class TerrenoUIState(
     var isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val terrenos: List<TerrenoResponse> = emptyList()
 )
 
@@ -30,58 +32,61 @@ class TerrenosViewModel(context: Context, repository: TerrenoRepository) : ViewM
 
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun getTerrenos() {
+    fun refrescar() = getTerrenos(forzar = true)
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun getTerrenos(forzar: Boolean = false) {
         viewModelScope.launch {
-            val lastFetch = getFetched()
+            // Mostrar el caché al instante (si existe)
+            val cachedTerrenos = withContext(Dispatchers.IO) {
+                terrenoRepository.obtenerTerrenos()
+            }
+            if (cachedTerrenos.isNotEmpty()) {
+                _state.value = _state.value.copy(terrenos = cachedTerrenos, isLoading = false)
+            }
 
-            // Verificar si nunca se consulto
-            if (!lastFetch) {
+            // Los terrenos solo cambian desde la app (y las altas ya se guardan en Room),
+            // así que solo se consulta el backend la primera vez o si el usuario fuerza el refresco
+            if (!forzar && CacheTracker.yaConsultado(context, CacheTracker.TERRENOS)) {
+                _state.value = _state.value.copy(isLoading = false)
+                return@launch
+            }
+
+            if (forzar) {
+                _state.value = _state.value.copy(isRefreshing = true)
+            } else if (cachedTerrenos.isEmpty()) {
                 _state.value = _state.value.copy(isLoading = true)
+            }
 
-                try {
-                    val response = withContext(Dispatchers.IO) {
-                        RetrofitClient.gddService.getTerrenos()
-                    }
-
-                    if (response.isSuccessful) {
-                        val terrenosResponse = response.body() ?: emptyList()
-
-                        _state.value = _state.value.copy(
-                            terrenos = terrenosResponse,
-                            isLoading = false
-                        )
-
-                        terrenoRepository.guardarTerrenos(terrenosResponse)
-                        saveFetched()
-                    }
-                } catch (e: Exception) {
-                    _state.value = _state.value.copy(isLoading = false)
-                    Log.e("TERRENOS", "Error: ${e.message}")
-                }
-            } else {
-                // Cargar del caché
-                val cachedTerrenos = withContext(Dispatchers.IO) {
-                    terrenoRepository.obtenerTerrenos()
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    RetrofitClient.gddService.getTerrenos()
                 }
 
-                _state.value = _state.value.copy(
-                    terrenos = cachedTerrenos,
-                    isLoading = false
-                )
+                if (response.isSuccessful) {
+                    val terrenosResponse = response.body() ?: emptyList()
+
+                    _state.value = _state.value.copy(
+                        terrenos = terrenosResponse,
+                        isLoading = false,
+                        isRefreshing = false
+                    )
+
+                    withContext(Dispatchers.IO) {
+                        terrenoRepository.reemplazarTerrenos(terrenosResponse)
+                    }
+                    CacheTracker.marcarConsultado(context, CacheTracker.TERRENOS)
+                } else {
+                    // TODO AGREGAR WARNING DE VALORES DESACTUALIZADOS
+                    _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                    Log.e("TERRENOS", "Error: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                // Sin conexión: se queda con el caché ya mostrado
+                _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                Log.e("TERRENOS", "Error: ${e.message}")
             }
         }
-    }
-
-    private fun getFetched(): Boolean {
-        val prefs = context.getSharedPreferences("terrenos_prefs", Context.MODE_PRIVATE)
-        return prefs.getBoolean("fetched", false)
-    }
-
-    private fun saveFetched() {
-        val prefs = context.getSharedPreferences("terrenos_prefs", Context.MODE_PRIVATE)
-        prefs.edit()
-            .putBoolean("fetched", true)
-            .apply()
     }
 }
 

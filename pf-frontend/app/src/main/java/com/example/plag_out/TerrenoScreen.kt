@@ -18,8 +18,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Terrain
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -70,6 +73,7 @@ private fun bucketDeAlerta(nivelMax: Int): Int = when {
     else -> 2
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun TerrenoScreen(
@@ -131,11 +135,18 @@ fun TerrenoScreen(
             }
         }
     ) { padding ->
-        Column(
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing || plantacionesState.isRefreshing || monitoreosState.isRefreshing,
+            onRefresh = {
+                terrenoViewModel.refrescar()
+                plantacionViewModel.refrescar()
+                monitoreoViewModel.refrescar()
+            },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             PanelDeCampoTerrenos(terrenos = state.terrenos, monitoreos = monitoreosState.monitoreos)
 
             val opciones = remember(state.terrenos, monitoreosState.monitoreos) {
@@ -163,12 +174,23 @@ fun TerrenoScreen(
                 ) { target ->
                     when (target) {
                         "cargando" -> SkeletonCargando()
-                        "vacio" -> EstadoVacioFlotante(
-                            icono = Icons.Outlined.Terrain,
-                            titulo = "No hay terrenos cargados",
-                            subtitulo = "Comenzá registrando tu primer lote de tierra para monitorear plagas y cultivos."
-                        )
-                        "sin-resultados" -> EstadoSinResultados(subtitulo = "No hay terrenos en este estado.")
+                        // Box con scroll para que el gesto de pull-to-refresh también funcione sin lista
+                        "vacio" -> Box(
+                            Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            EstadoVacioFlotante(
+                                icono = Icons.Outlined.Terrain,
+                                titulo = "No hay terrenos cargados",
+                                subtitulo = "Comenzá registrando tu primer lote de tierra para monitorear plagas y cultivos."
+                            )
+                        }
+                        "sin-resultados" -> Box(
+                            Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            EstadoSinResultados(subtitulo = "No hay terrenos en este estado.")
+                        }
                         else -> LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
@@ -192,6 +214,7 @@ fun TerrenoScreen(
                     }
                 }
             }
+        }
         }
     }
 }

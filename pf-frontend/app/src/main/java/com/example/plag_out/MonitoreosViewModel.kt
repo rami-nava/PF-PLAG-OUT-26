@@ -7,6 +7,7 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.Service.RetrofitClient
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +19,7 @@ import kotlinx.coroutines.withContext
 
 data class MonitoreoUIState(
     var isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val monitoreos: List<MonitoreoResponse> = emptyList()
 )
 
@@ -30,73 +32,63 @@ class MonitoreosViewModel(context: Context, repository: MonitoreoRepository) : V
 
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun getMonitoreos() {
+    fun refrescar() = getMonitoreos(forzar = true)
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun getMonitoreos(forzar: Boolean = false) {
         viewModelScope.launch {
-            val lastFetch = getLastFetchTime()
-            val now = System.currentTimeMillis()
+            // Mostrar el caché al instante (si existe)
+            val cachedMonitoreos = withContext(Dispatchers.IO) {
+                monitoreosRepository.obtenerMonitoreos()
+            }
+            if (cachedMonitoreos.isNotEmpty()) {
+                _state.value = _state.value.copy(monitoreos = cachedMonitoreos, isLoading = false)
+            }
 
-            // Verificar si pasaron > 24 horas o si nunca se consulto
-            if (now - lastFetch > 24 * 60 * 60 * 1000 || lastFetch == 0L) {
+            // El backend recalcula los GDD una vez por día (00:00 hora argentina):
+            // si ya se consultó hoy, el caché sigue vigente salvo que el usuario fuerce el refresco
+            if (!forzar && CacheTracker.consultadoHoy(context, CacheTracker.MONITOREOS)) {
+                _state.value = _state.value.copy(isLoading = false)
+                return@launch
+            }
+
+            if (forzar) {
+                _state.value = _state.value.copy(isRefreshing = true)
+            } else if (cachedMonitoreos.isEmpty()) {
                 _state.value = _state.value.copy(isLoading = true)
+            }
 
-                try {
-                    val response = withContext(Dispatchers.IO) {
-                        RetrofitClient.gddService.getMonitoreos()
-                    }
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    RetrofitClient.gddService.getMonitoreos()
+                }
 
-                    if (response.isSuccessful) {
-                        val monitoresResponse = response.body() ?: emptyList()
-
-                        _state.value = _state.value.copy(
-                            monitoreos = monitoresResponse,
-                            isLoading = false
-                        )
-
-                        monitoreosRepository.guardarMonitoreos(monitoresResponse)
-                        saveLastFetchTime(now)
-                    }
-                } catch (e: Exception) {
-                    _state.value = _state.value.copy(isLoading = false)
-                    Log.e("MONITOREOS", "Error: ${e.message}")
-
-                    // Cargar del caché
-                    //TODO AGREGAR WARNING DE VALORES DESACTUALIZADOS Y FALTA DE CONEXION
-                    val cachedMonitoreos = withContext(Dispatchers.IO) {
-                        monitoreosRepository.obtenerMonitoreos()
-                    }
+                if (response.isSuccessful) {
+                    val monitoresResponse = response.body() ?: emptyList()
 
                     _state.value = _state.value.copy(
-                        monitoreos = cachedMonitoreos,
-                        isLoading = false
+                        monitoreos = monitoresResponse,
+                        isLoading = false,
+                        isRefreshing = false
                     )
-                }
-            } else {
-                // Cargar del caché
-                val cachedMonitoreos = withContext(Dispatchers.IO) {
-                    monitoreosRepository.obtenerMonitoreos()
-                }
 
-                _state.value = _state.value.copy(
-                    monitoreos = cachedMonitoreos,
-                    isLoading = false
-                )
+                    withContext(Dispatchers.IO) {
+                        monitoreosRepository.reemplazarMonitoreos(monitoresResponse)
+                    }
+                    CacheTracker.marcarConsultado(context, CacheTracker.MONITOREOS)
+                } else {
+                    // TODO AGREGAR WARNING DE VALORES DESACTUALIZADOS
+                    _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                    Log.e("MONITOREOS", "Error: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                // Sin conexión: se queda con el caché ya mostrado
+                //TODO AGREGAR WARNING DE VALORES DESACTUALIZADOS Y FALTA DE CONEXION
+                _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                Log.e("MONITOREOS", "Error: ${e.message}")
             }
         }
     }
-
-
-    private fun getLastFetchTime(): Long {
-        val prefs = context.getSharedPreferences("gdd_prefs", Context.MODE_PRIVATE)
-        return prefs.getLong("last_fetch_time", 0L)
-    }
-
-    private fun saveLastFetchTime(time: Long) {
-        val prefs = context.getSharedPreferences("gdd_prefs", Context.MODE_PRIVATE)
-        prefs.edit()
-            .putLong("last_fetch_time", time)
-            .apply()
-    }
-
 }
 
 class MonitoreosViewModelFactory(
