@@ -7,6 +7,7 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.Service.RetrofitClient
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +19,7 @@ import kotlinx.coroutines.withContext
 
 data class PlantacionUIState(
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val plantaciones: List<PlantacionesResponse> = emptyList()
 )
 
@@ -29,59 +31,61 @@ class PlantacionesViewModel(context: Context, repository: PlantacionRepository) 
     val context = context
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun getPlantaciones() {
+    fun refrescar() = getPlantaciones(forzar = true)
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun getPlantaciones(forzar: Boolean = false) {
         viewModelScope.launch {
-            val lastFetch = getFetched()
+            // Mostrar el caché al instante (si existe)
+            val cachedPlantaciones = withContext(Dispatchers.IO) {
+                plantacionRepository.obtenerPlantaciones()
+            }
+            if (cachedPlantaciones.isNotEmpty()) {
+                _state.value = _state.value.copy(plantaciones = cachedPlantaciones, isLoading = false)
+            }
 
-            // Verificar si nunca se consulto
-            if (!lastFetch) {
+            // Las plantaciones solo cambian desde la app (y las altas ya se guardan en Room),
+            // así que solo se consulta el backend la primera vez o si el usuario fuerza el refresco
+            if (!forzar && CacheTracker.yaConsultado(context, CacheTracker.PLANTACIONES)) {
+                _state.value = _state.value.copy(isLoading = false)
+                return@launch
+            }
+
+            if (forzar) {
+                _state.value = _state.value.copy(isRefreshing = true)
+            } else if (cachedPlantaciones.isEmpty()) {
                 _state.value = _state.value.copy(isLoading = true)
+            }
 
-                try {
-                    val response = withContext(Dispatchers.IO) {
-                        RetrofitClient.gddService.getPlantaciones()
-                    }
-
-                    if (response.isSuccessful) {
-                        val plantacionesResponse = response.body() ?: emptyList()
-
-                        _state.value = _state.value.copy(
-                            plantaciones = plantacionesResponse,
-                            isLoading = false
-                        )
-
-                        plantacionRepository.guardarPlantaciones(plantacionesResponse)
-                        saveFetched()
-                    }
-                } catch (e: Exception) {
-                    _state.value = _state.value.copy(isLoading = false)
-                    Log.e("PLANTACIONES", "Error: ${e.message}")
-                }
-            } else {
-                // Cargar del caché
-                val cachedPlantaciones = withContext(Dispatchers.IO) {
-                    plantacionRepository.obtenerPlantaciones()
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    RetrofitClient.gddService.getPlantaciones()
                 }
 
-                _state.value = _state.value.copy(
-                    plantaciones = cachedPlantaciones,
-                    isLoading = false
-                )
+                if (response.isSuccessful) {
+                    val plantacionesResponse = response.body() ?: emptyList()
+
+                    _state.value = _state.value.copy(
+                        plantaciones = plantacionesResponse,
+                        isLoading = false,
+                        isRefreshing = false
+                    )
+
+                    withContext(Dispatchers.IO) {
+                        plantacionRepository.reemplazarPlantaciones(plantacionesResponse)
+                    }
+                    CacheTracker.marcarConsultado(context, CacheTracker.PLANTACIONES)
+                } else {
+                    // TODO AGREGAR WARNING DE VALORES DESACTUALIZADOS
+                    _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                    Log.e("PLANTACIONES", "Error: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                // Sin conexión: se queda con el caché ya mostrado
+                _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                Log.e("PLANTACIONES", "Error: ${e.message}")
             }
         }
-
-    }
-
-    private fun getFetched(): Boolean {
-        val prefs = context.getSharedPreferences("plantaciones_prefs", Context.MODE_PRIVATE)
-        return prefs.getBoolean("fetched", false)
-    }
-
-    private fun saveFetched() {
-        val prefs = context.getSharedPreferences("plantaciones_prefs", Context.MODE_PRIVATE)
-        prefs.edit()
-            .putBoolean("fetched", true)
-            .apply()
     }
 }
 

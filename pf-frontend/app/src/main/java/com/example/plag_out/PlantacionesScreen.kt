@@ -12,14 +12,17 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -53,6 +56,7 @@ private const val FILTRO_TODAS = -1
 private const val FILTRO_ACTIVAS = 1
 private const val FILTRO_PAUSADAS = 0
 
+@OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun PlantacionesPorTerreno(
@@ -105,11 +109,17 @@ fun PlantacionesPorTerreno(
             }
         }
     ) { padding ->
-        Column(
+        PullToRefreshBox(
+            isRefreshing = plantacionesState.isRefreshing || monitoreosState.isRefreshing,
+            onRefresh = {
+                plantacionesViewModel.refrescar()
+                monitoreosViewModel.refrescar()
+            },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -163,12 +173,23 @@ fun PlantacionesPorTerreno(
                     label = "plantacionesContent"
                 ) { target ->
                     when (target) {
-                        "vacio" -> EstadoVacioFlotante(
-                            icono = Icons.Outlined.Grass,
-                            titulo = "No hay plantaciones",
-                            subtitulo = "Registrá un cultivo en este terreno para empezar a monitorear plagas."
-                        )
-                        "sin-resultados" -> EstadoSinResultados(subtitulo = "No hay plantaciones en este estado.")
+                        // Box con scroll para que el gesto de pull-to-refresh también funcione sin lista
+                        "vacio" -> Box(
+                            Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            EstadoVacioFlotante(
+                                icono = Icons.Outlined.Grass,
+                                titulo = "No hay plantaciones",
+                                subtitulo = "Registrá un cultivo en este terreno para empezar a monitorear plagas."
+                            )
+                        }
+                        "sin-resultados" -> Box(
+                            Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            EstadoSinResultados(subtitulo = "No hay plantaciones en este estado.")
+                        }
                         else -> LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
@@ -187,6 +208,7 @@ fun PlantacionesPorTerreno(
                     }
                 }
             }
+        }
         }
     }
 }

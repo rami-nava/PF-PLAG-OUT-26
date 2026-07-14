@@ -18,8 +18,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -31,6 +33,7 @@ import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -70,6 +73,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.ceil
 
+@OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MonitoreosScreen(
@@ -125,11 +129,14 @@ fun MonitoreosScreen(
             }
         }
     ) { padding ->
-        Column(
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing,
+            onRefresh = { monitoreosViewModel.refrescar() },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             PanelDeCampo(monitoreos = state.monitoreos)
 
             val opciones = remember(state.monitoreos) {
@@ -155,12 +162,23 @@ fun MonitoreosScreen(
                 ) { target ->
                     when (target) {
                         "cargando" -> SkeletonCargando()
-                        "vacio" -> EstadoVacioFlotante(
-                            icono = Icons.Outlined.BugReport,
-                            titulo = "Sin monitoreos activos",
-                            subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en tus plantaciones."
-                        )
-                        "sin-resultados" -> EstadoSinResultados(subtitulo = "No hay monitoreos en este estado.")
+                        // Box con scroll para que el gesto de pull-to-refresh también funcione sin lista
+                        "vacio" -> Box(
+                            Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            EstadoVacioFlotante(
+                                icono = Icons.Outlined.BugReport,
+                                titulo = "Sin monitoreos activos",
+                                subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en tus plantaciones."
+                            )
+                        }
+                        "sin-resultados" -> Box(
+                            Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            EstadoSinResultados(subtitulo = "No hay monitoreos en este estado.")
+                        }
                         else -> LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
@@ -177,6 +195,7 @@ fun MonitoreosScreen(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -411,6 +430,7 @@ fun MonitoreoCard(
 
 // ── Monitoreos de una plantación ────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MonitoreosPorPlantacion(
@@ -460,21 +480,33 @@ fun MonitoreosPorPlantacion(
             }
         }
 
-        if (monitoreosFiltrados.isEmpty()) {
-            EstadoVacioFlotante(
-                icono = Icons.Outlined.BugReport,
-                titulo = "Sin monitoreos activos",
-                subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en esta plantación."
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                itemsIndexed(monitoreosFiltrados, key = { _, m -> m.monitoreo_id }) { index, monitoreo ->
-                    StaggeredAppear(index = index) {
-                        MonitoreoCard(monitoreo) { }
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing,
+            onRefresh = { viewModel.refrescar() },
+            modifier = Modifier.fillMaxSize()
+        ) {
+            if (monitoreosFiltrados.isEmpty()) {
+                // Box con scroll para que el gesto de pull-to-refresh también funcione sin lista
+                Box(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EstadoVacioFlotante(
+                        icono = Icons.Outlined.BugReport,
+                        titulo = "Sin monitoreos activos",
+                        subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en esta plantación."
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    itemsIndexed(monitoreosFiltrados, key = { _, m -> m.monitoreo_id }) { index, monitoreo ->
+                        StaggeredAppear(index = index) {
+                            MonitoreoCard(monitoreo) { }
+                        }
                     }
                 }
             }
