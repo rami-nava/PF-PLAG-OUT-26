@@ -76,8 +76,6 @@ fun AppNavigation() {
     RetrofitClient.setSessionManager(sessionManager)
 
     val authViewModel: AuthViewModel = viewModel(
-        factory = AuthViewModel.AuthViewModelFactory(SupabaseProvider.client, sessionManager)
-    )
         factory = AuthViewModel.AuthViewModelFactory(
             SupabaseProvider.client, sessionManager, context,
             monitoreoRepository, terrenoRepository, plantacionRepository

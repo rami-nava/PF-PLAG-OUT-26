@@ -34,6 +34,11 @@ class MonitoreosViewModel(context: Context, repository: MonitoreoRepository) : V
     @RequiresApi(Build.VERSION_CODES.O)
     fun refrescar() = getMonitoreos(forzar = true)
 
+    /** Cierre de sesión: descarta en memoria los datos del usuario anterior. */
+    fun limpiar() {
+        _state.value = MonitoreoUIState()
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     fun getMonitoreos(forzar: Boolean = false) {
         viewModelScope.launch {
