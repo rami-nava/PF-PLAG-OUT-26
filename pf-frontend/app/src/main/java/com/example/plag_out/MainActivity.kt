@@ -78,6 +78,12 @@ fun AppNavigation() {
     val authViewModel: AuthViewModel = viewModel(
         factory = AuthViewModel.AuthViewModelFactory(SupabaseProvider.client, sessionManager)
     )
+        factory = AuthViewModel.AuthViewModelFactory(
+            SupabaseProvider.client, sessionManager, context,
+            monitoreoRepository, terrenoRepository, plantacionRepository
+        )
+    )
+    val userViewModel: UserViewModel = viewModel()
 
     // Supabase restaura la sesión guardada al iniciar (y renueva el token si hace
     // falta). Mientras tanto el estado es Initializing: mostramos un splash y recién
@@ -93,14 +99,34 @@ fun AppNavigation() {
 
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val fullBleedScreens = listOf("logIn", "crearCuenta")
+    val fullBleedScreens = listOf("logIn", "crearCuenta", "perfil")
     val isFullBleedRoute = fullBleedScreens.contains(navBackStackEntry?.destination?.route)
+
+    // Cerrar sesión: AuthViewModel borra el almacenamiento local (token, Room,
+    // marcas de caché); acá se descarta además el estado en memoria de los
+    // ViewModels y se vuelve al login vaciando el back stack
+    val cerrarSesion: () -> Unit = {
+        authViewModel.cerrarSesion {
+            userViewModel.limpiar()
+            monitoreosViewModel.limpiar()
+            terrenosViewModel.limpiar()
+            plantacionesViewModel.limpiar()
+            navController.navigate("logIn") {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             if (shouldShowTopBar(navController)) {
-                TopBar()
+                TopBar(
+                    onPerfilClick = {
+                        navController.navigate("perfil") { launchSingleTop = true }
+                    },
+                    onCerrarSesion = cerrarSesion
+                )
             }
         },
         bottomBar = {
@@ -222,7 +248,7 @@ private fun PantallaCargandoSesion() {
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo","logIn","crearCuenta")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo","logIn","crearCuenta","perfil")
     return !screensWithoutNavBar.contains(currentScreen)
 }
 
@@ -230,6 +256,6 @@ fun shouldShowBottomBar(navController: NavController): Boolean {
 fun shouldShowTopBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("logIn","crearCuenta")
+    val screensWithoutNavBar = listOf("logIn","crearCuenta","perfil")
     return !screensWithoutNavBar.contains(currentScreen)
 }

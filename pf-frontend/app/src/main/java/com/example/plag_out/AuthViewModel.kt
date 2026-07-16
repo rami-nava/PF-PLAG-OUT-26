@@ -1,19 +1,26 @@
 package com.example.plag_out
 
+import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.plag_out.AlmacenamientoLocal.CacheTracker
+import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
+import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
+import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
 import com.example.plag_out.Service.RetrofitClient
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.exceptions.RestException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -40,7 +47,11 @@ data class CrearCuentaState(
 
 class AuthViewModel(
     private val supabaseClient: SupabaseClient,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val context: Context,
+    private val monitoreoRepository: MonitoreoRepository,
+    private val terrenoRepository: TerrenoRepository,
+    private val plantacionRepository: PlantacionRepository
 ) : ViewModel() {
 
     private val _loginState = MutableStateFlow(LoginState())
@@ -150,6 +161,34 @@ class AuthViewModel(
         }
     }
 
+    // ---------- CERRAR SESIÓN ----------
+
+    /**
+     * Cierra la sesión de Supabase y borra todo el almacenamiento local del
+     * dispositivo (token JWT, caché de Room y marcas de consulta), para que
+     * el próximo usuario que inicie sesión no vea datos ajenos.
+     */
+    fun cerrarSesion(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                supabaseClient.auth.signOut()
+            } catch (e: Exception) {
+                // Sin conexión el signOut remoto puede fallar: lo local se limpia igual
+                Log.e("AuthViewModel", "Error al cerrar sesión en Supabase", e)
+            }
+            sessionManager.clearAccessToken()
+            withContext(Dispatchers.IO) {
+                monitoreoRepository.borrarTodos()
+                plantacionRepository.borrarTodos()
+                terrenoRepository.borrarTodos()
+            }
+            CacheTracker.limpiarTodo(context)
+            _loginState.value = LoginState()
+            _crearCuentaState.value = CrearCuentaState()
+            onComplete()
+        }
+    }
+
     // ---------- CREAR CUENTA ----------
 
     fun actualizarNombre(valor: String) {
@@ -253,12 +292,19 @@ class AuthViewModel(
 
     class AuthViewModelFactory(
         private val client: SupabaseClient,
-        private val sessionManager: SessionManager
+        private val sessionManager: SessionManager,
+        private val context: Context,
+        private val monitoreoRepository: MonitoreoRepository,
+        private val terrenoRepository: TerrenoRepository,
+        private val plantacionRepository: PlantacionRepository
     ) : ViewModelProvider.Factory {
 
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return AuthViewModel(client, sessionManager) as T
+            return AuthViewModel(
+                client, sessionManager, context,
+                monitoreoRepository, terrenoRepository, plantacionRepository
+            ) as T
         }
     }
 }

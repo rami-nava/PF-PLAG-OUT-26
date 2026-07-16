@@ -34,6 +34,11 @@ class TerrenosViewModel(context: Context, repository: TerrenoRepository) : ViewM
     @RequiresApi(Build.VERSION_CODES.O)
     fun refrescar() = getTerrenos(forzar = true)
 
+    /** Cierre de sesión: descarta en memoria los datos del usuario anterior. */
+    fun limpiar() {
+        _state.value = TerrenoUIState()
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     fun getTerrenos(forzar: Boolean = false) {
         viewModelScope.launch {

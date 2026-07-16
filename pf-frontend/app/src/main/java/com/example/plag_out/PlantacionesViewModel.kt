@@ -33,6 +33,11 @@ class PlantacionesViewModel(context: Context, repository: PlantacionRepository) 
     @RequiresApi(Build.VERSION_CODES.O)
     fun refrescar() = getPlantaciones(forzar = true)
 
+    /** Cierre de sesión: descarta en memoria los datos del usuario anterior. */
+    fun limpiar() {
+        _state.value = PlantacionUIState()
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     fun getPlantaciones(forzar: Boolean = false) {
         viewModelScope.launch {
