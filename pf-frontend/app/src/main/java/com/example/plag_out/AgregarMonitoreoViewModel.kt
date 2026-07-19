@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
+import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +28,7 @@ data class AgregarMonitoreoUIState(
     val plantaciones: List<PlantacionesResponse> = emptyList(),
     val plagas: List<PlagaResponse> = emptyList(),
     val plagaSeleccionada: PlagaResponse? = null,
-    val umbralDeRiesgo: Int = 0,
+    val umbralDeRiesgo: Int = 80, //Inicializado en un valor tipico
     val isLoading: Boolean = false,
     val isGuardando: Boolean = false,
     val error: String? = null
@@ -38,7 +39,8 @@ class AgregarMonitoreoViewModel(
     val context: Context,
     val monitoreoRepository: MonitoreoRepository,
     val plantacionRepository: PlantacionRepository,
-    val terrenoRepository: TerrenoRepository
+    val terrenoRepository: TerrenoRepository,
+    private val gddService: GDDService = RetrofitClient.gddService
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AgregarMonitoreoUIState())
@@ -49,7 +51,7 @@ class AgregarMonitoreoViewModel(
         viewModelScope.launch {
             try {
                 val response = withContext(Dispatchers.IO) {
-                    RetrofitClient.gddService.getPlagas()
+                    gddService.getPlagas()
                 }
                 if (response.isSuccessful) {
                     _state.value = _state.value.copy(
@@ -141,7 +143,7 @@ class AgregarMonitoreoViewModel(
                 )
 
                 val response = withContext(Dispatchers.IO) {
-                    RetrofitClient.gddService.createMonitoreo(request)
+                    gddService.createMonitoreo(request)
                 }
 
                 if (response.isSuccessful) {
@@ -179,24 +181,21 @@ class AgregarMonitoreoViewModel(
             }
         }
     }
-
-    fun plagasParaTests(plagaResponse: PlagaResponse){
-
-        _state.value = _state.value.copy(
-            plagas = _state.value.plagas + plagaResponse
-        )
-    }
 }
 
 class AgregarMonitoreoViewModelFactory(
     private val context: Context,
     private val monitoreoRepository: MonitoreoRepository,
     private val plantacionRepository: PlantacionRepository,
-    private val terrenoRepository: TerrenoRepository
+    private val terrenoRepository: TerrenoRepository,
+    private val gddService: GDDService = RetrofitClient.gddService
 ) : ViewModelProvider.Factory {
 
+    @RequiresApi(Build.VERSION_CODES.O)
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return AgregarMonitoreoViewModel(context, monitoreoRepository, plantacionRepository, terrenoRepository) as T
+        return AgregarMonitoreoViewModel(
+            context, monitoreoRepository, plantacionRepository, terrenoRepository, gddService
+        ) as T
     }
 }

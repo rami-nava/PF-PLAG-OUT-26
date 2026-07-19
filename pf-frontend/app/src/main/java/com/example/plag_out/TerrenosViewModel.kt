@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
+import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +24,11 @@ data class TerrenoUIState(
     val terrenos: List<TerrenoResponse> = emptyList()
 )
 
-class TerrenosViewModel(context: Context, repository: TerrenoRepository) : ViewModel() {
+class TerrenosViewModel(
+    context: Context,
+    repository: TerrenoRepository,
+    private val gddService: GDDService = RetrofitClient.gddService
+) : ViewModel() {
 
     private val _state = MutableStateFlow(TerrenoUIState())
     val state: StateFlow<TerrenoUIState> = _state.asStateFlow()
@@ -65,7 +70,7 @@ class TerrenosViewModel(context: Context, repository: TerrenoRepository) : ViewM
 
             try {
                 val response = withContext(Dispatchers.IO) {
-                    RetrofitClient.gddService.getTerrenos()
+                    gddService.getTerrenos()
                 }
 
                 if (response.isSuccessful) {
@@ -97,11 +102,12 @@ class TerrenosViewModel(context: Context, repository: TerrenoRepository) : ViewM
 
 class TerrenosViewModelFactory(
     private val context: Context,
-    private val repository: TerrenoRepository
+    private val repository: TerrenoRepository,
+    private val gddService: GDDService = RetrofitClient.gddService
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return TerrenosViewModel(context,repository) as T
+        return TerrenosViewModel(context, repository, gddService) as T
     }
 }

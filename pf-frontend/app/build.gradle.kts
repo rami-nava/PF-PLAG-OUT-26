@@ -49,6 +49,18 @@ android {
         compose = true
         buildConfig = true
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+
+    // Fakes compartidos entre los tests JVM (test) y los instrumentados (androidTest)
+    sourceSets {
+        getByName("test") { java.srcDir("src/testShared/java") }
+        getByName("androidTest") { java.srcDir("src/testShared/java") }
+    }
 }
 
 
@@ -96,6 +108,9 @@ dependencies {
     implementation(libs.ktor.serialization.kotlinx.json)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

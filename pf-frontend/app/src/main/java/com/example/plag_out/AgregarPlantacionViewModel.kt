@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
+import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +34,8 @@ data class AgregarPlantacionUIState(
 class AgregarPlantacionViewModel(
     val context: Context,
     val plantacionRepository: PlantacionRepository,
-    val terrenoRepository: TerrenoRepository
+    val terrenoRepository: TerrenoRepository,
+    private val gddService: GDDService = RetrofitClient.gddService
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AgregarPlantacionUIState())
@@ -67,7 +69,7 @@ class AgregarPlantacionViewModel(
         viewModelScope.launch {
             try {
                 val response = withContext(Dispatchers.IO) {
-                    RetrofitClient.gddService.getCultivos()
+                    gddService.getCultivos()
                 }
                 if (response.isSuccessful) {
                     _state.value = _state.value.copy(
@@ -116,7 +118,7 @@ class AgregarPlantacionViewModel(
                 )
 
                 val response = withContext(Dispatchers.IO) {
-                    RetrofitClient.gddService.createPlantacion(request)
+                    gddService.createPlantacion(request)
                 }
 
                 if (response.isSuccessful) {
@@ -173,11 +175,13 @@ class AgregarPlantacionViewModel(
 class AgregarPlantacionViewModelFactory(
     private val context: Context,
     private val plantacionRepository: PlantacionRepository,
-    private val terrenoRepository: TerrenoRepository
+    private val terrenoRepository: TerrenoRepository,
+    private val gddService: GDDService = RetrofitClient.gddService
 ) : ViewModelProvider.Factory {
 
+    @RequiresApi(Build.VERSION_CODES.O)
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return AgregarPlantacionViewModel(context, plantacionRepository, terrenoRepository) as T
+        return AgregarPlantacionViewModel(context, plantacionRepository, terrenoRepository, gddService) as T
     }
 }

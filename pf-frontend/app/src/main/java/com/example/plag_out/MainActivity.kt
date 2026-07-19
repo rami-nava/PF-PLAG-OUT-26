@@ -71,13 +71,10 @@ fun AppNavigation() {
     val terrenosViewModel: TerrenosViewModel = viewModel(factory = TerrenosViewModelFactory(context, terrenoRepository))
     val plantacionesViewModel: PlantacionesViewModel = viewModel(factory = PlantacionesViewModelFactory(context, plantacionRepository))
     val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
-    
-    val sessionManager = SessionManager(context)
-    RetrofitClient.setSessionManager(sessionManager)
 
     val authViewModel: AuthViewModel = viewModel(
         factory = AuthViewModel.AuthViewModelFactory(
-            SupabaseProvider.client, sessionManager, context,
+            SupabaseProvider.client, context,
             monitoreoRepository, terrenoRepository, plantacionRepository
         )
     )
@@ -134,6 +131,8 @@ fun AppNavigation() {
         }
     ) { paddingValues ->
         NavHost(
+            //Hay pantallas que al no tener topbar y bottom bar tienen padding 0
+            //para ocupar toda la pantalla y ocupar el espacio del scaffold
             navController = navController,
             startDestination = startDestination,
             modifier = Modifier.padding(if (isFullBleedRoute) PaddingValues(0.dp) else paddingValues)

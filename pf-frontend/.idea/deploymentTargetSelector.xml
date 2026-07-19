@@ -25,6 +25,7 @@
       </SelectionState>
       <SelectionState runConfigName="CreacionMonitoreoTest">
         <option name="selectionMode" value="DROPDOWN" />
+        <DialogSelection />
       </SelectionState>
       <SelectionState runConfigName="datos_de_plantacion_validos()">
         <option name="selectionMode" value="DROPDOWN" />

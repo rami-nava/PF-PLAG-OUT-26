@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
+import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +24,11 @@ data class MonitoreoUIState(
     val monitoreos: List<MonitoreoResponse> = emptyList()
 )
 
-class MonitoreosViewModel(context: Context, repository: MonitoreoRepository) : ViewModel() {//(private val repository: MonitoreoRepository) : ViewModel(){
+class MonitoreosViewModel(
+    context: Context,
+    repository: MonitoreoRepository,
+    private val gddService: GDDService = RetrofitClient.gddService
+) : ViewModel() {
 
     private val _state = MutableStateFlow(MonitoreoUIState())
     val state: StateFlow<MonitoreoUIState> = _state.asStateFlow()
@@ -65,7 +70,7 @@ class MonitoreosViewModel(context: Context, repository: MonitoreoRepository) : V
 
             try {
                 val response = withContext(Dispatchers.IO) {
-                    RetrofitClient.gddService.getMonitoreos()
+                    gddService.getMonitoreos()
                 }
 
                 if (response.isSuccessful) {
@@ -98,11 +103,12 @@ class MonitoreosViewModel(context: Context, repository: MonitoreoRepository) : V
 
 class MonitoreosViewModelFactory(
     private val context: Context,
-    private val repository: MonitoreoRepository
+    private val repository: MonitoreoRepository,
+    private val gddService: GDDService = RetrofitClient.gddService
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return MonitoreosViewModel(context, repository) as T
+        return MonitoreosViewModel(context, repository, gddService) as T
     }
 }

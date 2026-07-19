@@ -11,6 +11,7 @@ import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
+import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
@@ -47,11 +48,11 @@ data class CrearCuentaState(
 
 class AuthViewModel(
     private val supabaseClient: SupabaseClient,
-    private val sessionManager: SessionManager,
     private val context: Context,
     private val monitoreoRepository: MonitoreoRepository,
     private val terrenoRepository: TerrenoRepository,
-    private val plantacionRepository: PlantacionRepository
+    private val plantacionRepository: PlantacionRepository,
+    private val gddService: GDDService = RetrofitClient.gddService
 ) : ViewModel() {
 
     private val _loginState = MutableStateFlow(LoginState())
@@ -84,13 +85,8 @@ class AuthViewModel(
                     this.password = password
                 }
 
-                // Guardar el token JWT en el SessionManager
                 val token = supabaseClient.auth.currentAccessTokenOrNull()
-                Log.d("AuthViewModel", "Login exitoso. Token: ${token?.take(10)}...")
-
-                token?.let {
-                    sessionManager.saveAccessToken(it)
-                }
+                if(token != null) Log.d("AuthViewModel", "Login exitoso.")
 
                 // Sincronizar con el backend de Plag-Out después de un login exitoso
                 val user = supabaseClient.auth.currentUserOrNull()
@@ -101,7 +97,7 @@ class AuthViewModel(
 
                 if (user != null) {
                     try {
-                        val response = RetrofitClient.gddService.createUser(
+                        val response = gddService.createUser(
                             CreateUserRequest(
                                 email = user.email ?: "",
                                 nombre = nombre,
@@ -176,7 +172,6 @@ class AuthViewModel(
                 // Sin conexión el signOut remoto puede fallar: lo local se limpia igual
                 Log.e("AuthViewModel", "Error al cerrar sesión en Supabase", e)
             }
-            sessionManager.clearAccessToken()
             withContext(Dispatchers.IO) {
                 monitoreoRepository.borrarTodos()
                 plantacionRepository.borrarTodos()
@@ -220,7 +215,7 @@ class AuthViewModel(
     fun cargarCargos() {
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.gddService.getCargos()
+                val response = gddService.getCargos()
                 if (response.isSuccessful()) {
                     val cargos = response.body() ?: emptyList()
                     _crearCuentaState.value =
@@ -292,18 +287,18 @@ class AuthViewModel(
 
     class AuthViewModelFactory(
         private val client: SupabaseClient,
-        private val sessionManager: SessionManager,
         private val context: Context,
         private val monitoreoRepository: MonitoreoRepository,
         private val terrenoRepository: TerrenoRepository,
-        private val plantacionRepository: PlantacionRepository
+        private val plantacionRepository: PlantacionRepository,
+        private val gddService: GDDService = RetrofitClient.gddService
     ) : ViewModelProvider.Factory {
 
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             return AuthViewModel(
-                client, sessionManager, context,
-                monitoreoRepository, terrenoRepository, plantacionRepository
+                client, context,
+                monitoreoRepository, terrenoRepository, plantacionRepository, gddService
             ) as T
         }
     }
