@@ -11,6 +11,7 @@ import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
+import com.example.plag_out.Service.FcmTokenRegistrar
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
 import io.github.jan.supabase.SupabaseClient
@@ -129,6 +130,9 @@ class AuthViewModel(
                     )
                 }
 
+                // Registrar el token FCM del dispositivo para poder recibir alertas
+                FcmTokenRegistrar.registrar()
+
                 _loginState.value = _loginState.value.copy(cargando = false)
                 onSuccess()
             } catch (e: RestException) {
@@ -164,8 +168,11 @@ class AuthViewModel(
      * dispositivo (token JWT, caché de Room y marcas de consulta), para que
      * el próximo usuario que inicie sesión no vea datos ajenos.
      */
+    @RequiresApi(Build.VERSION_CODES.O)
     fun cerrarSesion(onComplete: () -> Unit) {
         viewModelScope.launch {
+            // Desregistrar el token FCM antes del signOut, mientras el JWT sigue válido
+            FcmTokenRegistrar.desregistrar()
             try {
                 supabaseClient.auth.signOut()
             } catch (e: Exception) {

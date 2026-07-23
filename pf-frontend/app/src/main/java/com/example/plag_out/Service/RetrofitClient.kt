@@ -48,8 +48,8 @@ object RetrofitClient {
     @RequiresApi(Build.VERSION_CODES.O)
     private val retrofit = Retrofit.Builder()
         .addConverterFactory(GsonConverterFactory.create(gson))
-        //.baseUrl("http://10.0.2.2:8000/")
-        .baseUrl("https://plag-out-backend.vercel.app")
+        .baseUrl("http://10.0.2.2:8000/")
+        //.baseUrl("https://plag-out-backend.vercel.app")
         .client(client)
         .build()
 

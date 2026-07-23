@@ -1,9 +1,14 @@
 package com.example.plag_out
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,14 +19,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.plag_out.Service.FcmTokenRegistrar
+import com.example.plag_out.Service.PlagOutMessagingService
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -40,25 +50,49 @@ import kotlin.collections.contains
 
 class MainActivity : ComponentActivity() {
 
+    // plantacion_id pendiente de un tap en una notificación; lo observa AppNavigation
+    // para hacer el deep-link una vez que hay sesión y NavController.
+    private val deepLinkPlantacionId = mutableStateOf<String?>(null)
+
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        leerDeepLink(intent)
         setContent {
             PlagasGDDTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigation()
+                    AppNavigation(
+                        deepLinkPlantacionId = deepLinkPlantacionId.value,
+                        onDeepLinkConsumido = { deepLinkPlantacionId.value = null }
+                    )
                 }
             }
+        }
+    }
+
+    // launchMode="singleTop": si la app ya está abierta, el tap llega por acá
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        leerDeepLink(intent)
+    }
+
+    private fun leerDeepLink(intent: Intent?) {
+        intent?.getStringExtra(PlagOutMessagingService.EXTRA_PLANTACION_ID)?.let {
+            deepLinkPlantacionId.value = it
         }
     }
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    deepLinkPlantacionId: String? = null,
+    onDeepLinkConsumido: () -> Unit = {}
+) {
     val db = AppDatabase.getDatabase(LocalContext.current)
     // applicationContext: los ViewModels sobreviven a la Activity (rotación) y
     // guardarles el context de la Activity la dejaría retenida en memoria
@@ -94,6 +128,36 @@ fun AppNavigation() {
 
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
+
+    // Pedir permiso de notificaciones (Android 13+). Debajo de API 33 es implícito.
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* si lo deniega, simplemente no verá las notificaciones */ }
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val concedido = ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!concedido) permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    // Registrar el token FCM también al restaurar una sesión guardada (usuario que
+    // no pasó por el login en esta ejecución). Es idempotente con el registro del login.
+    LaunchedEffect(sessionStatus) {
+        if (sessionStatus is SessionStatus.Authenticated) {
+            FcmTokenRegistrar.registrar()
+        }
+    }
+
+    // Deep-link desde una notificación: navegar a la plantación una vez autenticado.
+    LaunchedEffect(deepLinkPlantacionId, sessionStatus) {
+        if (deepLinkPlantacionId != null && sessionStatus is SessionStatus.Authenticated) {
+            navController.navigate("plantacion/$deepLinkPlantacionId")
+            onDeepLinkConsumido()
+        }
+    }
+
     val fullBleedScreens = listOf("logIn", "crearCuenta", "perfil")
     val isFullBleedRoute = fullBleedScreens.contains(navBackStackEntry?.destination?.route)
 
@@ -154,6 +218,16 @@ fun AppNavigation() {
             }
             composable("monitoreos") {
                 MonitoreosScreen(monitoreosViewModel, plantacionesViewModel, navController)
+            }
+            composable("perfil") {
+                PerfilScreen(
+                    userViewModel = userViewModel,
+                    terrenosViewModel = terrenosViewModel,
+                    plantacionesViewModel = plantacionesViewModel,
+                    monitoreosViewModel = monitoreosViewModel,
+                    onBack = { navController.popBackStack() },
+                    onCerrarSesion = cerrarSesion
+                )
             }
             composable("terrenos") {
                 TerrenoScreen(terrenosViewModel, monitoreosViewModel, plantacionesViewModel,nuevoTerrenoViewModel, navController)
