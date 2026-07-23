@@ -244,3 +244,35 @@ data class CreateUserResponse(
     @SerializedName("created")
     val created: Boolean
 )
+
+@Serializable
+data class DispositivoRequest(
+    @SerializedName("fcm_token")
+    val fcm_token: String,
+    @SerializedName("plataforma")
+    val plataforma: String = "android"
+)
+
+@Serializable
+data class DispositivoResponse(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("plataforma")
+    val plataforma: String
+)
+
+@Serializable
+data class UsuarioResponse(
+    @SerializedName("id")
+    val usuario_id: String,
+    @SerializedName("email")
+    val email: String,
+    @SerializedName("nombre")
+    val nombre: String,
+    @SerializedName("apellido")
+    val apellido: String,
+    @SerializedName("cargo")
+    val cargo: String,
+    @SerializedName("fecha_creacion")
+    val fecha_creacion: LocalDate
+)

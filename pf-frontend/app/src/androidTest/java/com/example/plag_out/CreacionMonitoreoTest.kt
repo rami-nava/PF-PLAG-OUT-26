@@ -7,8 +7,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextClearance
-import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -16,6 +14,7 @@ import com.example.plag_out.AlmacenamientoLocal.AppDatabase
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
+import com.example.plag_out.fakes.FakeGDDService
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 
@@ -25,6 +24,7 @@ import org.junit.runner.RunWith
 
 import org.junit.Before
 import org.junit.Rule
+import retrofit2.Response
 import java.time.LocalDate
 
 @RunWith(AndroidJUnit4::class)
@@ -85,8 +85,22 @@ class CreacionMonitoreoTest {
             plantacionRepository.guardarPlantacion(plantacion2)
         }
 
-        agregarMonitoreoViewModel = AgregarMonitoreoViewModelFactory(context, monitoreoRepository, plantacionRepository, terrenoRepository)
-            .create(AgregarMonitoreoViewModel::class.java)
+        val plaga = PlagaResponse(
+            id = 1,
+            nombre = "Chicharrita",
+            nombre_cientifico = "Dalbus Maidis"
+        )
+
+        // La pantalla llama a cargarPlagas() en su LaunchedEffect: el fake devuelve la
+        // plaga esperada, así el test pasa porque los datos son correctos, no porque la
+        // red falle.
+        val gddService = FakeGDDService().apply {
+            getPlagasResult = { Response.success(listOf(plaga)) }
+        }
+
+        agregarMonitoreoViewModel = AgregarMonitoreoViewModelFactory(
+            context, monitoreoRepository, plantacionRepository, terrenoRepository, gddService
+        ).create(AgregarMonitoreoViewModel::class.java)
 
         composeRule.setContent {
             AgregarMonitoreoScreen(
@@ -95,14 +109,6 @@ class CreacionMonitoreoTest {
                 onSuccess = {}
             )
         }
-
-        val plaga = PlagaResponse(
-            id = 1,
-            nombre = "Chicharrita",
-            nombre_cientifico = "Dalbus Maidis"
-        )
-
-        agregarMonitoreoViewModel.plagasParaTests(plaga)
     }
 
 

@@ -7,15 +7,13 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextClearance
-import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.plag_out.AlmacenamientoLocal.AppDatabase
-import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
+import com.example.plag_out.fakes.FakeGDDService
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 
@@ -25,6 +23,7 @@ import org.junit.runner.RunWith
 
 import org.junit.Before
 import org.junit.Rule
+import retrofit2.Response
 import java.time.LocalDate
 import java.time.ZoneOffset
 
@@ -34,7 +33,6 @@ class CreacionPlantacionTest {
     val composeRule = createComposeRule()
 
     private lateinit var db: AppDatabase
-    private lateinit var monitoreoRepository: MonitoreoRepository
     private lateinit var plantacionRepository: PlantacionRepository
     private lateinit var terrenoRepository: TerrenoRepository
     private lateinit var agregarPlantacionViewModel: AgregarPlantacionViewModel
@@ -63,16 +61,21 @@ class CreacionPlantacionTest {
             terrenoRepository.guardarTerreno(terreno)
         }
 
-        agregarPlantacionViewModel = AgregarPlantacionViewModelFactory(context, plantacionRepository, terrenoRepository)
-            .create(AgregarPlantacionViewModel::class.java)
-
         val cultivo = CultivoResponse(
             id = 1,
             nombre = "Trigo",
             nombre_cientifico = "Triticum Aestivum"
         )
 
-        agregarPlantacionViewModel.actualizarCultivo(cultivo)
+        // El VM llama a cargarCultivos() en su init: el fake puebla el desplegable con
+        // "Trigo" para que el test lo seleccione desde la UI real.
+        val gddService = FakeGDDService().apply {
+            getCultivosResult = { Response.success(listOf(cultivo)) }
+        }
+
+        agregarPlantacionViewModel = AgregarPlantacionViewModelFactory(
+            context, plantacionRepository, terrenoRepository, gddService
+        ).create(AgregarPlantacionViewModel::class.java)
 
         composeRule.setContent {
             AgregarPlantacionScreen(

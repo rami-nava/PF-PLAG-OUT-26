@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
+import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +24,11 @@ data class PlantacionUIState(
     val plantaciones: List<PlantacionesResponse> = emptyList()
 )
 
-class PlantacionesViewModel(context: Context, repository: PlantacionRepository) : ViewModel() {
+class PlantacionesViewModel(
+    context: Context,
+    repository: PlantacionRepository,
+    private val gddService: GDDService = RetrofitClient.gddService
+) : ViewModel() {
 
     private val _state = MutableStateFlow(PlantacionUIState())
     val state: StateFlow<PlantacionUIState> = _state.asStateFlow()
@@ -32,6 +37,11 @@ class PlantacionesViewModel(context: Context, repository: PlantacionRepository) 
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun refrescar() = getPlantaciones(forzar = true)
+
+    /** Cierre de sesión: descarta en memoria los datos del usuario anterior. */
+    fun limpiar() {
+        _state.value = PlantacionUIState()
+    }
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun getPlantaciones(forzar: Boolean = false) {
@@ -59,7 +69,7 @@ class PlantacionesViewModel(context: Context, repository: PlantacionRepository) 
 
             try {
                 val response = withContext(Dispatchers.IO) {
-                    RetrofitClient.gddService.getPlantaciones()
+                    gddService.getPlantaciones()
                 }
 
                 if (response.isSuccessful) {
@@ -91,11 +101,12 @@ class PlantacionesViewModel(context: Context, repository: PlantacionRepository) 
 
 class PlantacionesViewModelFactory(
     private val context: Context,
-    private val repository: PlantacionRepository
+    private val repository: PlantacionRepository,
+    private val gddService: GDDService = RetrofitClient.gddService
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return PlantacionesViewModel(context,repository) as T
+        return PlantacionesViewModel(context, repository, gddService) as T
     }
 }

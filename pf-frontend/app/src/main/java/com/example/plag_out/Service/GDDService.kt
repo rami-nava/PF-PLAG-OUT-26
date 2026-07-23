@@ -13,10 +13,15 @@ import com.example.plag_out.PlagaResponse
 import com.example.plag_out.PlantacionCreateResponse
 import com.example.plag_out.CreateUserRequest
 import com.example.plag_out.CreateUserResponse
+import com.example.plag_out.UsuarioResponse
+import com.example.plag_out.DispositivoRequest
+import com.example.plag_out.DispositivoResponse
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.DELETE
 import retrofit2.http.Body
+import retrofit2.http.Path
 
 interface GDDService {
     /*@POST("api/gdd/simulate-day")
@@ -48,6 +53,18 @@ interface GDDService {
 
     @POST("/usuarios")
     suspend fun createUser(@Body data: CreateUserRequest): Response<CreateUserResponse>
+
+    // El backend identifica al usuario por el JWT del header Authorization
+    @GET("/usuarios/me")
+    suspend fun getUsuarioActual(): Response<UsuarioResponse>
+
+    // Registra (upsert) el token FCM del dispositivo para el usuario del JWT
+    @POST("/usuarios/fcm-token")
+    suspend fun registrarDispositivo(@Body data: DispositivoRequest): Response<DispositivoResponse>
+
+    // Elimina el token FCM del usuario actual (logout)
+    @DELETE("/usuarios/fcm-token/{fcm_token}")
+    suspend fun eliminarDispositivo(@Path("fcm_token") fcmToken: String): Response<Unit>
 
     @GET("/cargos")
     suspend fun getCargos(): Response<List<CargoResponse>>
