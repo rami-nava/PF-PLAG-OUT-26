@@ -6,6 +6,8 @@ import com.example.plag_out.CreateTerrenoRequest
 import com.example.plag_out.CreateUserRequest
 import com.example.plag_out.CreateUserResponse
 import com.example.plag_out.CultivoResponse
+import com.example.plag_out.DispositivoRequest
+import com.example.plag_out.DispositivoResponse
 import com.example.plag_out.MonitoreoRequest
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.PlagaResponse
@@ -13,6 +15,7 @@ import com.example.plag_out.PlantacionCreateResponse
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoCreateResponse
 import com.example.plag_out.TerrenoResponse
+import com.example.plag_out.UpdateUserRequest
 import com.example.plag_out.UsuarioResponse
 import com.example.plag_out.Service.GDDService
 import okhttp3.MediaType.Companion.toMediaType
@@ -45,6 +48,9 @@ class FakeGDDService : GDDService {
     var createMonitoreoResult: () -> Response<MonitoreoResponse> = { noDeclarado("createMonitoreo") }
     var createUserResult: () -> Response<CreateUserResponse> = { noDeclarado("createUser") }
     var getUsuarioActualResult: () -> Response<UsuarioResponse> = { noDeclarado("getUsuarioActual") }
+    var actualizarUsuarioResult: () -> Response<UsuarioResponse> = { noDeclarado("actualizarUsuario") }
+    var registrarDispositivoResult: () -> Response<DispositivoResponse> = { noDeclarado("registrarDispositivo") }
+    var eliminarDispositivoResult: () -> Response<Unit> = { noDeclarado("eliminarDispositivo") }
     var getCargosResult: () -> Response<List<CargoResponse>> = { noDeclarado("getCargos") }
     var healthResult: () -> Response<Unit> = { noDeclarado("health") }
 
@@ -88,6 +94,18 @@ class FakeGDDService : GDDService {
         llamadas += "getUsuarioActual"; return getUsuarioActualResult()
     }
 
+    override suspend fun actualizarUsuario(data: UpdateUserRequest): Response<UsuarioResponse> {
+        llamadas += "actualizarUsuario"; ultimoActualizarUsuario = data; return actualizarUsuarioResult()
+    }
+
+    override suspend fun registrarDispositivo(data: DispositivoRequest): Response<DispositivoResponse> {
+        llamadas += "registrarDispositivo"; ultimoRegistrarDispositivo = data; return registrarDispositivoResult()
+    }
+
+    override suspend fun eliminarDispositivo(fcmToken: String): Response<Unit> {
+        llamadas += "eliminarDispositivo"; ultimoEliminarDispositivo = fcmToken; return eliminarDispositivoResult()
+    }
+
     override suspend fun getCargos(): Response<List<CargoResponse>> {
         llamadas += "getCargos"; return getCargosResult()
     }
@@ -102,6 +120,12 @@ class FakeGDDService : GDDService {
     var ultimoCreatePlantacion: CreatePlantacionRequest? = null
         private set
     var ultimoCreateMonitoreo: MonitoreoRequest? = null
+        private set
+    var ultimoRegistrarDispositivo: DispositivoRequest? = null
+        private set
+    var ultimoActualizarUsuario: UpdateUserRequest? = null
+        private set
+    var ultimoEliminarDispositivo: String? = null
         private set
 
     private fun <T> noDeclarado(endpoint: String): Response<T> =

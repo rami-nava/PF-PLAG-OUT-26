@@ -1,10 +1,12 @@
 package com.example.plag_out.fakes
 
+import com.example.plag_out.CargoResponse
 import com.example.plag_out.CultivoResponse
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.PlagaResponse
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
+import com.example.plag_out.UsuarioResponse
 import java.time.LocalDate
 
 /** Constructores de datos de prueba con valores por defecto razonables. */
@@ -81,4 +83,23 @@ object Fixtures {
         nombre: String = "Chicharrita",
         nombreCientifico: String = "Dalbulus maidis"
     ) = PlagaResponse(id = id, nombre = nombre, nombre_cientifico = nombreCientifico)
+
+    fun usuario(
+        id: String = "11111111-1111-1111-1111-111111111111",
+        email: String = "tecnico@plagout.com",
+        nombre: String = "Juan",
+        apellido: String = "Perez",
+        cargo: String = "Ingeniero agrónomo",
+        fechaCreacion: LocalDate = LocalDate.of(2026, 1, 1)
+    ) = UsuarioResponse(
+        usuario_id = id,
+        email = email,
+        nombre = nombre,
+        apellido = apellido,
+        cargo = cargo,
+        fecha_creacion = fechaCreacion
+    )
+
+    fun cargo(id: Int = 1, tipo: String = "Ingeniero agrónomo") =
+        CargoResponse(id = id, tipo = tipo)
 }

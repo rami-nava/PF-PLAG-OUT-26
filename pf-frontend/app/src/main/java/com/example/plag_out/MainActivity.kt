@@ -14,20 +14,33 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.plag_out.Service.FcmTokenRegistrar
@@ -38,6 +51,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.plag_out.AlmacenamientoLocal.AppDatabase
+import com.example.plag_out.AlmacenamientoLocal.PreferenciasUsuario
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
@@ -118,8 +132,23 @@ fun AppNavigation(
     // falta). Mientras tanto el estado es Initializing: mostramos un splash y recién
     // después decidimos si arrancar en el home o en el login.
     val sessionStatus by SupabaseProvider.client.auth.sessionStatus.collectAsState()
-    if (sessionStatus is SessionStatus.Initializing) {
-        PantallaCargandoSesion()
+
+    // Si el token guardado está vencido, Supabase necesita red para renovarlo. Sin red (o con
+    // el DNS caído) esa renovación no termina nunca y el estado se queda en Initializing: sin
+    // este corte el usuario se queda mirando el spinner sin forma de salir. Pasado el límite le
+    // ofrecemos ir al login.
+    var esperaAgotada by remember { mutableStateOf(false) }
+    var forzarLogin by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(ESPERA_MAXIMA_SESION_MS)
+        esperaAgotada = true
+    }
+
+    if (sessionStatus is SessionStatus.Initializing && !forzarLogin) {
+        PantallaCargandoSesion(
+            esperaAgotada = esperaAgotada,
+            onIrAlLogin = { forzarLogin = true }
+        )
         return
     }
     val startDestination = remember {
@@ -134,7 +163,10 @@ fun AppNavigation(
         ActivityResultContracts.RequestPermission()
     ) { /* si lo deniega, simplemente no verá las notificaciones */ }
     LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        // Si el usuario apagó las notificaciones desde su perfil, no tiene sentido insistir.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            PreferenciasUsuario.notificacionesActivadas(context)
+        ) {
             val concedido = ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
@@ -144,8 +176,12 @@ fun AppNavigation(
 
     // Registrar el token FCM también al restaurar una sesión guardada (usuario que
     // no pasó por el login en esta ejecución). Es idempotente con el registro del login.
+    // Se respeta la preferencia del perfil: si no, cada arranque volvería a activar las
+    // notificaciones de quien las había apagado.
     LaunchedEffect(sessionStatus) {
-        if (sessionStatus is SessionStatus.Authenticated) {
+        if (sessionStatus is SessionStatus.Authenticated &&
+            PreferenciasUsuario.notificacionesActivadas(context)
+        ) {
             FcmTokenRegistrar.registrar()
         }
     }
@@ -158,7 +194,7 @@ fun AppNavigation(
         }
     }
 
-    val fullBleedScreens = listOf("logIn", "crearCuenta", "perfil")
+    val fullBleedScreens = listOf("logIn", "crearCuenta", "perfil", "editarPerfil")
     val isFullBleedRoute = fullBleedScreens.contains(navBackStackEntry?.destination?.route)
 
     // Cerrar sesión: AuthViewModel borra el almacenamiento local (token, Room,
@@ -225,9 +261,32 @@ fun AppNavigation(
                     terrenosViewModel = terrenosViewModel,
                     plantacionesViewModel = plantacionesViewModel,
                     monitoreosViewModel = monitoreosViewModel,
+                    authViewModel = authViewModel,
                     onBack = { navController.popBackStack() },
+                    onEditarPerfil = {
+                        navController.navigate("editarPerfil") { launchSingleTop = true }
+                    },
                     onCerrarSesion = cerrarSesion
                 )
+            }
+            composable("editarPerfil") {
+                // Solo se llega desde el perfil, que ya cargó el usuario; si por algún motivo no
+                // está, se vuelve atrás en lugar de mostrar un formulario vacío.
+                val usuario = userViewModel.state.collectAsState().value.usuario
+                if (usuario == null) {
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                } else {
+                    val editarPerfilViewModel: EditarPerfilViewModel = viewModel()
+                    EditarPerfilScreen(
+                        usuario = usuario,
+                        viewModel = editarPerfilViewModel,
+                        onBack = { navController.popBackStack() },
+                        onGuardado = { actualizado ->
+                            userViewModel.aplicarUsuario(actualizado)
+                            navController.popBackStack()
+                        }
+                    )
+                }
             }
             composable("terrenos") {
                 TerrenoScreen(terrenosViewModel, monitoreosViewModel, plantacionesViewModel,nuevoTerrenoViewModel, navController)
@@ -303,15 +362,53 @@ fun AppNavigation(
     }
 }
 
-/** Splash mostrado mientras Supabase restaura la sesión guardada. */
+/** Cuánto esperamos a que Supabase resuelva la sesión antes de ofrecer ir al login. */
+private const val ESPERA_MAXIMA_SESION_MS = 8_000L
+
 @Composable
-private fun PantallaCargandoSesion() {
+private fun PantallaCargandoSesion(esperaAgotada: Boolean, onIrAlLogin: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize()) {
         FondoVerdeAuth()
-        CircularProgressIndicator(
-            color = PlagOutColors.TextOnDark,
-            modifier = Modifier.align(Alignment.Center)
-        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CircularProgressIndicator(color = PlagOutColors.TextOnDark)
+
+            if (esperaAgotada) {
+                Spacer(Modifier.height(24.dp))
+                Text(
+                    "No pudimos verificar tu sesión",
+                    color = PlagOutColors.TextOnDark,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Revisá tu conexión a internet. Podés iniciar sesión de nuevo para continuar.",
+                    color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(20.dp))
+                Button(
+                    onClick = onIrAlLogin,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PlagOutColors.TextOnDark,
+                        contentColor = PlagOutColors.Forest
+                    ),
+                    modifier = Modifier
+                        .height(50.dp)
+                        .testTag("btnIrAlLogin")
+                ) {
+                    Text("Ir al inicio de sesión", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
     }
 }
 
@@ -319,7 +416,7 @@ private fun PantallaCargandoSesion() {
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo","logIn","crearCuenta","perfil")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo","logIn","crearCuenta","perfil","editarPerfil")
     return !screensWithoutNavBar.contains(currentScreen)
 }
 
@@ -327,6 +424,6 @@ fun shouldShowBottomBar(navController: NavController): Boolean {
 fun shouldShowTopBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("logIn","crearCuenta","perfil")
+    val screensWithoutNavBar = listOf("logIn","crearCuenta","perfil","editarPerfil")
     return !screensWithoutNavBar.contains(currentScreen)
 }
