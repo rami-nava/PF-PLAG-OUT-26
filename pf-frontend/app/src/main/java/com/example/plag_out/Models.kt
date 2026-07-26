@@ -229,6 +229,21 @@ data class CreateUserRequest(
     val cargo_id: Int
 )
 
+/**
+ * Edición del perfil del usuario actual. Todos los campos son opcionales: se manda solo lo que
+ * cambió. Usa `cargo_id` (Int) y no el `cargo` (String) que devuelve [UsuarioResponse], igual que
+ * [CreateUserRequest].
+ */
+@Serializable
+data class UpdateUserRequest(
+    @SerializedName("nombre")
+    val nombre: String? = null,
+    @SerializedName("apellido")
+    val apellido: String? = null,
+    @SerializedName("cargo_id")
+    val cargo_id: Int? = null
+)
+
 @Serializable
 data class CargoResponse(
     @SerializedName("id")

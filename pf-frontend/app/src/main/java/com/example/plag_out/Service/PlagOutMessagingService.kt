@@ -11,6 +11,7 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.example.plag_out.AlmacenamientoLocal.PreferenciasUsuario
 import com.example.plag_out.MainActivity
 import com.example.plag_out.R
 import com.example.plag_out.SupabaseProvider
@@ -36,7 +37,9 @@ class PlagOutMessagingService : FirebaseMessagingService() {
         val haySesion = runCatching {
             SupabaseProvider.client.auth.currentAccessTokenOrNull() != null
         }.getOrDefault(false)
-        if (haySesion) {
+        // Y si el usuario apagó las notificaciones en su perfil, un token nuevo no debe volver a
+        // suscribir el dispositivo por la puerta de atrás.
+        if (haySesion && PreferenciasUsuario.notificacionesActivadas(this)) {
             scope.launch { FcmTokenRegistrar.registrar(token) }
         }
     }

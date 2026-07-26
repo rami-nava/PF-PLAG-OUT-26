@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.plag_out.AlmacenamientoLocal.CacheTracker
+import com.example.plag_out.AlmacenamientoLocal.PreferenciasUsuario
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
@@ -130,8 +131,11 @@ class AuthViewModel(
                     )
                 }
 
-                // Registrar el token FCM del dispositivo para poder recibir alertas
-                FcmTokenRegistrar.registrar()
+                // Registrar el token FCM del dispositivo para poder recibir alertas, salvo que el
+                // usuario haya apagado las notificaciones desde su perfil.
+                if (PreferenciasUsuario.notificacionesActivadas(context)) {
+                    FcmTokenRegistrar.registrar()
+                }
 
                 _loginState.value = _loginState.value.copy(cargando = false)
                 onSuccess()
@@ -188,6 +192,41 @@ class AuthViewModel(
             _loginState.value = LoginState()
             _crearCuentaState.value = CrearCuentaState()
             onComplete()
+        }
+    }
+
+    // ---------- CAMBIAR CONTRASEÑA ----------
+
+    /**
+     * Cambia la contraseña del usuario logueado. La sesión sigue siendo válida después del cambio,
+     * así que no hace falta volver a iniciar sesión.
+     */
+    fun cambiarPassword(nueva: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                supabaseClient.auth.updateUser { password = nueva }
+                onSuccess()
+            } catch (e: RestException) {
+                onError(mapearErrorPassword(e))
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Error al cambiar la contraseña", e)
+                onError("No se pudo cambiar la contraseña. Revisá tu conexión.")
+            }
+        }
+    }
+
+    private fun mapearErrorPassword(e: RestException): String {
+        return when {
+            e.message?.contains("Password should be", ignoreCase = true) == true ->
+                "La contraseña no cumple los requisitos mínimos"
+
+            e.message?.contains("should be different", ignoreCase = true) == true ->
+                "La contraseña nueva tiene que ser distinta de la actual"
+
+            e.message?.contains("reauthentication", ignoreCase = true) == true ->
+                "Por seguridad, volvé a iniciar sesión antes de cambiar la contraseña"
+
+            else -> "No se pudo cambiar la contraseña. Intentá de nuevo."
         }
     }
 

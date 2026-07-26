@@ -14,11 +14,13 @@ import com.example.plag_out.PlantacionCreateResponse
 import com.example.plag_out.CreateUserRequest
 import com.example.plag_out.CreateUserResponse
 import com.example.plag_out.UsuarioResponse
+import com.example.plag_out.UpdateUserRequest
 import com.example.plag_out.DispositivoRequest
 import com.example.plag_out.DispositivoResponse
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PATCH
 import retrofit2.http.DELETE
 import retrofit2.http.Body
 import retrofit2.http.Path
@@ -57,6 +59,9 @@ interface GDDService {
     // El backend identifica al usuario por el JWT del header Authorization
     @GET("/usuarios/me")
     suspend fun getUsuarioActual(): Response<UsuarioResponse>
+
+    @PATCH("/usuarios/me")
+    suspend fun actualizarUsuario(@Body data: UpdateUserRequest): Response<UsuarioResponse>
 
     // Registra (upsert) el token FCM del dispositivo para el usuario del JWT
     @POST("/usuarios/fcm-token")
