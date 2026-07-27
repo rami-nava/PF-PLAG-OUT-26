@@ -56,7 +56,11 @@ object Fixtures {
         gddObjetivo: Float = 500f,
         progreso: Float = 0.2f,
         nivelAlerta: Int = 0,
-        fechaActualizacion: LocalDate = LocalDate.of(2026, 1, 10)
+        fechaActualizacion: LocalDate = LocalDate.of(2026, 1, 10),
+        umbralRiesgo: Int? = 80,
+        activo: Boolean = true,
+        fechaInicio: LocalDate? = LocalDate.of(2026, 1, 1),
+        plagaNombreCientifico: String? = "Dalbulus maidis"
     ) = MonitoreoResponse(
         monitoreo_id = id,
         plantacion_id = plantacionId,
@@ -69,7 +73,11 @@ object Fixtures {
         gdd_objetivo = gddObjetivo,
         progreso = progreso,
         nivel_alerta = nivelAlerta,
-        fecha_actualizacion = fechaActualizacion
+        fecha_actualizacion = fechaActualizacion,
+        umbral_riesgo = umbralRiesgo,
+        activo = activo,
+        fecha_inicio = fechaInicio,
+        plaga_nombre_cientifico = plagaNombreCientifico
     )
 
     fun cultivo(

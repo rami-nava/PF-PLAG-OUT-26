@@ -13,11 +13,14 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -67,11 +70,17 @@ import com.example.plag_out.ui.theme.SkeletonCargando
 import com.example.plag_out.ui.theme.StaggeredAppear
 import com.example.plag_out.ui.theme.contadorAnimado
 import com.example.plag_out.ui.theme.estiloDeNivel
+import com.example.plag_out.ui.theme.estiloFinalizado
 import com.example.plag_out.ui.theme.rememberPressScale
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 import kotlin.math.ceil
+
+/** Valor de `filtro` que muestra los monitoreos finalizados (`activo == false`) en vez de los activos. */
+private const val FILTRO_FINALIZADOS = 3
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -79,6 +88,7 @@ import kotlin.math.ceil
 fun MonitoreosScreen(
     monitoreosViewModel: MonitoreosViewModel,
     plantacionesViewModel: PlantacionesViewModel,
+    terrenosViewModel: TerrenosViewModel,
     navController: NavHostController
 ) {
     val state by monitoreosViewModel.state.collectAsState()
@@ -86,9 +96,10 @@ fun MonitoreosScreen(
     LaunchedEffect(Unit) {
         monitoreosViewModel.getMonitoreos()
         plantacionesViewModel.getPlantaciones()
+        terrenosViewModel.getTerrenos()
     }
 
-    // -1 = todos; 0/1/2 = nivel de alerta
+    // -1 = activos; 0/1/2 = nivel de alerta (activos); FILTRO_FINALIZADOS = finalizados
     var filtro by rememberSaveable { mutableStateOf(-1) }
 
     val ordenados = remember(state.monitoreos) {
@@ -98,9 +109,13 @@ fun MonitoreosScreen(
         )
     }
     val filtrados = remember(ordenados, filtro) {
-        if (filtro < 0) ordenados
-        else ordenados.filter { it.nivel_alerta.coerceIn(0, 2) == filtro }
+        when (filtro) {
+            FILTRO_FINALIZADOS -> ordenados.filter { !it.activo }
+            in 0..2 -> ordenados.filter { it.activo && it.nivel_alerta.coerceIn(0, 2) == filtro }
+            else -> ordenados.filter { it.activo }
+        }
     }
+    val activos = remember(state.monitoreos) { state.monitoreos.filter { it.activo } }
 
     Scaffold(
         containerColor = PlagOutColors.Cream,
@@ -137,14 +152,15 @@ fun MonitoreosScreen(
                 .padding(padding)
         ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            PanelDeCampo(monitoreos = state.monitoreos)
+            PanelDeCampo(monitoreos = activos)
 
-            val opciones = remember(state.monitoreos) {
+            val opciones = remember(state.monitoreos, activos) {
                 listOf(
-                    OpcionFiltro(-1, "Todos", state.monitoreos.size),
-                    OpcionFiltro(0, "Saludable", state.monitoreos.count { it.nivel_alerta == 0 }, estiloDeNivel(0).icono, estiloDeNivel(0).color),
-                    OpcionFiltro(1, "Atención", state.monitoreos.count { it.nivel_alerta == 1 }, estiloDeNivel(1).icono, estiloDeNivel(1).color),
-                    OpcionFiltro(2, "Crítico", state.monitoreos.count { it.nivel_alerta >= 2 }, estiloDeNivel(2).icono, estiloDeNivel(2).color)
+                    OpcionFiltro(-1, "Activos", activos.size),
+                    OpcionFiltro(0, "Saludable", activos.count { it.nivel_alerta == 0 }, estiloDeNivel(0).icono, estiloDeNivel(0).color),
+                    OpcionFiltro(1, "Atención", activos.count { it.nivel_alerta == 1 }, estiloDeNivel(1).icono, estiloDeNivel(1).color),
+                    OpcionFiltro(2, "Crítico", activos.count { it.nivel_alerta >= 2 }, estiloDeNivel(2).icono, estiloDeNivel(2).color),
+                    OpcionFiltro(FILTRO_FINALIZADOS, "Finalizados", state.monitoreos.count { !it.activo }, Icons.Filled.Flag, PlagOutColors.TextSecondary)
                 )
             }
             FiltroChipsRow(opciones = opciones, seleccionado = filtro, onSeleccion = { filtro = it })
@@ -153,7 +169,7 @@ fun MonitoreosScreen(
                 AnimatedContent(
                     targetState = when {
                         state.isLoading -> "cargando"
-                        state.monitoreos.isEmpty() -> "vacio"
+                        activos.isEmpty() && filtro != FILTRO_FINALIZADOS -> "vacio"
                         filtrados.isEmpty() -> "sin-resultados"
                         else -> "lista-$filtro"
                     },
@@ -187,7 +203,7 @@ fun MonitoreosScreen(
                             itemsIndexed(filtrados, key = { _, m -> m.monitoreo_id }) { index, monitoreo ->
                                 StaggeredAppear(index = index) {
                                     MonitoreoCard(monitoreo) {
-                                        navController.navigate("plantacion/${monitoreo.plantacion_id}")
+                                        navController.navigate("monitoreo/${monitoreo.monitoreo_id}")
                                     }
                                 }
                             }
@@ -315,6 +331,36 @@ private fun LeyendaEstado(estilo: NivelEstilo, cantidad: Int) {
     }
 }
 
+// ── Dominio: proyección de días al umbral ───────────────────────────────────
+
+/**
+ * Días estimados hasta alcanzar el GDD objetivo, o null si ya se alcanzó o si no hay forma de
+ * proyectar un ritmo diario. Única fuente de esta cuenta: la usan tanto [MonitoreoCard] como la
+ * pantalla de detalle de monitoreo.
+ */
+@RequiresApi(Build.VERSION_CODES.O)
+fun diasEstimadosAlUmbral(monitoreo: MonitoreoResponse): Int? {
+    val restante = monitoreo.gdd_objetivo - monitoreo.gdd_acumulado
+    val umbralAlcanzado = restante <= 0f || monitoreo.progreso >= 100f
+    if (umbralAlcanzado) return null
+
+    val promedioDiario = promedioGddDiario(monitoreo)
+    return if (promedioDiario > 0f) ceil(restante / promedioDiario).toInt() else null
+}
+
+/**
+ * Promedio de GDD acumulados por día desde `fecha_inicio`. Más estable que `gdd_diario` (el
+ * ritmo de un solo día), que puede variar mucho por el clima puntual de esa jornada. Si el
+ * backend todavía no manda `fecha_inicio`, o el monitoreo arrancó hoy mismo (0 días
+ * transcurridos), no hay historial para promediar y se cae al GDD del día como aproximación.
+ */
+@RequiresApi(Build.VERSION_CODES.O)
+private fun promedioGddDiario(monitoreo: MonitoreoResponse): Float {
+    val inicio = monitoreo.fecha_inicio ?: return monitoreo.gdd_diario
+    val diasTranscurridos = ChronoUnit.DAYS.between(inicio, monitoreo.fecha_actualizacion)
+    return if (diasTranscurridos > 0) monitoreo.gdd_acumulado / diasTranscurridos else monitoreo.gdd_diario
+}
+
 // ── Card de monitoreo ───────────────────────────────────────────────────────
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -323,15 +369,13 @@ fun MonitoreoCard(
     monitoreo: MonitoreoResponse,
     onClick: () -> Unit
 ) {
-    val estilo = estiloDeNivel(monitoreo.nivel_alerta)
+    val estilo = if (!monitoreo.activo) estiloFinalizado() else estiloDeNivel(monitoreo.nivel_alerta)
     val interactionSource = remember { MutableInteractionSource() }
     val escala = rememberPressScale(interactionSource)
 
     val restante = monitoreo.gdd_objetivo - monitoreo.gdd_acumulado
-    val umbralAlcanzado = restante <= 0f || monitoreo.progreso >= 100f
-    val diasEstimados =
-        if (!umbralAlcanzado && monitoreo.gdd_diario > 0f) ceil(restante / monitoreo.gdd_diario).toInt()
-        else null
+    val umbralAlcanzado = monitoreo.activo && (restante <= 0f || monitoreo.progreso >= 100f)
+    val diasEstimados = diasEstimadosAlUmbral(monitoreo)
 
     Surface(
         onClick = onClick,
@@ -354,7 +398,7 @@ fun MonitoreoCard(
             Column(Modifier.padding(start = 17.dp, end = 18.dp, top = 16.dp, bottom = 14.dp)) {
                 Row(Modifier.fillMaxWidth()) {
                     Column(Modifier.weight(1f)) {
-                        SelloDeNivel(estilo, pulsante = monitoreo.nivel_alerta >= 2)
+                        SelloDeNivel(estilo, pulsante = monitoreo.activo && monitoreo.nivel_alerta >= 2)
                         Spacer(Modifier.height(10.dp))
                         Text(
                             monitoreo.plaga_nombre,
@@ -430,21 +474,44 @@ fun MonitoreoCard(
 
 // ── Monitoreos de una plantación ────────────────────────────────────────────
 
+private const val PAGINA_INFO_PLANTACION = 0
+private const val PAGINA_MONITOREOS_PLANTACION = 1
+
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MonitoreosPorPlantacion(
     plantacionId: Int,
     viewModel: MonitoreosViewModel,
-    onBack: () -> Unit
+    plantacionesViewModel: PlantacionesViewModel,
+    onBack: () -> Unit,
+    onMonitoreoClick: (Int) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
+    val plantacionesState by plantacionesViewModel.state.collectAsState()
     val monitoreosFiltrados = state.monitoreos.filter { it.plantacion_id == plantacionId }
     val referencia = monitoreosFiltrados.firstOrNull()
+    val plantacion = plantacionesState.plantaciones.find { it.plantacion_id == plantacionId }
 
+    LaunchedEffect(Unit) { plantacionesViewModel.getPlantaciones() }
+
+    val scope = rememberCoroutineScope()
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(plantacionesState.error) {
+        plantacionesState.error?.let { snackbarHostState.showSnackbar(it) }
+    }
+
+    Scaffold(
+        containerColor = PlagOutColors.Cream,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { padding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(padding)
             .background(PlagOutColors.Cream)
     ) {
         Box(
@@ -468,45 +535,320 @@ fun MonitoreosPorPlantacion(
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        referencia?.cultivo_nombre ?: "Monitoreos",
+                        plantacion?.cultivo_nombre ?: referencia?.cultivo_nombre ?: "Plantación",
                         color = PlagOutColors.TextOnDark,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
-                    if (referencia != null) {
-                        Text(referencia.terreno_nombre, color = PlagOutColors.TextOnDark.copy(alpha = 0.8f), fontSize = 13.sp)
+                    val terrenoNombre = plantacion?.terreno_nombre ?: referencia?.terreno_nombre
+                    if (terrenoNombre != null) {
+                        Text(terrenoNombre, color = PlagOutColors.TextOnDark.copy(alpha = 0.8f), fontSize = 13.sp)
                     }
                 }
             }
         }
 
-        PullToRefreshBox(
-            isRefreshing = state.isRefreshing,
-            onRefresh = { viewModel.refrescar() },
-            modifier = Modifier.fillMaxSize()
+        TabRow(
+            selectedTabIndex = pagerState.currentPage,
+            containerColor = PlagOutColors.Cream,
+            contentColor = PlagOutColors.Forest
         ) {
-            if (monitoreosFiltrados.isEmpty()) {
-                // Box con scroll para que el gesto de pull-to-refresh también funcione sin lista
-                Box(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-                    contentAlignment = Alignment.Center
-                ) {
-                    EstadoVacioFlotante(
-                        icono = Icons.Outlined.BugReport,
-                        titulo = "Sin monitoreos activos",
-                        subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en esta plantación."
+            Tab(
+                selected = pagerState.currentPage == PAGINA_INFO_PLANTACION,
+                onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_INFO_PLANTACION) } },
+                text = { Text("Información", fontWeight = FontWeight.SemiBold) }
+            )
+            Tab(
+                selected = pagerState.currentPage == PAGINA_MONITOREOS_PLANTACION,
+                onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_MONITOREOS_PLANTACION) } },
+                text = { Text("Monitoreos", fontWeight = FontWeight.SemiBold) }
+            )
+        }
+
+        HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { pagina ->
+            when (pagina) {
+                PAGINA_INFO_PLANTACION -> InformacionPlantacionTab(
+                    plantacion = plantacion,
+                    monitoreosDeLaPlantacion = monitoreosFiltrados,
+                    viewModel = plantacionesViewModel,
+                    monitoreosViewModel = viewModel,
+                    onEliminada = onBack
+                )
+                else -> MonitoreosDePlantacionTab(
+                    isRefreshing = state.isRefreshing,
+                    onRefresh = { viewModel.refrescar() },
+                    monitoreosFiltrados = monitoreosFiltrados,
+                    onMonitoreoClick = onMonitoreoClick
+                )
+            }
+        }
+    }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+private fun InformacionPlantacionTab(
+    plantacion: PlantacionesResponse?,
+    monitoreosDeLaPlantacion: List<MonitoreoResponse>,
+    viewModel: PlantacionesViewModel,
+    monitoreosViewModel: MonitoreosViewModel,
+    onEliminada: () -> Unit
+) {
+    val plantacionesState by viewModel.state.collectAsState()
+    var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
+    var mostrarDialogoEliminar by remember { mutableStateOf(false) }
+
+    val sanos = monitoreosDeLaPlantacion.count { it.nivel_alerta == 0 }
+    val atencion = monitoreosDeLaPlantacion.count { it.nivel_alerta == 1 }
+    val criticos = monitoreosDeLaPlantacion.count { it.nivel_alerta >= 2 }
+    val total = monitoreosDeLaPlantacion.size
+    val totalAnimado = contadorAnimado(total)
+    val diasDesdeSiembra = plantacion?.let { ChronoUnit.DAYS.between(it.fecha_siembra, LocalDate.now()).toInt() }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 18.dp)
+    ) {
+        Surface(
+            color = (if (plantacion?.activa != false) PlagOutColors.Leaf else PlagOutColors.Bark).copy(alpha = 0.12f),
+            shape = RoundedCornerShape(50)
+        ) {
+            Text(
+                if (plantacion?.activa != false) "ACTIVA" else "PAUSADA",
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.3.sp,
+                color = if (plantacion?.activa != false) PlagOutColors.Leaf else PlagOutColors.Bark
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        if (!plantacion?.cultivo_nombre_cientifico.isNullOrBlank()) {
+            Text(
+                plantacion?.cultivo_nombre_cientifico ?: "",
+                fontSize = 13.sp,
+                color = PlagOutColors.TextSecondary,
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        Spacer(Modifier.height(18.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AnilloSegmentado(
+                segmentos = listOf(
+                    sanos to estiloDeNivel(0).color,
+                    atencion to estiloDeNivel(1).color,
+                    criticos to estiloDeNivel(2).color
+                ),
+                total = total,
+                modifier = Modifier.size(104.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("$totalAnimado", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
+                    Text(
+                        if (total == 1) "monitoreo" else "monitoreos",
+                        fontSize = 10.sp,
+                        color = PlagOutColors.TextSecondary,
+                        fontWeight = FontWeight.Medium
                     )
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+            }
+            Spacer(Modifier.width(20.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LeyendaEstadoTerrenoClaro(estiloDeNivel(0), sanos)
+                LeyendaEstadoTerrenoClaro(estiloDeNivel(1), atencion)
+                LeyendaEstadoTerrenoClaro(estiloDeNivel(2), criticos)
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        Surface(
+            color = PlagOutColors.Surface,
+            shape = RoundedCornerShape(20.dp),
+            shadowElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                EstadisticaCompacta(
+                    "Sembrada",
+                    plantacion?.fecha_siembra?.format(DateTimeFormatter.ofPattern("dd MMM", Locale("es"))) ?: "—",
+                    Modifier.weight(1f)
+                )
+                SeparadorVertical()
+                EstadisticaCompacta("Días", diasDesdeSiembra?.let { "$it" } ?: "—", Modifier.weight(1f))
+                SeparadorVertical()
+                EstadisticaCompacta("Monitoreos", "$total", Modifier.weight(1f))
+            }
+        }
+
+        if (total == 0) {
+            Spacer(Modifier.height(10.dp))
+            EtiquetaInfo(Icons.Outlined.BugReport, "Todavía no hay monitoreos en esta plantación", PlagOutColors.RiskUnknown)
+        }
+
+        if (plantacion != null) {
+            Spacer(Modifier.height(20.dp))
+
+            if (plantacion.activa) {
+                OutlinedButton(
+                    onClick = { mostrarDialogoFinalizar = true },
+                    enabled = !plantacionesState.procesando,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskWarn),
+                    border = BorderStroke(1.dp, PlagOutColors.RiskWarn),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("btnFinalizarPlantacion")
                 ) {
-                    itemsIndexed(monitoreosFiltrados, key = { _, m -> m.monitoreo_id }) { index, monitoreo ->
-                        StaggeredAppear(index = index) {
-                            MonitoreoCard(monitoreo) { }
+                    if (plantacionesState.procesando) {
+                        CircularProgressIndicator(color = PlagOutColors.RiskWarn, modifier = Modifier.size(20.dp))
+                    } else {
+                        Text("Finalizar plantación", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+            }
+
+            OutlinedButton(
+                onClick = { mostrarDialogoEliminar = true },
+                enabled = !plantacionesState.procesando,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskDanger),
+                border = BorderStroke(1.dp, PlagOutColors.RiskDanger),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .testTag("btnEliminarPlantacion")
+            ) {
+                if (plantacionesState.procesando) {
+                    CircularProgressIndicator(color = PlagOutColors.RiskDanger, modifier = Modifier.size(20.dp))
+                } else {
+                    Text("Eliminar plantación", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+    }
+
+    if (mostrarDialogoFinalizar && plantacion != null) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoFinalizar = false },
+            modifier = Modifier.testTag("dialogFinalizarPlantacion"),
+            title = { Text("¿Finalizar plantación?") },
+            text = {
+                Text(
+                    "Vas a marcar \"${plantacion.cultivo_nombre}\" como pausada. Vas a poder seguir viendo su " +
+                        "historial, pero no vas a poder cargar nuevos monitoreos mientras esté pausada."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        mostrarDialogoFinalizar = false
+                        viewModel.finalizarPlantacion(plantacion.plantacion_id) {
+                            monitoreosViewModel.finalizarPorPlantacion(plantacion.plantacion_id)
                         }
+                    },
+                    modifier = Modifier.testTag("btnConfirmarFinalizarPlantacion")
+                ) {
+                    Text("Finalizar", color = PlagOutColors.RiskWarn, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoFinalizar = false }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    if (mostrarDialogoEliminar && plantacion != null) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoEliminar = false },
+            modifier = Modifier.testTag("dialogEliminarPlantacion"),
+            title = { Text("¿Eliminar plantación?") },
+            text = {
+                Text(
+                    "Se va a eliminar \"${plantacion.cultivo_nombre}\" de forma permanente, junto con sus monitoreos. " +
+                        "Esta acción no se puede deshacer."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        mostrarDialogoEliminar = false
+                        viewModel.eliminarPlantacion(plantacion.plantacion_id) {
+                            monitoreosViewModel.purgarPorPlantacion(plantacion.plantacion_id)
+                            onEliminada()
+                        }
+                    },
+                    modifier = Modifier.testTag("btnConfirmarEliminarPlantacion")
+                ) {
+                    Text("Eliminar", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoEliminar = false }) { Text("Cancelar") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun LeyendaEstadoTerrenoClaro(estilo: NivelEstilo, cantidad: Int) {
+    val valor = contadorAnimado(cantidad)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(estilo.icono, contentDescription = null, tint = estilo.color, modifier = Modifier.size(15.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(
+            estilo.etiqueta,
+            color = PlagOutColors.TextSecondary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.width(72.dp)
+        )
+        Text("$valor", color = PlagOutColors.TextMain, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+private fun MonitoreosDePlantacionTab(
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+    monitoreosFiltrados: List<MonitoreoResponse>,
+    onMonitoreoClick: (Int) -> Unit
+) {
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        if (monitoreosFiltrados.isEmpty()) {
+            // Box con scroll para que el gesto de pull-to-refresh también funcione sin lista
+            Box(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                contentAlignment = Alignment.Center
+            ) {
+                EstadoVacioFlotante(
+                    icono = Icons.Outlined.BugReport,
+                    titulo = "Sin monitoreos activos",
+                    subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en esta plantación."
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                itemsIndexed(monitoreosFiltrados, key = { _, m -> m.monitoreo_id }) { index, monitoreo ->
+                    StaggeredAppear(index = index) {
+                        MonitoreoCard(monitoreo) { onMonitoreoClick(monitoreo.monitoreo_id) }
                     }
                 }
             }

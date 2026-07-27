@@ -21,7 +21,9 @@ import kotlinx.coroutines.withContext
 data class MonitoreoUIState(
     var isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
-    val monitoreos: List<MonitoreoResponse> = emptyList()
+    val monitoreos: List<MonitoreoResponse> = emptyList(),
+    /** Se sirvió del caché porque el fetch a la red falló o no hay conexión. */
+    val datosDesactualizados: Boolean = false
 )
 
 class MonitoreosViewModel(
@@ -56,8 +58,10 @@ class MonitoreosViewModel(
             }
 
             // El backend recalcula los GDD una vez por día (00:00 hora argentina):
-            // si ya se consultó hoy, el caché sigue vigente salvo que el usuario fuerce el refresco
-            if (!forzar && CacheTracker.consultadoHoy(context, CacheTracker.MONITOREOS)) {
+            // si ya se consultó hoy, el caché sigue vigente salvo que el usuario fuerce el refresco.
+            // Si el caché vino vacío (p.ej. justo después de un bump de versión de Room que borró la
+            // tabla) igual hay que ir a buscar los datos, aunque la marca diga "ya consultado".
+            if (!forzar && cachedMonitoreos.isNotEmpty() && CacheTracker.consultadoHoy(context, CacheTracker.MONITOREOS)) {
                 _state.value = _state.value.copy(isLoading = false)
                 return@launch
             }
@@ -76,27 +80,86 @@ class MonitoreosViewModel(
                 if (response.isSuccessful) {
                     val monitoresResponse = response.body() ?: emptyList()
 
-                    _state.value = _state.value.copy(
-                        monitoreos = monitoresResponse,
-                        isLoading = false,
-                        isRefreshing = false
-                    )
-
                     withContext(Dispatchers.IO) {
                         monitoreosRepository.reemplazarMonitoreos(monitoresResponse)
                     }
+
+                    _state.value = _state.value.copy(
+                        monitoreos = monitoresResponse,
+                        isLoading = false,
+                        isRefreshing = false,
+                        datosDesactualizados = false
+                    )
                     CacheTracker.marcarConsultado(context, CacheTracker.MONITOREOS)
                 } else {
-                    // TODO AGREGAR WARNING DE VALORES DESACTUALIZADOS
-                    _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        datosDesactualizados = cachedMonitoreos.isNotEmpty()
+                    )
                     Log.e("MONITOREOS", "Error: ${response.code()}")
                 }
             } catch (e: Exception) {
                 // Sin conexión: se queda con el caché ya mostrado
-                //TODO AGREGAR WARNING DE VALORES DESACTUALIZADOS Y FALTA DE CONEXION
-                _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    isRefreshing = false,
+                    datosDesactualizados = cachedMonitoreos.isNotEmpty()
+                )
                 Log.e("MONITOREOS", "Error: ${e.message}")
             }
+        }
+    }
+
+    /**
+     * Al pausar una plantación, el backend cascadea `activo = false` a sus monitoreos en el mismo
+     * PATCH `/plantaciones/{id}` — acá solo reflejamos localmente (Room + memoria) lo que el
+     * servidor ya hizo, sin llamadas de red adicionales.
+     */
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun finalizarPorPlantacion(plantacionId: Int) {
+        viewModelScope.launch {
+            val actualizados = _state.value.monitoreos
+                .filter { it.plantacion_id == plantacionId && it.activo }
+                .map { it.copy(activo = false) }
+            if (actualizados.isEmpty()) return@launch
+
+            withContext(Dispatchers.IO) {
+                actualizados.forEach { monitoreosRepository.guardarMonitoreo(it) }
+            }
+
+            val actualizadosPorId = actualizados.associateBy { it.monitoreo_id }
+            _state.value = _state.value.copy(
+                monitoreos = _state.value.monitoreos.map { actualizadosPorId[it.monitoreo_id] ?: it }
+            )
+        }
+    }
+
+    /**
+     * Purga local (Room + memoria) de los monitoreos de un terreno eliminado. No llama a la red:
+     * el DELETE del terreno ya se hizo y se asume que el backend eliminó en cascada; esto solo
+     * sincroniza el caché del cliente para que no queden monitoreos huérfanos.
+     */
+    fun purgarPorTerreno(terrenoId: Int) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { monitoreosRepository.borrarPorTerreno(terrenoId) }
+            _state.value = _state.value.copy(
+                monitoreos = _state.value.monitoreos.filter { it.terreno_id != terrenoId }
+            )
+        }
+    }
+
+    /**
+     * Purga local (Room + memoria) de los monitoreos de una plantación eliminada. No llama a la
+     * red: el DELETE de la plantación ya se hizo y se asume que el backend eliminó en cascada;
+     * esto solo sincroniza el caché del cliente para que no queden monitoreos huérfanos.
+     */
+    fun purgarPorPlantacion(plantacionId: Int) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { monitoreosRepository.borrarPorPlantacion(plantacionId) }
+            _state.value = _state.value.copy(
+                monitoreos = _state.value.monitoreos.filter { it.plantacion_id != plantacionId }
+            )
         }
     }
 }

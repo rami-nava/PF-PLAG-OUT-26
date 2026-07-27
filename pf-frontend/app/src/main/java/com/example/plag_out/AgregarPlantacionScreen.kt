@@ -182,36 +182,6 @@ fun AgregarPlantacionScreen(
                                     .clickable { showDatePicker = true }
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(PlagOutColors.Cream, RoundedCornerShape(16.dp))
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text("Plantación activa", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
-                                Text(
-                                    if (state.activa) "Se hará seguimiento de plagas" else "Sin seguimiento por ahora",
-                                    fontSize = 11.sp,
-                                    color = PlagOutColors.TextSecondary
-                                )
-                            }
-                            Switch(
-                                checked = state.activa,
-                                onCheckedChange = { viewModel.actualizarActiva(it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = PlagOutColors.TextOnDark,
-                                    checkedTrackColor = PlagOutColors.Forest,
-                                    uncheckedThumbColor = PlagOutColors.Surface,
-                                    uncheckedTrackColor = PlagOutColors.RiskUnknown
-                                )
-                            )
-                        }
                     }
                 }
             }

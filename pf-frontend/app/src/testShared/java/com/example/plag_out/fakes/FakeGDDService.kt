@@ -15,6 +15,8 @@ import com.example.plag_out.PlantacionCreateResponse
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoCreateResponse
 import com.example.plag_out.TerrenoResponse
+import com.example.plag_out.UpdateMonitoreoRequest
+import com.example.plag_out.UpdatePlantacionRequest
 import com.example.plag_out.UpdateUserRequest
 import com.example.plag_out.UsuarioResponse
 import com.example.plag_out.Service.GDDService
@@ -42,10 +44,15 @@ class FakeGDDService : GDDService {
     var getTerrenosResult: () -> Response<List<TerrenoResponse>> = { noDeclarado("getTerrenos") }
     var getPlantacionesResult: () -> Response<List<PlantacionesResponse>> = { noDeclarado("getPlantaciones") }
     var createTerrenoResult: () -> Response<TerrenoCreateResponse> = { noDeclarado("createTerreno") }
+    var eliminarTerrenoResult: () -> Response<Unit> = { noDeclarado("eliminarTerreno") }
     var getCultivosResult: () -> Response<List<CultivoResponse>> = { noDeclarado("getCultivos") }
     var getPlagasResult: () -> Response<List<PlagaResponse>> = { noDeclarado("getPlagas") }
     var createPlantacionResult: () -> Response<PlantacionCreateResponse> = { noDeclarado("createPlantacion") }
+    var actualizarPlantacionResult: () -> Response<PlantacionesResponse> = { noDeclarado("actualizarPlantacion") }
+    var eliminarPlantacionResult: () -> Response<Unit> = { noDeclarado("eliminarPlantacion") }
     var createMonitoreoResult: () -> Response<MonitoreoResponse> = { noDeclarado("createMonitoreo") }
+    var getMonitoreoResult: () -> Response<MonitoreoResponse> = { noDeclarado("getMonitoreo") }
+    var actualizarMonitoreoResult: () -> Response<MonitoreoResponse> = { noDeclarado("actualizarMonitoreo") }
     var createUserResult: () -> Response<CreateUserResponse> = { noDeclarado("createUser") }
     var getUsuarioActualResult: () -> Response<UsuarioResponse> = { noDeclarado("getUsuarioActual") }
     var actualizarUsuarioResult: () -> Response<UsuarioResponse> = { noDeclarado("actualizarUsuario") }
@@ -70,6 +77,10 @@ class FakeGDDService : GDDService {
         llamadas += "createTerreno"; ultimoCreateTerreno = data; return createTerrenoResult()
     }
 
+    override suspend fun eliminarTerreno(id: Int): Response<Unit> {
+        llamadas += "eliminarTerreno"; return eliminarTerrenoResult()
+    }
+
     override suspend fun getCultivos(): Response<List<CultivoResponse>> {
         llamadas += "getCultivos"; return getCultivosResult()
     }
@@ -82,8 +93,24 @@ class FakeGDDService : GDDService {
         llamadas += "createPlantacion"; ultimoCreatePlantacion = data; return createPlantacionResult()
     }
 
+    override suspend fun actualizarPlantacion(id: Int, data: UpdatePlantacionRequest): Response<PlantacionesResponse> {
+        llamadas += "actualizarPlantacion"; ultimoActualizarPlantacion = data; return actualizarPlantacionResult()
+    }
+
+    override suspend fun eliminarPlantacion(id: Int): Response<Unit> {
+        llamadas += "eliminarPlantacion"; return eliminarPlantacionResult()
+    }
+
     override suspend fun createMonitoreo(data: MonitoreoRequest): Response<MonitoreoResponse> {
         llamadas += "createMonitoreo"; ultimoCreateMonitoreo = data; return createMonitoreoResult()
+    }
+
+    override suspend fun getMonitoreo(id: Int): Response<MonitoreoResponse> {
+        llamadas += "getMonitoreo"; return getMonitoreoResult()
+    }
+
+    override suspend fun actualizarMonitoreo(id: Int, data: UpdateMonitoreoRequest): Response<MonitoreoResponse> {
+        llamadas += "actualizarMonitoreo"; ultimoActualizarMonitoreo = data; return actualizarMonitoreoResult()
     }
 
     override suspend fun createUser(data: CreateUserRequest): Response<CreateUserResponse> {
@@ -124,6 +151,10 @@ class FakeGDDService : GDDService {
     var ultimoRegistrarDispositivo: DispositivoRequest? = null
         private set
     var ultimoActualizarUsuario: UpdateUserRequest? = null
+        private set
+    var ultimoActualizarMonitoreo: UpdateMonitoreoRequest? = null
+        private set
+    var ultimoActualizarPlantacion: UpdatePlantacionRequest? = null
         private set
     var ultimoEliminarDispositivo: String? = null
         private set

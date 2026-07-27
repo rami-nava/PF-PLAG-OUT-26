@@ -147,7 +147,7 @@ fun TerrenoScreen(
                 .padding(padding)
         ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            PanelDeCampoTerrenos(terrenos = state.terrenos, monitoreos = monitoreosState.monitoreos)
+            PanelDeCampoTerrenos(terrenos = state.terrenos, monitoreos = monitoreosState.monitoreos.filter { it.activo })
 
             val opciones = remember(state.terrenos, monitoreosState.monitoreos) {
                 val buckets = state.terrenos.map { bucketDeAlerta(nivelMaxDe(it)) }
@@ -197,7 +197,7 @@ fun TerrenoScreen(
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
                             itemsIndexed(filtrados, key = { _, t -> t.terreno_id }) { index, terreno ->
-                                val monitoreosDelTerreno = monitoreosState.monitoreos.filter { it.terreno_id == terreno.terreno_id }
+                                val monitoreosDelTerreno = monitoreosState.monitoreos.filter { it.terreno_id == terreno.terreno_id && it.activo }
                                 val plantacionesActivas = plantacionesState.plantaciones.filter {
                                     it.terreno_id == terreno.terreno_id && it.activa
                                 }

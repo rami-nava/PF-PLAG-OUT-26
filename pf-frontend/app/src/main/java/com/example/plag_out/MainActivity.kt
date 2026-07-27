@@ -64,9 +64,9 @@ import kotlin.collections.contains
 
 class MainActivity : ComponentActivity() {
 
-    // plantacion_id pendiente de un tap en una notificación; lo observa AppNavigation
+    // monitoreo_id pendiente de un tap en una notificación; lo observa AppNavigation
     // para hacer el deep-link una vez que hay sesión y NavController.
-    private val deepLinkPlantacionId = mutableStateOf<String?>(null)
+    private val deepLinkMonitoreoId = mutableStateOf<String?>(null)
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,8 +79,8 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     AppNavigation(
-                        deepLinkPlantacionId = deepLinkPlantacionId.value,
-                        onDeepLinkConsumido = { deepLinkPlantacionId.value = null }
+                        deepLinkMonitoreoId = deepLinkMonitoreoId.value,
+                        onDeepLinkMonitoreoConsumido = { deepLinkMonitoreoId.value = null }
                     )
                 }
             }
@@ -95,8 +95,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun leerDeepLink(intent: Intent?) {
-        intent?.getStringExtra(PlagOutMessagingService.EXTRA_PLANTACION_ID)?.let {
-            deepLinkPlantacionId.value = it
+        intent?.getStringExtra(PlagOutMessagingService.EXTRA_MONITOREO_ID)?.let {
+            deepLinkMonitoreoId.value = it
         }
     }
 }
@@ -104,8 +104,8 @@ class MainActivity : ComponentActivity() {
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavigation(
-    deepLinkPlantacionId: String? = null,
-    onDeepLinkConsumido: () -> Unit = {}
+    deepLinkMonitoreoId: String? = null,
+    onDeepLinkMonitoreoConsumido: () -> Unit = {}
 ) {
     val db = AppDatabase.getDatabase(LocalContext.current)
     // applicationContext: los ViewModels sobreviven a la Activity (rotación) y
@@ -186,15 +186,29 @@ fun AppNavigation(
         }
     }
 
-    // Deep-link desde una notificación: navegar a la plantación una vez autenticado.
-    LaunchedEffect(deepLinkPlantacionId, sessionStatus) {
-        if (deepLinkPlantacionId != null && sessionStatus is SessionStatus.Authenticated) {
-            navController.navigate("plantacion/$deepLinkPlantacionId")
-            onDeepLinkConsumido()
+    // startDestination se fija una sola vez (arriba) leyendo sessionStatus en ese momento. Si
+    // sessionStatus pasó primero por NotAuthenticated y recién después (al terminar de cargar la
+    // sesión guardada) llegó a Authenticated, el NavHost ya arrancó en "logIn" y se queda ahí sin
+    // este empujón: si nos autenticamos estando parados en el login, saltamos a monitoreos.
+    LaunchedEffect(sessionStatus) {
+        val currentRoute = navBackStackEntry?.destination?.route
+        if (sessionStatus is SessionStatus.Authenticated && currentRoute == "logIn") {
+            navController.navigate("monitoreos") {
+                popUpTo("logIn") { inclusive = true }
+            }
         }
     }
 
-    val fullBleedScreens = listOf("logIn", "crearCuenta", "perfil", "editarPerfil")
+    // Deep-link desde una notificación: el aviso siempre es sobre un monitoreo puntual, así que
+    // el único destino posible es su pantalla de detalle.
+    LaunchedEffect(deepLinkMonitoreoId, sessionStatus) {
+        if (deepLinkMonitoreoId != null && sessionStatus is SessionStatus.Authenticated) {
+            navController.navigate("monitoreo/$deepLinkMonitoreoId")
+            onDeepLinkMonitoreoConsumido()
+        }
+    }
+
+    val fullBleedScreens = listOf("logIn", "crearCuenta", "perfil", "editarPerfil", "monitoreo/{monitoreo_id}")
     val isFullBleedRoute = fullBleedScreens.contains(navBackStackEntry?.destination?.route)
 
     // Cerrar sesión: AuthViewModel borra el almacenamiento local (token, Room,
@@ -253,7 +267,7 @@ fun AppNavigation(
                 CrearCuentaScreen(authViewModel,{navController.popBackStack()},{navController.popBackStack()})
             }
             composable("monitoreos") {
-                MonitoreosScreen(monitoreosViewModel, plantacionesViewModel, navController)
+                MonitoreosScreen(monitoreosViewModel, plantacionesViewModel, terrenosViewModel,navController)
             }
             composable("perfil") {
                 PerfilScreen(
@@ -294,9 +308,30 @@ fun AppNavigation(
             composable("plantacion/{plantacion_id}") { backStackEntry ->
                 val plantacionId =
                     backStackEntry.arguments?.getString("plantacion_id")?.toInt() ?: 0
-                MonitoreosPorPlantacion(plantacionId, monitoreosViewModel) {
-                    navController.popBackStack()
-                }
+                MonitoreosPorPlantacion(
+                    plantacionId = plantacionId,
+                    viewModel = monitoreosViewModel,
+                    plantacionesViewModel = plantacionesViewModel,
+                    onBack = { navController.popBackStack() },
+                    onMonitoreoClick = { monitoreoId -> navController.navigate("monitoreo/$monitoreoId") }
+                )
+            }
+            composable("monitoreo/{monitoreo_id}") { backStackEntry ->
+                val monitoreoId =
+                    backStackEntry.arguments?.getString("monitoreo_id")?.toInt() ?: 0
+                val detalleViewModel: MonitoreoDetalleViewModel =
+                    viewModel(factory = MonitoreoDetalleViewModelFactory(context, monitoreoRepository))
+                MonitoreoDetalleScreen(
+                    monitoreoId = monitoreoId,
+                    viewModel = detalleViewModel,
+                    onBack = { navController.popBackStack() },
+                    onFinalizado = {
+                        monitoreosViewModel.refrescar()
+                        navController.popBackStack()
+                    },
+                    onVerPlantacion = { plantacionId -> navController.navigate("plantacion/$plantacionId") },
+                    onVerTerreno = { terrenoId -> navController.navigate("terreno/$terrenoId") }
+                )
             }
             composable("terreno/{terreno_id}") { backStackEntry ->
                 val terrenoId =
@@ -416,7 +451,7 @@ private fun PantallaCargandoSesion(esperaAgotada: Boolean, onIrAlLogin: () -> Un
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo","logIn","crearCuenta","perfil","editarPerfil")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo","logIn","crearCuenta","perfil","editarPerfil","monitoreo/{monitoreo_id}")
     return !screensWithoutNavBar.contains(currentScreen)
 }
 
@@ -424,6 +459,6 @@ fun shouldShowBottomBar(navController: NavController): Boolean {
 fun shouldShowTopBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("logIn","crearCuenta","perfil","editarPerfil")
+    val screensWithoutNavBar = listOf("logIn","crearCuenta","perfil","editarPerfil","monitoreo/{monitoreo_id}")
     return !screensWithoutNavBar.contains(currentScreen)
 }

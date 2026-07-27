@@ -9,6 +9,8 @@ import com.example.plag_out.TerrenoCreateResponse
 import com.example.plag_out.CultivoResponse
 import com.example.plag_out.CreatePlantacionRequest
 import com.example.plag_out.MonitoreoRequest
+import com.example.plag_out.UpdateMonitoreoRequest
+import com.example.plag_out.UpdatePlantacionRequest
 import com.example.plag_out.PlagaResponse
 import com.example.plag_out.PlantacionCreateResponse
 import com.example.plag_out.CreateUserRequest
@@ -41,6 +43,9 @@ interface GDDService {
     @POST("/terrenos")
     suspend fun createTerreno(@Body data: CreateTerrenoRequest): Response<TerrenoCreateResponse>
 
+    @DELETE("/terrenos/{id}")
+    suspend fun eliminarTerreno(@Path("id") id: Int): Response<Unit>
+
     @GET("/cultivos")
     suspend fun getCultivos(): Response<List<CultivoResponse>>
 
@@ -50,8 +55,26 @@ interface GDDService {
     @POST("/plantaciones")
     suspend fun createPlantacion(@Body data: CreatePlantacionRequest): Response<PlantacionCreateResponse>
 
+    @PATCH("/plantaciones/{id}")
+    suspend fun actualizarPlantacion(
+        @Path("id") id: Int,
+        @Body data: UpdatePlantacionRequest
+    ): Response<PlantacionesResponse>
+
+    @DELETE("/plantaciones/{id}")
+    suspend fun eliminarPlantacion(@Path("id") id: Int): Response<Unit>
+
     @POST("/monitoreos")
     suspend fun createMonitoreo(@Body data: MonitoreoRequest): Response<MonitoreoResponse>
+
+    @GET("/monitoreos/{id}")
+    suspend fun getMonitoreo(@Path("id") id: Int): Response<MonitoreoResponse>
+
+    @PATCH("/monitoreos/{id}")
+    suspend fun actualizarMonitoreo(
+        @Path("id") id: Int,
+        @Body data: UpdateMonitoreoRequest
+    ): Response<MonitoreoResponse>
 
     @POST("/usuarios")
     suspend fun createUser(@Body data: CreateUserRequest): Response<CreateUserResponse>

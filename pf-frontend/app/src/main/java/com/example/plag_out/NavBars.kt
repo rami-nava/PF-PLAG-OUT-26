@@ -62,10 +62,11 @@ fun BottomNavigationBar(navController: NavController) {
                 selected = currentDestination == item.ruta,
                 onClick = {
                     if (currentDestination != item.ruta) {
+                        // Sin restoreState: cada tap en la barra debe llevar siempre al listado
+                        // raíz de la pestaña, no restaurar la última pantalla visitada dentro de ella.
                         navController.navigate(item.ruta) {
-                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            popUpTo(item.ruta) { inclusive = true }
                             launchSingleTop = true
-                            restoreState = true
                         }
                     }
                 },

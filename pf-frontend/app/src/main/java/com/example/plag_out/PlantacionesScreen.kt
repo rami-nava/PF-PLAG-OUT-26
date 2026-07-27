@@ -1,17 +1,27 @@
 package com.example.plag_out
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,8 +29,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Grass
+import androidx.compose.material.icons.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -29,6 +42,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,17 +51,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.plag_out.ui.theme.AnilloProgreso
+import com.example.plag_out.ui.theme.AnilloSegmentado
+import com.example.plag_out.ui.theme.EstadisticaCompacta
 import com.example.plag_out.ui.theme.EstadoSinResultados
 import com.example.plag_out.ui.theme.EstadoVacioFlotante
 import com.example.plag_out.ui.theme.EtiquetaInfo
 import com.example.plag_out.ui.theme.FiltroChipsRow
+import com.example.plag_out.ui.theme.NivelEstilo
 import com.example.plag_out.ui.theme.OpcionFiltro
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.SelloDeNivel
-import com.example.plag_out.ui.theme.SkeletonCargando
+import com.example.plag_out.ui.theme.SeparadorVertical
 import com.example.plag_out.ui.theme.StaggeredAppear
+import com.example.plag_out.ui.theme.contadorAnimado
 import com.example.plag_out.ui.theme.estiloDeNivel
 import com.example.plag_out.ui.theme.rememberPressScale
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -55,6 +75,9 @@ import java.util.Locale
 private const val FILTRO_TODAS = -1
 private const val FILTRO_ACTIVAS = 1
 private const val FILTRO_PAUSADAS = 0
+
+private const val PAGINA_INFORMACION = 0
+private const val PAGINA_PLANTACIONES = 1
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -73,6 +96,15 @@ fun PlantacionesPorTerreno(
 
     val terreno = terrenosState.terrenos.find { it.terreno_id == terrenoId }
     val plantacionesDelTerreno = plantacionesState.plantaciones.filter { it.terreno_id == terrenoId }
+    val monitoreosDelTerreno = monitoreosState.monitoreos.filter { it.terreno_id == terrenoId && it.activo }
+
+    val scope = rememberCoroutineScope()
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(terrenosState.error) {
+        terrenosState.error?.let { snackbarHostState.showSnackbar(it) }
+    }
 
     var filtro by rememberSaveable { mutableStateOf(FILTRO_TODAS) }
 
@@ -80,7 +112,7 @@ fun PlantacionesPorTerreno(
         plantacionesDelTerreno.sortedWith(
             compareByDescending<PlantacionesResponse> { it.activa }
                 .thenByDescending { p ->
-                    monitoreosState.monitoreos.filter { it.plantacion_id == p.plantacion_id }.maxOfOrNull { it.nivel_alerta } ?: -1
+                    monitoreosState.monitoreos.filter { it.plantacion_id == p.plantacion_id && it.activo }.maxOfOrNull { it.nivel_alerta } ?: -1
                 }
         )
     }
@@ -95,31 +127,28 @@ fun PlantacionesPorTerreno(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { navController.navigate("agregar_plantacion/$terrenoId") },
-                containerColor = PlagOutColors.Forest,
-                contentColor = PlagOutColors.TextOnDark,
-                shape = CircleShape,
-                modifier = Modifier.padding(bottom = 16.dp)
+            AnimatedVisibility(
+                visible = pagerState.currentPage == PAGINA_PLANTACIONES,
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut()
             ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Nueva Plantación", fontWeight = FontWeight.SemiBold)
+                ExtendedFloatingActionButton(
+                    onClick = { navController.navigate("agregar_plantacion/$terrenoId") },
+                    containerColor = PlagOutColors.Forest,
+                    contentColor = PlagOutColors.TextOnDark,
+                    shape = CircleShape,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Nueva Plantación", fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = plantacionesState.isRefreshing || monitoreosState.isRefreshing,
-            onRefresh = {
-                plantacionesViewModel.refrescar()
-                monitoreosViewModel.refrescar()
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -135,12 +164,19 @@ fun PlantacionesPorTerreno(
                     }
                     Column {
                         Text(
-                            terreno?.terreno_nombre ?: "Terreno",
+                            "Terreno",
                             color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
-                        Text("Plantaciones", color = PlagOutColors.TextOnDark, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(
+                            terreno?.terreno_nombre ?: "Terreno",
+                            color = PlagOutColors.TextOnDark,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                         Spacer(Modifier.height(4.dp))
                         val activas = plantacionesDelTerreno.count { it.activa }
                         Text(
@@ -153,6 +189,268 @@ fun PlantacionesPorTerreno(
                 }
             }
 
+            TabRow(
+                selectedTabIndex = pagerState.currentPage,
+                containerColor = PlagOutColors.Cream,
+                contentColor = PlagOutColors.Forest
+            ) {
+                Tab(
+                    selected = pagerState.currentPage == PAGINA_INFORMACION,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_INFORMACION) } },
+                    text = { Text("Información", fontWeight = FontWeight.SemiBold) }
+                )
+                Tab(
+                    selected = pagerState.currentPage == PAGINA_PLANTACIONES,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_PLANTACIONES) } },
+                    text = { Text("Plantaciones", fontWeight = FontWeight.SemiBold) }
+                )
+            }
+
+            HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { pagina ->
+                when (pagina) {
+                    PAGINA_INFORMACION -> InformacionTerrenoTab(
+                        terreno = terreno,
+                        plantacionesDelTerreno = plantacionesDelTerreno,
+                        monitoreosDelTerreno = monitoreosDelTerreno,
+                        terrenoViewModel = terrenoViewModel,
+                        plantacionesViewModel = plantacionesViewModel,
+                        monitoreosViewModel = monitoreosViewModel,
+                        onEliminado = onBack
+                    )
+                    else -> PlantacionesTab(
+                        isRefreshing = plantacionesState.isRefreshing || monitoreosState.isRefreshing,
+                        onRefresh = {
+                            plantacionesViewModel.refrescar()
+                            monitoreosViewModel.refrescar()
+                        },
+                        plantacionesDelTerreno = plantacionesDelTerreno,
+                        filtradas = filtradas,
+                        filtro = filtro,
+                        onFiltroChange = { filtro = it },
+                        monitoreos = monitoreosState.monitoreos,
+                        onPlantacionClick = { plantacionId -> navController.navigate("plantacion/$plantacionId") }
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ── Pestaña "Información" ────────────────────────────────────────────────────
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+private fun InformacionTerrenoTab(
+    terreno: TerrenoResponse?,
+    plantacionesDelTerreno: List<PlantacionesResponse>,
+    monitoreosDelTerreno: List<MonitoreoResponse>,
+    terrenoViewModel: TerrenosViewModel,
+    plantacionesViewModel: PlantacionesViewModel,
+    monitoreosViewModel: MonitoreosViewModel,
+    onEliminado: () -> Unit
+) {
+    val context = LocalContext.current
+    val terrenosState by terrenoViewModel.state.collectAsState()
+    var mostrarDialogoEliminar by remember { mutableStateOf(false) }
+    val sanos = monitoreosDelTerreno.count { it.nivel_alerta == 0 }
+    val atencion = monitoreosDelTerreno.count { it.nivel_alerta == 1 }
+    val criticos = monitoreosDelTerreno.count { it.nivel_alerta >= 2 }
+    val total = monitoreosDelTerreno.size
+    val activas = plantacionesDelTerreno.count { it.activa }
+    val totalAnimado = contadorAnimado(total)
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 18.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AnilloSegmentado(
+                segmentos = listOf(
+                    sanos to estiloDeNivel(0).color,
+                    atencion to estiloDeNivel(1).color,
+                    criticos to estiloDeNivel(2).color
+                ),
+                total = total,
+                modifier = Modifier.size(104.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("$totalAnimado", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
+                    Text(
+                        if (total == 1) "monitoreo" else "monitoreos",
+                        fontSize = 10.sp,
+                        color = PlagOutColors.TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            Spacer(Modifier.width(20.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LeyendaEstadoTerreno(estiloDeNivel(0), sanos)
+                LeyendaEstadoTerreno(estiloDeNivel(1), atencion)
+                LeyendaEstadoTerreno(estiloDeNivel(2), criticos)
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        Surface(
+            color = PlagOutColors.Surface,
+            shape = RoundedCornerShape(20.dp),
+            shadowElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                EstadisticaCompacta("Hectáreas", terreno?.let { "${it.terreno_area.toInt()}" } ?: "—", Modifier.weight(1f))
+                SeparadorVertical()
+                EstadisticaCompacta("Plantaciones", "${plantacionesDelTerreno.size}", Modifier.weight(1f))
+                SeparadorVertical()
+                EstadisticaCompacta("Activas", "$activas", Modifier.weight(1f))
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        Surface(
+            onClick = { terreno?.let { abrirUbicacionEnMapa(context, it) } },
+            color = PlagOutColors.Surface,
+            shape = RoundedCornerShape(20.dp),
+            shadowElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(38.dp).background(PlagOutColors.Forest.copy(alpha = 0.12f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Ubicación", fontSize = 12.sp, color = PlagOutColors.TextSecondary, fontWeight = FontWeight.Medium)
+                    Text(
+                        terreno?.let { "${"%.4f".format(it.terreno_latitud)}, ${"%.4f".format(it.terreno_longitud)}" } ?: "—",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PlagOutColors.TextMain
+                    )
+                }
+                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(18.dp))
+            }
+        }
+
+        if (total == 0) {
+            Spacer(Modifier.height(10.dp))
+            EtiquetaInfo(Icons.Outlined.HelpOutline, "Todavía no hay monitoreos en este terreno", PlagOutColors.RiskUnknown)
+        }
+
+        if (terreno != null) {
+            Spacer(Modifier.height(20.dp))
+            OutlinedButton(
+                onClick = { mostrarDialogoEliminar = true },
+                enabled = !terrenosState.procesando,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskDanger),
+                border = BorderStroke(1.dp, PlagOutColors.RiskDanger),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .testTag("btnEliminarTerreno")
+            ) {
+                if (terrenosState.procesando) {
+                    CircularProgressIndicator(color = PlagOutColors.RiskDanger, modifier = Modifier.size(20.dp))
+                } else {
+                    Text("Eliminar terreno", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+    }
+
+    if (mostrarDialogoEliminar && terreno != null) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoEliminar = false },
+            modifier = Modifier.testTag("dialogEliminarTerreno"),
+            title = { Text("¿Eliminar terreno?") },
+            text = {
+                Text(
+                    "Se va a eliminar \"${terreno.terreno_nombre}\" de forma permanente, junto con sus " +
+                        "plantaciones y monitoreos. Esta acción no se puede deshacer."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        mostrarDialogoEliminar = false
+                        terrenoViewModel.eliminarTerreno(terreno.terreno_id) {
+                            plantacionesViewModel.purgarPorTerreno(terreno.terreno_id)
+                            monitoreosViewModel.purgarPorTerreno(terreno.terreno_id)
+                            onEliminado()
+                        }
+                    },
+                    modifier = Modifier.testTag("btnConfirmarEliminarTerreno")
+                ) {
+                    Text("Eliminar", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoEliminar = false }) { Text("Cancelar") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun LeyendaEstadoTerreno(estilo: NivelEstilo, cantidad: Int) {
+    val valor = contadorAnimado(cantidad)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(estilo.icono, contentDescription = null, tint = estilo.color, modifier = Modifier.size(15.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(
+            estilo.etiqueta,
+            color = PlagOutColors.TextSecondary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.width(72.dp)
+        )
+        Text("$valor", color = PlagOutColors.TextMain, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+private fun abrirUbicacionEnMapa(context: Context, terreno: TerrenoResponse) {
+    try {
+        val uri = Uri.parse(
+            "geo:${terreno.terreno_latitud},${terreno.terreno_longitud}" +
+                "?q=${terreno.terreno_latitud},${terreno.terreno_longitud}(${Uri.encode(terreno.terreno_nombre)})"
+        )
+        context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+    } catch (e: Exception) {
+        Log.e("TERRENO_DETALLE", "No se pudo abrir el mapa: ${e.message}")
+    }
+}
+
+// ── Pestaña "Plantaciones" ───────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+private fun PlantacionesTab(
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+    plantacionesDelTerreno: List<PlantacionesResponse>,
+    filtradas: List<PlantacionesResponse>,
+    filtro: Int,
+    onFiltroChange: (Int) -> Unit,
+    monitoreos: List<MonitoreoResponse>,
+    onPlantacionClick: (Int) -> Unit
+) {
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             val opciones = remember(plantacionesDelTerreno) {
                 listOf(
                     OpcionFiltro(FILTRO_TODAS, "Todas", plantacionesDelTerreno.size),
@@ -160,7 +458,7 @@ fun PlantacionesPorTerreno(
                     OpcionFiltro(FILTRO_PAUSADAS, "Pausadas", plantacionesDelTerreno.count { !it.activa }, colorIcono = PlagOutColors.Bark)
                 )
             }
-            FiltroChipsRow(opciones = opciones, seleccionado = filtro, onSeleccion = { filtro = it })
+            FiltroChipsRow(opciones = opciones, seleccionado = filtro, onSeleccion = onFiltroChange)
 
             Box(modifier = Modifier.weight(1f)) {
                 AnimatedContent(
@@ -199,8 +497,8 @@ fun PlantacionesPorTerreno(
                                 StaggeredAppear(index = index) {
                                     PlantacionCard(
                                         plantacion = plantacion,
-                                        monitoreos = monitoreosState.monitoreos.filter { it.plantacion_id == plantacion.plantacion_id },
-                                        onClick = { navController.navigate("plantacion/${plantacion.plantacion_id}") }
+                                        monitoreos = monitoreos.filter { it.plantacion_id == plantacion.plantacion_id && it.activo },
+                                        onClick = { onPlantacionClick(plantacion.plantacion_id) }
                                     )
                                 }
                             }
@@ -208,7 +506,6 @@ fun PlantacionesPorTerreno(
                     }
                 }
             }
-        }
         }
     }
 }

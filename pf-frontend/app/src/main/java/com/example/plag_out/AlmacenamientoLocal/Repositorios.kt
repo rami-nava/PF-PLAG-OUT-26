@@ -12,14 +12,31 @@ class MonitoreoRepository(
         return monitoreoDao.getAll()
     }
 
+    suspend fun obtenerMonitoreo(id: Int): MonitoreoResponse? {
+        return monitoreoDao.getById(id)
+    }
+
     suspend fun guardarMonitoreo(monitoreo: MonitoreoResponse) {
         monitoreoDao.insert(monitoreo)
+    }
+
+    suspend fun borrarMonitoreo(id: Int) {
+        monitoreoDao.deleteById(id)
+    }
+
+    suspend fun borrarPorTerreno(terrenoId: Int) {
+        monitoreoDao.deleteByTerrenoId(terrenoId)
+    }
+
+    suspend fun borrarPorPlantacion(plantacionId: Int) {
+        monitoreoDao.deleteByPlantacionId(plantacionId)
     }
 
     suspend fun guardarMonitoreos(monitoreos: List<MonitoreoResponse>) {
         monitoreoDao.insertAll(monitoreos)
     }
 
+    /** GET /monitoreos devuelve la lista completa (activos y finalizados), así que el caché se reemplaza tal cual. */
     suspend fun reemplazarMonitoreos(monitoreos: List<MonitoreoResponse>) {
         monitoreoDao.deleteAll()
         monitoreoDao.insertAll(monitoreos)
@@ -40,6 +57,10 @@ class TerrenoRepository(
 
     suspend fun guardarTerreno(terreno: TerrenoResponse) {
         terrenoDao.insert(terreno)
+    }
+
+    suspend fun borrarTerreno(id: Int) {
+        terrenoDao.deleteById(id)
     }
 
     suspend fun guardarTerrenos(terrenos: List<TerrenoResponse>) {
@@ -75,6 +96,14 @@ class PlantacionRepository(
     suspend fun reemplazarPlantaciones(plantaciones: List<PlantacionesResponse>) {
         plantacionDao.deleteAll()
         plantacionDao.insertAll(plantaciones)
+    }
+
+    suspend fun borrarPlantacion(id: Int) {
+        plantacionDao.deleteById(id)
+    }
+
+    suspend fun borrarPorTerreno(terrenoId: Int) {
+        plantacionDao.deleteByTerrenoId(terrenoId)
     }
 
     suspend fun borrarTodos() {

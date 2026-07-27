@@ -16,7 +16,7 @@ import java.util.Date
 
 @Database(
     entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class],
-    version = 6
+    version = 8
 )
 
 @TypeConverters(Converters::class)

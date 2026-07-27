@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.outlined.SearchOff
@@ -58,6 +59,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Vocabulario visual compartido por los dashboards principales (Monitoreos,
@@ -83,6 +87,10 @@ fun estiloDeNivel(nivel: Int): NivelEstilo = when {
     nivel == 1 -> NivelEstilo(PlagOutColors.RiskWarn, PlagOutColors.Sun, "Atención", Icons.Filled.WarningAmber)
     else -> NivelEstilo(PlagOutColors.RiskDanger, Color(0xFFE4795C), "Crítico", Icons.Filled.ErrorOutline)
 }
+
+/** Estilo fijo para un monitoreo finalizado: prevalece por sobre su nivel de alerta. */
+fun estiloFinalizado(): NivelEstilo =
+    NivelEstilo(PlagOutColors.Bark, PlagOutColors.BarkLight, "Finalizado", Icons.Filled.Flag)
 
 /** Chip de estado: ícono + etiqueta; el ícono pulsa cuando `pulsante` es true. */
 @Composable
@@ -222,6 +230,121 @@ fun AnilloProgreso(progreso: Float, color: Color, tamano: Dp, grosor: Dp = 7.dp)
             fontWeight = FontWeight.ExtraBold,
             color = PlagOutColors.TextMain
         )
+    }
+}
+
+/**
+ * Versión ampliada de [AnilloProgreso] para la pantalla de detalle de monitoreo: más grande,
+ * con una marca de umbral en el arco y un color que anima entre saludable/atención/crítico según
+ * el nivel de alerta (en vez de recibir un color fijo).
+ */
+@Composable
+fun AnilloRiesgoGrande(
+    progreso: Float,
+    nivelAlerta: Int,
+    umbralRiesgo: Int?,
+    modifier: Modifier = Modifier,
+    tamano: Dp = 220.dp,
+    grosor: Dp = 18.dp
+) {
+    var iniciado by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { iniciado = true }
+    val avance by animateFloatAsState(
+        targetValue = if (iniciado) (progreso / 100f).coerceIn(0f, 1f) else 0f,
+        animationSpec = tween(1100, easing = FastOutSlowInEasing),
+        label = "anilloRiesgoGrandeAvance"
+    )
+    val color by animateColorAsState(
+        targetValue = estiloDeNivel(nivelAlerta).color,
+        animationSpec = tween(500),
+        label = "anilloRiesgoGrandeColor"
+    )
+    val contador = contadorAnimado(progreso.toInt())
+
+    val pulsante = nivelAlerta >= 2
+    val alfaHalo = if (pulsante) {
+        val pulso = rememberInfiniteTransition(label = "haloRiesgo")
+        val alfa by pulso.animateFloat(
+            initialValue = 0.18f,
+            targetValue = 0.02f,
+            animationSpec = infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+            label = "haloRiesgoAlfa"
+        )
+        alfa
+    } else 0f
+
+    Box(modifier.size(tamano), contentAlignment = Alignment.Center) {
+        if (pulsante) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(color.copy(alpha = alfaHalo), CircleShape)
+            )
+        }
+        Canvas(Modifier.fillMaxSize()) {
+            val grosorPx = grosor.toPx()
+            val arcSize = Size(size.width - grosorPx, size.height - grosorPx)
+            val topLeft = Offset(grosorPx / 2, grosorPx / 2)
+
+            drawArc(
+                color = PlagOutColors.CreamDeep,
+                startAngle = 0f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = grosorPx)
+            )
+            drawArc(
+                color = color,
+                startAngle = -90f,
+                sweepAngle = 360f * avance,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = grosorPx, cap = StrokeCap.Round)
+            )
+
+            if (umbralRiesgo != null) {
+                val anguloUmbral = -90f + 360f * (umbralRiesgo / 100f).coerceIn(0f, 1f)
+                val radianes = anguloUmbral * (PI.toFloat() / 180f)
+                val radio = arcSize.width / 2f
+                val centro = Offset(size.width / 2f, size.height / 2f)
+                val mitadGrosor = grosorPx / 2f
+                val margen = 4.dp.toPx()
+                val inicio = Offset(
+                    centro.x + (radio - mitadGrosor - margen) * cos(radianes),
+                    centro.y + (radio - mitadGrosor - margen) * sin(radianes)
+                )
+                val fin = Offset(
+                    centro.x + (radio + mitadGrosor + margen) * cos(radianes),
+                    centro.y + (radio + mitadGrosor + margen) * sin(radianes)
+                )
+                drawLine(
+                    color = PlagOutColors.TextMain,
+                    start = inicio,
+                    end = fin,
+                    strokeWidth = 3.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+        val fontPrincipal = (tamano.value * 56f / 220f).coerceAtLeast(24f).sp
+        val fontSecundaria = (tamano.value * 13f / 220f).coerceAtLeast(10f).sp
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                "$contador%",
+                fontSize = fontPrincipal,
+                fontWeight = FontWeight.ExtraBold,
+                color = PlagOutColors.TextMain
+            )
+            Text(
+                "riesgo",
+                fontSize = fontSecundaria,
+                fontWeight = FontWeight.Medium,
+                color = PlagOutColors.TextSecondary
+            )
+        }
     }
 }
 

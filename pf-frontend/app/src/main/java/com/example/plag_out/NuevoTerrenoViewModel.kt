@@ -137,7 +137,12 @@ class NuevoTerrenoViewModel(
                     )
                 }
             } catch (e: Exception) {
-                _state.value = _state.value.copy(isLoading = false, error = "Error: ${e.message}")
+                // Sin conexión (u otro fallo de red): no se guarda nada localmente ni se avanza
+                // de pantalla, igual que en la creación de plantaciones y monitoreos.
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    error = "Error de red. Revisá tu conexión e intentá de nuevo."
+                )
                 Log.e("NUEVO_TERRENO", "Error al registrar terreno: ${e.message}")
             }
         }
