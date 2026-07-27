@@ -21,7 +21,9 @@ import kotlinx.coroutines.withContext
 data class TerrenoUIState(
     var isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
-    val terrenos: List<TerrenoResponse> = emptyList()
+    val terrenos: List<TerrenoResponse> = emptyList(),
+    val procesando: Boolean = false,
+    val error: String? = null
 )
 
 class TerrenosViewModel(
@@ -97,6 +99,45 @@ class TerrenosViewModel(
                 Log.e("TERRENOS", "Error: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Elimina un terreno de forma permanente. El backend es responsable de eliminar en cascada las
+     * plantaciones y monitoreos asociados; del lado del cliente [onSuccess] es quien dispara la
+     * purga local (Room + memoria) de esos hijos en [PlantacionesViewModel]/[MonitoreosViewModel].
+     */
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun eliminarTerreno(terrenoId: Int, onSuccess: () -> Unit) {
+        _state.value = _state.value.copy(procesando = true, error = null)
+        viewModelScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) { gddService.eliminarTerreno(terrenoId) }
+                if (response.isSuccessful) {
+                    withContext(Dispatchers.IO) { terrenoRepository.borrarTerreno(terrenoId) }
+                    _state.value = _state.value.copy(
+                        terrenos = _state.value.terrenos.filter { it.terreno_id != terrenoId },
+                        procesando = false
+                    )
+                    onSuccess()
+                } else {
+                    _state.value = _state.value.copy(procesando = false, error = mensajeDeError(response.code()))
+                    Log.e("TERRENOS", "Error al eliminar: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    procesando = false,
+                    error = "No se pudo eliminar el terreno. Revisá tu conexión."
+                )
+                Log.e("TERRENOS", "Error al eliminar: ${e.message}")
+            }
+        }
+    }
+
+    private fun mensajeDeError(codigo: Int): String = when (codigo) {
+        400, 422 -> "Revisá los datos ingresados."
+        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
+        404 -> "El terreno ya no existe."
+        else -> "No se pudo eliminar el terreno. Intentá de nuevo."
     }
 }
 

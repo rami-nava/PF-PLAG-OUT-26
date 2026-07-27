@@ -48,7 +48,6 @@ object CacheTracker {
         prefs(context).edit().remove(clave).apply()
     }
 
-    /** Para el cierre de sesión: obliga a refetchear todo en el próximo login. */
     fun limpiarTodo(context: Context) {
         prefs(context).edit().clear().apply()
     }

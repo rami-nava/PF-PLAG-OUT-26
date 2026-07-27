@@ -92,7 +92,15 @@ data class MonitoreoResponse(
     @SerializedName("nivel_alerta")
     val nivel_alerta: Int,
     @SerializedName("fecha_actualizacion")
-    val fecha_actualizacion: LocalDate
+    val fecha_actualizacion: LocalDate,
+    @SerializedName("umbral_riesgo")
+    val umbral_riesgo: Int? = null,
+    @SerializedName("activo")
+    val activo: Boolean = true,
+    @SerializedName("fecha_inicio")
+    val fecha_inicio: LocalDate? = null,
+    @SerializedName("plaga_nombre_cientifico")
+    val plaga_nombre_cientifico: String? = null
 )
 
 @Entity(tableName = "terrenos")
@@ -215,6 +223,25 @@ data class MonitoreoRequest(
     val plaga_id: Int,
     @SerializedName("umbral_riesgo")
     val umbral_riesgo: Int
+)
+
+/**
+ * Edición parcial de un monitoreo. Un solo endpoint sirve para las dos acciones de la pantalla de
+ * detalle (cambiar umbral y finalizar) — se manda solo el campo que cambió.
+ */
+@Serializable
+data class UpdateMonitoreoRequest(
+    @SerializedName("umbral_riesgo")
+    val umbral_riesgo: Int? = null,
+    @SerializedName("activo")
+    val activo: Boolean? = null
+)
+
+/** Edición parcial de una plantación. */
+@Serializable
+data class UpdatePlantacionRequest(
+    @SerializedName("activa")
+    val activa: Boolean? = null
 )
 
 @Serializable

@@ -21,7 +21,9 @@ import kotlinx.coroutines.withContext
 data class PlantacionUIState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
-    val plantaciones: List<PlantacionesResponse> = emptyList()
+    val plantaciones: List<PlantacionesResponse> = emptyList(),
+    val procesando: Boolean = false,
+    val error: String? = null
 )
 
 class PlantacionesViewModel(
@@ -96,6 +98,87 @@ class PlantacionesViewModel(
                 Log.e("PLANTACIONES", "Error: ${e.message}")
             }
         }
+    }
+
+    /** Soft-close: marca `activa = false` para conservar el histórico en vez de borrar. */
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun finalizarPlantacion(plantacionId: Int, onSuccess: () -> Unit) {
+        val actual = _state.value.plantaciones.find { it.plantacion_id == plantacionId } ?: return
+
+        _state.value = _state.value.copy(procesando = true, error = null)
+        viewModelScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    gddService.actualizarPlantacion(plantacionId, UpdatePlantacionRequest(activa = false))
+                }
+                if (response.isSuccessful) {
+                    val actualizada = response.body() ?: actual.copy(activa = false)
+                    withContext(Dispatchers.IO) { plantacionRepository.guardarPlantacion(actualizada) }
+                    _state.value = _state.value.copy(
+                        plantaciones = _state.value.plantaciones.map { if (it.plantacion_id == plantacionId) actualizada else it },
+                        procesando = false
+                    )
+                    onSuccess()
+                } else {
+                    _state.value = _state.value.copy(procesando = false, error = mensajeDeError(response.code()))
+                    Log.e("PLANTACIONES", "Error al finalizar: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    procesando = false,
+                    error = "No se pudo finalizar la plantación. Revisá tu conexión."
+                )
+                Log.e("PLANTACIONES", "Error al finalizar: ${e.message}")
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun eliminarPlantacion(plantacionId: Int, onSuccess: () -> Unit) {
+        _state.value = _state.value.copy(procesando = true, error = null)
+        viewModelScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) { gddService.eliminarPlantacion(plantacionId) }
+                if (response.isSuccessful) {
+                    withContext(Dispatchers.IO) { plantacionRepository.borrarPlantacion(plantacionId) }
+                    _state.value = _state.value.copy(
+                        plantaciones = _state.value.plantaciones.filter { it.plantacion_id != plantacionId },
+                        procesando = false
+                    )
+                    onSuccess()
+                } else {
+                    _state.value = _state.value.copy(procesando = false, error = mensajeDeError(response.code()))
+                    Log.e("PLANTACIONES", "Error al eliminar: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    procesando = false,
+                    error = "No se pudo eliminar la plantación. Revisá tu conexión."
+                )
+                Log.e("PLANTACIONES", "Error al eliminar: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Purga local (Room + memoria) de las plantaciones de un terreno eliminado. No llama a la red:
+     * el DELETE del terreno ya se hizo y se asume que el backend eliminó en cascada; esto solo
+     * sincroniza el caché del cliente para que no queden plantaciones huérfanas.
+     */
+    fun purgarPorTerreno(terrenoId: Int) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { plantacionRepository.borrarPorTerreno(terrenoId) }
+            _state.value = _state.value.copy(
+                plantaciones = _state.value.plantaciones.filter { it.terreno_id != terrenoId }
+            )
+        }
+    }
+
+    private fun mensajeDeError(codigo: Int): String = when (codigo) {
+        400, 422 -> "Revisá los datos ingresados."
+        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
+        404 -> "La plantación ya no existe."
+        else -> "No se pudieron guardar los cambios. Intentá de nuevo."
     }
 }
 

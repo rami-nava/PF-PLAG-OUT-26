@@ -14,6 +14,9 @@ interface MonitoreoDao {
     @Query("SELECT * FROM monitoreos")
     suspend fun getAll(): List<MonitoreoResponse>
 
+    @Query("SELECT * FROM monitoreos WHERE monitoreo_id = :id")
+    suspend fun getById(id: Int): MonitoreoResponse?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(monitoreos: List<MonitoreoResponse>)
 
@@ -22,6 +25,15 @@ interface MonitoreoDao {
 
     @Query("DELETE FROM monitoreos")
     suspend fun deleteAll()
+
+    @Query("DELETE FROM monitoreos WHERE monitoreo_id = :id")
+    suspend fun deleteById(id: Int)
+
+    @Query("DELETE FROM monitoreos WHERE terreno_id = :terrenoId")
+    suspend fun deleteByTerrenoId(terrenoId: Int)
+
+    @Query("DELETE FROM monitoreos WHERE plantacion_id = :plantacionId")
+    suspend fun deleteByPlantacionId(plantacionId: Int)
 }
 
 @Dao
@@ -38,6 +50,9 @@ interface TerrenoDao {
 
     @Query("DELETE FROM terrenos")
     suspend fun deleteAll()
+
+    @Query("DELETE FROM terrenos WHERE terreno_id = :id")
+    suspend fun deleteById(id: Int)
 }
 
 @Dao
@@ -54,4 +69,10 @@ interface PlantacionDao {
 
     @Query("DELETE FROM plantaciones")
     suspend fun deleteAll()
+
+    @Query("DELETE FROM plantaciones WHERE plantacion_id = :id")
+    suspend fun deleteById(id: Int)
+
+    @Query("DELETE FROM plantaciones WHERE terreno_id = :terrenoId")
+    suspend fun deleteByTerrenoId(terrenoId: Int)
 }

@@ -33,6 +33,10 @@ class FakeTerrenoDao(inicial: List<TerrenoResponse> = emptyList()) : TerrenoDao 
     override suspend fun deleteAll() {
         operaciones += "deleteAll"; filas.clear()
     }
+
+    override suspend fun deleteById(id: Int) {
+        operaciones += "deleteById"; filas.removeAll { it.terreno_id == id }
+    }
 }
 
 class FakePlantacionDao(inicial: List<PlantacionesResponse> = emptyList()) : PlantacionDao {
@@ -56,6 +60,14 @@ class FakePlantacionDao(inicial: List<PlantacionesResponse> = emptyList()) : Pla
     override suspend fun deleteAll() {
         operaciones += "deleteAll"; filas.clear()
     }
+
+    override suspend fun deleteById(id: Int) {
+        operaciones += "deleteById"; filas.removeAll { it.plantacion_id == id }
+    }
+
+    override suspend fun deleteByTerrenoId(terrenoId: Int) {
+        operaciones += "deleteByTerrenoId"; filas.removeAll { it.terreno_id == terrenoId }
+    }
 }
 
 class FakeMonitoreoDao(inicial: List<MonitoreoResponse> = emptyList()) : MonitoreoDao {
@@ -64,6 +76,10 @@ class FakeMonitoreoDao(inicial: List<MonitoreoResponse> = emptyList()) : Monitor
 
     override suspend fun getAll(): List<MonitoreoResponse> {
         operaciones += "getAll"; return filas.toList()
+    }
+
+    override suspend fun getById(id: Int): MonitoreoResponse? {
+        operaciones += "getById"; return filas.find { it.monitoreo_id == id }
     }
 
     override suspend fun insertAll(monitoreos: List<MonitoreoResponse>) {
@@ -78,5 +94,17 @@ class FakeMonitoreoDao(inicial: List<MonitoreoResponse> = emptyList()) : Monitor
 
     override suspend fun deleteAll() {
         operaciones += "deleteAll"; filas.clear()
+    }
+
+    override suspend fun deleteById(id: Int) {
+        operaciones += "deleteById"; filas.removeAll { it.monitoreo_id == id }
+    }
+
+    override suspend fun deleteByTerrenoId(terrenoId: Int) {
+        operaciones += "deleteByTerrenoId"; filas.removeAll { it.terreno_id == terrenoId }
+    }
+
+    override suspend fun deleteByPlantacionId(plantacionId: Int) {
+        operaciones += "deleteByPlantacionId"; filas.removeAll { it.plantacion_id == plantacionId }
     }
 }

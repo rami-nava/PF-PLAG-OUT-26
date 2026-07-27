@@ -49,10 +49,6 @@ class AgregarPlantacionViewModel(
         _state.value = _state.value.copy(cultivoSeleccionado = cultivo, error = null)
     }
 
-    fun actualizarActiva(activa: Boolean) {
-        _state.value = _state.value.copy(activa = activa)
-    }
-
     fun seleccionarFecha(millis: Long) {
         try {
             val date = Instant.ofEpochMilli(millis)
@@ -114,7 +110,7 @@ class AgregarPlantacionViewModel(
                     terreno_id = terrenoId,
                     cultivo_id = cultivo.id,
                     fecha_siembra = fecha,
-                    activa = currentState.activa
+                    activa = currentState.activa //Siempre se crea activa
                 )
 
                 val response = withContext(Dispatchers.IO) {

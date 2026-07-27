@@ -57,12 +57,12 @@ class PlagOutMessagingService : FirebaseMessagingService() {
     private fun mostrarNotificacion(titulo: String, cuerpo: String, data: Map<String, String>) {
         crearCanal()
 
-        // Intent de tap: reabre MainActivity con los datos para hacer deep-link.
+        // Intent de tap: reabre MainActivity con el id para hacer deep-link al monitoreo.
+        // Toda alerta es sobre un monitoreo puntual, así que ese es el único deep-link posible.
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             data["tipo"]?.let { putExtra(EXTRA_TIPO, it) }
             data["monitoreo_id"]?.let { putExtra(EXTRA_MONITOREO_ID, it) }
-            data["plantacion_id"]?.let { putExtra(EXTRA_PLANTACION_ID, it) }
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -105,6 +105,5 @@ class PlagOutMessagingService : FirebaseMessagingService() {
         const val CHANNEL_ID = "alertas_gdd"
         const val EXTRA_TIPO = "tipo"
         const val EXTRA_MONITOREO_ID = "monitoreo_id"
-        const val EXTRA_PLANTACION_ID = "plantacion_id"
     }
 }
