@@ -16,6 +16,10 @@ android {
         }
     }
     val testJwt = (localProperties.getProperty("test.jwt") ?: "").trim('"')
+    var backendUrl = (localProperties.getProperty("backend.url") ?: "http://10.0.2.2:8000/").trim('"')
+    if (backendUrl.isNotEmpty() && !backendUrl.endsWith("/")) {
+        backendUrl = "$backendUrl/"
+    }
    
     namespace = "com.example.plag_out"
     compileSdk = 36
@@ -29,6 +33,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "TEST_JWT", "\"$testJwt\"")
+        buildConfigField("String", "BACKEND_URL", "\"$backendUrl\"")
     }
 
     buildTypes {

@@ -62,6 +62,9 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlin.collections.contains
 
+import android.preference.PreferenceManager
+import org.osmdroid.config.Configuration
+
 class MainActivity : ComponentActivity() {
 
     // monitoreo_id pendiente de un tap en una notificación; lo observa AppNavigation
@@ -71,6 +74,13 @@ class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val osmConfig = Configuration.getInstance()
+        osmConfig.userAgentValue = "PlagOutMobileApp/1.0.1 (contacto@mi-app.com)"
+        osmConfig.osmdroidBasePath = java.io.File(cacheDir, "osmdroid")
+        osmConfig.osmdroidTileCache = java.io.File(cacheDir, "osmdroid/tiles")
+        osmConfig.load(applicationContext, PreferenceManager.getDefaultSharedPreferences(applicationContext))
+        android.util.Log.d("OSM_DEBUG", "User-Agent en MainActivity: ${osmConfig.userAgentValue}")
+        
         leerDeepLink(intent)
         setContent {
             PlagasGDDTheme {
@@ -107,24 +117,32 @@ fun AppNavigation(
     deepLinkMonitoreoId: String? = null,
     onDeepLinkMonitoreoConsumido: () -> Unit = {}
 ) {
-    val db = AppDatabase.getDatabase(LocalContext.current)
-    // applicationContext: los ViewModels sobreviven a la Activity (rotación) y
-    // guardarles el context de la Activity la dejaría retenida en memoria
     val context = LocalContext.current.applicationContext
-    val monitoreoRepository = MonitoreoRepository(db.monitoreoDao())
-    val terrenoRepository = TerrenoRepository(db.terrenoDao())
-    val plantacionRepository = PlantacionRepository(db.plantacionDao())
+    val db = remember(context) { AppDatabase.getDatabase(context) }
+    val monitoreoRepository = remember(db) { MonitoreoRepository(db.monitoreoDao()) }
+    val terrenoRepository = remember(db) { TerrenoRepository(db.terrenoDao()) }
+    val plantacionRepository = remember(db) { PlantacionRepository(db.plantacionDao()) }
 
-    val monitoreosViewModel: MonitoreosViewModel = viewModel(factory = MonitoreosViewModelFactory(context, monitoreoRepository))
-    val terrenosViewModel: TerrenosViewModel = viewModel(factory = TerrenosViewModelFactory(context, terrenoRepository))
-    val plantacionesViewModel: PlantacionesViewModel = viewModel(factory = PlantacionesViewModelFactory(context, plantacionRepository))
-    val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(factory = NuevoTerrenoViewModelFactory(context, terrenoRepository))
+    val monitoreosViewModel: MonitoreosViewModel = viewModel(
+        factory = remember(context, monitoreoRepository) { MonitoreosViewModelFactory(context, monitoreoRepository) }
+    )
+    val terrenosViewModel: TerrenosViewModel = viewModel(
+        factory = remember(context, terrenoRepository) { TerrenosViewModelFactory(context, terrenoRepository) }
+    )
+    val plantacionesViewModel: PlantacionesViewModel = viewModel(
+        factory = remember(context, plantacionRepository) { PlantacionesViewModelFactory(context, plantacionRepository) }
+    )
+    val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(
+        factory = remember(context, terrenoRepository) { NuevoTerrenoViewModelFactory(context, terrenoRepository) }
+    )
 
     val authViewModel: AuthViewModel = viewModel(
-        factory = AuthViewModel.AuthViewModelFactory(
-            SupabaseProvider.client, context,
-            monitoreoRepository, terrenoRepository, plantacionRepository
-        )
+        factory = remember(context, monitoreoRepository, terrenoRepository, plantacionRepository) {
+            AuthViewModel.AuthViewModelFactory(
+                SupabaseProvider.client, context,
+                monitoreoRepository, terrenoRepository, plantacionRepository
+            )
+        }
     )
     val userViewModel: UserViewModel = viewModel()
 

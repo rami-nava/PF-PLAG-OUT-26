@@ -78,9 +78,11 @@ import com.example.plag_out.ui.theme.PlagOutColors
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import android.util.Log
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
@@ -200,16 +202,28 @@ fun SelectLocationScreen(
                         AndroidView(
                             modifier = Modifier.fillMaxSize(),
                             factory = { ctx ->
+                                Configuration.getInstance().userAgentValue = "PlagOutMobileApp/1.0.1 (contacto@mi-app.com)"
                                 Configuration.getInstance().load(
                                     ctx,
                                     PreferenceManager.getDefaultSharedPreferences(ctx)
                                 )
+                                Log.d("OSM_DEBUG", "User-Agent en MapView: ${Configuration.getInstance().userAgentValue}")
+
+                                val cartoTileSource = XYTileSource(
+                                    "CartoDB-Positron",
+                                    0, 19, 256, ".png",
+                                    arrayOf(
+                                        "https://a.basemaps.cartocdn.com/light_all/",
+                                        "https://b.basemaps.cartocdn.com/light_all/",
+                                        "https://c.basemaps.cartocdn.com/light_all/"
+                                    )
+                                )
 
                                 MapView(ctx).apply {
                                     setMultiTouchControls(true)
-                                    setTileSource(TileSourceFactory.MAPNIK)
+                                    setTileSource(cartoTileSource)
                                     controller.setZoom(5.0)
-                                    controller.setCenter(GeoPoint(-34.6037, -58.3816))
+                                    controller.setCenter(selectedLocation ?: GeoPoint(-34.6037, -58.3816))
 
                                     val receiver = object : MapEventsReceiver {
                                         override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
@@ -225,6 +239,7 @@ fun SelectLocationScreen(
                                     }
 
                                     overlays.add(MapEventsOverlay(receiver))
+                                    onResume()
                                 }
                             },
                             update = { map ->
