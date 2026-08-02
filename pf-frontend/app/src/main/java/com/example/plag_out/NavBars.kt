@@ -10,13 +10,14 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
@@ -25,10 +26,6 @@ import androidx.compose.material3.NavigationBarItemColors
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -52,7 +49,8 @@ fun BottomNavigationBar(navController: NavController) {
 
         val barItems = listOf(
             BarItem("Monitoreos", "monitoreos", Icons.Default.Science),
-            BarItem("Terrenos", "terrenos", Icons.Default.Terrain)
+            BarItem("Terrenos", "terrenos", Icons.Default.Terrain),
+            BarItem("Perfil", "perfil", Icons.Default.Person)
         )
 
         barItems.forEach { item ->
@@ -84,11 +82,13 @@ fun BottomNavigationBar(navController: NavController) {
     }
 }
 
+/**
+ * Barra superior: la marca y el timbre de notificaciones. El perfil vive en la barra inferior
+ * y el resto de los ajustes, en su drawer.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopBar(onPerfilClick: () -> Unit, onCerrarSesion: () -> Unit) {
-    var menuAbierto by remember { mutableStateOf(false) }
-    var confirmarCierre by remember { mutableStateOf(false) }
-
+fun TopBar(noLeidas: Int = 0, onNotificacionesClick: () -> Unit = {}) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -105,56 +105,49 @@ fun TopBar(onPerfilClick: () -> Unit, onCerrarSesion: () -> Unit) {
             letterSpacing = 3.sp
         )
 
-        Box(Modifier.align(Alignment.CenterEnd).padding(end = 6.dp)) {
+        // El BadgedBox va por fuera del IconButton a propósito: adentro, el clip circular del
+        // botón le come la esquina al badge. El padding derecho deja lugar a que sobresalga.
+        BadgedBox(
+            badge = {
+                // El backend solo devuelve las no leídas: sin badge no hay nada pendiente
+                if (noLeidas > 0) {
+                    Badge(
+                        containerColor = PlagOutColors.Sun,
+                        contentColor = PlagOutColors.ForestDark,
+                        modifier = Modifier.testTag("badgeNotificaciones")
+                    ) {
+                        Text(
+                            if (noLeidas > 9) "9+" else "$noLeidas",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 14.dp)
+        ) {
             IconButton(
-                onClick = { menuAbierto = true },
-                modifier = Modifier.testTag("btnMenuUsuario")
+                onClick = onNotificacionesClick,
+                modifier = Modifier.testTag("btnNotificaciones")
             ) {
                 Icon(
-                    Icons.Default.AccountCircle,
-                    contentDescription = "Cuenta",
+                    Icons.Default.Notifications,
+                    contentDescription = if (noLeidas > 0) {
+                        "Notificaciones, $noLeidas sin leer"
+                    } else {
+                        "Notificaciones"
+                    },
                     tint = PlagOutColors.TextOnDark,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-            DropdownMenu(
-                expanded = menuAbierto,
-                onDismissRequest = { menuAbierto = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Mi perfil", fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain) },
-                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = PlagOutColors.Forest) },
-                    onClick = {
-                        menuAbierto = false
-                        onPerfilClick()
-                    },
-                    modifier = Modifier.testTag("menuMiPerfil")
-                )
-                DropdownMenuItem(
-                    text = { Text("Cerrar sesión", fontWeight = FontWeight.SemiBold, color = PlagOutColors.RiskDanger) },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = PlagOutColors.RiskDanger) },
-                    onClick = {
-                        menuAbierto = false
-                        confirmarCierre = true
-                    },
-                    modifier = Modifier.testTag("menuCerrarSesion")
+                    modifier = Modifier.size(26.dp)
                 )
             }
         }
     }
-
-    if (confirmarCierre) {
-        DialogoCerrarSesion(
-            onConfirmar = {
-                confirmarCierre = false
-                onCerrarSesion()
-            },
-            onDismiss = { confirmarCierre = false }
-        )
-    }
 }
 
-/** Confirmación de cierre de sesión, compartida entre la TopBar y PerfilScreen. */
+/** Confirmación de cierre de sesión, disparada desde el drawer del perfil. */
 @Composable
 fun DialogoCerrarSesion(onConfirmar: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(

@@ -10,7 +10,9 @@ import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.OffsetDateTime
 import com.example.plag_out.SupabaseProvider
 import io.github.jan.supabase.auth.auth
 
@@ -22,6 +24,15 @@ object RetrofitClient {
         })
         .registerTypeAdapter(LocalTime::class.java, JsonDeserializer { json, _, _ ->
             LocalTime.parse(json.asString)
+        })
+        // Para convertir LOCALDATETIME presente en notificaciones ("Hace 5 min")
+        .registerTypeAdapter(LocalDateTime::class.java, JsonDeserializer { json, _, _ ->
+            val texto = json.asString
+            runCatching { OffsetDateTime.parse(texto).toLocalDateTime() }
+                .getOrElse { LocalDateTime.parse(texto) }
+        })
+        .registerTypeAdapter(LocalDateTime::class.java, JsonSerializer<LocalDateTime> { fecha, _, _ ->
+            JsonPrimitive(fecha.toString())
         })
         .registerTypeAdapter(LocalDate::class.java, JsonSerializer<LocalDate> { date, _, _ ->
             JsonPrimitive(date.toString())

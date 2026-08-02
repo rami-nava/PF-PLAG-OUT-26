@@ -26,6 +26,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,6 +43,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.plag_out.Service.FcmTokenRegistrar
 import com.example.plag_out.Service.PlagOutMessagingService
@@ -55,6 +59,7 @@ import com.example.plag_out.AlmacenamientoLocal.PreferenciasUsuario
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
+import com.example.plag_out.AlmacenamientoLocal.UsuarioRepository
 import com.example.plag_out.Service.RetrofitClient
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.PlagasGDDTheme
@@ -122,6 +127,7 @@ fun AppNavigation(
     val monitoreoRepository = remember(db) { MonitoreoRepository(db.monitoreoDao()) }
     val terrenoRepository = remember(db) { TerrenoRepository(db.terrenoDao()) }
     val plantacionRepository = remember(db) { PlantacionRepository(db.plantacionDao()) }
+    val usuarioRepository = remember(db) { UsuarioRepository(db.usuarioDao()) }
 
     val monitoreosViewModel: MonitoreosViewModel = viewModel(
         factory = remember(context, monitoreoRepository) { MonitoreosViewModelFactory(context, monitoreoRepository) }
@@ -137,14 +143,19 @@ fun AppNavigation(
     )
 
     val authViewModel: AuthViewModel = viewModel(
-        factory = remember(context, monitoreoRepository, terrenoRepository, plantacionRepository) {
+        factory = remember(context, monitoreoRepository, terrenoRepository, plantacionRepository, usuarioRepository) {
             AuthViewModel.AuthViewModelFactory(
                 SupabaseProvider.client, context,
-                monitoreoRepository, terrenoRepository, plantacionRepository
+                monitoreoRepository, terrenoRepository, plantacionRepository, usuarioRepository
             )
         }
     )
-    val userViewModel: UserViewModel = viewModel()
+    val userViewModel: UserViewModel = viewModel(
+        factory = remember(usuarioRepository) { UserViewModelFactory(usuarioRepository) }
+    )
+    val notificacionesViewModel: NotificacionesViewModel = viewModel(
+        factory = remember { NotificacionesViewModelFactory() }
+    )
 
     // Supabase restaura la sesión guardada al iniciar (y renueva el token si hace
     // falta). Mientras tanto el estado es Initializing: mostramos un splash y recién
@@ -226,8 +237,38 @@ fun AppNavigation(
         }
     }
 
-    val fullBleedScreens = listOf("logIn", "crearCuenta", "perfil", "editarPerfil", "monitoreo/{monitoreo_id}")
-    val isFullBleedRoute = fullBleedScreens.contains(navBackStackEntry?.destination?.route)
+    val notificacionesState by notificacionesViewModel.state.collectAsState()
+    var mostrarNotificaciones by remember { mutableStateOf(false) }
+
+    // Recién autenticado (login o sesión restaurada): el ON_RESUME de abajo ya pasó con la app
+    // en primer plano, así que sin esto el badge se quedaría en cero hasta minimizar y volver.
+    LaunchedEffect(sessionStatus) {
+        if (sessionStatus is SessionStatus.Authenticated) notificacionesViewModel.cargar()
+    }
+
+    // Y cada vez que se vuelve del fondo: si llegó un push mientras la app estaba minimizada,
+    // el contador lo refleja al volver.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, sessionStatus) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && sessionStatus is SessionStatus.Authenticated) {
+                notificacionesViewModel.cargar()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // Push recibido con la app ya abierta: ON_RESUME no dispara en ese caso porque nunca se fue
+    // a segundo plano, así que sin esto la campana se queda desactualizada hasta el próximo clic.
+    LaunchedEffect(Unit) {
+        NotificacionesEventBus.eventos.collect {
+            if (sessionStatus is SessionStatus.Authenticated) notificacionesViewModel.cargar()
+        }
+    }
+
+    val fullBleedScreens = listOf("logIn", "crearCuenta", "editarPerfil", "monitoreo/{monitoreo_id}")
+    val rutaActual = navBackStackEntry?.destination?.route
 
     // Cerrar sesión: AuthViewModel borra el almacenamiento local (token, Room,
     // marcas de caché); acá se descarta además el estado en memoria de los
@@ -238,6 +279,7 @@ fun AppNavigation(
             monitoreosViewModel.limpiar()
             terrenosViewModel.limpiar()
             plantacionesViewModel.limpiar()
+            notificacionesViewModel.limpiar()
             navController.navigate("logIn") {
                 popUpTo(0) { inclusive = true }
             }
@@ -249,10 +291,11 @@ fun AppNavigation(
         topBar = {
             if (shouldShowTopBar(navController)) {
                 TopBar(
-                    onPerfilClick = {
-                        navController.navigate("perfil") { launchSingleTop = true }
-                    },
-                    onCerrarSesion = cerrarSesion
+                    noLeidas = notificacionesState.noLeidas,
+                    onNotificacionesClick = {
+                        notificacionesViewModel.cargar()
+                        mostrarNotificaciones = true
+                    }
                 )
             }
         },
@@ -262,12 +305,20 @@ fun AppNavigation(
             }
         }
     ) { paddingValues ->
+        //Hay pantallas que al no tener topbar y bottom bar tienen padding 0
+        //para ocupar toda la pantalla y ocupar el espacio del scaffold
+        val paddingContenido = when {
+            fullBleedScreens.contains(rutaActual) -> PaddingValues(0.dp)
+            // El perfil es pestaña (necesita dejar libre la barra inferior) pero dibuja su propio
+            // header detrás de la status bar: sin el top del Scaffold no se duplica ese inset.
+            rutaActual == "perfil" -> PaddingValues(bottom = paddingValues.calculateBottomPadding())
+            else -> paddingValues
+        }
+
         NavHost(
-            //Hay pantallas que al no tener topbar y bottom bar tienen padding 0
-            //para ocupar toda la pantalla y ocupar el espacio del scaffold
             navController = navController,
             startDestination = startDestination,
-            modifier = Modifier.padding(if (isFullBleedRoute) PaddingValues(0.dp) else paddingValues)
+            modifier = Modifier.padding(paddingContenido)
         ) {
             composable("logIn") {
                 LoginScreen(
@@ -294,7 +345,6 @@ fun AppNavigation(
                     plantacionesViewModel = plantacionesViewModel,
                     monitoreosViewModel = monitoreosViewModel,
                     authViewModel = authViewModel,
-                    onBack = { navController.popBackStack() },
                     onEditarPerfil = {
                         navController.navigate("editarPerfil") { launchSingleTop = true }
                     },
@@ -413,6 +463,20 @@ fun AppNavigation(
             }
         }
     }
+
+    // Fuera del Scaffold: la hoja se dibuja en su propia ventana y tiene que poder taparlo
+    // entero, incluidas las barras.
+    if (mostrarNotificaciones) {
+        NotificacionesSheet(
+            state = notificacionesState,
+            onMarcarLeida = { notificacionesViewModel.marcarLeida(it) },
+            onNavegar = { destino -> navController.navigate(destino) },
+            onDismiss = {
+                mostrarNotificaciones = false
+                notificacionesViewModel.descartarError()
+            }
+        )
+    }
 }
 
 /** Cuánto esperamos a que Supabase resuelva la sesión antes de ofrecer ir al login. */
@@ -469,7 +533,7 @@ private fun PantallaCargandoSesion(esperaAgotada: Boolean, onIrAlLogin: () -> Un
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo","logIn","crearCuenta","perfil","editarPerfil","monitoreo/{monitoreo_id}")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo","logIn","crearCuenta","editarPerfil","monitoreo/{monitoreo_id}")
     return !screensWithoutNavBar.contains(currentScreen)
 }
 

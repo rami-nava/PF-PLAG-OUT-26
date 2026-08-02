@@ -7,6 +7,7 @@ import androidx.room.Query
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
+import com.example.plag_out.UsuarioResponse
 
 @Dao
 interface MonitoreoDao {
@@ -75,4 +76,18 @@ interface PlantacionDao {
 
     @Query("DELETE FROM plantaciones WHERE terreno_id = :terrenoId")
     suspend fun deleteByTerrenoId(terrenoId: Int)
+}
+
+/** Solo se cachea el usuario logueado en este dispositivo: la tabla tiene, a lo sumo, una fila. */
+@Dao
+interface UsuarioDao {
+
+    @Query("SELECT * FROM usuario LIMIT 1")
+    suspend fun get(): UsuarioResponse?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(usuario: UsuarioResponse)
+
+    @Query("DELETE FROM usuario")
+    suspend fun deleteAll()
 }

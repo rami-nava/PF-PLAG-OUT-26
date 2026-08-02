@@ -19,6 +19,8 @@ import com.example.plag_out.UsuarioResponse
 import com.example.plag_out.UpdateUserRequest
 import com.example.plag_out.DispositivoRequest
 import com.example.plag_out.DispositivoResponse
+import com.example.plag_out.MarcarLeidaResponse
+import com.example.plag_out.NotificacionResponse
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -93,6 +95,13 @@ interface GDDService {
     // Elimina el token FCM del usuario actual (logout)
     @DELETE("/usuarios/fcm-token/{fcm_token}")
     suspend fun eliminarDispositivo(@Path("fcm_token") fcmToken: String): Response<Unit>
+
+    // Historial in-app del usuario del JWT. El backend devuelve solo las no leídas.
+    @GET("/notificaciones")
+    suspend fun getNotificaciones(): Response<List<NotificacionResponse>>
+
+    @PATCH("/notificaciones/{id}")
+    suspend fun marcarNotificacionLeida(@Path("id") id: Int): Response<MarcarLeidaResponse>
 
     @GET("/cargos")
     suspend fun getCargos(): Response<List<CargoResponse>>

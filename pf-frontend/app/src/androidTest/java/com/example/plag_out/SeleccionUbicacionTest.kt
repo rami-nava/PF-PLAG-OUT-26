@@ -58,7 +58,7 @@ class SeleccionUbicacionTest {
     fun datos_de_ubicacion_validos() {
 
 
-        // Caso 1: latitud vacía
+        // Caso 1: longitud vacía
         composeRule.onNodeWithTag("txtLatitud")
             .performTextClearance()
         composeRule.onNodeWithTag("txtLongitud")
@@ -68,10 +68,10 @@ class SeleccionUbicacionTest {
         composeRule.onNodeWithTag("btnGuardar")
             .assertIsNotEnabled()
 
-        // Caso 2: longitud vacía
+        // Caso 2: latitud vacía
         composeRule.onNodeWithTag("txtLatitud")
             .performTextClearance()
-        composeRule.onNodeWithTag("txtLongitud")
+        composeRule.onNodeWithTag("txtLatitud")
             .performTextClearance()
         composeRule.onNodeWithTag("txtLongitud")
             .performTextInput("-54")

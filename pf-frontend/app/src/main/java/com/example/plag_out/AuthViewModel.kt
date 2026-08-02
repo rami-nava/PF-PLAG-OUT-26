@@ -12,6 +12,7 @@ import com.example.plag_out.AlmacenamientoLocal.PreferenciasUsuario
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
+import com.example.plag_out.AlmacenamientoLocal.UsuarioRepository
 import com.example.plag_out.Service.FcmTokenRegistrar
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
@@ -54,6 +55,7 @@ class AuthViewModel(
     private val monitoreoRepository: MonitoreoRepository,
     private val terrenoRepository: TerrenoRepository,
     private val plantacionRepository: PlantacionRepository,
+    private val usuarioRepository: UsuarioRepository,
     private val gddService: GDDService = RetrofitClient.gddService
 ) : ViewModel() {
 
@@ -187,6 +189,7 @@ class AuthViewModel(
                 monitoreoRepository.borrarTodos()
                 plantacionRepository.borrarTodos()
                 terrenoRepository.borrarTodos()
+                usuarioRepository.borrarTodos()
             }
             CacheTracker.limpiarTodo(context)
             _loginState.value = LoginState()
@@ -337,6 +340,7 @@ class AuthViewModel(
         private val monitoreoRepository: MonitoreoRepository,
         private val terrenoRepository: TerrenoRepository,
         private val plantacionRepository: PlantacionRepository,
+        private val usuarioRepository: UsuarioRepository,
         private val gddService: GDDService = RetrofitClient.gddService
     ) : ViewModelProvider.Factory {
 
@@ -344,7 +348,7 @@ class AuthViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             return AuthViewModel(
                 client, context,
-                monitoreoRepository, terrenoRepository, plantacionRepository, gddService
+                monitoreoRepository, terrenoRepository, plantacionRepository, usuarioRepository, gddService
             ) as T
         }
     }

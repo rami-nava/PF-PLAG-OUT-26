@@ -11,7 +11,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,9 +35,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -49,7 +48,6 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -65,6 +63,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -90,8 +89,9 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * Perfil del usuario. Al no haber pantalla de ajustes ni drawer, esta pantalla es también el lugar
- * donde viven los permisos, la ayuda y las acciones de cuenta.
+ * Perfil del usuario: pestaña de la barra inferior. La pantalla muestra quién sos y qué estás
+ * gestionando; los ajustes (permisos, cuenta, ayuda y cerrar sesión) viven en el drawer lateral
+ * que abre la hamburguesa del header.
  */
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -102,7 +102,6 @@ fun PerfilScreen(
     plantacionesViewModel: PlantacionesViewModel,
     monitoreosViewModel: MonitoreosViewModel,
     authViewModel: AuthViewModel,
-    onBack: () -> Unit,
     onEditarPerfil: () -> Unit,
     onCerrarSesion: () -> Unit
 ) {
@@ -115,6 +114,18 @@ fun PerfilScreen(
     var mostrarComoFunciona by remember { mutableStateOf(false) }
     var mostrarCambiarPassword by remember { mutableStateOf(false) }
 
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    // El drawer se cierra antes de abrir cualquier diálogo: si no, queda el panel encima
+    // del scrim del diálogo.
+    val cerrarDrawerY: (() -> Unit) -> Unit = { accion ->
+        scope.launch {
+            drawerState.close()
+            accion()
+        }
+    }
+
     LaunchedEffect(Unit) {
         userViewModel.getUsuario()
         // Cache-first: alimentan el resumen de actividad sin pegarle de más al backend
@@ -123,111 +134,76 @@ fun PerfilScreen(
         monitoreosViewModel.getMonitoreos()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(PlagOutColors.Cream)
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            DrawerAjustes(
+                onComoFunciona = { cerrarDrawerY { mostrarComoFunciona = true } },
+                onCambiarPassword = { cerrarDrawerY { mostrarCambiarPassword = true } },
+                onCerrarSesion = { cerrarDrawerY { confirmarCierre = true } }
+            )
+        }
     ) {
-        HeaderPerfil(
-            usuario = state.usuario,
-            onBack = onBack,
-            onEditar = onEditarPerfil
-        )
-
-        PullToRefreshBox(
-            isRefreshing = state.isRefreshing,
-            onRefresh = { userViewModel.refrescar() },
-            modifier = Modifier.fillMaxSize()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(PlagOutColors.Cream)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(horizontal = 20.dp, vertical = 14.dp)
+            HeaderPerfil(
+                usuario = state.usuario,
+                onAbrirAjustes = { scope.launch { drawerState.open() } },
+                onEditar = onEditarPerfil
+            )
+
+            PullToRefreshBox(
+                isRefreshing = state.isRefreshing,
+                onRefresh = { userViewModel.refrescar() },
+                modifier = Modifier.fillMaxSize()
             ) {
-                when {
-                    state.usuario == null && state.isLoading -> {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = 60.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = PlagOutColors.Forest)
-                        }
-                    }
-
-                    state.usuario == null -> {
-                        ErrorPerfil(
-                            mensaje = state.error ?: "No se pudo cargar tu perfil.",
-                            onReintentar = { userViewModel.refrescar() }
-                        )
-                    }
-
-                    else -> {
-                        val usuario = state.usuario!!
-
-                        StaggeredAppear(0) {
-                            TarjetaInformacionPersonal(usuario, onEditar = onEditarPerfil)
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        StaggeredAppear(1) {
-                            TarjetaActividad(
-                                terrenos = terrenosState.terrenos.size,
-                                plantacionesActivas = plantacionesState.plantaciones.count { it.activa },
-                                monitoreos = monitoreosState.monitoreos.size
-                            )
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        StaggeredAppear(2) {
-                            TarjetaPermisos()
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        StaggeredAppear(3) {
-                            TarjetaCuenta(onCambiarPassword = { mostrarCambiarPassword = true })
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        StaggeredAppear(4) {
-                            TarjetaAyuda(
-                                onComoFunciona = { mostrarComoFunciona = true },
-                                onSincronizar = {
-                                    userViewModel.refrescar()
-                                    terrenosViewModel.refrescar()
-                                    plantacionesViewModel.refrescar()
-                                    monitoreosViewModel.refrescar()
-                                }
-                            )
-                        }
-
-                        Spacer(Modifier.height(16.dp))
-
-                        StaggeredAppear(5) {
-                            OutlinedButton(
-                                onClick = { confirmarCierre = true },
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(1.5.dp, PlagOutColors.RiskDanger.copy(alpha = 0.55f)),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskDanger),
-                                modifier = Modifier
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 14.dp)
+                ) {
+                    when {
+                        state.usuario == null && state.isLoading -> {
+                            Box(
+                                Modifier
                                     .fillMaxWidth()
-                                    .height(54.dp)
-                                    .testTag("btnCerrarSesion")
+                                    .padding(top = 60.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("Cerrar sesión", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                CircularProgressIndicator(color = PlagOutColors.Forest)
                             }
                         }
 
-                        Spacer(Modifier.height(20.dp))
+                        state.usuario == null -> {
+                            ErrorPerfil(
+                                mensaje = state.error ?: "No se pudo cargar tu perfil.",
+                                onReintentar = { userViewModel.refrescar() }
+                            )
+                        }
+
+                        else -> {
+                            val usuario = state.usuario!!
+
+                            StaggeredAppear(0) {
+                                TarjetaInformacionPersonal(usuario, onEditar = onEditarPerfil)
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            StaggeredAppear(1) {
+                                TarjetaActividad(
+                                    terrenos = terrenosState.terrenos.size,
+                                    plantacionesActivas = plantacionesState.plantaciones.count { it.activa },
+                                    monitoreos = monitoreosState.monitoreos.size
+                                )
+                            }
+
+                            Spacer(Modifier.height(20.dp))
+                        }
                     }
                 }
             }
@@ -257,7 +233,7 @@ fun PerfilScreen(
 }
 
 @Composable
-private fun HeaderPerfil(usuario: UsuarioResponse?, onBack: () -> Unit, onEditar: () -> Unit) {
+private fun HeaderPerfil(usuario: UsuarioResponse?, onAbrirAjustes: () -> Unit, onEditar: () -> Unit) {
     val respiracion = rememberInfiniteTransition(label = "respiracionHeaderPerfil")
     val escalaDecorativa by respiracion.animateFloat(
         initialValue = 1f,
@@ -289,73 +265,165 @@ private fun HeaderPerfil(usuario: UsuarioResponse?, onBack: () -> Unit, onEditar
             Modifier
                 .align(Alignment.TopEnd)
                 .offset(x = 44.dp, y = (-34).dp)
-                .size(90.dp)
+                .size(120.dp)
                 .graphicsLayer { scaleX = escalaDecorativa; scaleY = escalaDecorativa }
                 .background(PlagOutColors.TextOnDark.copy(alpha = 0.06f), CircleShape)
         )
 
-        // Una sola fila: el nombre hace de título, así el header queda en ~72dp en lugar de ~175dp
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 4.dp, end = 8.dp, top = 4.dp, bottom = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onBack,
+        Column(Modifier.fillMaxWidth()) {
+            // Fila de acciones: los ajustes viven en el drawer, no en la pantalla
+            Row(
                 modifier = Modifier
-                    .size(40.dp)
-                    .testTag("btnVolverPerfil")
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, end = 4.dp, top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextOnDark)
-            }
+                IconButton(
+                    onClick = onAbrirAjustes,
+                    modifier = Modifier.testTag("btnMenuPerfil")
+                ) {
+                    Icon(
+                        Icons.Default.Menu,
+                        contentDescription = "Ajustes",
+                        tint = PlagOutColors.TextOnDark
+                    )
+                }
 
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(PlagOutColors.TextOnDark.copy(alpha = 0.15f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    iniciales,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = PlagOutColors.TextOnDark,
-                    modifier = Modifier.testTag("txtInicialesPerfil")
-                )
-            }
+                Spacer(Modifier.weight(1f))
 
-            Spacer(Modifier.width(12.dp))
-
-            Column(Modifier.weight(1f)) {
-                Text(
-                    usuario?.let { "${it.nombre} ${it.apellido}".trim() } ?: "Cargando perfil…",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = PlagOutColors.TextOnDark,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (usuario != null && usuario.cargo.isNotBlank()) {
-                    Spacer(Modifier.height(4.dp))
-                    EtiquetaInfo(
-                        icono = Icons.Outlined.Work,
-                        texto = usuario.cargo,
-                        color = PlagOutColors.Sun
+                IconButton(
+                    onClick = onEditar,
+                    enabled = usuario != null,
+                    modifier = Modifier.testTag("btnEditarPerfil")
+                ) {
+                    Icon(
+                        Icons.Outlined.Edit,
+                        contentDescription = "Editar perfil",
+                        tint = PlagOutColors.TextOnDark
                     )
                 }
             }
 
-            IconButton(
-                onClick = onEditar,
-                enabled = usuario != null,
-                modifier = Modifier.testTag("btnEditarPerfil")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 26.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Outlined.Edit,
-                    contentDescription = "Editar perfil",
-                    tint = PlagOutColors.TextOnDark
-                )
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .background(PlagOutColors.TextOnDark.copy(alpha = 0.15f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        iniciales,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = PlagOutColors.TextOnDark,
+                        modifier = Modifier.testTag("txtInicialesPerfil")
+                    )
+                }
+
+                Spacer(Modifier.width(16.dp))
+
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        usuario?.let { "${it.nombre} ${it.apellido}".trim() } ?: "Cargando perfil…",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = PlagOutColors.TextOnDark,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (usuario != null && usuario.cargo.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        EtiquetaInfo(
+                            icono = Icons.Outlined.Work,
+                            texto = usuario.cargo,
+                            color = PlagOutColors.Sun
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Panel lateral de ajustes: todo lo que no es "quién soy" vive acá — permisos del dispositivo,
+ * cuenta, ayuda y el cierre de sesión.
+ */
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+private fun DrawerAjustes(
+    onComoFunciona: () -> Unit,
+    onCambiarPassword: () -> Unit,
+    onCerrarSesion: () -> Unit
+) {
+    ModalDrawerSheet(
+        drawerContainerColor = PlagOutColors.Cream,
+        drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
+        // Sin los insets del sheet el degradado llega hasta arriba de todo, como los demás headers
+        windowInsets = WindowInsets(0, 0, 0, 0)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Brush.verticalGradient(listOf(PlagOutColors.Forest, PlagOutColors.Leaf)))
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(horizontal = 20.dp, vertical = 22.dp)
+            ) {
+                Column {
+                    Text(
+                        "Ajustes",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = PlagOutColors.TextOnDark
+                    )
+                    Text(
+                        "Permisos, cuenta y ayuda",
+                        fontSize = 12.sp,
+                        color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp)
+            ) {
+                TarjetaPermisos()
+
+                Spacer(Modifier.height(12.dp))
+
+                TarjetaCuenta(onCambiarPassword = onCambiarPassword)
+
+                Spacer(Modifier.height(12.dp))
+
+                TarjetaAyuda(onComoFunciona = onComoFunciona)
+
+                Spacer(Modifier.height(12.dp))
+
+                TarjetaPerfil {
+                    FilaAccion(
+                        icono = Icons.AutoMirrored.Filled.Logout,
+                        titulo = "Cerrar sesión",
+                        subtitulo = "Vas a tener que iniciar sesión de nuevo",
+                        tag = "btnCerrarSesion",
+                        acento = PlagOutColors.RiskDanger,
+                        onClick = onCerrarSesion
+                    )
+                }
+
+                Spacer(Modifier.height(20.dp))
             }
         }
     }
@@ -608,7 +676,7 @@ private fun TarjetaCuenta(onCambiarPassword: () -> Unit) {
 }
 
 @Composable
-private fun TarjetaAyuda(onComoFunciona: () -> Unit, onSincronizar: () -> Unit) {
+private fun TarjetaAyuda(onComoFunciona: () -> Unit) {
     TarjetaPerfil {
         Text(
             "Ayuda y acerca de",
@@ -622,14 +690,6 @@ private fun TarjetaAyuda(onComoFunciona: () -> Unit, onSincronizar: () -> Unit) 
             subtitulo = "Qué hace la app y cómo se usa, en un minuto",
             tag = "btnComoFunciona",
             onClick = onComoFunciona
-        )
-        DivisorFila()
-        FilaAccion(
-            icono = Icons.Outlined.Sync,
-            titulo = "Volver a sincronizar",
-            subtitulo = "Descargá de nuevo terrenos, plantaciones y monitoreos",
-            tag = "btnSincronizar",
-            onClick = onSincronizar
         )
         DivisorFila()
         FilaDato(
@@ -757,16 +817,24 @@ private fun TarjetaPerfil(contenido: @Composable ColumnScope.() -> Unit) {
     }
 }
 
-/** Chip circular con ícono, compartido por todas las filas. */
+/**
+ * Chip circular con ícono, compartido por todas las filas. Sin [acento] usa el verde de la app;
+ * con acento (por ejemplo el rojo de cerrar sesión) pinta fondo e ícono con ese color.
+ */
 @Composable
-private fun IconoFila(icono: ImageVector) {
+private fun IconoFila(icono: ImageVector, acento: Color? = null) {
     Box(
         modifier = Modifier
             .size(38.dp)
-            .background(PlagOutColors.Leaf.copy(alpha = 0.12f), CircleShape),
+            .background((acento ?: PlagOutColors.Leaf).copy(alpha = 0.12f), CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        Icon(icono, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(18.dp))
+        Icon(
+            icono,
+            contentDescription = null,
+            tint = acento ?: PlagOutColors.Forest,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
 
@@ -826,6 +894,7 @@ private fun FilaAccion(
     subtitulo: String?,
     tag: String,
     onClick: () -> Unit,
+    acento: Color? = null,
     trailing: @Composable (() -> Unit)? = null
 ) {
     Row(
@@ -836,13 +905,13 @@ private fun FilaAccion(
             .testTag(tag),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconoFila(icono)
+        IconoFila(icono, acento)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 titulo,
                 fontSize = 14.sp,
-                color = PlagOutColors.TextMain,
+                color = acento ?: PlagOutColors.TextMain,
                 fontWeight = FontWeight.SemiBold
             )
             if (subtitulo != null) {

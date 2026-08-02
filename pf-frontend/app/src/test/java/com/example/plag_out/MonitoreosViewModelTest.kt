@@ -74,7 +74,7 @@ class MonitoreosViewModelTest {
     }
 
     @Test
-    fun `Monitoreos se refresca aunque yaConsultado sea verdadero`() {
+    fun `Monitoreos se refresca cuando yaConsultado es falso`() {
         val vm = viewModelCon(cache = listOf(Fixtures.monitoreo(id = 3)))
         assertTrue(CacheTracker.yaConsultado(context, CacheTracker.MONITOREOS).not())
         gddService.getMonitoreosResult = { Response.success(listOf(Fixtures.monitoreo(id = 9))) }
