@@ -6,6 +6,7 @@ import com.google.gson.annotations.SerializedName
 import kotlinx.serialization.Serializable
 import java.io.Serial
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 /*
 @Serializable
@@ -303,9 +304,56 @@ data class DispositivoResponse(
     val plataforma: String
 )
 
+/**
+ * Notificación in-app. El backend devuelve solo las **no leídas**, así que esta lista es
+ * exactamente lo que hay pendiente de leer: su tamaño es el número del badge.
+ *
+ * [entidad_id] es el id de la entidad a la que apunta la notificación, interpretado según
+ * [tipo] (ver `destinoDe`).
+ */
+@Serializable
+data class NotificacionResponse(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("titulo")
+    val titulo: String,
+    @SerializedName("mensaje")
+    val mensaje: String,
+    @SerializedName("leido")
+    val leido: Boolean,
+    @SerializedName("tipo")
+    val tipo: String,
+    @SerializedName("fecha_envio")
+    val fecha_envio: LocalDateTime,
+    @SerializedName("entidad_id")
+    val entidad_id: Int? = null
+)
+
+/** Respuesta del PATCH que marca una notificación como leída. */
+@Serializable
+data class MarcarLeidaResponse(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("leido")
+    val leido: Boolean
+)
+
+/**
+ * Ruta a la que lleva tocar una notificación
+ */
+fun destinoDe(notificacion: NotificacionResponse): String? {
+    val id = notificacion.entidad_id ?: return null
+    return when (notificacion.tipo.uppercase()) {
+        "ALERTA_GDD" -> "monitoreo/$id"
+        else -> null
+    }
+}
+
+@Entity(tableName = "usuario")
 @Serializable
 data class UsuarioResponse(
     @SerializedName("id")
+    @PrimaryKey
     val usuario_id: String,
     @SerializedName("email")
     val email: String,

@@ -3,6 +3,7 @@ package com.example.plag_out.AlmacenamientoLocal
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
+import com.example.plag_out.UsuarioResponse
 
 class MonitoreoRepository(
     private val monitoreoDao: MonitoreoDao
@@ -108,5 +109,23 @@ class PlantacionRepository(
 
     suspend fun borrarTodos() {
         plantacionDao.deleteAll()
+    }
+}
+
+class UsuarioRepository(
+    private val usuarioDao: UsuarioDao
+) {
+
+    suspend fun obtenerUsuario(): UsuarioResponse? {
+        return usuarioDao.get()
+    }
+
+    suspend fun guardarUsuario(usuario: UsuarioResponse) {
+        usuarioDao.deleteAll()
+        usuarioDao.insert(usuario)
+    }
+
+    suspend fun borrarTodos() {
+        usuarioDao.deleteAll()
     }
 }

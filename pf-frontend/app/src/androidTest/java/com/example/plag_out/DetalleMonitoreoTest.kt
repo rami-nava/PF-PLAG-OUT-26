@@ -44,10 +44,13 @@ class DetalleMonitoreoTest {
 
         runBlocking { monitoreoRepository.guardarMonitoreo(monitoreo) }
 
-        // El caché de Room ya sirve el monitoreo al instante; el fetch de red no está
-        // declarado a propósito para simular que el endpoint todavía no existe en el
-        // backend (degrada con gracia al caché, igual que el resto de la app).
+        // El caché de Room ya sirve el monitoreo al instante. El GET se declara con un 404
+        // a propósito, para simular que el endpoint todavía no existe en el backend: la
+        // pantalla tiene que degradar con gracia al caché, igual que el resto de la app.
+        // (Dejarlo sin declarar no sirve: el fake lanza AssertionError, que no es Exception
+        // y por lo tanto escapa del catch del ViewModel)
         gddService = FakeGDDService()
+        gddService.getMonitoreoResult = { FakeGDDService.errorServidor(404) }
 
         viewModel = MonitoreoDetalleViewModelFactory(context, monitoreoRepository, gddService)
             .create(MonitoreoDetalleViewModel::class.java)

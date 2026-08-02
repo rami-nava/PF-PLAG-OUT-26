@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.plag_out.AlmacenamientoLocal.PreferenciasUsuario
 import com.example.plag_out.MainActivity
+import com.example.plag_out.NotificacionesEventBus
 import com.example.plag_out.R
 import com.example.plag_out.SupabaseProvider
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -51,6 +52,9 @@ class PlagOutMessagingService : FirebaseMessagingService() {
         val cuerpo = message.notification?.body ?: data["cuerpo"] ?: ""
 
         mostrarNotificacion(titulo, cuerpo, data)
+        // Si la app está abierta y alguien está escuchando, refresca la campana ya mismo en vez
+        // de esperar al próximo ON_RESUME.
+        NotificacionesEventBus.avisarNuevaNotificacion()
     }
 
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)

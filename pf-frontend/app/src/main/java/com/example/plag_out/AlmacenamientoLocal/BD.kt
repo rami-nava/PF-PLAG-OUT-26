@@ -11,12 +11,13 @@ import androidx.room.TypeConverters
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
+import com.example.plag_out.UsuarioResponse
 import java.time.LocalDate
 import java.util.Date
 
 @Database(
-    entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class],
-    version = 8
+    entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class, UsuarioResponse::class],
+    version = 9
 )
 
 @TypeConverters(Converters::class)
@@ -25,6 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun monitoreoDao(): MonitoreoDao
     abstract fun terrenoDao(): TerrenoDao
     abstract fun plantacionDao(): PlantacionDao
+    abstract fun usuarioDao(): UsuarioDao
 
     companion object {
         @Volatile

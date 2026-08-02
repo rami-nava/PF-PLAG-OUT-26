@@ -3,11 +3,13 @@ package com.example.plag_out.fakes
 import com.example.plag_out.CargoResponse
 import com.example.plag_out.CultivoResponse
 import com.example.plag_out.MonitoreoResponse
+import com.example.plag_out.NotificacionResponse
 import com.example.plag_out.PlagaResponse
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
 import com.example.plag_out.UsuarioResponse
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 /** Constructores de datos de prueba con valores por defecto razonables. */
 object Fixtures {
@@ -110,4 +112,21 @@ object Fixtures {
 
     fun cargo(id: Int = 1, tipo: String = "Ingeniero agrónomo") =
         CargoResponse(id = id, tipo = tipo)
+
+    fun notificacion(
+        id: Int = 1,
+        titulo: String = "Riesgo alto en Lote Norte",
+        mensaje: String = "La chicharrita superó tu umbral del 80%.",
+        tipo: String = "ALERTA_GDD",
+        fechaEnvio: LocalDateTime = LocalDateTime.now().minusMinutes(10),
+        entidadId: Int? = 7
+    ) = NotificacionResponse(
+        id = id,
+        titulo = titulo,
+        mensaje = mensaje,
+        leido = false,
+        tipo = tipo,
+        fecha_envio = fechaEnvio,
+        entidad_id = entidadId
+    )
 }

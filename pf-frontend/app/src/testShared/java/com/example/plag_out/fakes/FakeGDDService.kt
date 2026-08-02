@@ -8,8 +8,10 @@ import com.example.plag_out.CreateUserResponse
 import com.example.plag_out.CultivoResponse
 import com.example.plag_out.DispositivoRequest
 import com.example.plag_out.DispositivoResponse
+import com.example.plag_out.MarcarLeidaResponse
 import com.example.plag_out.MonitoreoRequest
 import com.example.plag_out.MonitoreoResponse
+import com.example.plag_out.NotificacionResponse
 import com.example.plag_out.PlagaResponse
 import com.example.plag_out.PlantacionCreateResponse
 import com.example.plag_out.PlantacionesResponse
@@ -59,6 +61,8 @@ class FakeGDDService : GDDService {
     var registrarDispositivoResult: () -> Response<DispositivoResponse> = { noDeclarado("registrarDispositivo") }
     var eliminarDispositivoResult: () -> Response<Unit> = { noDeclarado("eliminarDispositivo") }
     var getCargosResult: () -> Response<List<CargoResponse>> = { noDeclarado("getCargos") }
+    var getNotificacionesResult: () -> Response<List<NotificacionResponse>> = { noDeclarado("getNotificaciones") }
+    var marcarNotificacionLeidaResult: () -> Response<MarcarLeidaResponse> = { noDeclarado("marcarNotificacionLeida") }
     var healthResult: () -> Response<Unit> = { noDeclarado("health") }
 
     override suspend fun getMonitoreos(): Response<List<MonitoreoResponse>> {
@@ -137,6 +141,16 @@ class FakeGDDService : GDDService {
         llamadas += "getCargos"; return getCargosResult()
     }
 
+    override suspend fun getNotificaciones(): Response<List<NotificacionResponse>> {
+        llamadas += "getNotificaciones"; return getNotificacionesResult()
+    }
+
+    override suspend fun marcarNotificacionLeida(id: Int): Response<MarcarLeidaResponse> {
+        llamadas += "marcarNotificacionLeida"
+        ultimaNotificacionLeida = id
+        return marcarNotificacionLeidaResult()
+    }
+
     override suspend fun health(): Response<Unit> {
         llamadas += "health"; return healthResult()
     }
@@ -157,6 +171,8 @@ class FakeGDDService : GDDService {
     var ultimoActualizarPlantacion: UpdatePlantacionRequest? = null
         private set
     var ultimoEliminarDispositivo: String? = null
+        private set
+    var ultimaNotificacionLeida: Int? = null
         private set
 
     private fun <T> noDeclarado(endpoint: String): Response<T> =

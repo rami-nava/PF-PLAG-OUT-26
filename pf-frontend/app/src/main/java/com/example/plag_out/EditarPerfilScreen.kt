@@ -36,8 +36,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.*
@@ -185,64 +183,6 @@ fun EditarPerfilScreen(
                             }
                         }
                     }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            Surface(
-                color = PlagOutColors.Surface,
-                shape = RoundedCornerShape(22.dp),
-                shadowElevation = 2.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .background(PlagOutColors.RiskUnknown.copy(alpha = 0.12f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Outlined.Email,
-                            contentDescription = null,
-                            tint = PlagOutColors.TextSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            "Email",
-                            fontSize = 11.sp,
-                            color = PlagOutColors.TextSecondary,
-                            fontWeight = FontWeight.Medium,
-                            letterSpacing = 0.3.sp
-                        )
-                        Text(
-                            usuario.email,
-                            fontSize = 14.sp,
-                            color = PlagOutColors.TextMain,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            "Es tu identificador de acceso y no se puede cambiar desde la app.",
-                            fontSize = 11.sp,
-                            color = PlagOutColors.TextSecondary,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                    Icon(
-                        Icons.Outlined.Lock,
-                        contentDescription = "No editable",
-                        tint = PlagOutColors.RiskUnknown,
-                        modifier = Modifier.size(16.dp)
-                    )
                 }
             }
 
