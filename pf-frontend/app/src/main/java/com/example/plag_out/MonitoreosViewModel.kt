@@ -57,11 +57,14 @@ class MonitoreosViewModel(
                 _state.value = _state.value.copy(monitoreos = cachedMonitoreos, isLoading = false)
             }
 
-            // El backend recalcula los GDD una vez por día (00:00 hora argentina):
-            // si ya se consultó hoy, el caché sigue vigente salvo que el usuario fuerce el refresco.
-            // Si el caché vino vacío (p.ej. justo después de un bump de versión de Room que borró la
-            // tabla) igual hay que ir a buscar los datos, aunque la marca diga "ya consultado".
-            if (!forzar && cachedMonitoreos.isNotEmpty() && CacheTracker.consultadoHoy(context, CacheTracker.MONITOREOS)) {
+            // El backend recalcula los GDD una vez por día (workflow de las 06:00 hora argentina):
+            // si ya se consultó después de ese corte, el caché sigue vigente salvo que el usuario
+            // fuerce el refresco. Si el caché vino vacío (p.ej. justo después de un bump de versión
+            // de Room que borró la tabla) igual hay que ir a buscar los datos, aunque la marca diga
+            // "ya consultado".
+            if (!forzar && cachedMonitoreos.isNotEmpty() &&
+                CacheTracker.consultadoTrasUltimaActualizacion(context, CacheTracker.MONITOREOS)
+            ) {
                 _state.value = _state.value.copy(isLoading = false)
                 return@launch
             }

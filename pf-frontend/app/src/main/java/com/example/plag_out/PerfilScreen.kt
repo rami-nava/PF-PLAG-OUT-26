@@ -904,6 +904,7 @@ private const val PALABRA_CONFIRMACION = "ELIMINAR"
 /** Cambio de contraseña contra Supabase, con el molde visual de [DialogoCerrarSesion]. */
 @Composable
 private fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () -> Unit) {
+    val context = LocalContext.current
     var nueva by remember { mutableStateOf("") }
     var repetir by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -975,6 +976,11 @@ private fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () -
                         onSuccess = {
                             enviando = false
                             onDismiss()
+                            Toast.makeText(
+                                context,
+                                "Contraseña actualizada.",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         },
                         onError = {
                             enviando = false

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -371,6 +372,13 @@ fun AppNavigation(
                         onGuardado = { actualizado ->
                             userViewModel.aplicarUsuario(actualizado)
                             navController.popBackStack()
+                            // El aviso va acá y no en la pantalla de edición porque esta se
+                            // desmonta al volver al perfil.
+                            Toast.makeText(
+                                context,
+                                "Perfil actualizado.",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     )
                 }
