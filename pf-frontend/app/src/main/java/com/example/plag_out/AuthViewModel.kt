@@ -173,12 +173,16 @@ class AuthViewModel(
      * Cierra la sesión de Supabase y borra todo el almacenamiento local del
      * dispositivo (token JWT, caché de Room y marcas de consulta), para que
      * el próximo usuario que inicie sesión no vea datos ajenos.
+     *
+     * [desregistrarDispositivo] va en false cuando se viene de la baja de cuenta: ahí el backend
+     * ya borró los dispositivos junto con el usuario y el JWT quedó sin cuenta detrás, así que
+     * pegarle a /usuarios/fcm-token solo devolvería un error.
      */
     @RequiresApi(Build.VERSION_CODES.O)
-    fun cerrarSesion(onComplete: () -> Unit) {
+    fun cerrarSesion(desregistrarDispositivo: Boolean = true, onComplete: () -> Unit) {
         viewModelScope.launch {
             // Desregistrar el token FCM antes del signOut, mientras el JWT sigue válido
-            FcmTokenRegistrar.desregistrar()
+            if (desregistrarDispositivo) FcmTokenRegistrar.desregistrar()
             try {
                 supabaseClient.auth.signOut()
             } catch (e: Exception) {

@@ -61,7 +61,15 @@ fun AgregarMonitoreoScreen(
     }
 
     LaunchedEffect(state.terrenoSeleccionado) {
+        dropdownPlantacionExpanded = false
         if (state.terrenoSeleccionado != null) viewModel.cargarPlantaciones(state.terrenoSeleccionado!!.terreno_id)
+    }
+
+    // Corre también en la primera composición, cuando todavía no hay plantación elegida, y cada vez
+    // que llegan las plagas de la red: por eso el cultivo va como nullable y `plagas` es una clave.
+    LaunchedEffect(state.plantacionSeleccionada, state.plagas) {
+        dropdownPlagaExpanded = false
+        if (state.plantacionSeleccionada != null) viewModel.filtrarPlagas(state.plantacionSeleccionada?.cultivo_id)
     }
 
     Column(
@@ -166,19 +174,31 @@ fun AgregarMonitoreoScreen(
                         Spacer(Modifier.height(22.dp))
 
                         // ── Paso 2: Plantación ──────────────────────────────────
+                        // Las plantaciones son las del terreno elegido: sin terreno el paso queda
+                        // bloqueado.
+                        val terrenoElegido = state.terrenoSeleccionado
+
                         PasoLabel(numero = 2, texto = "Plantación a monitorear")
                         Spacer(Modifier.height(10.dp))
 
                         ExposedDropdownMenuBox(
                             expanded = dropdownPlantacionExpanded,
-                            onExpandedChange = { dropdownPlantacionExpanded = !dropdownPlantacionExpanded },
+                            onExpandedChange = {
+                                if (terrenoElegido != null) dropdownPlantacionExpanded = !dropdownPlantacionExpanded
+                            },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             OutlinedTextField(
                                 readOnly = true,
+                                enabled = terrenoElegido != null,
                                 value = state.plantacionSeleccionada?.cultivo_nombre ?: "",
                                 onValueChange = {},
-                                label = { Text("Seleccioná una plantación") },
+                                label = {
+                                    Text(
+                                        if (terrenoElegido != null) "Seleccioná una plantación"
+                                        else "Elegí un terreno primero"
+                                    )
+                                },
                                 leadingIcon = { Icon(Icons.Outlined.Grass, contentDescription = null, tint = PlagOutColors.Forest) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownPlantacionExpanded) },
                                 shape = RoundedCornerShape(16.dp),
@@ -197,7 +217,8 @@ fun AgregarMonitoreoScreen(
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                if (state.terrenoSeleccionado != null) "Sin plantaciones en este terreno" else "Seleccione un terreno",
+                                                if (terrenoElegido != null) "Sin plantaciones activas en ${terrenoElegido.terreno_nombre}"
+                                                else "Seleccioná un terreno",
                                                 color = PlagOutColors.TextSecondary
                                             )
                                         },
@@ -244,19 +265,36 @@ fun AgregarMonitoreoScreen(
                         Spacer(Modifier.height(22.dp))
 
                         // ── Paso 3: Plaga ───────────────────────────────────────
-                        PasoLabel(numero = 3, texto = "Plaga a monitorear")
+                        // El cultivo de la plantación define qué plagas aplican: sin plantación
+                        // elegida el paso queda bloqueado.
+                        val plantacionElegida = state.plantacionSeleccionada
+                        val plagasDisponibles = state.plagasDisponibles
+
+                        PasoLabel(
+                            numero = 3,
+                            texto = if (plantacionElegida != null) "Plaga que afecta al ${plantacionElegida.cultivo_nombre}"
+                                    else "Plaga a monitorear"
+                        )
                         Spacer(Modifier.height(10.dp))
 
                         ExposedDropdownMenuBox(
                             expanded = dropdownPlagaExpanded,
-                            onExpandedChange = { dropdownPlagaExpanded = !dropdownPlagaExpanded },
+                            onExpandedChange = {
+                                if (plantacionElegida != null) dropdownPlagaExpanded = !dropdownPlagaExpanded
+                            },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             OutlinedTextField(
                                 readOnly = true,
+                                enabled = plantacionElegida != null,
                                 value = state.plagaSeleccionada?.nombre ?: "",
                                 onValueChange = {},
-                                label = { Text("Seleccioná una plaga") },
+                                label = {
+                                    Text(
+                                        if (plantacionElegida != null) "Seleccioná una plaga"
+                                        else "Elegí una plantación primero"
+                                    )
+                                },
                                 leadingIcon = { Icon(Icons.Outlined.BugReport, contentDescription = null, tint = PlagOutColors.Forest) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownPlagaExpanded) },
                                 shape = RoundedCornerShape(16.dp),
@@ -271,15 +309,31 @@ fun AgregarMonitoreoScreen(
                                 expanded = dropdownPlagaExpanded,
                                 onDismissRequest = { dropdownPlagaExpanded = false }
                             ) {
-                                if (state.plagas.isEmpty()) {
+                                if (plagasDisponibles.isEmpty()) {
                                     DropdownMenuItem(
-                                        text = { Text("No hay plagas para monitorear", color = PlagOutColors.TextSecondary) },
+                                        text = {
+                                            Text(
+                                                if (plantacionElegida == null) "Seleccioná una plantación"
+                                                else "No hay plagas registradas para ${plantacionElegida.cultivo_nombre}",
+                                                color = PlagOutColors.TextSecondary
+                                            )
+                                        },
                                         onClick = { dropdownPlagaExpanded = false }
                                     )
                                 } else {
-                                    state.plagas.forEach { plaga ->
+                                    plagasDisponibles.forEach { plaga ->
                                         DropdownMenuItem(
-                                            text = { Text(plaga.nombre, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain) },
+                                            text = {
+                                                Column {
+                                                    Text(plaga.nombre, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
+                                                    Text(
+                                                        plaga.nombre_cientifico,
+                                                        fontSize = 12.sp,
+                                                        fontStyle = FontStyle.Italic,
+                                                        color = PlagOutColors.TextSecondary
+                                                    )
+                                                }
+                                            },
                                             onClick = {
                                                 viewModel.seleccionarPlaga(plaga)
                                                 dropdownPlagaExpanded = false

@@ -2,6 +2,7 @@ package com.example.plag_out
 
 import android.Manifest
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -11,6 +12,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +43,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
@@ -48,6 +51,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -103,7 +107,8 @@ fun PerfilScreen(
     monitoreosViewModel: MonitoreosViewModel,
     authViewModel: AuthViewModel,
     onEditarPerfil: () -> Unit,
-    onCerrarSesion: () -> Unit
+    onCerrarSesion: () -> Unit,
+    onCuentaEliminada: () -> Unit
 ) {
     val state by userViewModel.state.collectAsState()
     val terrenosState by terrenosViewModel.state.collectAsState()
@@ -111,6 +116,7 @@ fun PerfilScreen(
     val monitoreosState by monitoreosViewModel.state.collectAsState()
 
     var confirmarCierre by remember { mutableStateOf(false) }
+    var confirmarEliminarCuenta by remember { mutableStateOf(false) }
     var mostrarComoFunciona by remember { mutableStateOf(false) }
     var mostrarCambiarPassword by remember { mutableStateOf(false) }
 
@@ -140,7 +146,8 @@ fun PerfilScreen(
             DrawerAjustes(
                 onComoFunciona = { cerrarDrawerY { mostrarComoFunciona = true } },
                 onCambiarPassword = { cerrarDrawerY { mostrarCambiarPassword = true } },
-                onCerrarSesion = { cerrarDrawerY { confirmarCierre = true } }
+                onCerrarSesion = { cerrarDrawerY { confirmarCierre = true } },
+                onEliminarCuenta = { cerrarDrawerY { confirmarEliminarCuenta = true } }
             )
         }
     ) {
@@ -217,6 +224,17 @@ fun PerfilScreen(
                 onCerrarSesion()
             },
             onDismiss = { confirmarCierre = false }
+        )
+    }
+
+    if (confirmarEliminarCuenta) {
+        DialogoEliminarCuenta(
+            userViewModel = userViewModel,
+            onEliminada = {
+                confirmarEliminarCuenta = false
+                onCuentaEliminada()
+            },
+            onDismiss = { confirmarEliminarCuenta = false }
         )
     }
 
@@ -359,7 +377,8 @@ private fun HeaderPerfil(usuario: UsuarioResponse?, onAbrirAjustes: () -> Unit, 
 private fun DrawerAjustes(
     onComoFunciona: () -> Unit,
     onCambiarPassword: () -> Unit,
-    onCerrarSesion: () -> Unit
+    onCerrarSesion: () -> Unit,
+    onEliminarCuenta: () -> Unit
 ) {
     ModalDrawerSheet(
         drawerContainerColor = PlagOutColors.Cream,
@@ -422,6 +441,10 @@ private fun DrawerAjustes(
                         onClick = onCerrarSesion
                     )
                 }
+
+                Spacer(Modifier.height(12.dp))
+
+                TarjetaZonaPeligro(onEliminarCuenta = onEliminarCuenta)
 
                 Spacer(Modifier.height(20.dp))
             }
@@ -700,6 +723,183 @@ private fun TarjetaAyuda(onComoFunciona: () -> Unit) {
         )
     }
 }
+
+/**
+ * Zona de peligro: acciones destructivas e irreversibles. Va separada del resto del drawer y con
+ * el rojo de riesgo en el borde para que no se confunda con un ajuste más.
+ */
+@Composable
+private fun TarjetaZonaPeligro(onEliminarCuenta: () -> Unit) {
+    Surface(
+        color = PlagOutColors.RiskDanger.copy(alpha = 0.06f),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.dp, PlagOutColors.RiskDanger.copy(alpha = 0.35f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Outlined.WarningAmber,
+                    contentDescription = null,
+                    tint = PlagOutColors.RiskDanger,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Zona de peligro",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PlagOutColors.RiskDanger
+                )
+            }
+            Text(
+                "Acciones que no se pueden deshacer",
+                fontSize = 12.sp,
+                color = PlagOutColors.TextSecondary,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            FilaAccion(
+                icono = Icons.Outlined.DeleteForever,
+                titulo = "Eliminar cuenta",
+                subtitulo = "Se borran para siempre tu cuenta y todos tus datos",
+                tag = "btnEliminarCuenta",
+                acento = PlagOutColors.RiskDanger,
+                onClick = onEliminarCuenta
+            )
+        }
+    }
+}
+
+/**
+ * Confirmación de la baja de cuenta. A diferencia del resto de los diálogos pide escribir
+ * [PALABRA_CONFIRMACION] a mano: es la única acción de la app que destruye datos sin vuelta atrás,
+ * así que un botón "Aceptar" solo no alcanza.
+ */
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+private fun DialogoEliminarCuenta(
+    userViewModel: UserViewModel,
+    onEliminada: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var confirmacion by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var eliminando by remember { mutableStateOf(false) }
+
+    val coincide = confirmacion.trim().equals(PALABRA_CONFIRMACION, ignoreCase = true)
+
+    AlertDialog(
+        // Mientras corre el borrado no se puede cerrar tocando afuera: la acción ya está en vuelo
+        onDismissRequest = { if (!eliminando) onDismiss() },
+        containerColor = PlagOutColors.Surface,
+        icon = {
+            Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = PlagOutColors.RiskDanger)
+        },
+        title = {
+            Text("¿Eliminar tu cuenta?", fontWeight = FontWeight.Bold, color = PlagOutColors.RiskDanger)
+        },
+        text = {
+            Column {
+                Text(
+                    "Esta acción es permanente y no se puede deshacer.",
+                    color = PlagOutColors.TextMain,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Se van a borrar tu perfil, tus terrenos, tus plantaciones, tus monitoreos y " +
+                        "tus notificaciones. No vas a poder recuperarlos.",
+                    color = PlagOutColors.TextSecondary,
+                    fontSize = 13.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                // El backend conserva los reportes de plagas de forma anonimizada: decirlo acá y no
+                // después evita prometer un borrado total que no es tal.
+                Text(
+                    "Los reportes de plagas que hayas enviado se conservan de forma anónima, sin " +
+                        "ningún dato que te identifique.",
+                    color = PlagOutColors.TextSecondary,
+                    fontSize = 12.sp
+                )
+                Spacer(Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = confirmacion,
+                    onValueChange = { confirmacion = it; error = null },
+                    enabled = !eliminando,
+                    label = { Text("Escribí $PALABRA_CONFIRMACION para confirmar") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PlagOutColors.RiskDanger,
+                        focusedLabelColor = PlagOutColors.RiskDanger,
+                        cursorColor = PlagOutColors.RiskDanger
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("txtConfirmarEliminarCuenta")
+                )
+                if (error != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        error!!,
+                        color = PlagOutColors.RiskDanger,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.testTag("txtErrorEliminarCuenta")
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    eliminando = true
+                    error = null
+                    userViewModel.eliminarCuenta(
+                        onSuccess = {
+                            eliminando = false
+                            // Único momento para confirmarlo: enseguida se cierra sesión y se cae
+                            // al login, donde ya no hay dónde mostrarlo.
+                            Toast.makeText(context, "Cuenta eliminada.", Toast.LENGTH_LONG).show()
+                            onEliminada()
+                        },
+                        onError = {
+                            eliminando = false
+                            error = it
+                        }
+                    )
+                },
+                enabled = coincide && !eliminando,
+                modifier = Modifier.testTag("btnConfirmarEliminarCuenta")
+            ) {
+                if (eliminando) {
+                    CircularProgressIndicator(
+                        color = PlagOutColors.RiskDanger,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(18.dp)
+                    )
+                } else {
+                    Text(
+                        "Eliminar cuenta",
+                        // El color sigue al estado: si no, el botón se ve activo estando deshabilitado.
+                        color = if (coincide) PlagOutColors.RiskDanger
+                                else PlagOutColors.RiskDanger.copy(alpha = 0.38f),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !eliminando) {
+                Text("Cancelar", color = PlagOutColors.TextSecondary, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    )
+}
+
+private const val PALABRA_CONFIRMACION = "ELIMINAR"
 
 /** Cambio de contraseña contra Supabase, con el molde visual de [DialogoCerrarSesion]. */
 @Composable

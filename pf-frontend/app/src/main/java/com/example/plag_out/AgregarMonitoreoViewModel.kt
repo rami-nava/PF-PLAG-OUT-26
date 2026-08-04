@@ -27,6 +27,7 @@ data class AgregarMonitoreoUIState(
     val plantacionSeleccionada: PlantacionesResponse? = null,
     val plantaciones: List<PlantacionesResponse> = emptyList(),
     val plagas: List<PlagaResponse> = emptyList(),
+    val plagasDisponibles: List<PlagaResponse> = emptyList(),
     val plagaSeleccionada: PlagaResponse? = null,
     val umbralDeRiesgo: Int = 80, //Inicializado en un valor tipico
     val isLoading: Boolean = false,
@@ -54,8 +55,9 @@ class AgregarMonitoreoViewModel(
                     gddService.getPlagas()
                 }
                 if (response.isSuccessful) {
+                    val plagas = response.body() ?: emptyList()
                     _state.value = _state.value.copy(
-                        plagas = response.body() ?: emptyList(),
+                        plagas = plagas,
                         isLoading = false
                     )
                 } else {
@@ -65,6 +67,9 @@ class AgregarMonitoreoViewModel(
                     )
                 }
             } catch (e: Exception) {
+                // Incluye los errores de parseo: sin esto, un cambio de shape en la respuesta se ve
+                // como "no hay plagas" y no deja rastro.
+                Log.e("PLAGAS", "Error al cargar plagas", e)
                 _state.value = _state.value.copy(
                     isLoading = false,
                     error = "Error de red"
@@ -73,10 +78,21 @@ class AgregarMonitoreoViewModel(
         }
     }
 
+    /** Sin plantación elegida ([cultivoId] nulo) no hay plagas para ofrecer. */
+    fun filtrarPlagas(cultivoId: Int?){
+        val plagasParaCultivo = if (cultivoId == null) emptyList() else {
+            _state.value.plagas
+                .filter { p -> p.cultivos_afectados.orEmpty().contains(cultivoId) }
+                .toList()
+        }
+        _state.value = _state.value.copy(plagasDisponibles = plagasParaCultivo)
+    }
+
     suspend fun cargarPlantaciones(terrenoId: Int){
-        _state.value = _state.value.copy(
-            plantaciones = plantacionRepository.obtenerPlantaciones().filter { p -> p.terreno_id == terrenoId && p.activa }.toList()
-        )
+        val plantaciones = plantacionRepository.obtenerPlantaciones()
+            .filter { p -> p.terreno_id == terrenoId && p.activa }
+            .toList()
+        _state.value = _state.value.copy(plantaciones = plantaciones)
     }
 
     suspend fun cargarTerrenos(){
@@ -85,21 +101,34 @@ class AgregarMonitoreoViewModel(
         )
     }
 
+
     fun seleccionarPlantacion(plantacion: PlantacionesResponse){
+        val terreno = _state.value.terrenoSeleccionado ?: return
+        if (plantacion.terreno_id != terreno.terreno_id) return
+        if (_state.value.plantacionSeleccionada?.plantacion_id == plantacion.plantacion_id) return
         _state.value = _state.value.copy(
-            plantacionSeleccionada = plantacion
+            plantacionSeleccionada = plantacion,
+            plagaSeleccionada = null,
+            error = null
         )
     }
 
     fun seleccionarTerreno(terreno: TerrenoResponse){
+        if (_state.value.terrenoSeleccionado?.terreno_id == terreno.terreno_id) return
         _state.value = _state.value.copy(
-            terrenoSeleccionado = terreno
+            terrenoSeleccionado = terreno,
+            plantacionSeleccionada = null,
+            plagaSeleccionada = null,
+            plantaciones = emptyList(),
+            error = null
         )
     }
 
     fun seleccionarPlaga(plaga: PlagaResponse){
+        if (_state.value.plagasDisponibles.none { it.id == plaga.id }) return
         _state.value = _state.value.copy(
-            plagaSeleccionada = plaga
+            plagaSeleccionada = plaga,
+            error = null
         )
     }
 
@@ -116,8 +145,8 @@ class AgregarMonitoreoViewModel(
         val plantacion = currentState.plantacionSeleccionada
         val umbralDeRiesgo = currentState.umbralDeRiesgo
 
-        if (plaga == null) {
-            _state.value = _state.value.copy(error = "Debe seleccionar una plaga")
+        if (terreno == null) {
+            _state.value = _state.value.copy(error = "Debe seleccionar un terreno")
             return
         }
 
@@ -126,8 +155,15 @@ class AgregarMonitoreoViewModel(
             return
         }
 
-        if (terreno == null) {
-            _state.value = _state.value.copy(error = "Debe seleccionar un terreno")
+        if (plaga == null) {
+            _state.value = _state.value.copy(error = "Debe seleccionar una plaga")
+            return
+        }
+
+        if (currentState.plagasDisponibles.none { it.id == plaga.id }) {
+            _state.value = _state.value.copy(
+                error = "La plaga seleccionada no afecta al cultivo de esta plantación"
+            )
             return
         }
 

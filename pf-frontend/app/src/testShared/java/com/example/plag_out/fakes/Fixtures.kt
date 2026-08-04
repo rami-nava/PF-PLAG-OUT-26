@@ -32,6 +32,7 @@ object Fixtures {
         id: Int = 1,
         terrenoId: Int = 1,
         terrenoNombre: String = "Lote Norte",
+        cultivoId: Int = 1,
         cultivo: String = "Trigo",
         cultivoCientifico: String = "Triticum aestivum",
         fechaSiembra: LocalDate = LocalDate.of(2026, 1, 1),
@@ -40,6 +41,7 @@ object Fixtures {
         plantacion_id = id,
         terreno_id = terrenoId,
         terreno_nombre = terrenoNombre,
+        cultivo_id = cultivoId,
         cultivo_nombre = cultivo,
         cultivo_nombre_cientifico = cultivoCientifico,
         fecha_siembra = fechaSiembra,
@@ -91,8 +93,14 @@ object Fixtures {
     fun plaga(
         id: Int = 1,
         nombre: String = "Chicharrita",
-        nombreCientifico: String = "Dalbulus maidis"
-    ) = PlagaResponse(id = id, nombre = nombre, nombre_cientifico = nombreCientifico)
+        nombreCientifico: String = "Dalbulus maidis",
+        cultivosAfectados: List<Int>? = null
+    ) = PlagaResponse(
+        id = id,
+        nombre = nombre,
+        nombre_cientifico = nombreCientifico,
+        cultivos_afectados = cultivosAfectados
+    )
 
     fun usuario(
         id: String = "11111111-1111-1111-1111-111111111111",

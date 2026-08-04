@@ -130,6 +130,8 @@ data class PlantacionesResponse(
     val terreno_id: Int,
     @SerializedName("terreno_nombre")
     val terreno_nombre: String,
+    @SerializedName("cultivo_id")
+    val cultivo_id: Int,
     @SerializedName("cultivo_nombre")
     val cultivo_nombre: String,
     @SerializedName("cultivo_nombre_cientifico")
@@ -204,6 +206,14 @@ data class PlantacionCreateResponse(
     val cultivo: CultivoResponse
 )
 
+/**
+ * [cultivos_afectados] son los **ids** de los cultivos que esta plaga afecta (el backend manda
+ * `[1, 3]`, no objetos): se usa para ofrecer solo las plagas que tienen sentido para la plantación
+ * elegida (ver `AgregarMonitoreoViewModel.filtrarPlagas`).
+ *
+ * Es nullable porque el campo es opcional en el backend y Gson no aplica los valores por defecto
+ * de Kotlin cuando la clave no viene en el JSON.
+ */
 @Serializable
 data class PlagaResponse(
     @SerializedName("id")
@@ -211,7 +221,9 @@ data class PlagaResponse(
     @SerializedName("nombre")
     val nombre: String,
     @SerializedName("nombre_cientifico")
-    val nombre_cientifico: String
+    val nombre_cientifico: String,
+    @SerializedName("cultivos_afectados")
+    val cultivos_afectados: List<Int>? = null
 )
 
 @Serializable
@@ -286,6 +298,24 @@ data class CreateUserResponse(
     val usuario_id: String,
     @SerializedName("created")
     val created: Boolean
+)
+
+/**
+ * Resultado de la baja de cuenta.
+ *
+ * [auth_identity_deleted] en `false` significa que el usuario se borró del backend pero sobrevivió
+ * en Supabase Auth: la sesión del dispositivo sigue siendo válida y ese mismo login podría recrear
+ * la cuenta, así que la app igual cierra sesión y lo deja registrado.
+ * [retained_reports] son los reportes que el backend conserva (anonimizados) pese a la baja.
+ */
+@Serializable
+data class AccountDeletionResponse(
+    @SerializedName("deleted")
+    val deleted: Boolean,
+    @SerializedName("auth_identity_deleted")
+    val auth_identity_deleted: Boolean,
+    @SerializedName("retained_reports")
+    val retained_reports: Int
 )
 
 @Serializable

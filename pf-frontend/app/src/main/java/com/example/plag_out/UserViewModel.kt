@@ -98,6 +98,32 @@ class UserViewModel(
         viewModelScope.launch(Dispatchers.IO) { usuarioRepository.guardarUsuario(usuario) }
     }
 
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun eliminarCuenta(onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) { gddService.eliminarCuenta() }
+                val resultado = response.body()
+                if (response.isSuccessful && resultado != null && resultado.deleted) {
+                    // La cuenta se fue del backend pero sobrevivió en Supabase Auth. Para el
+                    // usuario la baja igual salió bien, así que no se le muestra nada: queda solo
+                    // en el log, que es donde sirve (es un problema a resolver en el backend).
+                    if (!resultado.auth_identity_deleted) {
+                        Log.w("USUARIO", "Cuenta eliminada, pero la identidad de Supabase Auth sobrevivió")
+                    }
+                    onSuccess()
+                } else {
+                    Log.e("USUARIO", "Error al eliminar la cuenta: ${response.code()}")
+                    onError("No se pudo eliminar tu cuenta. Intentá de nuevo más tarde.")
+                }
+            } catch (e: Exception) {
+                Log.e("USUARIO", "Error al eliminar la cuenta: ${e.message}")
+                onError("No se pudo eliminar tu cuenta. Revisá tu conexión.")
+            }
+        }
+    }
+
     /** Cierre de sesión: descarta en memoria el perfil del usuario anterior. */
     fun limpiar() {
         _state.value = UserUIState()

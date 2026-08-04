@@ -130,6 +130,7 @@ class AgregarPlantacionViewModel(
                             plantacion_id = createResponse.id,
                             terreno_id = createResponse.terreno_id,
                             terreno_nombre = terrenoNombre,
+                            cultivo_id = createResponse.cultivo_id,
                             cultivo_nombre = createResponse.cultivo.nombre,
                             cultivo_nombre_cientifico = createResponse.cultivo.nombre_cientifico,
                             fecha_siembra = createResponse.fecha_siembra,
