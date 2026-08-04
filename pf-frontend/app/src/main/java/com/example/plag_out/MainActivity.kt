@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -273,8 +274,8 @@ fun AppNavigation(
     // Cerrar sesión: AuthViewModel borra el almacenamiento local (token, Room,
     // marcas de caché); acá se descarta además el estado en memoria de los
     // ViewModels y se vuelve al login vaciando el back stack
-    val cerrarSesion: () -> Unit = {
-        authViewModel.cerrarSesion {
+    val limpiarSesion: (Boolean) -> Unit = { desregistrarDispositivo ->
+        authViewModel.cerrarSesion(desregistrarDispositivo) {
             userViewModel.limpiar()
             monitoreosViewModel.limpiar()
             terrenosViewModel.limpiar()
@@ -285,6 +286,7 @@ fun AppNavigation(
             }
         }
     }
+    val cerrarSesion: () -> Unit = { limpiarSesion(true) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -348,7 +350,11 @@ fun AppNavigation(
                     onEditarPerfil = {
                         navController.navigate("editarPerfil") { launchSingleTop = true }
                     },
-                    onCerrarSesion = cerrarSesion
+                    onCerrarSesion = cerrarSesion,
+                    // La cuenta ya se borró en el backend: queda limpiar el dispositivo y volver
+                    // al login, igual que el cierre de sesión pero sin desregistrar el token FCM
+                    // (el DELETE /usuarios/me ya se llevó los dispositivos junto con el usuario).
+                    onCuentaEliminada = { limpiarSesion(false) }
                 )
             }
             composable("editarPerfil") {
@@ -366,6 +372,13 @@ fun AppNavigation(
                         onGuardado = { actualizado ->
                             userViewModel.aplicarUsuario(actualizado)
                             navController.popBackStack()
+                            // El aviso va acá y no en la pantalla de edición porque esta se
+                            // desmonta al volver al perfil.
+                            Toast.makeText(
+                                context,
+                                "Perfil actualizado.",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     )
                 }

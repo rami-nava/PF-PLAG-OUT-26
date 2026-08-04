@@ -8,6 +8,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
@@ -17,7 +18,7 @@ import java.util.Date
 
 @Database(
     entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class, UsuarioResponse::class],
-    version = 9
+    version = 10
 )
 
 @TypeConverters(Converters::class)
@@ -34,11 +35,21 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
+                val appContext = context.applicationContext
                 val instance = Room.databaseBuilder(
-                    context.applicationContext,
+                    appContext,
                     AppDatabase::class.java,
                     "gdd_database"
-                ).fallbackToDestructiveMigration().build()
+                ).fallbackToDestructiveMigration()
+                    // Al subir de versión Room borra las tablas. Sin esto, los flags de CacheTracker
+                    // quedarían marcados sobre un caché vacío y las pantallas no volverían a
+                    // consultar el backend.
+                    .addCallback(object : RoomDatabase.Callback() {
+                        override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
+                            CacheTracker.limpiarTodo(appContext)
+                        }
+                    })
+                    .build()
                 INSTANCE = instance
                 instance
             }

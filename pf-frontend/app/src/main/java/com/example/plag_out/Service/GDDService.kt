@@ -1,5 +1,6 @@
 package com.example.plag_out.Service
 
+import com.example.plag_out.AccountDeletionResponse
 import com.example.plag_out.CargoResponse
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.PlantacionesResponse
@@ -87,6 +88,10 @@ interface GDDService {
 
     @PATCH("/usuarios/me")
     suspend fun actualizarUsuario(@Body data: UpdateUserRequest): Response<UsuarioResponse>
+
+    // Baja definitiva de la cuenta del usuario del JWT (y de todos sus datos en el backend)
+    @DELETE("/usuarios/me")
+    suspend fun eliminarCuenta(): Response<AccountDeletionResponse>
 
     // Registra (upsert) el token FCM del dispositivo para el usuario del JWT
     @POST("/usuarios/fcm-token")

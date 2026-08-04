@@ -1,5 +1,6 @@
 package com.example.plag_out.fakes
 
+import com.example.plag_out.AccountDeletionResponse
 import com.example.plag_out.CargoResponse
 import com.example.plag_out.CreatePlantacionRequest
 import com.example.plag_out.CreateTerrenoRequest
@@ -60,6 +61,7 @@ class FakeGDDService : GDDService {
     var actualizarUsuarioResult: () -> Response<UsuarioResponse> = { noDeclarado("actualizarUsuario") }
     var registrarDispositivoResult: () -> Response<DispositivoResponse> = { noDeclarado("registrarDispositivo") }
     var eliminarDispositivoResult: () -> Response<Unit> = { noDeclarado("eliminarDispositivo") }
+    var eliminarCuentaResult: () -> Response<AccountDeletionResponse> = { noDeclarado("eliminarCuenta") }
     var getCargosResult: () -> Response<List<CargoResponse>> = { noDeclarado("getCargos") }
     var getNotificacionesResult: () -> Response<List<NotificacionResponse>> = { noDeclarado("getNotificaciones") }
     var marcarNotificacionLeidaResult: () -> Response<MarcarLeidaResponse> = { noDeclarado("marcarNotificacionLeida") }
@@ -135,6 +137,10 @@ class FakeGDDService : GDDService {
 
     override suspend fun eliminarDispositivo(fcmToken: String): Response<Unit> {
         llamadas += "eliminarDispositivo"; ultimoEliminarDispositivo = fcmToken; return eliminarDispositivoResult()
+    }
+
+    override suspend fun eliminarCuenta(): Response<AccountDeletionResponse> {
+        llamadas += "eliminarCuenta"; return eliminarCuentaResult()
     }
 
     override suspend fun getCargos(): Response<List<CargoResponse>> {
