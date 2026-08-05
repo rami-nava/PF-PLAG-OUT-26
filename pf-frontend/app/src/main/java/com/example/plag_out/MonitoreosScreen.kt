@@ -128,19 +128,41 @@ fun MonitoreosScreen(
                 animationSpec = tween(360, easing = FastOutSlowInEasing),
                 label = "fabScale"
             )
-            ExtendedFloatingActionButton(
-                onClick = { navController.navigate("agregar_monitoreo") },
-                containerColor = PlagOutColors.Forest,
-                contentColor = PlagOutColors.TextOnDark,
-                shape = CircleShape,
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier
                     .padding(bottom = 16.dp)
                     .graphicsLayer { scaleX = fabScale; scaleY = fabScale }
-                    .testTag("btnNuevoMonitoreo")
             ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Nuevo Monitoreo", fontWeight = FontWeight.SemiBold)
+                SmallFloatingActionButton(
+                    onClick = { navController.navigate("crear_reporte") },
+                    containerColor = PlagOutColors.Terracotta,
+                    contentColor = PlagOutColors.TextOnDark,
+                    shape = CircleShape,
+                    modifier = Modifier.testTag("btnAccesoCrearReporte")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.BugReport, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Crear Reporte", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                ExtendedFloatingActionButton(
+                    onClick = { navController.navigate("agregar_monitoreo") },
+                    containerColor = PlagOutColors.Forest,
+                    contentColor = PlagOutColors.TextOnDark,
+                    shape = CircleShape,
+                    modifier = Modifier.testTag("btnNuevoMonitoreo")
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Nuevo Monitoreo", fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     ) { padding ->
@@ -263,7 +285,7 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
         Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 10.dp, bottom = 22.dp)) {
             val hoy = remember {
                 LocalDate.now()
-                    .format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale("es")))
+                    .format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale.forLanguageTag("es")))
                     .replaceFirstChar { it.uppercase() }
             }
             Text(
@@ -460,7 +482,7 @@ fun MonitoreoCard(
                     }
                     Spacer(Modifier.weight(1f))
                     Text(
-                        monitoreo.fecha_actualizacion.format(DateTimeFormatter.ofPattern("dd MMM", Locale("es"))),
+                        monitoreo.fecha_actualizacion.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))),
                         fontSize = 11.sp,
                         color = PlagOutColors.TextSecondary
                     )
@@ -625,10 +647,10 @@ private fun InformacionPlantacionTab(
                 color = if (plantacion?.activa != false) PlagOutColors.Leaf else PlagOutColors.Bark
             )
         }
-        Spacer(Modifier.height(6.dp))
-        if (!plantacion?.cultivo_nombre_cientifico.isNullOrBlank()) {
+        val cientifico = plantacion?.cultivo_nombre_cientifico
+        if (!cientifico.isNullOrBlank()) {
             Text(
-                plantacion?.cultivo_nombre_cientifico ?: "",
+                cientifico,
                 fontSize = 13.sp,
                 color = PlagOutColors.TextSecondary,
                 fontWeight = FontWeight.Medium
@@ -676,7 +698,7 @@ private fun InformacionPlantacionTab(
             Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 EstadisticaCompacta(
                     "Sembrada",
-                    plantacion?.fecha_siembra?.format(DateTimeFormatter.ofPattern("dd MMM", Locale("es"))) ?: "—",
+                    plantacion?.fecha_siembra?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))) ?: "—",
                     Modifier.weight(1f)
                 )
                 SeparadorVertical()

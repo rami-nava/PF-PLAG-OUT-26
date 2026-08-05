@@ -32,7 +32,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Grass
-import androidx.compose.material.icons.outlined.HelpOutline
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -342,7 +342,7 @@ private fun InformacionTerrenoTab(
 
         if (total == 0) {
             Spacer(Modifier.height(10.dp))
-            EtiquetaInfo(Icons.Outlined.HelpOutline, "Todavía no hay monitoreos en este terreno", PlagOutColors.RiskUnknown)
+            EtiquetaInfo(Icons.AutoMirrored.Outlined.HelpOutline, "Todavía no hay monitoreos en este terreno", PlagOutColors.RiskUnknown)
         }
 
         if (terreno != null) {
@@ -600,7 +600,7 @@ fun PlantacionCard(
                     Icon(Icons.Outlined.CalendarToday, contentDescription = null, tint = PlagOutColors.Bark, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "Sembrada el ${plantacion.fecha_siembra.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale("es")))}",
+                        "Sembrada el ${plantacion.fecha_siembra.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.forLanguageTag("es")))}",
                         fontSize = 12.sp,
                         color = PlagOutColors.TextSecondary,
                         modifier = Modifier.weight(1f)

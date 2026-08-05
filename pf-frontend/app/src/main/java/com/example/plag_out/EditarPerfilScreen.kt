@@ -164,7 +164,7 @@ fun EditarPerfilScreen(
                             shape = RoundedCornerShape(16.dp),
                             colors = camposColors(),
                             modifier = Modifier
-                                .menuAnchor()
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                                 .fillMaxWidth()
                                 .testTag("txtEditarCargo")
                         )

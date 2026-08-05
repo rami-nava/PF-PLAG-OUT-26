@@ -15,8 +15,8 @@ android {
             file.inputStream().use { load(it) }
         }
     }
-    val testJwt = (localProperties.getProperty("test.jwt") ?: "").trim('"')
-    var backendUrl = (localProperties.getProperty("backend.url") ?: "http://10.0.2.2:8000/").trim('"')
+    val testJwt = (localProperties.getProperty("test.jwt") ?: "").trim().trim('"')
+    var backendUrl = (localProperties.getProperty("backend.url") ?: "http://10.0.2.2:8000/").trim().trim('"')
     if (backendUrl.isNotEmpty() && !backendUrl.endsWith("/")) {
         backendUrl = "$backendUrl/"
     }

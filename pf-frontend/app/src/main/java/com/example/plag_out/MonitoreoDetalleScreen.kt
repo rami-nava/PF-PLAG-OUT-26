@@ -255,13 +255,13 @@ private fun ContenidoMonitoreoDetalle(
             Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 EstadisticaCompacta(
                     "Inicio",
-                    monitoreo.fecha_inicio?.format(DateTimeFormatter.ofPattern("dd MMM", Locale("es"))) ?: "—",
+                    monitoreo.fecha_inicio?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))) ?: "—",
                     Modifier.weight(1f)
                 )
                 SeparadorVertical()
                 EstadisticaCompacta(
                     "Actualizado",
-                    monitoreo.fecha_actualizacion.format(DateTimeFormatter.ofPattern("dd MMM", Locale("es"))),
+                    monitoreo.fecha_actualizacion.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))),
                     Modifier.weight(1f)
                 )
                 // El objetivo ya no aplica a un monitoreo finalizado: no tiene sentido proyectar

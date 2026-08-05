@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
         osmConfig.userAgentValue = "PlagOutMobileApp/1.0.1 (contacto@mi-app.com)"
         osmConfig.osmdroidBasePath = java.io.File(cacheDir, "osmdroid")
         osmConfig.osmdroidTileCache = java.io.File(cacheDir, "osmdroid/tiles")
-        osmConfig.load(applicationContext, PreferenceManager.getDefaultSharedPreferences(applicationContext))
+        osmConfig.load(applicationContext, applicationContext.getSharedPreferences("plag_out_prefs", android.content.Context.MODE_PRIVATE))
         android.util.Log.d("OSM_DEBUG", "User-Agent en MainActivity: ${osmConfig.userAgentValue}")
         
         leerDeepLink(intent)
@@ -200,7 +200,9 @@ fun AppNavigation(
         if (sessionStatus is SessionStatus.Authenticated &&
             PreferenciasUsuario.notificacionesActivadas(context)
         ) {
-            FcmTokenRegistrar.registrar()
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                FcmTokenRegistrar.registrar()
+            }
         }
     }
 
@@ -226,7 +228,7 @@ fun AppNavigation(
         }
     }
 
-    val fullBleedScreens = listOf("logIn", "crearCuenta", "perfil", "editarPerfil", "monitoreo/{monitoreo_id}")
+    val fullBleedScreens = listOf("logIn", "crearCuenta", "perfil", "editarPerfil", "monitoreo/{monitoreo_id}", "ver_reporte/{reporte_id}/{reporte_json}")
     val isFullBleedRoute = fullBleedScreens.contains(navBackStackEntry?.destination?.route)
 
     // Cerrar sesión: AuthViewModel borra el almacenamiento local (token, Room,
@@ -411,6 +413,33 @@ fun AppNavigation(
                     }
                 )
             }
+            composable("crear_reporte") {
+                val crearReporteViewModel: CrearReporteViewModel = viewModel(
+                    factory = CrearReporteViewModelFactory(context)
+                )
+                CrearReporteScreen(
+                    viewModel = crearReporteViewModel,
+                    onBack = { navController.popBackStack() },
+                    onSuccess = { reporteId, reporteJson ->
+                        navController.navigate("ver_reporte/$reporteId/$reporteJson") {
+                            popUpTo("crear_reporte") { inclusive = true }
+                        }
+                    }
+                )
+            }
+            composable("ver_reporte/{reporte_id}/{reporte_json}") { backStackEntry ->
+                val reporteId = backStackEntry.arguments?.getString("reporte_id")?.toIntOrNull() ?: 0
+                val reporteJson = backStackEntry.arguments?.getString("reporte_json")
+                val verReporteViewModel: VerReporteViewModel = viewModel(
+                    factory = VerReporteViewModelFactory()
+                )
+                VerReporteScreen(
+                    reporteId = reporteId,
+                    reporteJsonFallback = reporteJson,
+                    viewModel = verReporteViewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
@@ -469,7 +498,7 @@ private fun PantallaCargandoSesion(esperaAgotada: Boolean, onIrAlLogin: () -> Un
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo","logIn","crearCuenta","perfil","editarPerfil","monitoreo/{monitoreo_id}")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo","logIn","crearCuenta","perfil","editarPerfil","monitoreo/{monitoreo_id}","crear_reporte","ver_reporte/{reporte_id}/{reporte_json}")
     return !screensWithoutNavBar.contains(currentScreen)
 }
 
@@ -477,6 +506,6 @@ fun shouldShowBottomBar(navController: NavController): Boolean {
 fun shouldShowTopBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("logIn","crearCuenta","perfil","editarPerfil","monitoreo/{monitoreo_id}")
+    val screensWithoutNavBar = listOf("logIn","crearCuenta","perfil","editarPerfil","monitoreo/{monitoreo_id}","ver_reporte/{reporte_id}/{reporte_json}")
     return !screensWithoutNavBar.contains(currentScreen)
 }

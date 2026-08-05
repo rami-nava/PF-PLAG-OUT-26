@@ -205,7 +205,7 @@ fun SelectLocationScreen(
                                 Configuration.getInstance().userAgentValue = "PlagOutMobileApp/1.0.1 (contacto@mi-app.com)"
                                 Configuration.getInstance().load(
                                     ctx,
-                                    PreferenceManager.getDefaultSharedPreferences(ctx)
+                                    ctx.getSharedPreferences("plag_out_prefs", android.content.Context.MODE_PRIVATE)
                                 )
                                 Log.d("OSM_DEBUG", "User-Agent en MapView: ${Configuration.getInstance().userAgentValue}")
 
