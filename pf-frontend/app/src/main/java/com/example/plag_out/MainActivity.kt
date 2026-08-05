@@ -135,6 +135,9 @@ fun AppNavigation(
     val nuevoTerrenoViewModel: NuevoTerrenoViewModel = viewModel(
         factory = remember(context, terrenoRepository) { NuevoTerrenoViewModelFactory(context, terrenoRepository) }
     )
+    val misReportesViewModel: MisReportesViewModel = viewModel(
+        factory = MisReportesViewModelFactory()
+    )
 
     val authViewModel: AuthViewModel = viewModel(
         factory = remember(context, monitoreoRepository, terrenoRepository, plantacionRepository) {
@@ -240,6 +243,7 @@ fun AppNavigation(
             monitoreosViewModel.limpiar()
             terrenosViewModel.limpiar()
             plantacionesViewModel.limpiar()
+            misReportesViewModel.limpiar()
             navController.navigate("logIn") {
                 popUpTo(0) { inclusive = true }
             }
@@ -439,6 +443,9 @@ fun AppNavigation(
                     viewModel = verReporteViewModel,
                     onBack = { navController.popBackStack() }
                 )
+            }
+            composable("reportes") {
+                MisReportesScreen(misReportesViewModel, navController)
             }
         }
     }

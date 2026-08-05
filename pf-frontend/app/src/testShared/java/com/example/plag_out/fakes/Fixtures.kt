@@ -110,4 +110,28 @@ object Fixtures {
 
     fun cargo(id: Int = 1, tipo: String = "Ingeniero agrónomo") =
         CargoResponse(id = id, tipo = tipo)
+
+    fun reporteDetalle(
+        id: Int = 1,
+        plantacionId: Int? = 1,
+        plagaId: Int = 1,
+        plagaNombre: String = "Chicharrita",
+        terrenoNombre: String? = "Lote Norte",
+        cultivoNombre: String? = "Maíz",
+        nivelSeveridad: String = "Alto",
+        latitud: Double? = -34.6,
+        longitud: Double? = -58.4,
+        timestampMs: Long = 1700000000000L
+    ) = com.example.plag_out.ReporteDetalleResponse(
+        id = id,
+        plantacion_id = plantacionId,
+        plaga_id = plagaId,
+        plaga_nombre = plagaNombre,
+        terreno_nombre = terrenoNombre,
+        cultivo_nombre = cultivoNombre,
+        nivel_severidad = nivelSeveridad,
+        latitud = latitud,
+        longitud = longitud,
+        timestamp_ms = timestampMs
+    )
 }

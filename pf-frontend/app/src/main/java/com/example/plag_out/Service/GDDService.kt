@@ -109,6 +109,9 @@ interface GDDService {
     @GET("/reportes/{id}")
     suspend fun getReporte(@Path("id") id: Int): Response<ReporteDetalleResponse>
 
+    @GET("/reportes")
+    suspend fun getReportes(): Response<List<ReporteDetalleResponse>>
+
     @GET("api/gdd/health")
     suspend fun health(): Response<Unit>
 }

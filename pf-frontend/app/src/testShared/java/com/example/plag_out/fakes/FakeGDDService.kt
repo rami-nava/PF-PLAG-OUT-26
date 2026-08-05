@@ -65,6 +65,7 @@ class FakeGDDService : GDDService {
     var createReporteResult: () -> Response<ReporteResponse> = { noDeclarado("createReporte") }
     var createReporteApiResult: () -> Response<ReporteResponse> = { noDeclarado("createReporteApi") }
     var getReporteResult: () -> Response<ReporteDetalleResponse> = { noDeclarado("getReporte") }
+    var getReportesResult: () -> Response<List<ReporteDetalleResponse>> = { noDeclarado("getReportes") }
     var healthResult: () -> Response<Unit> = { noDeclarado("health") }
 
     override suspend fun getMonitoreos(): Response<List<MonitoreoResponse>> {
@@ -153,6 +154,10 @@ class FakeGDDService : GDDService {
 
     override suspend fun getReporte(id: Int): Response<ReporteDetalleResponse> {
         llamadas += "getReporte"; return getReporteResult()
+    }
+
+    override suspend fun getReportes(): Response<List<ReporteDetalleResponse>> {
+        llamadas += "getReportes"; return getReportesResult()
     }
 
     override suspend fun health(): Response<Unit> {
