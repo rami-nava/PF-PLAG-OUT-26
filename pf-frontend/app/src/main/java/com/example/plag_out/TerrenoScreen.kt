@@ -28,7 +28,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.SquareFoot
 import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material.icons.outlined.HelpOutline
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Terrain
 import androidx.compose.material3.*
@@ -446,7 +446,7 @@ fun TerrenoCard(
                     when {
                         criticos > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$criticos en estado crítico", PlagOutColors.RiskDanger)
                         atencion > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$atencion en atención", PlagOutColors.RiskWarn)
-                        monitoreos.isEmpty() -> EtiquetaInfo(Icons.Outlined.HelpOutline, "Sin monitoreos", PlagOutColors.RiskUnknown)
+                        monitoreos.isEmpty() -> EtiquetaInfo(Icons.AutoMirrored.Outlined.HelpOutline, "Sin monitoreos", PlagOutColors.RiskUnknown)
                         else -> EtiquetaInfo(Icons.Default.CheckCircle, "Todo en orden", PlagOutColors.RiskOk)
                     }
                     Spacer(Modifier.weight(1f))

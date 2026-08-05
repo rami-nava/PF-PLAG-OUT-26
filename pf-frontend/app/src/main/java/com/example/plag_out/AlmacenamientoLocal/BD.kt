@@ -40,7 +40,7 @@ abstract class AppDatabase : RoomDatabase() {
                     appContext,
                     AppDatabase::class.java,
                     "gdd_database"
-                ).fallbackToDestructiveMigration()
+                ).fallbackToDestructiveMigration(dropAllTables = true)
                     // Al subir de versión Room borra las tablas. Sin esto, los flags de CacheTracker
                     // quedarían marcados sobre un caché vacío y las pantallas no volverían a
                     // consultar el backend.

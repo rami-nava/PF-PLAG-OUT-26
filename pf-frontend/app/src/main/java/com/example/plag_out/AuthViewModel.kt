@@ -136,7 +136,9 @@ class AuthViewModel(
                 // Registrar el token FCM del dispositivo para poder recibir alertas, salvo que el
                 // usuario haya apagado las notificaciones desde su perfil.
                 if (PreferenciasUsuario.notificacionesActivadas(context)) {
-                    FcmTokenRegistrar.registrar()
+                    viewModelScope.launch(Dispatchers.IO) {
+                        FcmTokenRegistrar.registrar()
+                    }
                 }
 
                 _loginState.value = _loginState.value.copy(cargando = false)

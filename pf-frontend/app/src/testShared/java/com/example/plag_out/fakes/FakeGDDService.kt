@@ -22,6 +22,9 @@ import com.example.plag_out.UpdateMonitoreoRequest
 import com.example.plag_out.UpdatePlantacionRequest
 import com.example.plag_out.UpdateUserRequest
 import com.example.plag_out.UsuarioResponse
+import com.example.plag_out.CreateReporteRequest
+import com.example.plag_out.ReporteResponse
+import com.example.plag_out.ReporteDetalleResponse
 import com.example.plag_out.Service.GDDService
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -65,6 +68,10 @@ class FakeGDDService : GDDService {
     var getCargosResult: () -> Response<List<CargoResponse>> = { noDeclarado("getCargos") }
     var getNotificacionesResult: () -> Response<List<NotificacionResponse>> = { noDeclarado("getNotificaciones") }
     var marcarNotificacionLeidaResult: () -> Response<MarcarLeidaResponse> = { noDeclarado("marcarNotificacionLeida") }
+    var createReporteResult: () -> Response<ReporteResponse> = { noDeclarado("createReporte") }
+    var createReporteApiResult: () -> Response<ReporteResponse> = { noDeclarado("createReporteApi") }
+    var getReporteResult: () -> Response<ReporteDetalleResponse> = { noDeclarado("getReporte") }
+    var getReportesResult: () -> Response<List<ReporteDetalleResponse>> = { noDeclarado("getReportes") }
     var healthResult: () -> Response<Unit> = { noDeclarado("health") }
 
     override suspend fun getMonitoreos(): Response<List<MonitoreoResponse>> {
@@ -157,6 +164,22 @@ class FakeGDDService : GDDService {
         return marcarNotificacionLeidaResult()
     }
 
+    override suspend fun createReporte(data: CreateReporteRequest): Response<ReporteResponse> {
+        llamadas += "createReporte"; ultimoCreateReporte = data; return createReporteResult()
+    }
+
+    override suspend fun createReporteApi(data: CreateReporteRequest): Response<ReporteResponse> {
+        llamadas += "createReporteApi"; ultimoCreateReporte = data; return createReporteApiResult()
+    }
+
+    override suspend fun getReporte(id: Int): Response<ReporteDetalleResponse> {
+        llamadas += "getReporte"; return getReporteResult()
+    }
+
+    override suspend fun getReportes(): Response<List<ReporteDetalleResponse>> {
+        llamadas += "getReportes"; return getReportesResult()
+    }
+
     override suspend fun health(): Response<Unit> {
         llamadas += "health"; return healthResult()
     }
@@ -175,6 +198,8 @@ class FakeGDDService : GDDService {
     var ultimoActualizarMonitoreo: UpdateMonitoreoRequest? = null
         private set
     var ultimoActualizarPlantacion: UpdatePlantacionRequest? = null
+        private set
+    var ultimoCreateReporte: CreateReporteRequest? = null
         private set
     var ultimoEliminarDispositivo: String? = null
         private set

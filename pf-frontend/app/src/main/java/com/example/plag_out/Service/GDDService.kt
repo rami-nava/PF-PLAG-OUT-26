@@ -22,6 +22,9 @@ import com.example.plag_out.DispositivoRequest
 import com.example.plag_out.DispositivoResponse
 import com.example.plag_out.MarcarLeidaResponse
 import com.example.plag_out.NotificacionResponse
+import com.example.plag_out.CreateReporteRequest
+import com.example.plag_out.ReporteResponse
+import com.example.plag_out.ReporteDetalleResponse
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -110,6 +113,18 @@ interface GDDService {
 
     @GET("/cargos")
     suspend fun getCargos(): Response<List<CargoResponse>>
+
+    @POST("/reportes")
+    suspend fun createReporte(@Body data: CreateReporteRequest): Response<ReporteResponse>
+
+    @POST("/api/reports")
+    suspend fun createReporteApi(@Body data: CreateReporteRequest): Response<ReporteResponse>
+
+    @GET("/reportes/{id}")
+    suspend fun getReporte(@Path("id") id: Int): Response<ReporteDetalleResponse>
+
+    @GET("/reportes")
+    suspend fun getReportes(): Response<List<ReporteDetalleResponse>>
 
     @GET("api/gdd/health")
     suspend fun health(): Response<Unit>

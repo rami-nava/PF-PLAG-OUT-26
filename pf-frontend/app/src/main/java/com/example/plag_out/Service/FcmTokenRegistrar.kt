@@ -5,8 +5,10 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import com.example.plag_out.DispositivoRequest
 import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -26,7 +28,7 @@ object FcmTokenRegistrar {
 
     /** Obtiene el token FCM actual y lo registra (upsert) en el backend. */
     @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun registrar() {
+    suspend fun registrar() = withContext(Dispatchers.IO) {
         try {
             val token = obtenerTokenConReintentos()
             val response = gddService.registrarDispositivo(
@@ -50,7 +52,7 @@ object FcmTokenRegistrar {
      * el token nuevo y no hace falta volver a pedirlo).
      */
     @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun registrar(token: String) {
+    suspend fun registrar(token: String) = withContext(Dispatchers.IO) {
         try {
             val response = gddService.registrarDispositivo(
                 DispositivoRequest(fcm_token = token, plataforma = PLATAFORMA)
@@ -58,11 +60,11 @@ object FcmTokenRegistrar {
             if (!response.isSuccessful) {
                 Log.e(
                     TAG,
-                    "Error al registrar dispositivo: ${response.code()} ${response.errorBody()?.string()}"
+                    "Error al registrar token nuevo: ${response.code()}"
                 )
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Excepción al registrar el token FCM", e)
+            Log.e(TAG, "Excepción al registrar token puntual", e)
         }
     }
 

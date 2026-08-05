@@ -238,10 +238,7 @@ data class MonitoreoRequest(
     val umbral_riesgo: Int
 )
 
-/**
- * Edición parcial de un monitoreo. Un solo endpoint sirve para las dos acciones de la pantalla de
- * detalle (cambiar umbral y finalizar) — se manda solo el campo que cambió.
- */
+
 @Serializable
 data class UpdateMonitoreoRequest(
     @SerializedName("umbral_riesgo")
@@ -250,7 +247,6 @@ data class UpdateMonitoreoRequest(
     val activo: Boolean? = null
 )
 
-/** Edición parcial de una plantación. */
 @Serializable
 data class UpdatePlantacionRequest(
     @SerializedName("activa")
@@ -269,11 +265,6 @@ data class CreateUserRequest(
     val cargo_id: Int
 )
 
-/**
- * Edición del perfil del usuario actual. Todos los campos son opcionales: se manda solo lo que
- * cambió. Usa `cargo_id` (Int) y no el `cargo` (String) que devuelve [UsuarioResponse], igual que
- * [CreateUserRequest].
- */
 @Serializable
 data class UpdateUserRequest(
     @SerializedName("nombre")
@@ -395,4 +386,66 @@ data class UsuarioResponse(
     val cargo: String,
     @SerializedName("fecha_creacion")
     val fecha_creacion: LocalDate
+)
+
+@Serializable
+data class CreateReporteRequest(
+    @SerializedName("terreno_id")
+    val terreno_id: Int? = null,
+    @SerializedName("plantacion_id")
+    val plantacion_id: Int,
+    @SerializedName("plaga_id")
+    val plaga_id: Int,
+    @SerializedName("nivel_severidad")
+    val nivel_severidad: String,
+    @SerializedName("latitud")
+    val latitud: Double?,
+    @SerializedName("longitud")
+    val longitud: Double?,
+    @SerializedName("timestamp_ms")
+    val timestamp_ms: Long
+)
+
+@Serializable
+data class ReporteResponse(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("plantacion_id")
+    val plantacion_id: Int? = null,
+    @SerializedName("plaga_id")
+    val plaga_id: Int,
+    @SerializedName("nivel_severidad")
+    val nivel_severidad: String,
+    @SerializedName("latitud")
+    val latitud: Double?,
+    @SerializedName("longitud")
+    val longitud: Double?,
+    @SerializedName("timestamp_ms")
+    val timestamp_ms: Long
+)
+
+@Serializable
+data class ReporteDetalleResponse(
+    @SerializedName("id")               val id: Int,
+    @SerializedName("plantacion_id")    val plantacion_id: Int? = null,
+    @SerializedName("plaga_id")         val plaga_id: Int,
+    @SerializedName("plaga_nombre")     val plaga_nombre: String,
+    @SerializedName("terreno_nombre")   val terreno_nombre: String? = null,
+    @SerializedName("cultivo_nombre")   val cultivo_nombre: String? = null,
+    @SerializedName("nivel_severidad")  val nivel_severidad: String,
+    @SerializedName("latitud")          val latitud: Double?,
+    @SerializedName("longitud")         val longitud: Double?,
+    @SerializedName("timestamp_ms")     val timestamp_ms: Long,
+    @SerializedName("creado_en")        val creado_en: String? = null
+)
+
+
+@Serializable
+data class ReporteNavPayload(
+    val id: Int,
+    val plaga_nombre: String,
+    val nivel_severidad: String,
+    val latitud: Double?,
+    val longitud: Double?,
+    val timestamp_ms: Long
 )

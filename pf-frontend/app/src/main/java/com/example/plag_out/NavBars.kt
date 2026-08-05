@@ -37,6 +37,8 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.plag_out.ui.theme.PlagOutColors
 
+import androidx.compose.material.icons.outlined.BugReport
+
 data class BarItem(val nombre: String, val ruta: String, val icono: ImageVector)
 
 @Composable
@@ -50,6 +52,7 @@ fun BottomNavigationBar(navController: NavController) {
         val barItems = listOf(
             BarItem("Monitoreos", "monitoreos", Icons.Default.Science),
             BarItem("Terrenos", "terrenos", Icons.Default.Terrain),
+            BarItem("Reportes", "reportes", Icons.Outlined.BugReport),
             BarItem("Perfil", "perfil", Icons.Default.Person)
         )
 

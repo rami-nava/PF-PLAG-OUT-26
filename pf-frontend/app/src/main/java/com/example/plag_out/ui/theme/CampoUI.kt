@@ -29,10 +29,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.CircularProgressIndicator
@@ -82,7 +82,7 @@ data class NivelEstilo(
 
 /** nivel < 0 se interpreta como "sin datos" (p.ej. un terreno sin monitoreos). */
 fun estiloDeNivel(nivel: Int): NivelEstilo = when {
-    nivel < 0 -> NivelEstilo(PlagOutColors.RiskUnknown, Color(0xFFCFC5AC), "Sin datos", Icons.Filled.HelpOutline)
+    nivel < 0 -> NivelEstilo(PlagOutColors.RiskUnknown, Color(0xFFCFC5AC), "Sin datos", Icons.AutoMirrored.Filled.HelpOutline)
     nivel == 0 -> NivelEstilo(PlagOutColors.RiskOk, Color(0xFF8ACD86), "Saludable", Icons.Filled.CheckCircle)
     nivel == 1 -> NivelEstilo(PlagOutColors.RiskWarn, PlagOutColors.Sun, "Atención", Icons.Filled.WarningAmber)
     else -> NivelEstilo(PlagOutColors.RiskDanger, Color(0xFFE4795C), "Crítico", Icons.Filled.ErrorOutline)

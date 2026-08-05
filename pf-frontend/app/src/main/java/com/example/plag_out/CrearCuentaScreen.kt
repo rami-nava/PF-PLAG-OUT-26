@@ -145,7 +145,7 @@ fun CrearCuentaScreen(
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownCargoExpanded) },
                             shape = RoundedCornerShape(16.dp),
                             colors = camposColors(),
-                            modifier = Modifier.menuAnchor().fillMaxWidth().testTag("txtCargo")
+                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth().testTag("txtCargo")
                         )
 
                         ExposedDropdownMenu(

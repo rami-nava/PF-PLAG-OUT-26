@@ -119,7 +119,7 @@ fun AgregarMonitoreoScreen(
                                 shape = RoundedCornerShape(16.dp),
                                 colors = camposColors(),
                                 modifier = Modifier
-                                    .menuAnchor()
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                                     .fillMaxWidth()
                                     .testTag("txtTerreno")
                             )
@@ -204,7 +204,7 @@ fun AgregarMonitoreoScreen(
                                 shape = RoundedCornerShape(16.dp),
                                 colors = camposColors(),
                                 modifier = Modifier
-                                    .menuAnchor()
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                                     .fillMaxWidth()
                                     .testTag("txtPlantacion")
                             )
@@ -300,7 +300,7 @@ fun AgregarMonitoreoScreen(
                                 shape = RoundedCornerShape(16.dp),
                                 colors = camposColors(),
                                 modifier = Modifier
-                                    .menuAnchor()
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                                     .fillMaxWidth()
                                     .testTag("txtPlaga")
                             )
@@ -457,7 +457,11 @@ private fun HeaderNuevoMonitoreo(onBack: () -> Unit) {
                     fontWeight = FontWeight.Medium,
                     letterSpacing = 0.3.sp
                 )
-                Text("Nuevo Monitoreo", color = PlagOutColors.TextOnDark, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    "Nuevo Monitoreo", 
+                    color = PlagOutColors.TextOnDark,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold)
             }
         }
     }
