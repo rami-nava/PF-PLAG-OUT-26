@@ -128,41 +128,19 @@ fun MonitoreosScreen(
                 animationSpec = tween(360, easing = FastOutSlowInEasing),
                 label = "fabScale"
             )
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier
+            ExtendedFloatingActionButton(
+                onClick = { navController.navigate("agregar_monitoreo") },
+                containerColor = PlagOutColors.Forest,
+                contentColor = PlagOutColors.TextOnDark,
+                shape = CircleShape,
+                modifier = /* Modifier.testTag("btnNuevoMonitoreo")*/
+                Modifier
                     .padding(bottom = 16.dp)
                     .graphicsLayer { scaleX = fabScale; scaleY = fabScale }
             ) {
-                SmallFloatingActionButton(
-                    onClick = { navController.navigate("crear_reporte") },
-                    containerColor = PlagOutColors.Terracotta,
-                    contentColor = PlagOutColors.TextOnDark,
-                    shape = CircleShape,
-                    modifier = Modifier.testTag("btnAccesoCrearReporte")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Outlined.BugReport, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Crear Reporte", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                ExtendedFloatingActionButton(
-                    onClick = { navController.navigate("agregar_monitoreo") },
-                    containerColor = PlagOutColors.Forest,
-                    contentColor = PlagOutColors.TextOnDark,
-                    shape = CircleShape,
-                    modifier = Modifier.testTag("btnNuevoMonitoreo")
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Nuevo Monitoreo", fontWeight = FontWeight.SemiBold)
-                }
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Nuevo Monitoreo", fontWeight = FontWeight.SemiBold)
             }
         }
     ) { padding ->

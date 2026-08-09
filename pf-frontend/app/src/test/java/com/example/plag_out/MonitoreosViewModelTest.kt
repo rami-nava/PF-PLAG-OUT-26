@@ -58,7 +58,7 @@ class MonitoreosViewModelTest {
 
         esperarEstado(vm.state) { it.monitoreos.size == 1 && !it.isLoading }
         assertEquals(1, gddService.vecesLlamado("getMonitoreos"))
-        assertTrue(CacheTracker.consultadoHoy(context, CacheTracker.MONITOREOS))
+        assertTrue(CacheTracker.consultadoTrasUltimaActualizacion(context, CacheTracker.MONITOREOS))
     }
 
     @Test

@@ -97,4 +97,27 @@ class CrearReporteViewModelTest {
         assertEquals("Oruga", estado.reporteNavPayload?.plaga_nombre)
         assertEquals(1, gddService.vecesLlamado("createReporte"))
     }
+
+    @Test
+    fun `seleccionarPlaga calcula las etapas biologicas correspondientes`() {
+        val oruga = Fixtures.plaga(id = 1, nombre = "Oruga Cogollera", nombreCientifico = "Spodoptera frugiperda")
+        val chicharrita = Fixtures.plaga(id = 2, nombre = "Chicharrita del Maíz", nombreCientifico = "Dalbulus maidis")
+
+        viewModel.seleccionarPlaga(oruga)
+        assertEquals(listOf("HUEVO", "LARVA", "PUPA", "ADULTO"), viewModel.state.value.etapasDisponibles)
+        assertEquals("HUEVO", viewModel.state.value.etapaBiologica)
+
+        viewModel.seleccionarPlaga(chicharrita)
+        assertEquals(listOf("HUEVO", "NINFA", "ADULTO"), viewModel.state.value.etapasDisponibles)
+        assertEquals("HUEVO", viewModel.state.value.etapaBiologica)
+    }
+
+    @Test
+    fun `filtrado de plagas por cultivo excluye plagas no aplicables`() {
+        val plagaMaiz = Fixtures.plaga(id = 1, nombre = "Chicharrita del Maíz", cultivosAfectados = listOf(2))
+        val plantacionTrigo = Fixtures.plantacion(id = 10, cultivoId = 1, cultivo = "Trigo")
+
+        viewModel.seleccionarPlantacion(plantacionTrigo)
+        assertTrue(viewModel.state.value.plagasDisponibles.none { it.id == plagaMaiz.id })
+    }
 }

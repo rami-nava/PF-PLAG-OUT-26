@@ -11,6 +11,7 @@ import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,7 +36,8 @@ class AgregarPlantacionViewModel(
     val context: Context,
     val plantacionRepository: PlantacionRepository,
     val terrenoRepository: TerrenoRepository,
-    private val gddService: GDDService = RetrofitClient.gddService
+    private val gddService: GDDService = RetrofitClient.gddService,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AgregarPlantacionUIState())
@@ -64,7 +66,7 @@ class AgregarPlantacionViewModel(
         _state.value = _state.value.copy(isLoading = true, error = null)
         viewModelScope.launch {
             try {
-                val response = withContext(Dispatchers.IO) {
+                val response = withContext(ioDispatcher) {
                     gddService.getCultivos()
                 }
                 if (response.isSuccessful) {
@@ -113,7 +115,7 @@ class AgregarPlantacionViewModel(
                     activa = currentState.activa //Siempre se crea activa
                 )
 
-                val response = withContext(Dispatchers.IO) {
+                val response = withContext(ioDispatcher) {
                     gddService.createPlantacion(request)
                 }
 

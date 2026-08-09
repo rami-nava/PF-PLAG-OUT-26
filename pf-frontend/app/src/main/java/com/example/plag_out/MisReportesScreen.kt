@@ -6,7 +6,11 @@ import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -44,6 +48,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -159,44 +164,47 @@ fun MisReportesScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
+                            Column(
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Surface(
-                                    color = if (filtroActivo) PlagOutColors.Forest.copy(alpha = 0.15f) else PlagOutColors.Surface,
-                                    shape = CircleShape,
-                                    border = if (filtroActivo) null else BorderStroke(1.dp, PlagOutColors.Divider),
-                                    modifier = Modifier.size(32.dp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            Icons.Outlined.Tune,
-                                            contentDescription = "Filtrar reportes",
-                                            tint = if (filtroActivo) PlagOutColors.Forest else PlagOutColors.TextMain,
-                                            modifier = Modifier.size(16.dp)
-                                        )
+                                    Surface(
+                                        color = if (filtroActivo) PlagOutColors.Forest.copy(alpha = 0.15f) else PlagOutColors.Surface,
+                                        shape = CircleShape,
+                                        border = if (filtroActivo) null else BorderStroke(1.dp, PlagOutColors.Divider),
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                Icons.Outlined.Tune,
+                                                contentDescription = "Filtrar reportes",
+                                                tint = if (filtroActivo) PlagOutColors.Forest else PlagOutColors.TextMain,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
                                     }
-                                }
-                                Spacer(Modifier.width(10.dp))
-                                Column {
+                                    Spacer(Modifier.width(10.dp))
                                     Text(
                                         text = if (filtrosExpandidos) "Ocultar filtros" else "Filtrar reportes",
-                                        fontSize = 13.sp,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = PlagOutColors.TextMain
                                     )
-                                    Text(
-                                        text = if (filtroActivo) "Mostrando $totalFiltrados de $totalOriginal (Filtros activos)" else "Mostrando $totalOriginal reportes",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = if (filtroActivo) PlagOutColors.Forest else PlagOutColors.TextSecondary
-                                    )
                                 }
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = if (filtroActivo) "Mostrando $totalFiltrados de $totalOriginal (Filtros activos)" else "Mostrando $totalOriginal reportes",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (filtroActivo) PlagOutColors.Forest else PlagOutColors.TextSecondary,
+                                    modifier = Modifier.padding(start = 42.dp)
+                                )
                             }
 
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -422,53 +430,65 @@ fun MisReportesScreen(
 
 @Composable
 private fun PanelHeaderReportes(totalReportes: Int, reportes: List<ReporteDetalleResponse>) {
-    val gradienteHeader = Brush.verticalGradient(
-        colors = listOf(PlagOutColors.Forest, PlagOutColors.ForestDark)
+    val respiracion = rememberInfiniteTransition(label = "respiracionHeaderReportes")
+    val escalaDecorativa by respiracion.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(tween(4200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "escalaDecorativa"
     )
+
     val conteoAlto = remember(reportes) { reportes.count { it.nivel_severidad.equals("Alto", ignoreCase = true) } }
     val conteoMedio = remember(reportes) { reportes.count { it.nivel_severidad.equals("Medio", ignoreCase = true) } }
     val conteoBajo = remember(reportes) { reportes.count { it.nivel_severidad.equals("Bajo", ignoreCase = true) } }
 
+    val formaHeader = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(gradienteHeader)
-            .padding(horizontal = 20.dp, vertical = 18.dp)
+            .background(
+                brush = Brush.verticalGradient(listOf(PlagOutColors.Forest, PlagOutColors.Leaf)),
+                shape = formaHeader
+            )
+            .clip(formaHeader)
     ) {
-        Column {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    color = Color.White.copy(alpha = 0.15f),
-                    shape = CircleShape,
-                    modifier = Modifier.size(42.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Outlined.BugReport,
-                            contentDescription = null,
-                            tint = PlagOutColors.TextOnDark,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.width(14.dp))
-                Column {
-                    Text(
-                        "Mis Reportes",
-                        color = PlagOutColors.TextOnDark,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        "$totalReportes reportes de plaga registrados",
-                        color = PlagOutColors.TextOnDark.copy(alpha = 0.8f),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 56.dp, y = (-48).dp)
+                .size(190.dp)
+                .graphicsLayer { scaleX = escalaDecorativa; scaleY = escalaDecorativa }
+                .background(PlagOutColors.TextOnDark.copy(alpha = 0.06f), CircleShape)
+        )
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .offset(x = (-44).dp, y = 48.dp)
+                .size(150.dp)
+                .background(PlagOutColors.TextOnDark.copy(alpha = 0.05f), CircleShape)
+        )
+
+        Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 20.dp)) {
+            Text(
+                "Gestión de Alertas",
+                color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.4.sp
+            )
+            Text(
+                "Reportes",
+                color = PlagOutColors.TextOnDark,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "$totalReportes reportes de plaga registrados",
+                color = PlagOutColors.TextOnDark.copy(alpha = 0.8f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
 
             Spacer(Modifier.height(16.dp))
 
@@ -535,11 +555,26 @@ fun TarjetaReporteItem(
         }
     }
 
-    val terrenoNombre = reporte.terreno_nombre ?: "Terreno sin especificar"
-    val plantacionInfo = if (!reporte.cultivo_nombre.isNullOrBlank()) {
-        "Plantación de ${reporte.cultivo_nombre}"
+    val esPropio = reporte.es_propio
+    val terrenoNombre = if (esPropio) {
+        reporte.terreno_nombre?.takeIf { it.isNotBlank() } ?: "Terreno no especificado"
     } else {
-        "Plantación ID: ${reporte.plantacion_id ?: "-"}"
+        val tNom = reporte.terreno_nombre?.takeIf { it.isNotBlank() }
+        val dist = reporte.distancia_km
+        if (tNom != null && dist != null) {
+            "Cercano a $tNom (${dist} km)"
+        } else if (tNom != null) {
+            "Cercano a $tNom"
+        } else if (dist != null) {
+            "A ${dist} km de tu terreno"
+        } else {
+            "Comunidad (área cercana)"
+        }
+    }
+    val cultivoInfo = if (!reporte.cultivo_nombre.isNullOrBlank()) {
+        "Cultivo de ${reporte.cultivo_nombre}"
+    } else {
+        "Cultivo ID: ${reporte.plantacion_id ?: "-"}"
     }
 
     Surface(
@@ -555,41 +590,24 @@ fun TarjetaReporteItem(
             .testTag("tarjetaReporte_${reporte.id}")
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(18.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                Text(
+                    text = reporte.plaga_nombre.ifBlank { "Plaga no especificada" },
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PlagOutColors.TextMain,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
-                ) {
-                    Surface(
-                        color = PlagOutColors.Forest.copy(alpha = 0.1f),
-                        shape = CircleShape,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Outlined.BugReport,
-                                contentDescription = null,
-                                tint = PlagOutColors.Forest,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = reporte.plaga_nombre.ifBlank { "Plaga no especificada" },
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PlagOutColors.TextMain,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                )
+
+                Spacer(Modifier.width(8.dp))
 
                 // Badge de Severidad con color (Bajo 🟢, Medio 🟡, Alto 🔴)
                 Surface(
@@ -600,21 +618,37 @@ fun TarjetaReporteItem(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(emojiSeveridad, fontSize = 10.sp)
+                        Text(emojiSeveridad, fontSize = 11.sp)
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = reporte.nivel_severidad,
                             color = badgeColor,
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(4.dp))
+
+            // Chip distintivo: Propio vs Comunidad
+            Surface(
+                color = if (esPropio) PlagOutColors.Forest.copy(alpha = 0.12f) else Color(0xFF1565C0).copy(alpha = 0.12f),
+                shape = CircleShape
+            ) {
+                Text(
+                    text = if (esPropio) "Propio" else "Comunidad",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (esPropio) PlagOutColors.Forest else Color(0xFF1565C0),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+
+            Spacer(Modifier.height(14.dp))
             HorizontalDivider(color = PlagOutColors.Divider.copy(alpha = 0.6f))
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
             Row(
                 verticalAlignment = Alignment.CenterVertically
@@ -623,12 +657,12 @@ fun TarjetaReporteItem(
                     Icons.Outlined.Landscape,
                     contentDescription = null,
                     tint = PlagOutColors.TextSecondary,
-                    modifier = Modifier.size(15.dp)
+                    modifier = Modifier.size(16.dp)
                 )
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "$terrenoNombre • $plantacionInfo",
-                    fontSize = 13.sp,
+                    text = "$terrenoNombre • $cultivoInfo",
+                    fontSize = 14.sp,
                     color = PlagOutColors.TextSecondary,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
@@ -637,7 +671,7 @@ fun TarjetaReporteItem(
                 )
             }
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -649,12 +683,12 @@ fun TarjetaReporteItem(
                         Icons.Outlined.AccessTime,
                         contentDescription = null,
                         tint = PlagOutColors.TextSecondary,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(15.dp)
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = fechaFormateada,
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         color = PlagOutColors.TextSecondary
                     )
                 }
@@ -664,7 +698,7 @@ fun TarjetaReporteItem(
                 ) {
                     Text(
                         "Ver detalle",
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = PlagOutColors.Forest
                     )
@@ -672,7 +706,7 @@ fun TarjetaReporteItem(
                         Icons.Default.ChevronRight,
                         contentDescription = null,
                         tint = PlagOutColors.Forest,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }

@@ -1,13 +1,7 @@
 package com.example.plag_out
 
-import android.Manifest
-import android.annotation.SuppressLint
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import android.preference.PreferenceManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -34,27 +28,25 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Grass
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,14 +54,14 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -83,31 +75,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
 import com.example.plag_out.ui.theme.PlagOutColors
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import org.osmdroid.config.Configuration
-import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.tileprovider.tilesource.XYTileSource
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.MapEventsOverlay
-import org.osmdroid.views.overlay.Marker
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlinx.serialization.json.Json as KxJson
 
-@SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -130,39 +106,10 @@ fun CrearReporteScreen(
     var dropdownTerrenoExpanded by remember { mutableStateOf(false) }
     var dropdownPlantacionExpanded by remember { mutableStateOf(false) }
     var dropdownPlagaExpanded by remember { mutableStateOf(false) }
-
-    // Ubicación GPS
-    val context = LocalContext.current
-    var isGranted by remember { mutableStateOf(false) }
-    val fusedLocationClient: FusedLocationProviderClient = remember {
-        LocationServices.getFusedLocationProviderClient(context)
-    }
-    var obteniendoUbicacion by remember { mutableStateOf(false) }
-
-    // Control de vista de mapa
-    var mostrarMapa by remember { mutableStateOf(false) }
-    var selectedLocation by remember {
-        mutableStateOf<GeoPoint?>(
-            if (state.latitud != null && state.longitud != null) GeoPoint(state.latitud!!, state.longitud!!) else null
-        )
-    }
-
-    LaunchedEffect(state.latitud, state.longitud) {
-        if (state.latitud != null && state.longitud != null) {
-            selectedLocation = GeoPoint(state.latitud!!, state.longitud!!)
-        }
-    }
-
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted -> isGranted = granted }
-    )
+    var dropdownEtapaExpanded by remember { mutableStateOf(false) }
+    var mostrarInfoSeveridad by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        isGranted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
         viewModel.actualizarTimestamp()
     }
 
@@ -242,21 +189,18 @@ fun CrearReporteScreen(
                             ) {
                                 if (state.terrenos.isEmpty()) {
                                     DropdownMenuItem(
-                                        text = { Text("No tienes terrenos registrados", color = PlagOutColors.TextSecondary) },
+                                        text = { Text("No hay terrenos cargados", color = PlagOutColors.TextSecondary) },
                                         onClick = { dropdownTerrenoExpanded = false }
                                     )
                                 } else {
                                     state.terrenos.forEach { terreno ->
                                         DropdownMenuItem(
                                             text = {
-                                                Column {
-                                                    Text(terreno.terreno_nombre, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
-                                                    Text(
-                                                        "Hectáreas: ${terreno.terreno_area} ha",
-                                                        fontSize = 12.sp,
-                                                        color = PlagOutColors.TextSecondary
-                                                    )
-                                                }
+                                                Text(
+                                                    terreno.terreno_nombre,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = PlagOutColors.TextMain
+                                                )
                                             },
                                             onClick = {
                                                 viewModel.seleccionarTerreno(terreno)
@@ -284,7 +228,7 @@ fun CrearReporteScreen(
                             PasoTag(numero = 2)
                             Spacer(Modifier.width(10.dp))
                             Text(
-                                "Plantación en el Terreno",
+                                "Cultivo",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = PlagOutColors.TextMain
@@ -302,11 +246,18 @@ fun CrearReporteScreen(
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
+                            val plantacionTexto = when {
+                                state.terrenoSeleccionado == null -> "Seleccioná un terreno primero"
+                                state.plantacionSeleccionada != null -> "${state.plantacionSeleccionada!!.cultivo_nombre} (${state.terrenoSeleccionado!!.terreno_nombre})"
+                                else -> ""
+                            }
+
                             OutlinedTextField(
                                 readOnly = true,
-                                value = state.plantacionSeleccionada?.cultivo_nombre ?: "",
+                                value = plantacionTexto,
                                 onValueChange = {},
-                                label = { Text(if (state.terrenoSeleccionado == null) "Primero seleccioná un terreno" else "Seleccioná una plantación") },
+                                enabled = state.terrenoSeleccionado != null,
+                                label = { Text("Seleccioná una plantación") },
                                 leadingIcon = {
                                     Icon(
                                         Icons.Outlined.Grass,
@@ -317,7 +268,6 @@ fun CrearReporteScreen(
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownPlantacionExpanded) },
                                 shape = RoundedCornerShape(16.dp),
                                 colors = camposColors(),
-                                enabled = state.terrenoSeleccionado != null,
                                 modifier = Modifier
                                     .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                                     .fillMaxWidth()
@@ -325,12 +275,12 @@ fun CrearReporteScreen(
                             )
 
                             ExposedDropdownMenu(
-                                expanded = dropdownPlantacionExpanded,
+                                expanded = dropdownPlantacionExpanded && state.terrenoSeleccionado != null,
                                 onDismissRequest = { dropdownPlantacionExpanded = false }
                             ) {
                                 if (state.plantaciones.isEmpty()) {
                                     DropdownMenuItem(
-                                        text = { Text("Sin plantaciones activas en este terreno", color = PlagOutColors.TextSecondary) },
+                                        text = { Text("Este terreno no tiene plantaciones activas", color = PlagOutColors.TextSecondary) },
                                         onClick = { dropdownPlantacionExpanded = false }
                                     )
                                 } else {
@@ -338,10 +288,14 @@ fun CrearReporteScreen(
                                         DropdownMenuItem(
                                             text = {
                                                 Column {
-                                                    Text(plantacion.cultivo_nombre, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
                                                     Text(
-                                                        "${plantacion.cultivo_nombre_cientifico} · Sembrado: ${plantacion.fecha_siembra}",
-                                                        fontSize = 11.sp,
+                                                        plantacion.cultivo_nombre,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = PlagOutColors.TextMain
+                                                    )
+                                                    Text(
+                                                        "Siembra: ${plantacion.fecha_siembra}",
+                                                        fontSize = 12.sp,
                                                         color = PlagOutColors.TextSecondary
                                                     )
                                                 }
@@ -360,7 +314,7 @@ fun CrearReporteScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // ── Card 3: Selección de Tipo de Plaga [OBLIGATORIO] ─────────────────
+                // ── Card 3: Selección de Tipo de Plaga (Filtrada por Cultivo) ──────
                 Surface(
                     color = PlagOutColors.Surface,
                     shape = RoundedCornerShape(22.dp),
@@ -380,6 +334,8 @@ fun CrearReporteScreen(
                         }
 
                         Spacer(Modifier.height(14.dp))
+
+                        val plagasDropdown = if (state.plantacionSeleccionada != null) state.plagasDisponibles else state.plagas
 
                         ExposedDropdownMenuBox(
                             expanded = dropdownPlagaExpanded,
@@ -411,13 +367,13 @@ fun CrearReporteScreen(
                                 expanded = dropdownPlagaExpanded,
                                 onDismissRequest = { dropdownPlagaExpanded = false }
                             ) {
-                                if (state.plagas.isEmpty()) {
+                                if (plagasDropdown.isEmpty()) {
                                     DropdownMenuItem(
-                                        text = { Text("No hay plagas disponibles", color = PlagOutColors.TextSecondary) },
+                                        text = { Text("No hay plagas registradas para este cultivo", color = PlagOutColors.TextSecondary) },
                                         onClick = { dropdownPlagaExpanded = false }
                                     )
                                 } else {
-                                    state.plagas.forEach { plaga ->
+                                    plagasDropdown.forEach { plaga ->
                                         DropdownMenuItem(
                                             text = {
                                                 Column {
@@ -449,7 +405,7 @@ fun CrearReporteScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // ── Card 4: Nivel de Severidad ("Bajo", "Medio", "Alto") ────────────
+                // ── Card 4: Etapa Biológica / Fenológica ────────────────────────────
                 Surface(
                     color = PlagOutColors.Surface,
                     shape = RoundedCornerShape(22.dp),
@@ -461,11 +417,100 @@ fun CrearReporteScreen(
                             PasoTag(numero = 4)
                             Spacer(Modifier.width(10.dp))
                             Text(
-                                "Nivel de Severidad",
+                                "Etapa Biológica de la Plaga",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = PlagOutColors.TextMain
                             )
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        ExposedDropdownMenuBox(
+                            expanded = dropdownEtapaExpanded,
+                            onExpandedChange = {
+                                if (state.plagaSeleccionada != null) {
+                                    dropdownEtapaExpanded = !dropdownEtapaExpanded
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                readOnly = true,
+                                value = if (state.plagaSeleccionada == null) "Seleccioná una plaga primero" else state.etapaBiologica.ifEmpty { "Seleccionar etapa..." },
+                                onValueChange = {},
+                                enabled = state.plagaSeleccionada != null,
+                                label = { Text("Etapa Biológica") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownEtapaExpanded) },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = camposColors(),
+                                modifier = Modifier
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                                    .fillMaxWidth()
+                                    .testTag("txtEtapaBiologica")
+                            )
+
+                            ExposedDropdownMenu(
+                                expanded = dropdownEtapaExpanded && state.plagaSeleccionada != null,
+                                onDismissRequest = { dropdownEtapaExpanded = false }
+                            ) {
+                                state.etapasDisponibles.forEach { etapa ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                etapa,
+                                                fontWeight = if (state.etapaBiologica == etapa) FontWeight.Bold else FontWeight.Normal,
+                                                color = PlagOutColors.TextMain
+                                            )
+                                        },
+                                        onClick = {
+                                            viewModel.seleccionarEtapaBiologica(etapa)
+                                            dropdownEtapaExpanded = false
+                                        },
+                                        modifier = Modifier.testTag("optEtapa_$etapa")
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // ── Card 5: Nivel de Severidad ("Bajo", "Medio", "Alto") ────────────
+                Surface(
+                    color = PlagOutColors.Surface,
+                    shape = RoundedCornerShape(22.dp),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            PasoTag(numero = 5)
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                "Nivel de Severidad",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PlagOutColors.TextMain,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(
+                                onClick = { mostrarInfoSeveridad = true },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .testTag("btnInfoSeveridad")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = "Información sobre Nivel de Severidad",
+                                    tint = PlagOutColors.Forest,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
 
                         Spacer(Modifier.height(14.dp))
@@ -525,205 +570,7 @@ fun CrearReporteScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // ── Card 5: Captura de Ubicación GPS / Mapa (Autocompletada por Terreno) ──
-                Surface(
-                    color = PlagOutColors.Surface,
-                    shape = RoundedCornerShape(22.dp),
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(Modifier.padding(20.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            PasoTag(numero = 5)
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                "Ubicación Geográfica",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PlagOutColors.TextMain
-                            )
-                        }
-
-                        Spacer(Modifier.height(14.dp))
-
-                        // Muestra de coordenadas actuales (autocompletadas o modificadas)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(PlagOutColors.CreamDeep, RoundedCornerShape(14.dp))
-                                .padding(14.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = PlagOutColors.Forest)
-                                Spacer(Modifier.width(8.dp))
-                                Column {
-                                    Text("Coordenadas del reporte", fontSize = 11.sp, color = PlagOutColors.TextSecondary)
-                                    val latStr = state.latitud?.let { "%.4f".format(it) } ?: "—"
-                                    val lonStr = state.longitud?.let { "%.4f".format(it) } ?: "—"
-                                    Text(
-                                        "Lat: $latStr, Lon: $lonStr",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = PlagOutColors.TextMain
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(14.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            // Botón "Usar ubicación actual" (GPS)
-                            OutlinedButton(
-                                onClick = {
-                                    if (isGranted) {
-                                        obteniendoUbicacion = true
-                                        fusedLocationClient
-                                            .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
-                                            .addOnSuccessListener { loc ->
-                                                obteniendoUbicacion = false
-                                                loc?.let {
-                                                    viewModel.actualizarUbicacion(it.latitude, it.longitude)
-                                                    selectedLocation = GeoPoint(it.latitude, it.longitude)
-                                                }
-                                            }
-                                            .addOnFailureListener { obteniendoUbicacion = false }
-                                    } else {
-                                        launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                                    }
-                                },
-                                enabled = !obteniendoUbicacion,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                                    .testTag("btnUbicacionGPS"),
-                                shape = RoundedCornerShape(14.dp),
-                                border = BorderStroke(1.dp, PlagOutColors.Forest),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.Forest)
-                            ) {
-                                if (obteniendoUbicacion) {
-                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = PlagOutColors.Forest)
-                                } else {
-                                    Icon(Icons.Default.MyLocation, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("GPS Actual", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-
-                            // Botón "Ver mapa"
-                            OutlinedButton(
-                                onClick = { mostrarMapa = !mostrarMapa },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                                    .testTag("btnSeleccionarMapa"),
-                                shape = RoundedCornerShape(14.dp),
-                                border = BorderStroke(1.dp, PlagOutColors.Forest),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = if (mostrarMapa) PlagOutColors.Forest.copy(alpha = 0.1f) else Color.Transparent,
-                                    contentColor = PlagOutColors.Forest
-                                )
-                            ) {
-                                Icon(Icons.Outlined.Map, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text(if (mostrarMapa) "Ocultar mapa" else "Ver mapa", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        // Vista de mapa interactiva opcional OSM (Lazy init)
-                        AnimatedVisibility(
-                            visible = mostrarMapa,
-                            enter = fadeIn(tween(220)) + expandVertically(tween(220)),
-                            exit = fadeOut(tween(160)) + shrinkVertically(tween(160))
-                        ) {
-                            Column(modifier = Modifier.padding(top = 14.dp)) {
-                                Text(
-                                    "Tocá en el mapa para ajustar la ubicación del reporte:",
-                                    fontSize = 12.sp,
-                                    color = PlagOutColors.TextSecondary,
-                                    modifier = Modifier.padding(bottom = 8.dp)
-                                )
-
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(220.dp),
-                                    shape = RoundedCornerShape(16.dp),
-                                    color = PlagOutColors.CreamDeep
-                                ) {
-                                    if (mostrarMapa) {
-                                        AndroidView(
-                                            modifier = Modifier.fillMaxSize(),
-                                            factory = { ctx ->
-                                                Configuration.getInstance().userAgentValue = "PlagOutMobileApp/1.0.1 (contacto@mi-app.com)"
-                                                Configuration.getInstance().load(
-                                                    ctx,
-                                                    ctx.getSharedPreferences("plag_out_prefs", android.content.Context.MODE_PRIVATE)
-                                                )
-
-                                                val cartoTileSource = XYTileSource(
-                                                    "CartoDB-Positron",
-                                                    0, 19, 256, ".png",
-                                                    arrayOf(
-                                                        "https://a.basemaps.cartocdn.com/light_all/",
-                                                        "https://b.basemaps.cartocdn.com/light_all/",
-                                                        "https://c.basemaps.cartocdn.com/light_all/"
-                                                    )
-                                                )
-
-                                                MapView(ctx).apply {
-                                                    setMultiTouchControls(true)
-                                                    setTileSource(cartoTileSource)
-                                                    controller.setZoom(7.0)
-                                                    controller.setCenter(selectedLocation ?: GeoPoint(-34.6037, -58.3816))
-
-                                                    val receiver = object : MapEventsReceiver {
-                                                        override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
-                                                            p?.let {
-                                                                selectedLocation = it
-                                                                viewModel.actualizarUbicacion(it.latitude, it.longitude)
-                                                            }
-                                                            return true
-                                                        }
-
-                                                        override fun longPressHelper(p: GeoPoint?): Boolean = false
-                                                    }
-
-                                                    overlays.add(MapEventsOverlay(receiver))
-                                                    onResume()
-                                                }
-                                            },
-                                            update = { map ->
-                                                map.overlays.removeAll { it is Marker }
-                                                val receiver = map.overlays.firstOrNull { it is MapEventsOverlay }
-                                                map.overlays.clear()
-                                                receiver?.let { map.overlays.add(it) }
-
-                                                selectedLocation?.let { point ->
-                                                    val marker = Marker(map)
-                                                    marker.position = point
-                                                    marker.title = "Ubicación del reporte"
-                                                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                                    map.overlays.add(marker)
-                                                }
-                                                map.invalidate()
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                // ── Card 6: Captura Automática de Fecha y Hora (en ms) ──────────────
+                // ── Card 6: Ubicación Geográfica (Asignada automáticamente) ─────────
                 Surface(
                     color = PlagOutColors.Surface,
                     shape = RoundedCornerShape(22.dp),
@@ -735,6 +582,61 @@ fun CrearReporteScreen(
                             PasoTag(numero = 6)
                             Spacer(Modifier.width(10.dp))
                             Text(
+                                "Ubicación Geográfica",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PlagOutColors.TextMain
+                            )
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(PlagOutColors.CreamDeep.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Outlined.LocationOn,
+                                contentDescription = null,
+                                tint = PlagOutColors.Forest
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Coordenadas del terreno (Asignadas automáticamente)",
+                                    fontSize = 11.sp,
+                                    color = PlagOutColors.TextSecondary
+                                )
+                                val latStr = state.latitud?.let { "%.4f".format(it) } ?: "—"
+                                val lonStr = state.longitud?.let { "%.4f".format(it) } ?: "—"
+                                Text(
+                                    text = "Lat: $latStr, Lon: $lonStr",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PlagOutColors.TextMain
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // ── Card 7: Captura Automática de Fecha y Hora ──────────────────────
+                Surface(
+                    color = PlagOutColors.Surface,
+                    shape = RoundedCornerShape(22.dp),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(20.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            PasoTag(numero = 7)
+                            Spacer(Modifier.width(10.dp))
+                            Text(
                                 "Fecha y Hora",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
@@ -744,7 +646,7 @@ fun CrearReporteScreen(
 
                         Spacer(Modifier.height(14.dp))
 
-                        val sdf = remember { SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()) }
+                        val sdf = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
                         val fechaFormateada = remember(state.timestampMs) {
                             sdf.format(Date(state.timestampMs))
                         }
@@ -763,15 +665,10 @@ fun CrearReporteScreen(
                                 Column {
                                     Text("Captura automática", fontSize = 11.sp, color = PlagOutColors.TextSecondary)
                                     Text(
-                                        fechaFormateada,
+                                        text = fechaFormateada,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = PlagOutColors.TextMain
-                                    )
-                                    Text(
-                                        "Timestamp: ${state.timestampMs} ms",
-                                        fontSize = 10.sp,
-                                        color = PlagOutColors.TextSecondary
                                     )
                                 }
                             }
@@ -818,7 +715,8 @@ fun CrearReporteScreen(
                 // ── Botón de envío inferior ─────────────────────────────────────
                 val formularioValido = state.terrenoSeleccionado != null &&
                         state.plantacionSeleccionada != null &&
-                        state.plagaSeleccionada != null
+                        state.plagaSeleccionada != null &&
+                        state.etapaBiologica.isNotBlank()
 
                 Button(
                     onClick = { viewModel.guardarReporte {} },
@@ -847,7 +745,7 @@ fun CrearReporteScreen(
                 if (!formularioValido) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Seleccioná Terreno, Plantación y Plaga para habilitar el envío.",
+                        "Seleccioná Terreno, Plantación, Plaga y Etapa Biológica para habilitar el envío.",
                         fontSize = 12.sp,
                         color = PlagOutColors.TextSecondary,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -857,6 +755,10 @@ fun CrearReporteScreen(
                 Spacer(Modifier.height(16.dp))
             }
         }
+    }
+
+    if (mostrarInfoSeveridad) {
+        SeveridadInfoSheet(onDismiss = { mostrarInfoSeveridad = false })
     }
 }
 
@@ -935,10 +837,183 @@ private fun PasoTag(numero: Int) {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            "$numero",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = PlagOutColors.TextOnDark
+            text = "$numero",
+            color = PlagOutColors.TextOnDark,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SeveridadInfoSheet(onDismiss: () -> Unit) {
+    val estadoHoja = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = estadoHoja,
+        containerColor = PlagOutColors.Surface,
+        contentWindowInsets = { WindowInsets.systemBars },
+        dragHandle = { BottomSheetDefaults.DragHandle(color = PlagOutColors.Divider) }
+    ) {
+        Column(
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 28.dp)
+                .testTag("sheetInfoSeveridad")
+        ) {
+            Text(
+                text = "¿Qué es el Nivel de Severidad?",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PlagOutColors.TextMain
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = "Representa la intensidad, grado de infestación o la magnitud del daño causado por la plaga en el terreno monitoreado.",
+                fontSize = 14.sp,
+                color = PlagOutColors.TextSecondary,
+                lineHeight = 20.sp
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            Text(
+                text = "Categorías de Severidad",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = PlagOutColors.TextMain
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            // 🟢 Bajo
+            CategoriaSeveridadItem(
+                badgeColor = PlagOutColors.RiskOk,
+                titulo = "Bajo",
+                descripcion = "Avistamiento inicial o presencias mínimas aisladas."
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            // 🟡 Medio
+            CategoriaSeveridadItem(
+                badgeColor = PlagOutColors.RiskWarn,
+                titulo = "Medio",
+                descripcion = "Presencia moderada o visible en varias plantas."
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            // 🔴 Alto
+            CategoriaSeveridadItem(
+                badgeColor = PlagOutColors.RiskDanger,
+                titulo = "Alto",
+                descripcion = "Infestación severa o daño crítico que pone en riesgo el rendimiento del lote."
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            // Nota Agronómica
+            Surface(
+                color = PlagOutColors.Cream,
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = null,
+                            tint = PlagOutColors.Forest,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Otras aclaraciones",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PlagOutColors.Forest
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "• Incidencia: Porcentaje de plantas o muestras afectadas respecto al total.\n" +
+                               "• Severidad: Porcentaje de área foliar o tejido alterado/dañado en la planta.\n\n" +
+                               "Plag-Out las sintetiza para facilitarte la priorización y toma de decisiones rápidamente.",
+                        fontSize = 13.sp,
+                        color = PlagOutColors.TextSecondary,
+                        lineHeight = 18.sp
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // Botón de Cierre
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .testTag("btnCerrarInfoSeveridad"),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PlagOutColors.Forest,
+                    contentColor = PlagOutColors.TextOnDark
+                )
+            ) {
+                Text(
+                    text = "Entendido",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoriaSeveridadItem(
+    badgeColor: Color,
+    titulo: String,
+    descripcion: String
+) {
+    Surface(
+        color = PlagOutColors.CreamDeep.copy(alpha = 0.3f),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, PlagOutColors.Divider.copy(alpha = 0.5f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(badgeColor, CircleShape)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = titulo,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PlagOutColors.TextMain
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = descripcion,
+                fontSize = 13.sp,
+                color = PlagOutColors.TextSecondary,
+                lineHeight = 18.sp,
+                modifier = Modifier.padding(start = 18.dp)
+            )
+        }
     }
 }

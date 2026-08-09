@@ -51,7 +51,8 @@ class AgregarPlantacionViewModelTest {
             context = context,
             plantacionRepository = PlantacionRepository(plantacionDao),
             terrenoRepository = TerrenoRepository(FakeTerrenoDao(inicial = terrenos)),
-            gddService = gddService
+            gddService = gddService,
+            ioDispatcher = UnconfinedTestDispatcher()
         )
 
     private fun millisUtc(fecha: LocalDate): Long =

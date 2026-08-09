@@ -56,7 +56,7 @@ class TerrenosViewModelTest {
 
         vm.getTerrenos()
 
-        val estado = esperarEstado(vm.state) { it.terrenos.size == 2 && !it.isLoading }
+        val estado = esperarEstado(vm.state) { it.terrenos.size == 2 && !it.isLoading && CacheTracker.yaConsultado(context, CacheTracker.TERRENOS) }
         assertEquals(listOf(1, 2), estado.terrenos.map { it.terreno_id })
         assertEquals(1, gddService.vecesLlamado("getTerrenos"))
         // El caché se reemplazó (borrar + insertar) y se marcó como consultado.

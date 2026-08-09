@@ -403,7 +403,9 @@ data class CreateReporteRequest(
     @SerializedName("longitud")
     val longitud: Double?,
     @SerializedName("timestamp_ms")
-    val timestamp_ms: Long
+    val timestamp_ms: Long,
+    @SerializedName("etapa_biologica")
+    val etapa_biologica: String? = null
 )
 
 @Serializable
@@ -436,7 +438,10 @@ data class ReporteDetalleResponse(
     @SerializedName("latitud")          val latitud: Double?,
     @SerializedName("longitud")         val longitud: Double?,
     @SerializedName("timestamp_ms")     val timestamp_ms: Long,
-    @SerializedName("creado_en")        val creado_en: String? = null
+    @SerializedName("creado_en")        val creado_en: String? = null,
+    @SerializedName("es_propio")        val es_propio: Boolean = true,
+    @SerializedName("terreno_mas_cercano_id") val terreno_mas_cercano_id: Int? = null,
+    @SerializedName("distancia_km")     val distancia_km: Float? = null
 )
 
 

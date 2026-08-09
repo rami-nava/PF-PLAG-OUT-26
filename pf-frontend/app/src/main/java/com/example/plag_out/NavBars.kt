@@ -39,6 +39,12 @@ import com.example.plag_out.ui.theme.PlagOutColors
 
 import androidx.compose.material.icons.outlined.BugReport
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.Surface
+
+import androidx.compose.ui.text.style.TextOverflow
+
 data class BarItem(val nombre: String, val ruta: String, val icono: ImageVector)
 
 @Composable
@@ -49,22 +55,94 @@ fun BottomNavigationBar(navController: NavController) {
     ) {
         val currentDestination = navController.currentBackStackEntryAsState().value?.destination?.route
 
-        val barItems = listOf(
+        val leftItems = listOf(
             BarItem("Monitoreos", "monitoreos", Icons.Default.Science),
-            BarItem("Terrenos", "terrenos", Icons.Default.Terrain),
+            BarItem("Terrenos", "terrenos", Icons.Default.Terrain)
+        )
+        val rightItems = listOf(
             BarItem("Reportes", "reportes", Icons.Outlined.BugReport),
             BarItem("Perfil", "perfil", Icons.Default.Person)
         )
 
-        barItems.forEach { item ->
+        leftItems.forEach { item ->
             NavigationBarItem(
-                icon = { Icon(item.icono, contentDescription = item.nombre, modifier = Modifier.size(22.dp)) },
-                label = { Text(item.nombre, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                icon = { Icon(item.icono, contentDescription = item.nombre, modifier = Modifier.size(20.dp)) },
+                label = {
+                    Text(
+                        text = item.nombre,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 selected = currentDestination == item.ruta,
                 onClick = {
                     if (currentDestination != item.ruta) {
-                        // Sin restoreState: cada tap en la barra debe llevar siempre al listado
-                        // raíz de la pestaña, no restaurar la última pantalla visitada dentro de ella.
+                        navController.navigate(item.ruta) {
+                            popUpTo(item.ruta) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                },
+                colors = NavigationBarItemColors(
+                    selectedIconColor = PlagOutColors.ForestDark,
+                    unselectedIconColor = PlagOutColors.TextOnDark.copy(alpha = 0.65f),
+                    selectedTextColor = PlagOutColors.TextOnDark,
+                    unselectedTextColor = PlagOutColors.TextOnDark.copy(alpha = 0.65f),
+                    selectedIndicatorColor = PlagOutColors.Sun,
+                    disabledIconColor = androidx.compose.ui.graphics.Color.Transparent,
+                    disabledTextColor = androidx.compose.ui.graphics.Color.Transparent
+                )
+            )
+        }
+
+        // Botón circular amarillo/ocre en el medio para crear nuevo reporte
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                onClick = {
+                    if (currentDestination != "crear_reporte") {
+                        navController.navigate("crear_reporte")
+                    }
+                },
+                shape = CircleShape,
+                color = PlagOutColors.Sun,
+                shadowElevation = 6.dp,
+                modifier = Modifier
+                    .size(48.dp)
+                    .testTag("btnNavBarCrearReporte")
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Nuevo Reporte",
+                        tint = PlagOutColors.ForestDark,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+        }
+
+        rightItems.forEach { item ->
+            NavigationBarItem(
+                icon = { Icon(item.icono, contentDescription = item.nombre, modifier = Modifier.size(20.dp)) },
+                label = {
+                    Text(
+                        text = item.nombre,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                selected = currentDestination == item.ruta,
+                onClick = {
+                    if (currentDestination != item.ruta) {
                         navController.navigate(item.ruta) {
                             popUpTo(item.ruta) { inclusive = true }
                             launchSingleTop = true
