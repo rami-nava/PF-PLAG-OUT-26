@@ -1,7 +1,6 @@
 package com.example.plag_out
 
 import android.os.Build
-import android.preference.PreferenceManager
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -31,10 +30,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -58,11 +60,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.graphics.Color
 import com.example.plag_out.ui.theme.CargandoCentrado
 import com.example.plag_out.ui.theme.EtiquetaInfo
+import com.example.plag_out.ui.theme.NivelEstilo
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.SelloDeNivel
-import com.example.plag_out.ui.theme.estiloDeNivel
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
@@ -142,15 +145,35 @@ private fun ContenidoVerReporte(
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Text(
-                        "Reporte de Plaga",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = PlagOutColors.TextSecondary,
-                        letterSpacing = 0.5.sp
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Plaga reportada",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PlagOutColors.TextMain
+                        )
+
+                        // Chip de tipo: Propio vs Reporte comunidad
+                        val esPropio = detalle.es_propio
+                        Surface(
+                            color = if (esPropio) PlagOutColors.Forest.copy(alpha = 0.12f) else Color(0xFF1565C0).copy(alpha = 0.12f),
+                            shape = CircleShape
+                        ) {
+                            Text(
+                                text = if (esPropio) "Propio" else "Reporte comunidad",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (esPropio) PlagOutColors.Forest else Color(0xFF1565C0),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -160,7 +183,7 @@ private fun ContenidoVerReporte(
                             Icons.Outlined.BugReport,
                             contentDescription = null,
                             tint = PlagOutColors.Forest,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                         Text(
                             detalle.plaga_nombre,
@@ -172,15 +195,14 @@ private fun ContenidoVerReporte(
                     }
 
                     // Chip de severidad
-                    val nivelInt = when (detalle.nivel_severidad) {
-                        "Alto"  -> 2
-                        "Medio" -> 1
-                        else    -> 0   // "Bajo"
+                    val estilo = when (detalle.nivel_severidad) {
+                        "Alto"  -> NivelEstilo(PlagOutColors.RiskDanger, Color(0xFFE4795C), "Alto", Icons.Filled.ErrorOutline)
+                        "Medio" -> NivelEstilo(PlagOutColors.RiskWarn, PlagOutColors.Sun, "Medio", Icons.Filled.WarningAmber)
+                        else    -> NivelEstilo(PlagOutColors.RiskOk, Color(0xFF8ACD86), "Bajo", Icons.Filled.CheckCircle)
                     }
-                    val estilo = estiloDeNivel(nivelInt)
                     SelloDeNivel(
                         estilo = estilo,
-                        pulsante = nivelInt >= 2,
+                        pulsante = detalle.nivel_severidad == "Alto",
                         modifier = Modifier.testTag("chipSeveridad")
                     )
                 }
@@ -195,14 +217,13 @@ private fun ContenidoVerReporte(
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        "Datos del Reporte",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = PlagOutColors.TextSecondary,
-                        letterSpacing = 0.5.sp
+                        "Datos del reporte",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PlagOutColors.TextMain
                     )
 
                     // Fecha y hora
@@ -224,12 +245,34 @@ private fun ContenidoVerReporte(
                         valor = coordStr
                     )
 
-                    // Badge colaborativo
-                    EtiquetaInfo(
-                        icono = Icons.Filled.Group,
-                        texto = "Reporte Colaborativo",
-                        color = PlagOutColors.Forest
-                    )
+                    // Terreno / Cercanía
+                    val esPropio = detalle.es_propio
+                    if (esPropio) {
+                        val nom = detalle.terreno_nombre?.takeIf { it.isNotBlank() } ?: "Terreno no especificado"
+                        FilaDato(
+                            icono = Icons.Outlined.Landscape,
+                            etiqueta = "Terreno asignado",
+                            valor = nom
+                        )
+                    } else {
+                        val nom = detalle.terreno_nombre?.takeIf { it.isNotBlank() }
+                        val dist = detalle.distancia_km
+                        val cercaniaStr = if (nom != null && dist != null) {
+                            "Cercano a $nom, a $dist km"
+                        } else if (nom != null) {
+                            "Cercano a $nom"
+                        } else if (dist != null) {
+                            "A $dist km de tu terreno"
+                        } else {
+                            "Área cercana"
+                        }
+                        FilaDato(
+                            icono = Icons.Filled.Group,
+                            etiqueta = "Terreno más cercano",
+                            valor = cercaniaStr,
+                            colorIcono = Color(0xFF1565C0)
+                        )
+                    }
                 }
             }
 
@@ -243,13 +286,12 @@ private fun ContenidoVerReporte(
                 ) {
                     Column(Modifier.padding(20.dp)) {
                         Text(
-                            "Ubicación del Reporte",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = PlagOutColors.TextSecondary,
-                            letterSpacing = 0.5.sp
+                            "Ubicación del reporte",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PlagOutColors.TextMain
                         )
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(14.dp))
 
                         val context = LocalContext.current
                         val geoPoint = GeoPoint(detalle.latitud, detalle.longitud)
@@ -325,30 +367,36 @@ private fun ContenidoVerReporte(
 private fun FilaDato(
     icono: androidx.compose.ui.graphics.vector.ImageVector,
     etiqueta: String,
-    valor: String
+    valor: String,
+    colorIcono: Color = PlagOutColors.Forest
 ) {
-    Row(verticalAlignment = Alignment.Top) {
-        Icon(
-            icono,
-            contentDescription = null,
-            tint = PlagOutColors.Forest,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(Modifier.width(10.dp))
-        Column {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                icono,
+                contentDescription = null,
+                tint = colorIcono,
+                modifier = Modifier.size(18.dp)
+            )
             Text(
                 etiqueta,
-                fontSize = 11.sp,
-                color = PlagOutColors.TextSecondary,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                valor,
                 fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = PlagOutColors.TextMain
+                color = PlagOutColors.TextSecondary,
+                fontWeight = FontWeight.SemiBold
             )
         }
+        Text(
+            valor,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = PlagOutColors.TextMain,
+            modifier = Modifier.padding(start = 26.dp)
+        )
     }
 }
 

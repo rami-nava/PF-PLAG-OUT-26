@@ -22,7 +22,10 @@ data class CrearReporteUIState(
     val plantaciones: List<PlantacionesResponse> = emptyList(),
     val plantacionSeleccionada: PlantacionesResponse? = null,
     val plagas: List<PlagaResponse> = emptyList(),
+    val plagasDisponibles: List<PlagaResponse> = emptyList(),
     val plagaSeleccionada: PlagaResponse? = null,
+    val etapaBiologica: String = "",
+    val etapasDisponibles: List<String> = emptyList(),
     val nivelSeveridad: String = "Bajo",
     val latitud: Double? = null,
     val longitud: Double? = null,
@@ -69,9 +72,17 @@ class CrearReporteViewModel(
                     val listaPlagas = if (resPlagas.isSuccessful) resPlagas.body() ?: emptyList() else emptyList()
 
                     withContext(Dispatchers.Main) {
+                        val currentPlantacion = _state.value.plantacionSeleccionada
+                        val plagasFiltradas = if (currentPlantacion != null) {
+                            filtrarPlagasPorCultivo(listaPlagas, currentPlantacion.cultivo_id, currentPlantacion.cultivo_nombre)
+                        } else {
+                            listaPlagas
+                        }
+
                         _state.value = _state.value.copy(
                             terrenos = listaTerrenos,
                             plagas = listaPlagas,
+                            plagasDisponibles = plagasFiltradas,
                             isLoadingInicial = false
                         )
                     }
@@ -88,12 +99,69 @@ class CrearReporteViewModel(
         }
     }
 
+    /** Filtra la lista de plagas según el cultivo seleccionado */
+    private fun filtrarPlagasPorCultivo(
+        plagas: List<PlagaResponse>,
+        cultivoId: Int?,
+        cultivoNombre: String?
+    ): List<PlagaResponse> {
+        if (cultivoId == null && cultivoNombre.isNullOrBlank()) return plagas
+        return plagas.filter { plaga ->
+            // 1) Si especifica la lista cultivos_afectados
+            val coincideId = if (!plaga.cultivos_afectados.isNullOrEmpty() && cultivoId != null) {
+                plaga.cultivos_afectados.contains(cultivoId)
+            } else true
+
+            // 2) Nombre explícito de cultivo en la plaga (e.g. "Chicharrita del Maíz" vs "Trigo")
+            val coincideNombre = if (!cultivoNombre.isNullOrBlank()) {
+                val cNorm = cultivoNombre.lowercase()
+                val pNorm = plaga.nombre.lowercase()
+                if (pNorm.contains("del maíz") || pNorm.contains("del maiz")) {
+                    cNorm.contains("maíz") || cNorm.contains("maiz")
+                } else if (pNorm.contains("del trigo")) {
+                    cNorm.contains("trigo")
+                } else true
+            } else true
+
+            coincideId && coincideNombre
+        }
+    }
+
+    /** Obtiene las etapas biológicas / fenológicas aplicables a la plaga seleccionada */
+    fun obtenerEtapasParaPlaga(plaga: PlagaResponse?): List<String> {
+        if (plaga == null) return emptyList()
+        val nombre = plaga.nombre.lowercase()
+        val cientifico = plaga.nombre_cientifico.lowercase()
+        return when {
+            nombre.contains("cogoller") || nombre.contains("oruga") || cientifico.contains("spodoptera") -> {
+                listOf("HUEVO", "LARVA", "PUPA", "ADULTO")
+            }
+            nombre.contains("chicharrita") || cientifico.contains("dalbulus") -> {
+                listOf("HUEVO", "NINFA", "ADULTO")
+            }
+            else -> {
+                listOf("HUEVO", "NINFA", "LARVA", "PUPA", "ADULTO")
+            }
+        }
+    }
+
     fun seleccionarTerreno(terreno: TerrenoResponse) {
         val plantacionesFiltradas = todasLasPlantaciones.filter { it.terreno_id == terreno.terreno_id && it.activa }
+        val autoPlantacion = if (plantacionesFiltradas.size == 1) plantacionesFiltradas.first() else null
+        val plagasFiltradas = if (autoPlantacion != null) {
+            filtrarPlagasPorCultivo(_state.value.plagas, autoPlantacion.cultivo_id, autoPlantacion.cultivo_nombre)
+        } else {
+            emptyList()
+        }
+
         _state.value = _state.value.copy(
             terrenoSeleccionado = terreno,
             plantaciones = plantacionesFiltradas,
-            plantacionSeleccionada = null,
+            plantacionSeleccionada = autoPlantacion,
+            plagasDisponibles = plagasFiltradas,
+            plagaSeleccionada = null,
+            etapaBiologica = "",
+            etapasDisponibles = emptyList(),
             latitud = terreno.terreno_latitud.toDouble(),
             longitud = terreno.terreno_longitud.toDouble(),
             error = null
@@ -101,14 +169,30 @@ class CrearReporteViewModel(
     }
 
     fun seleccionarPlantacion(plantacion: PlantacionesResponse) {
+        val plagasFiltradas = filtrarPlagasPorCultivo(_state.value.plagas, plantacion.cultivo_id, plantacion.cultivo_nombre)
         _state.value = _state.value.copy(
             plantacionSeleccionada = plantacion,
+            plagasDisponibles = plagasFiltradas,
+            plagaSeleccionada = null,
+            etapaBiologica = "",
+            etapasDisponibles = emptyList(),
             error = null
         )
     }
 
     fun seleccionarPlaga(plaga: PlagaResponse) {
-        _state.value = _state.value.copy(plagaSeleccionada = plaga, error = null)
+        val etapas = obtenerEtapasParaPlaga(plaga)
+        val etapaInicial = etapas.firstOrNull() ?: ""
+        _state.value = _state.value.copy(
+            plagaSeleccionada = plaga,
+            etapasDisponibles = etapas,
+            etapaBiologica = etapaInicial,
+            error = null
+        )
+    }
+
+    fun seleccionarEtapaBiologica(etapa: String) {
+        _state.value = _state.value.copy(etapaBiologica = etapa, error = null)
     }
 
     fun actualizarNivelSeveridad(nivel: String) {
@@ -165,6 +249,7 @@ class CrearReporteViewModel(
         viewModelScope.launch {
             try {
                 val currentMs = System.currentTimeMillis()
+                val etapaStr = currentState.etapaBiologica.ifBlank { null }
                 val request = CreateReporteRequest(
                     terreno_id = terreno.terreno_id,
                     plantacion_id = plantacion.plantacion_id,
@@ -172,7 +257,8 @@ class CrearReporteViewModel(
                     nivel_severidad = currentState.nivelSeveridad,
                     latitud = currentState.latitud,
                     longitud = currentState.longitud,
-                    timestamp_ms = currentMs
+                    timestamp_ms = currentMs,
+                    etapa_biologica = etapaStr
                 )
 
                 val response = withContext(Dispatchers.IO) {
@@ -193,11 +279,10 @@ class CrearReporteViewModel(
                         )
                         return@launch
                     }
-                    // plaga_nombre capturado de la UI antes del POST —
-                    // ReporteResponse no lo incluye en su respuesta.
+                    val plagaNombre = plaga.nombre
                     val navPayload = ReporteNavPayload(
                         id              = body.id,
-                        plaga_nombre    = currentState.plagaSeleccionada?.nombre ?: "",
+                        plaga_nombre    = plagaNombre,
                         nivel_severidad = currentState.nivelSeveridad,
                         latitud         = currentState.latitud,
                         longitud        = currentState.longitud,
@@ -211,6 +296,7 @@ class CrearReporteViewModel(
                     withContext(Dispatchers.Main) { onSuccess() }
                 } else {
                     val errorBodyStr = response.errorBody()?.string()
+                    Log.e("CREAR_REPORTE", "Respuesta de error de API code=${response.code()}: $errorBodyStr")
                     val parsedDetail = try {
                         if (!errorBodyStr.isNullOrEmpty() && errorBodyStr.contains("detail")) {
                             val jsonObj = org.json.JSONObject(errorBodyStr)
