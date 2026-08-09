@@ -38,6 +38,7 @@ import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -193,18 +194,6 @@ private fun ContenidoVerReporte(
                             modifier = Modifier.weight(1f)
                         )
                     }
-
-                    // Chip de severidad
-                    val estilo = when (detalle.nivel_severidad) {
-                        "Alto"  -> NivelEstilo(PlagOutColors.RiskDanger, Color(0xFFE4795C), "Alto", Icons.Filled.ErrorOutline)
-                        "Medio" -> NivelEstilo(PlagOutColors.RiskWarn, PlagOutColors.Sun, "Medio", Icons.Filled.WarningAmber)
-                        else    -> NivelEstilo(PlagOutColors.RiskOk, Color(0xFF8ACD86), "Bajo", Icons.Filled.CheckCircle)
-                    }
-                    SelloDeNivel(
-                        estilo = estilo,
-                        pulsante = detalle.nivel_severidad == "Alto",
-                        modifier = Modifier.testTag("chipSeveridad")
-                    )
                 }
             }
 
@@ -233,6 +222,17 @@ private fun ContenidoVerReporte(
                         icono = Icons.Outlined.AccessTime,
                         etiqueta = "Fecha y hora",
                         valor = fechaStr
+                    )
+
+                    // Nivel de severidad
+                    val estiloSeveridad = when (detalle.nivel_severidad) {
+                        "Alto"  -> NivelEstilo(PlagOutColors.RiskDanger, Color(0xFFE4795C), "Alto", Icons.Filled.ErrorOutline)
+                        "Medio" -> NivelEstilo(PlagOutColors.RiskWarn, PlagOutColors.Sun, "Medio", Icons.Filled.WarningAmber)
+                        else    -> NivelEstilo(PlagOutColors.RiskOk, Color(0xFF8ACD86), "Bajo", Icons.Filled.CheckCircle)
+                    }
+                    FilaDatoSeveridad(
+                        estilo = estiloSeveridad,
+                        pulsante = detalle.nivel_severidad == "Alto"
                     )
 
                     // Coordenadas
@@ -397,6 +397,41 @@ private fun FilaDato(
             color = PlagOutColors.TextMain,
             modifier = Modifier.padding(start = 26.dp)
         )
+    }
+}
+
+@Composable
+private fun FilaDatoSeveridad(
+    estilo: NivelEstilo,
+    pulsante: Boolean
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                Icons.Outlined.Shield,
+                contentDescription = null,
+                tint = estilo.color,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                "Nivel de severidad",
+                fontSize = 14.sp,
+                color = PlagOutColors.TextSecondary,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        Box(modifier = Modifier.padding(start = 26.dp)) {
+            SelloDeNivel(
+                estilo = estilo,
+                pulsante = pulsante,
+                modifier = Modifier.testTag("chipSeveridad")
+            )
+        }
     }
 }
 

@@ -6,7 +6,11 @@ import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -44,6 +48,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -425,9 +430,14 @@ fun MisReportesScreen(
 
 @Composable
 private fun PanelHeaderReportes(totalReportes: Int, reportes: List<ReporteDetalleResponse>) {
-    val gradienteHeader = Brush.verticalGradient(
-        colors = listOf(PlagOutColors.Forest, PlagOutColors.ForestDark)
+    val respiracion = rememberInfiniteTransition(label = "respiracionHeaderReportes")
+    val escalaDecorativa by respiracion.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(tween(4200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "escalaDecorativa"
     )
+
     val conteoAlto = remember(reportes) { reportes.count { it.nivel_severidad.equals("Alto", ignoreCase = true) } }
     val conteoMedio = remember(reportes) { reportes.count { it.nivel_severidad.equals("Medio", ignoreCase = true) } }
     val conteoBajo = remember(reportes) { reportes.count { it.nivel_severidad.equals("Bajo", ignoreCase = true) } }
@@ -436,10 +446,29 @@ private fun PanelHeaderReportes(totalReportes: Int, reportes: List<ReporteDetall
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(brush = gradienteHeader, shape = formaHeader)
-            .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 20.dp)
+            .background(
+                brush = Brush.verticalGradient(listOf(PlagOutColors.Forest, PlagOutColors.Leaf)),
+                shape = formaHeader
+            )
+            .clip(formaHeader)
     ) {
-        Column {
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 56.dp, y = (-48).dp)
+                .size(190.dp)
+                .graphicsLayer { scaleX = escalaDecorativa; scaleY = escalaDecorativa }
+                .background(PlagOutColors.TextOnDark.copy(alpha = 0.06f), CircleShape)
+        )
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .offset(x = (-44).dp, y = 48.dp)
+                .size(150.dp)
+                .background(PlagOutColors.TextOnDark.copy(alpha = 0.05f), CircleShape)
+        )
+
+        Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 20.dp)) {
             Text(
                 "Gestión de Alertas",
                 color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
