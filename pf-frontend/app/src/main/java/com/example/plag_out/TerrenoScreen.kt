@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.SquareFoot
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Terrain
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -50,9 +51,11 @@ import com.example.plag_out.ui.theme.EstadisticaCompacta
 import com.example.plag_out.ui.theme.EstadoSinResultados
 import com.example.plag_out.ui.theme.EstadoVacioFlotante
 import com.example.plag_out.ui.theme.EtiquetaInfo
+import com.example.plag_out.ui.theme.EncabezadoGrupoFiltro
 import com.example.plag_out.ui.theme.FiltroChipsRow
 import com.example.plag_out.ui.theme.NivelEstilo
 import com.example.plag_out.ui.theme.OpcionFiltro
+import com.example.plag_out.ui.theme.PanelFiltrosPlegable
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.SelloDeNivel
 import com.example.plag_out.ui.theme.SeparadorVertical
@@ -94,6 +97,7 @@ fun TerrenoScreen(
     }
 
     var filtro by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
+    var filtrosExpandidos by rememberSaveable { mutableStateOf(false) }
 
     fun nivelMaxDe(terreno: TerrenoResponse): Int =
         monitoreosState.monitoreos.filter { it.terreno_id == terreno.terreno_id }.maxOfOrNull { it.nivel_alerta } ?: -1
@@ -159,7 +163,27 @@ fun TerrenoScreen(
                     OpcionFiltro(FILTRO_SIN_DATOS, "Sin datos", buckets.count { it == FILTRO_SIN_DATOS }, estiloDeNivel(-1).icono, estiloDeNivel(-1).color)
                 )
             }
-            FiltroChipsRow(opciones = opciones, seleccionado = filtro, onSeleccion = { filtro = it })
+            val hayFiltroActivo = filtro != FILTRO_TODOS
+            PanelFiltrosPlegable(
+                expandido = filtrosExpandidos,
+                onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
+                hayFiltroActivo = hayFiltroActivo,
+                etiquetaAbrir = "Filtrar terrenos",
+                resumen = if (hayFiltroActivo) {
+                    "Mostrando ${filtrados.size} de ${state.terrenos.size} (Filtros activos)"
+                } else {
+                    "Mostrando ${state.terrenos.size} ${if (state.terrenos.size == 1) "terreno" else "terrenos"}"
+                },
+                onLimpiar = { filtro = FILTRO_TODOS }
+            ) {
+                EncabezadoGrupoFiltro(Icons.Outlined.Shield, "ESTADO DEL TERRENO")
+                FiltroChipsRow(
+                    opciones = opciones,
+                    seleccionado = filtro,
+                    onSeleccion = { filtro = it },
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
 
             Box(modifier = Modifier.weight(1f)) {
                 AnimatedContent(

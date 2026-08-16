@@ -73,10 +73,11 @@ class CrearReporteViewModel(
 
                     withContext(Dispatchers.Main) {
                         val currentPlantacion = _state.value.plantacionSeleccionada
+                        // Sin plantación elegida no hay plagas para ofrecer: el paso 3 arranca bloqueado.
                         val plagasFiltradas = if (currentPlantacion != null) {
                             filtrarPlagasPorCultivo(listaPlagas, currentPlantacion.cultivo_id, currentPlantacion.cultivo_nombre)
                         } else {
-                            listaPlagas
+                            emptyList()
                         }
 
                         _state.value = _state.value.copy(
@@ -146,6 +147,9 @@ class CrearReporteViewModel(
     }
 
     fun seleccionarTerreno(terreno: TerrenoResponse) {
+        // Volver a tocar el terreno ya elegido no debe descartar lo que sigue.
+        if (_state.value.terrenoSeleccionado?.terreno_id == terreno.terreno_id) return
+
         val plantacionesFiltradas = todasLasPlantaciones.filter { it.terreno_id == terreno.terreno_id && it.activa }
         val autoPlantacion = if (plantacionesFiltradas.size == 1) plantacionesFiltradas.first() else null
         val plagasFiltradas = if (autoPlantacion != null) {
@@ -169,6 +173,11 @@ class CrearReporteViewModel(
     }
 
     fun seleccionarPlantacion(plantacion: PlantacionesResponse) {
+        // Solo plantaciones del terreno elegido: sin terreno no hay nada que elegir.
+        val terreno = _state.value.terrenoSeleccionado ?: return
+        if (plantacion.terreno_id != terreno.terreno_id) return
+        if (_state.value.plantacionSeleccionada?.plantacion_id == plantacion.plantacion_id) return
+
         val plagasFiltradas = filtrarPlagasPorCultivo(_state.value.plagas, plantacion.cultivo_id, plantacion.cultivo_nombre)
         _state.value = _state.value.copy(
             plantacionSeleccionada = plantacion,
@@ -181,6 +190,9 @@ class CrearReporteViewModel(
     }
 
     fun seleccionarPlaga(plaga: PlagaResponse) {
+        // Solo plagas del cultivo de la plantación elegida.
+        if (_state.value.plagasDisponibles.none { it.id == plaga.id }) return
+
         val etapas = obtenerEtapasParaPlaga(plaga)
         val etapaInicial = etapas.firstOrNull() ?: ""
         _state.value = _state.value.copy(

@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -60,9 +61,11 @@ import com.example.plag_out.ui.theme.EstadisticaCompacta
 import com.example.plag_out.ui.theme.EstadoSinResultados
 import com.example.plag_out.ui.theme.EstadoVacioFlotante
 import com.example.plag_out.ui.theme.EtiquetaInfo
+import com.example.plag_out.ui.theme.EncabezadoGrupoFiltro
 import com.example.plag_out.ui.theme.FiltroChipsRow
 import com.example.plag_out.ui.theme.NivelEstilo
 import com.example.plag_out.ui.theme.OpcionFiltro
+import com.example.plag_out.ui.theme.PanelFiltrosPlegable
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.SelloDeNivel
 import com.example.plag_out.ui.theme.SeparadorVertical
@@ -101,6 +104,7 @@ fun MonitoreosScreen(
 
     // -1 = activos; 0/1/2 = nivel de alerta (activos); FILTRO_FINALIZADOS = finalizados
     var filtro by rememberSaveable { mutableStateOf(-1) }
+    var filtrosExpandidos by rememberSaveable { mutableStateOf(false) }
 
     val ordenados = remember(state.monitoreos) {
         state.monitoreos.sortedWith(
@@ -163,7 +167,29 @@ fun MonitoreosScreen(
                     OpcionFiltro(FILTRO_FINALIZADOS, "Finalizados", state.monitoreos.count { !it.activo }, Icons.Filled.Flag, PlagOutColors.TextSecondary)
                 )
             }
-            FiltroChipsRow(opciones = opciones, seleccionado = filtro, onSeleccion = { filtro = it })
+            val hayFiltroActivo = filtro != -1
+            // Con "Finalizados" el universo es todo el histórico, no solo los activos
+            val totalBase = if (filtro == FILTRO_FINALIZADOS) state.monitoreos.size else activos.size
+            PanelFiltrosPlegable(
+                expandido = filtrosExpandidos,
+                onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
+                hayFiltroActivo = hayFiltroActivo,
+                etiquetaAbrir = "Filtrar monitoreos",
+                resumen = if (hayFiltroActivo) {
+                    "Mostrando ${filtrados.size} de $totalBase (Filtros activos)"
+                } else {
+                    "Mostrando ${activos.size} ${if (activos.size == 1) "monitoreo" else "monitoreos"}"
+                },
+                onLimpiar = { filtro = -1 }
+            ) {
+                EncabezadoGrupoFiltro(Icons.Outlined.Shield, "ESTADO DEL MONITOREO")
+                FiltroChipsRow(
+                    opciones = opciones,
+                    seleccionado = filtro,
+                    onSeleccion = { filtro = it },
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
 
             Box(modifier = Modifier.weight(1f)) {
                 AnimatedContent(

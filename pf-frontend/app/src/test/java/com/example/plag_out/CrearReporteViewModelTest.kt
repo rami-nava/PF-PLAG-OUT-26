@@ -101,7 +101,14 @@ class CrearReporteViewModelTest {
     @Test
     fun `seleccionarPlaga calcula las etapas biologicas correspondientes`() {
         val oruga = Fixtures.plaga(id = 1, nombre = "Oruga Cogollera", nombreCientifico = "Spodoptera frugiperda")
-        val chicharrita = Fixtures.plaga(id = 2, nombre = "Chicharrita del Maíz", nombreCientifico = "Dalbulus maidis")
+        val chicharrita = Fixtures.plaga(id = 2, nombre = "Chicharrita", nombreCientifico = "Dalbulus maidis")
+        gddService.getPlagasResult = { Response.success(listOf(oruga, chicharrita)) }
+        viewModel = CrearReporteViewModel(context, gddService)
+        esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
+
+        // Las plagas solo se pueden elegir con terreno y plantación ya definidos
+        viewModel.seleccionarTerreno(Fixtures.terreno(id = 1))
+        viewModel.seleccionarPlantacion(Fixtures.plantacion(id = 10, terrenoId = 1))
 
         viewModel.seleccionarPlaga(oruga)
         assertEquals(listOf("HUEVO", "LARVA", "PUPA", "ADULTO"), viewModel.state.value.etapasDisponibles)
@@ -115,9 +122,68 @@ class CrearReporteViewModelTest {
     @Test
     fun `filtrado de plagas por cultivo excluye plagas no aplicables`() {
         val plagaMaiz = Fixtures.plaga(id = 1, nombre = "Chicharrita del Maíz", cultivosAfectados = listOf(2))
-        val plantacionTrigo = Fixtures.plantacion(id = 10, cultivoId = 1, cultivo = "Trigo")
+        gddService.getPlagasResult = { Response.success(listOf(plagaMaiz)) }
+        viewModel = CrearReporteViewModel(context, gddService)
+        esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
 
-        viewModel.seleccionarPlantacion(plantacionTrigo)
+        viewModel.seleccionarTerreno(Fixtures.terreno(id = 1))
+        viewModel.seleccionarPlantacion(Fixtures.plantacion(id = 10, terrenoId = 1, cultivoId = 1, cultivo = "Trigo"))
+
         assertTrue(viewModel.state.value.plagasDisponibles.none { it.id == plagaMaiz.id })
+    }
+
+    @Test
+    fun `sin plantacion no hay plagas para elegir`() {
+        val estado = esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
+
+        // El catálogo llegó, pero nada está disponible hasta elegir una plantación
+        assertTrue(estado.plagas.isNotEmpty())
+        assertTrue(estado.plagasDisponibles.isEmpty())
+    }
+
+    @Test
+    fun `sin terreno no se puede elegir plantacion`() {
+        esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
+
+        viewModel.seleccionarPlantacion(Fixtures.plantacion(id = 10, terrenoId = 1))
+
+        assertNull(viewModel.state.value.plantacionSeleccionada)
+        assertTrue(viewModel.state.value.plagasDisponibles.isEmpty())
+    }
+
+    @Test
+    fun `no se puede elegir una plaga de otro cultivo`() {
+        val plagaMaiz = Fixtures.plaga(id = 7, nombre = "Gusano cogollero", cultivosAfectados = listOf(2))
+        gddService.getPlagasResult = { Response.success(listOf(plagaMaiz)) }
+        viewModel = CrearReporteViewModel(context, gddService)
+        esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
+
+        viewModel.seleccionarTerreno(Fixtures.terreno(id = 1))
+        viewModel.seleccionarPlantacion(Fixtures.plantacion(id = 10, terrenoId = 1, cultivoId = 1, cultivo = "Trigo"))
+        viewModel.seleccionarPlaga(plagaMaiz)
+
+        assertNull(viewModel.state.value.plagaSeleccionada)
+    }
+
+    @Test
+    fun `cambiar de terreno descarta plantacion y plaga`() {
+        gddService.getTerrenosResult = {
+            Response.success(listOf(Fixtures.terreno(id = 1, nombre = "Lote 1"), Fixtures.terreno(id = 2, nombre = "Lote 2")))
+        }
+        viewModel = CrearReporteViewModel(context, gddService)
+        esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
+
+        viewModel.seleccionarTerreno(Fixtures.terreno(id = 1))
+        viewModel.seleccionarPlantacion(Fixtures.plantacion(id = 10, terrenoId = 1))
+        viewModel.seleccionarPlaga(Fixtures.plaga(id = 5, nombre = "Oruga"))
+        assertNotNull(viewModel.state.value.plagaSeleccionada)
+
+        viewModel.seleccionarTerreno(Fixtures.terreno(id = 2, nombre = "Lote 2"))
+
+        val estado = viewModel.state.value
+        assertNull(estado.plantacionSeleccionada)
+        assertNull(estado.plagaSeleccionada)
+        assertTrue(estado.plagasDisponibles.isEmpty())
+        assertEquals("", estado.etapaBiologica)
     }
 }

@@ -1,5 +1,6 @@
 package com.example.plag_out.ui.theme
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -9,6 +10,10 @@ import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -16,6 +21,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,10 +37,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.outlined.SearchOff
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -48,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -468,6 +479,152 @@ fun FiltroChipsRow(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun PanelFiltrosPlegable(
+    expandido: Boolean,
+    onToggleExpandido: () -> Unit,
+    hayFiltroActivo: Boolean,
+    etiquetaAbrir: String,
+    resumen: String,
+    onLimpiar: () -> Unit,
+    modifier: Modifier = Modifier,
+    contenido: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(PlagOutColors.Cream)
+    ) {
+        Surface(
+            onClick = onToggleExpandido,
+            color = PlagOutColors.Cream,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("btnToggleFiltros")
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            color = if (hayFiltroActivo) PlagOutColors.Forest.copy(alpha = 0.15f) else PlagOutColors.Surface,
+                            shape = CircleShape,
+                            border = if (hayFiltroActivo) null else BorderStroke(1.dp, PlagOutColors.Divider),
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.Tune,
+                                    contentDescription = etiquetaAbrir,
+                                    tint = if (hayFiltroActivo) PlagOutColors.Forest else PlagOutColors.TextMain,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = if (expandido) "Ocultar filtros" else etiquetaAbrir,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PlagOutColors.TextMain
+                        )
+                    }
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = resumen,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (hayFiltroActivo) PlagOutColors.Forest else PlagOutColors.TextSecondary,
+                        modifier = Modifier.padding(start = 42.dp)
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (hayFiltroActivo) {
+                        Surface(
+                            onClick = onLimpiar,
+                            shape = CircleShape,
+                            color = PlagOutColors.RiskDanger.copy(alpha = 0.1f),
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .testTag("btnLimpiarFiltros")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Limpiar filtros",
+                                    tint = PlagOutColors.RiskDanger,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "Limpiar",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PlagOutColors.RiskDanger
+                                )
+                            }
+                        }
+                    }
+
+                    Icon(
+                        imageVector = if (expandido) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (expandido) "Ocultar filtros" else "Mostrar filtros",
+                        tint = PlagOutColors.TextSecondary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+
+        AnimatedVisibility(
+            visible = expandido,
+            enter = expandVertically() + fadeIn(tween(220)),
+            exit = shrinkVertically() + fadeOut(tween(180))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp)
+                    .testTag("panelFiltros"),
+                content = contenido
+            )
+        }
+    }
+}
+
+/** Título de una categoría dentro de [PanelFiltrosPlegable] (p.ej. "NIVEL DE SEVERIDAD"). */
+@Composable
+fun EncabezadoGrupoFiltro(icono: ImageVector, titulo: String) {
+    Row(
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            icono,
+            contentDescription = null,
+            tint = PlagOutColors.TextSecondary,
+            modifier = Modifier.size(13.dp)
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            titulo,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = PlagOutColors.TextSecondary,
+            letterSpacing = 0.6.sp
+        )
     }
 }
 

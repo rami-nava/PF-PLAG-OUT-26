@@ -90,7 +90,10 @@ fun VerReporteScreen(
         viewModel.cargar(reporteId, reporteJsonFallback)
     }
 
-    Scaffold(containerColor = PlagOutColors.Cream) { padding ->
+    Scaffold(
+        containerColor = PlagOutColors.Cream,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+    ) { padding ->
         Box(
             Modifier
                 .padding(padding)

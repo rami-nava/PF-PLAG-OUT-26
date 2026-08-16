@@ -113,6 +113,10 @@ fun CrearReporteScreen(
         viewModel.actualizarTimestamp()
     }
 
+    LaunchedEffect(state.terrenoSeleccionado) { dropdownPlantacionExpanded = false }
+    LaunchedEffect(state.plantacionSeleccionada) { dropdownPlagaExpanded = false }
+    LaunchedEffect(state.plagaSeleccionada) { dropdownEtapaExpanded = false }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -335,18 +339,27 @@ fun CrearReporteScreen(
 
                         Spacer(Modifier.height(14.dp))
 
-                        val plagasDropdown = if (state.plantacionSeleccionada != null) state.plagasDisponibles else state.plagas
+                        val plantacionElegida = state.plantacionSeleccionada
+                        val plagasDropdown = state.plagasDisponibles
 
                         ExposedDropdownMenuBox(
                             expanded = dropdownPlagaExpanded,
-                            onExpandedChange = { dropdownPlagaExpanded = !dropdownPlagaExpanded },
+                            onExpandedChange = {
+                                if (plantacionElegida != null) dropdownPlagaExpanded = !dropdownPlagaExpanded
+                            },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             OutlinedTextField(
                                 readOnly = true,
+                                enabled = plantacionElegida != null,
                                 value = state.plagaSeleccionada?.nombre ?: "",
                                 onValueChange = {},
-                                label = { Text("Seleccioná un tipo de plaga") },
+                                label = {
+                                    Text(
+                                        if (plantacionElegida != null) "Seleccioná un tipo de plaga"
+                                        else "Elegí una plantación primero"
+                                    )
+                                },
                                 leadingIcon = {
                                     Icon(
                                         Icons.Outlined.BugReport,
@@ -364,12 +377,18 @@ fun CrearReporteScreen(
                             )
 
                             ExposedDropdownMenu(
-                                expanded = dropdownPlagaExpanded,
+                                expanded = dropdownPlagaExpanded && plantacionElegida != null,
                                 onDismissRequest = { dropdownPlagaExpanded = false }
                             ) {
                                 if (plagasDropdown.isEmpty()) {
                                     DropdownMenuItem(
-                                        text = { Text("No hay plagas registradas para este cultivo", color = PlagOutColors.TextSecondary) },
+                                        text = {
+                                            Text(
+                                                if (plantacionElegida == null) "Seleccioná una plantación"
+                                                else "No hay plagas registradas para ${plantacionElegida.cultivo_nombre}",
+                                                color = PlagOutColors.TextSecondary
+                                            )
+                                        },
                                         onClick = { dropdownPlagaExpanded = false }
                                     )
                                 } else {
