@@ -67,6 +67,7 @@ class PlagOutMessagingService : FirebaseMessagingService() {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             data["tipo"]?.let { putExtra(EXTRA_TIPO, it) }
             data["monitoreo_id"]?.let { putExtra(EXTRA_MONITOREO_ID, it) }
+            (data["reporte_id"] ?: data["entidad_id"])?.let { putExtra(EXTRA_REPORTE_ID, it) }
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -87,7 +88,10 @@ class PlagOutMessagingService : FirebaseMessagingService() {
 
         // POST_NOTIFICATIONS puede estar denegado (Android 13+): notify() no lanza,
         // simplemente no muestra nada, así que no hace falta chequear acá.
-        val id = data["monitoreo_id"]?.toIntOrNull() ?: System.currentTimeMillis().toInt()
+        val id = data["monitoreo_id"]?.toIntOrNull()
+            ?: data["reporte_id"]?.toIntOrNull()
+            ?: data["entidad_id"]?.toIntOrNull()
+            ?: System.currentTimeMillis().toInt()
         NotificationManagerCompat.from(this).notify(id, notification)
     }
 
@@ -109,5 +113,7 @@ class PlagOutMessagingService : FirebaseMessagingService() {
         const val CHANNEL_ID = "alertas_gdd"
         const val EXTRA_TIPO = "tipo"
         const val EXTRA_MONITOREO_ID = "monitoreo_id"
+        const val EXTRA_REPORTE_ID = "reporte_id"
+        const val EXTRA_ENTIDAD_ID = "entidad_id"
     }
 }

@@ -363,9 +363,16 @@ data class MarcarLeidaResponse(
  * Ruta a la que lleva tocar una notificación
  */
 fun destinoDe(notificacion: NotificacionResponse): String? {
-    val id = notificacion.entidad_id ?: return null
-    return when (notificacion.tipo.uppercase()) {
-        "ALERTA_GDD" -> "monitoreo/$id"
+    val id = notificacion.entidad_id
+    val tipo = notificacion.tipo.uppercase()
+    return when {
+        tipo.contains("REPORTE") -> {
+            if (id != null) "ver_reporte/$id" else "reportes"
+        }
+        tipo.contains("GDD") || tipo.contains("MONITOREO") -> {
+            if (id != null) "monitoreo/$id" else "monitoreos"
+        }
+        id != null -> "ver_reporte/$id"
         else -> null
     }
 }

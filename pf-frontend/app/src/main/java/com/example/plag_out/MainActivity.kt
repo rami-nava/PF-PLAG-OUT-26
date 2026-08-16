@@ -76,6 +76,7 @@ class MainActivity : ComponentActivity() {
     // monitoreo_id pendiente de un tap en una notificación; lo observa AppNavigation
     // para hacer el deep-link una vez que hay sesión y NavController.
     private val deepLinkMonitoreoId = mutableStateOf<String?>(null)
+    private val deepLinkReporteId = mutableStateOf<String?>(null)
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -96,7 +97,9 @@ class MainActivity : ComponentActivity() {
                 ) {
                     AppNavigation(
                         deepLinkMonitoreoId = deepLinkMonitoreoId.value,
-                        onDeepLinkMonitoreoConsumido = { deepLinkMonitoreoId.value = null }
+                        onDeepLinkMonitoreoConsumido = { deepLinkMonitoreoId.value = null },
+                        deepLinkReporteId = deepLinkReporteId.value,
+                        onDeepLinkReporteConsumido = { deepLinkReporteId.value = null }
                     )
                 }
             }
@@ -114,6 +117,10 @@ class MainActivity : ComponentActivity() {
         intent?.getStringExtra(PlagOutMessagingService.EXTRA_MONITOREO_ID)?.let {
             deepLinkMonitoreoId.value = it
         }
+        (intent?.getStringExtra(PlagOutMessagingService.EXTRA_REPORTE_ID)
+            ?: intent?.getStringExtra(PlagOutMessagingService.EXTRA_ENTIDAD_ID))?.let {
+            deepLinkReporteId.value = it
+        }
     }
 }
 
@@ -121,7 +128,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation(
     deepLinkMonitoreoId: String? = null,
-    onDeepLinkMonitoreoConsumido: () -> Unit = {}
+    onDeepLinkMonitoreoConsumido: () -> Unit = {},
+    deepLinkReporteId: String? = null,
+    onDeepLinkReporteConsumido: () -> Unit = {}
 ) {
     val context = LocalContext.current.applicationContext
     val db = remember(context) { AppDatabase.getDatabase(context) }
@@ -243,6 +252,13 @@ fun AppNavigation(
         }
     }
 
+    LaunchedEffect(deepLinkReporteId, sessionStatus) {
+        if (deepLinkReporteId != null && sessionStatus is SessionStatus.Authenticated) {
+            navController.navigate("ver_reporte/$deepLinkReporteId")
+            onDeepLinkReporteConsumido()
+        }
+    }
+
     val notificacionesState by notificacionesViewModel.state.collectAsState()
     var mostrarNotificaciones by remember { mutableStateOf(false) }
 
@@ -273,7 +289,7 @@ fun AppNavigation(
         }
     }
 
-    val fullBleedScreens = listOf("logIn", "crearCuenta", "editarPerfil", "monitoreo/{monitoreo_id}", "ver_reporte/{reporte_id}/{reporte_json}")
+    val fullBleedScreens = listOf("logIn", "crearCuenta", "editarPerfil", "monitoreo/{monitoreo_id}", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}")
     val rutaActual = navBackStackEntry?.destination?.route
 
     // Cerrar sesión: AuthViewModel borra el almacenamiento local (token, Room,
@@ -494,6 +510,18 @@ fun AppNavigation(
                     }
                 )
             }
+            composable("ver_reporte/{reporte_id}") { backStackEntry ->
+                val reporteId = backStackEntry.arguments?.getString("reporte_id")?.toIntOrNull() ?: 0
+                val verReporteViewModel: VerReporteViewModel = viewModel(
+                    factory = VerReporteViewModelFactory()
+                )
+                VerReporteScreen(
+                    reporteId = reporteId,
+                    reporteJsonFallback = null,
+                    viewModel = verReporteViewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
             composable("ver_reporte/{reporte_id}/{reporte_json}") { backStackEntry ->
                 val reporteId = backStackEntry.arguments?.getString("reporte_id")?.toIntOrNull() ?: 0
                 val reporteJson = backStackEntry.arguments?.getString("reporte_json")
@@ -582,7 +610,7 @@ private fun PantallaCargandoSesion(esperaAgotada: Boolean, onIrAlLogin: () -> Un
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo", "logIn", "crearCuenta", "editarPerfil", "monitoreo/{monitoreo_id}", "crear_reporte", "ver_reporte/{reporte_id}/{reporte_json}")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo", "logIn", "crearCuenta", "editarPerfil", "monitoreo/{monitoreo_id}", "crear_reporte", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}")
     return !screensWithoutNavBar.contains(currentScreen)
 }
 
@@ -590,6 +618,6 @@ fun shouldShowBottomBar(navController: NavController): Boolean {
 fun shouldShowTopBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("logIn","crearCuenta","perfil","editarPerfil","monitoreo/{monitoreo_id}","ver_reporte/{reporte_id}/{reporte_json}")
+    val screensWithoutNavBar = listOf("logIn","crearCuenta","perfil","editarPerfil","monitoreo/{monitoreo_id}","ver_reporte/{reporte_id}","ver_reporte/{reporte_id}/{reporte_json}")
     return !screensWithoutNavBar.contains(currentScreen)
 }
