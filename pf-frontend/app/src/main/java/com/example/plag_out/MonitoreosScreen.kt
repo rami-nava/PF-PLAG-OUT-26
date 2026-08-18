@@ -161,9 +161,9 @@ fun MonitoreosScreen(
             val opciones = remember(state.monitoreos, activos) {
                 listOf(
                     OpcionFiltro(-1, "Activos", activos.size),
-                    OpcionFiltro(0, "Saludable", activos.count { it.nivel_alerta == 0 }, estiloDeNivel(0).icono, estiloDeNivel(0).color),
-                    OpcionFiltro(1, "Atención", activos.count { it.nivel_alerta == 1 }, estiloDeNivel(1).icono, estiloDeNivel(1).color),
-                    OpcionFiltro(2, "Crítico", activos.count { it.nivel_alerta >= 2 }, estiloDeNivel(2).icono, estiloDeNivel(2).color),
+                    OpcionFiltro(0, estiloDeNivel(0).etiqueta, activos.count { it.nivel_alerta == 0 }, estiloDeNivel(0).icono, estiloDeNivel(0).color),
+                    OpcionFiltro(1, estiloDeNivel(1).etiqueta, activos.count { it.nivel_alerta == 1 }, estiloDeNivel(1).icono, estiloDeNivel(1).color),
+                    OpcionFiltro(2, estiloDeNivel(2).etiqueta, activos.count { it.nivel_alerta >= 2 }, estiloDeNivel(2).icono, estiloDeNivel(2).color),
                     OpcionFiltro(FILTRO_FINALIZADOS, "Finalizados", state.monitoreos.count { !it.activo }, Icons.Filled.Flag, PlagOutColors.TextSecondary)
                 )
             }
@@ -182,7 +182,7 @@ fun MonitoreosScreen(
                 },
                 onLimpiar = { filtro = -1 }
             ) {
-                EncabezadoGrupoFiltro(Icons.Outlined.Shield, "ESTADO DEL MONITOREO")
+                EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE ALERTA")
                 FiltroChipsRow(
                     opciones = opciones,
                     seleccionado = filtro,
@@ -248,9 +248,9 @@ fun MonitoreosScreen(
 @Composable
 private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
     val total = monitoreos.size
-    val sanos = monitoreos.count { it.nivel_alerta <= 0 }
-    val atencion = monitoreos.count { it.nivel_alerta == 1 }
-    val criticos = monitoreos.count { it.nivel_alerta >= 2 }
+    val bajo = monitoreos.count { it.nivel_alerta <= 0 }
+    val moderado = monitoreos.count { it.nivel_alerta == 1 }
+    val alto = monitoreos.count { it.nivel_alerta >= 2 }
 
     val respiracion = rememberInfiniteTransition(label = "respiracionHeader")
     val escalaDecorativa by respiracion.animateFloat(
@@ -312,9 +312,9 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
                 val totalAnimado = contadorAnimado(total)
                 AnilloSegmentado(
                     segmentos = listOf(
-                        sanos to estiloDeNivel(0).colorSobreOscuro,
-                        atencion to estiloDeNivel(1).colorSobreOscuro,
-                        criticos to estiloDeNivel(2).colorSobreOscuro
+                        bajo to estiloDeNivel(0).colorSobreOscuro,
+                        moderado to estiloDeNivel(1).colorSobreOscuro,
+                        alto to estiloDeNivel(2).colorSobreOscuro
                     ),
                     total = total,
                     modifier = Modifier.size(110.dp)
@@ -331,9 +331,16 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
                 }
                 Spacer(Modifier.width(24.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    LeyendaEstado(estiloDeNivel(0), sanos)
-                    LeyendaEstado(estiloDeNivel(1), atencion)
-                    LeyendaEstado(estiloDeNivel(2), criticos)
+                    Text(
+                        "NIVEL DE ALERTA",
+                        color = PlagOutColors.TextOnDark.copy(alpha = 0.6f),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+                    LeyendaEstado(estiloDeNivel(0), bajo)
+                    LeyendaEstado(estiloDeNivel(1), moderado)
+                    LeyendaEstado(estiloDeNivel(2), alto)
                 }
             }
         }

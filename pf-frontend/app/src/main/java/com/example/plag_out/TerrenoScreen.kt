@@ -157,10 +157,10 @@ fun TerrenoScreen(
                 val buckets = state.terrenos.map { bucketDeAlerta(nivelMaxDe(it)) }
                 listOf(
                     OpcionFiltro(FILTRO_TODOS, "Todos", state.terrenos.size),
-                    OpcionFiltro(0, "Saludable", buckets.count { it == 0 }, estiloDeNivel(0).icono, estiloDeNivel(0).color),
-                    OpcionFiltro(1, "Atención", buckets.count { it == 1 }, estiloDeNivel(1).icono, estiloDeNivel(1).color),
-                    OpcionFiltro(2, "Crítico", buckets.count { it == 2 }, estiloDeNivel(2).icono, estiloDeNivel(2).color),
-                    OpcionFiltro(FILTRO_SIN_DATOS, "Sin datos", buckets.count { it == FILTRO_SIN_DATOS }, estiloDeNivel(-1).icono, estiloDeNivel(-1).color)
+                    OpcionFiltro(0, estiloDeNivel(0).etiqueta, buckets.count { it == 0 }, estiloDeNivel(0).icono, estiloDeNivel(0).color),
+                    OpcionFiltro(1, estiloDeNivel(1).etiqueta, buckets.count { it == 1 }, estiloDeNivel(1).icono, estiloDeNivel(1).color),
+                    OpcionFiltro(2, estiloDeNivel(2).etiqueta, buckets.count { it == 2 }, estiloDeNivel(2).icono, estiloDeNivel(2).color),
+                    OpcionFiltro(FILTRO_SIN_DATOS, estiloDeNivel(-1).etiqueta, buckets.count { it == FILTRO_SIN_DATOS }, estiloDeNivel(-1).icono, estiloDeNivel(-1).color)
                 )
             }
             val hayFiltroActivo = filtro != FILTRO_TODOS
@@ -176,7 +176,7 @@ fun TerrenoScreen(
                 },
                 onLimpiar = { filtro = FILTRO_TODOS }
             ) {
-                EncabezadoGrupoFiltro(Icons.Outlined.Shield, "ESTADO DEL TERRENO")
+                EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE ALERTA MÁS ALTO")
                 FiltroChipsRow(
                     opciones = opciones,
                     seleccionado = filtro,

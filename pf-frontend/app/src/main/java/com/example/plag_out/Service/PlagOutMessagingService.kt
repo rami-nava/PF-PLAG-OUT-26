@@ -67,7 +67,7 @@ class PlagOutMessagingService : FirebaseMessagingService() {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             data["tipo"]?.let { putExtra(EXTRA_TIPO, it) }
             data["monitoreo_id"]?.let { putExtra(EXTRA_MONITOREO_ID, it) }
-            (data["reporte_id"] ?: data["entidad_id"])?.let { putExtra(EXTRA_REPORTE_ID, it) }
+            data["reporte_id"]?.let { putExtra(EXTRA_REPORTE_ID, it) }
         }
         val pendingIntent = PendingIntent.getActivity(
             this,

@@ -351,7 +351,7 @@ private fun PanelHeaderReportes(totalReportes: Int, reportes: List<ReporteDetall
             Spacer(Modifier.height(18.dp))
 
             // La severidad de un reporte se pinta con la misma paleta sobre oscuro que el
-            // nivel de alerta de un monitoreo: Alto↔Crítico, Medio↔Atención, Bajo↔Saludable.
+            // nivel de alerta de un monitoreo: Alto↔nivel 2, Medio↔nivel 1, Bajo↔nivel 0.
             val estiloAlto = estiloDeNivel(2)
             val estiloMedio = estiloDeNivel(1)
             val estiloBajo = estiloDeNivel(0)

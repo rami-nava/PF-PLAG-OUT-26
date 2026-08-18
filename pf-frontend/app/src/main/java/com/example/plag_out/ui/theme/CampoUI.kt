@@ -88,20 +88,54 @@ data class NivelEstilo(
     val color: Color,
     val colorSobreOscuro: Color,
     val etiqueta: String,
-    val icono: ImageVector
+    val icono: ImageVector,
+    val descripcion: String = "",
+    val recomendacion: String = ""
 )
 
-/** nivel < 0 se interpreta como "sin datos" (p.ej. un terreno sin monitoreos). */
 fun estiloDeNivel(nivel: Int): NivelEstilo = when {
-    nivel < 0 -> NivelEstilo(PlagOutColors.RiskUnknown, Color(0xFFCFC5AC), "Sin datos", Icons.AutoMirrored.Filled.HelpOutline)
-    nivel == 0 -> NivelEstilo(PlagOutColors.RiskOk, Color(0xFF8ACD86), "Saludable", Icons.Filled.CheckCircle)
-    nivel == 1 -> NivelEstilo(PlagOutColors.RiskWarn, PlagOutColors.Sun, "Atención", Icons.Filled.WarningAmber)
-    else -> NivelEstilo(PlagOutColors.RiskDanger, Color(0xFFE4795C), "Crítico", Icons.Filled.ErrorOutline)
+    nivel < 0 -> NivelEstilo(
+        PlagOutColors.RiskUnknown,
+        Color(0xFFCFC5AC),
+        "Sin datos",
+        Icons.AutoMirrored.Filled.HelpOutline,
+        "Todavía no hay monitoreos con datos suficientes para calcular el IRA."
+    )
+    nivel == 0 -> NivelEstilo(
+        PlagOutColors.RiskOk,
+        Color(0xFF8ACD86),
+        "Bajo",
+        Icons.Filled.CheckCircle,
+        "Las condiciones ambientales no favorecieron a la plaga: se espera una densidad poblacional baja.",
+        "Seguí el monitoreo con la frecuencia habitual."
+    )
+    nivel == 1 -> NivelEstilo(
+        PlagOutColors.RiskWarn,
+        PlagOutColors.Sun,
+        "Moderado",
+        Icons.Filled.WarningAmber,
+        "Hubo períodos con condiciones favorables: la densidad poblacional esperada es intermedia.",
+        "Revisá la plantación más seguido y prepará el control por las dudas."
+    )
+    else -> NivelEstilo(
+        PlagOutColors.RiskDanger,
+        Color(0xFFE4795C),
+        "Alto",
+        Icons.Filled.ErrorOutline,
+        "Las condiciones fueron muy favorables para la plaga: se espera una densidad poblacional alta.",
+        "Inspeccioná la plantación cuanto antes y evaluá aplicar control."
+    )
 }
 
 /** Estilo fijo para un monitoreo finalizado: prevalece por sobre su nivel de alerta. */
 fun estiloFinalizado(): NivelEstilo =
-    NivelEstilo(PlagOutColors.Bark, PlagOutColors.BarkLight, "Finalizado", Icons.Filled.Flag)
+    NivelEstilo(
+        PlagOutColors.Bark,
+        PlagOutColors.BarkLight,
+        "Finalizado",
+        Icons.Filled.Flag,
+        "El monitoreo se cerró: ya no se calcula el IRA ni se envían alertas."
+    )
 
 /** Chip de estado: ícono + etiqueta; el ícono pulsa cuando `pulsante` es true. */
 @Composable

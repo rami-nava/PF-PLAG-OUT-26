@@ -6,6 +6,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -13,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.Landscape
@@ -20,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -38,8 +42,8 @@ import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Tamaño del anillo de riesgo en esta pantalla; más chico que el de antes para que todo el
- *  contenido entre sin necesitar scroll. */
+/** Tamaño del anillo de riesgo en esta pantalla: entra junto con las tarjetas de datos sin
+ *  obligar a scrollear en la mayoría de los teléfonos. */
 private val TAMANO_ANILLO = 132.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,6 +61,7 @@ fun MonitoreoDetalleScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
+    var mostrarInfoNivel by remember { mutableStateOf(false) }
 
     LaunchedEffect(monitoreoId) { viewModel.cargar(monitoreoId) }
 
@@ -89,11 +94,19 @@ fun MonitoreoDetalleScreen(
                     onVerPlantacion = onVerPlantacion,
                     onVerTerreno = onVerTerreno,
                     onEditarUmbral = { viewModel.abrirEditorUmbral() },
+                    onVerInfoNivel = { mostrarInfoNivel = true },
                     finalizando = state.finalizando,
                     onFinalizarClick = { mostrarDialogoFinalizar = true }
                 )
             }
         }
+    }
+
+    if (mostrarInfoNivel) {
+        NivelDeAlertaSheet(
+            nivelActual = monitoreo?.nivel_alerta,
+            onDismiss = { mostrarInfoNivel = false }
+        )
     }
 
     if (state.umbralEditado != null && monitoreo != null) {
@@ -174,6 +187,7 @@ private fun ContenidoMonitoreoDetalle(
     onVerPlantacion: (Int) -> Unit,
     onVerTerreno: (Int) -> Unit,
     onEditarUmbral: () -> Unit,
+    onVerInfoNivel: () -> Unit,
     finalizando: Boolean,
     onFinalizarClick: () -> Unit
 ) {
@@ -212,144 +226,199 @@ private fun ContenidoMonitoreoDetalle(
             }
         }
 
-        Spacer(Modifier.height(8.dp))
 
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            AnilloRiesgoGrande(
-                progreso = monitoreo.progreso,
-                nivelAlerta = monitoreo.nivel_alerta,
-                umbralRiesgo = monitoreo.umbral_riesgo,
-                tamano = TAMANO_ANILLO,
-                grosor = 13.dp,
-                modifier = Modifier.testTag("anilloRiesgo")
-            )
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
             Spacer(Modifier.height(8.dp))
-            SelloDeNivel(estilo, pulsante = monitoreo.nivel_alerta >= 2)
-        }
 
-        Spacer(Modifier.height(14.dp))
-
-        Surface(
-            color = PlagOutColors.Surface,
-            shape = RoundedCornerShape(20.dp),
-            shadowElevation = 2.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                EstadisticaCompacta("Acumulado", "${monitoreo.gdd_acumulado.toInt()}", Modifier.weight(1f))
-                SeparadorVertical()
-                EstadisticaCompacta("Objetivo", "${monitoreo.gdd_objetivo.toInt()}", Modifier.weight(1f))
-                SeparadorVertical()
-                EstadisticaCompacta("GDD hoy", "+${monitoreo.gdd_diario.toInt()}", Modifier.weight(1f))
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                AnilloRiesgoGrande(
+                    progreso = monitoreo.progreso,
+                    nivelAlerta = monitoreo.nivel_alerta,
+                    umbralRiesgo = monitoreo.umbral_riesgo,
+                    tamano = TAMANO_ANILLO,
+                    grosor = 13.dp,
+                    modifier = Modifier.testTag("anilloRiesgo")
+                )
+                Spacer(Modifier.height(8.dp))
+                // El sello también abre la explicación: es lo primero que se mira al entrar y la
+                // duda ("¿qué quiere decir Alto?") aparece justo ahí.
+                SelloDeNivel(
+                    estilo,
+                    pulsante = monitoreo.nivel_alerta >= 2,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(onClick = onVerInfoNivel)
+                )
             }
-        }
 
-        Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(14.dp))
 
-        Surface(
-            color = PlagOutColors.Surface,
-            shape = RoundedCornerShape(20.dp),
-            shadowElevation = 2.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                EstadisticaCompacta(
-                    "Inicio",
-                    monitoreo.fecha_inicio?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))) ?: "—",
-                    Modifier.weight(1f)
-                )
-                SeparadorVertical()
-                EstadisticaCompacta(
-                    "Actualizado",
-                    monitoreo.fecha_actualizacion.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))),
-                    Modifier.weight(1f)
-                )
-                // El objetivo ya no aplica a un monitoreo finalizado: no tiene sentido proyectar
-                // una fecha de alcance para algo que ya terminó.
-                if (monitoreo.activo) {
+            Surface(
+                color = PlagOutColors.Surface,
+                shape = RoundedCornerShape(20.dp),
+                shadowElevation = 2.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    EstadisticaCompacta("Acumulado", "${monitoreo.gdd_acumulado.toInt()}", Modifier.weight(1f))
                     SeparadorVertical()
-                    val dias = diasEstimadosAlUmbral(monitoreo)
-                    val estimado = when {
-                        umbralAlcanzado -> "Alcanzado"
-                        dias != null -> "$dias días"
-                        else -> "Sin datos"
-                    }
-                    EstadisticaCompacta("Al objetivo", estimado, Modifier.weight(1f))
+                    EstadisticaCompacta("Objetivo", "${monitoreo.gdd_objetivo.toInt()}", Modifier.weight(1f))
+                    SeparadorVertical()
+                    EstadisticaCompacta("GDD hoy", "+${monitoreo.gdd_diario.toInt()}", Modifier.weight(1f))
                 }
             }
-        }
 
-        if (datosDesactualizados) {
-            Spacer(Modifier.height(8.dp))
-            EtiquetaInfo(
-                Icons.Filled.ErrorOutline,
-                "Mostrando datos guardados · sin conexión",
-                PlagOutColors.RiskWarn,
-                Modifier.testTag("chipDatosDesactualizados")
-            )
-        }
+            Spacer(Modifier.height(10.dp))
 
-        Spacer(Modifier.height(10.dp))
-
-        Surface(
-            color = PlagOutColors.Surface,
-            shape = RoundedCornerShape(20.dp),
-            shadowElevation = 2.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column {
-                Text(
-                    "Contexto",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    color = PlagOutColors.TextMain,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp)
-                )
-                FilaContexto(
-                    icono = Icons.Outlined.Landscape,
-                    titulo = monitoreo.terreno_nombre,
-                    subtitulo = "Terreno",
-                    onClick = { onVerTerreno(monitoreo.terreno_id) }
-                )
-                FilaContexto(
-                    icono = Icons.Outlined.Grass,
-                    titulo = monitoreo.cultivo_nombre,
-                    subtitulo = "Plantación",
-                    onClick = { onVerPlantacion(monitoreo.plantacion_id) }
-                )
-                FilaContexto(
-                    icono = Icons.Outlined.BugReport,
-                    titulo = monitoreo.plaga_nombre,
-                    subtitulo = monitoreo.plaga_nombre_cientifico,
-                    onClick = null
-                )
-            }
-        }
-
-        Spacer(Modifier.height(10.dp))
-
-        Surface(
-            onClick = { if (monitoreo.umbral_riesgo != null && monitoreo.activo) onEditarUmbral() },
-            color = PlagOutColors.Surface,
-            shape = RoundedCornerShape(18.dp),
-            shadowElevation = 2.dp,
-            modifier = Modifier.fillMaxWidth().testTag("btnEditarUmbral")
-        ) {
-            Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Umbral de riesgo", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = PlagOutColors.TextMain, modifier = Modifier.weight(1f))
-                if (monitoreo.umbral_riesgo != null) {
-                    Text("${monitoreo.umbral_riesgo}%", fontWeight = FontWeight.Bold, color = PlagOutColors.Forest)
+            Surface(
+                color = PlagOutColors.Surface,
+                shape = RoundedCornerShape(20.dp),
+                shadowElevation = 2.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    EstadisticaCompacta(
+                        "Inicio",
+                        monitoreo.fecha_inicio?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))) ?: "—",
+                        Modifier.weight(1f)
+                    )
+                    SeparadorVertical()
+                    EstadisticaCompacta(
+                        "Actualizado",
+                        monitoreo.fecha_actualizacion.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))),
+                        Modifier.weight(1f)
+                    )
+                    // El objetivo ya no aplica a un monitoreo finalizado: no tiene sentido proyectar
+                    // una fecha de alcance para algo que ya terminó.
                     if (monitoreo.activo) {
-                        Spacer(Modifier.width(6.dp))
-                        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(18.dp))
+                        SeparadorVertical()
+                        val dias = diasEstimadosAlUmbral(monitoreo)
+                        val estimado = when {
+                            umbralAlcanzado -> "Alcanzado"
+                            dias != null -> "$dias días"
+                            else -> "Sin datos"
+                        }
+                        EstadisticaCompacta("Al objetivo", estimado, Modifier.weight(1f))
                     }
-                } else {
-                    Text("No disponible", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
                 }
             }
-        }
 
-        Spacer(Modifier.weight(1f))
+            if (datosDesactualizados) {
+                Spacer(Modifier.height(8.dp))
+                EtiquetaInfo(
+                    Icons.Filled.ErrorOutline,
+                    "Mostrando datos guardados · sin conexión",
+                    PlagOutColors.RiskWarn,
+                    Modifier.testTag("chipDatosDesactualizados")
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            Surface(
+                color = PlagOutColors.Surface,
+                shape = RoundedCornerShape(20.dp),
+                shadowElevation = 2.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column {
+                    Text(
+                        "Contexto",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = PlagOutColors.TextMain,
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp)
+                    )
+                    FilaContexto(
+                        icono = Icons.Outlined.Landscape,
+                        titulo = monitoreo.terreno_nombre,
+                        subtitulo = "Terreno",
+                        onClick = { onVerTerreno(monitoreo.terreno_id) }
+                    )
+                    FilaContexto(
+                        icono = Icons.Outlined.Grass,
+                        titulo = monitoreo.cultivo_nombre,
+                        subtitulo = "Plantación",
+                        onClick = { onVerPlantacion(monitoreo.plantacion_id) }
+                    )
+                    FilaContexto(
+                        icono = Icons.Outlined.BugReport,
+                        titulo = monitoreo.plaga_nombre,
+                        subtitulo = monitoreo.plaga_nombre_cientifico,
+                        onClick = null
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            Surface(
+                onClick = { if (monitoreo.umbral_riesgo != null && monitoreo.activo) onEditarUmbral() },
+                color = PlagOutColors.Surface,
+                shape = RoundedCornerShape(18.dp),
+                shadowElevation = 2.dp,
+                modifier = Modifier.fillMaxWidth().testTag("btnEditarUmbral")
+            ) {
+                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Umbral de riesgo", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = PlagOutColors.TextMain, modifier = Modifier.weight(1f))
+                    if (monitoreo.umbral_riesgo != null) {
+                        Text("${monitoreo.umbral_riesgo}%", fontWeight = FontWeight.Bold, color = PlagOutColors.Forest)
+                        if (monitoreo.activo) {
+                            Spacer(Modifier.width(6.dp))
+                            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(18.dp))
+                        }
+                    } else {
+                        Text("No disponible", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            Surface(
+                onClick = onVerInfoNivel,
+                color = PlagOutColors.Surface,
+                shape = RoundedCornerShape(18.dp),
+                shadowElevation = 2.dp,
+                modifier = Modifier.fillMaxWidth().testTag("btnInfoNivelAlerta")
+            ) {
+                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.size(34.dp).background(estilo.color.copy(alpha = 0.12f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.HelpOutline,
+                            contentDescription = null,
+                            tint = estilo.color,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Nivel de alerta: ${estilo.etiqueta}",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = PlagOutColors.TextMain
+                        )
+                        Text(
+                            "Qué significa y cómo se calcula con el IRA",
+                            fontSize = 12.sp,
+                            color = PlagOutColors.TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(18.dp))
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
 
         if (!monitoreo.activo) {
             Surface(
