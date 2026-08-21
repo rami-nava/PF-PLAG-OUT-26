@@ -61,13 +61,15 @@ class PlagOutMessagingService : FirebaseMessagingService() {
     private fun mostrarNotificacion(titulo: String, cuerpo: String, data: Map<String, String>) {
         crearCanal()
 
-        // Intent de tap: reabre MainActivity con el id para hacer deep-link al monitoreo.
-        // Toda alerta es sobre un monitoreo puntual, así que ese es el único deep-link posible.
+        // Intent de tap: reabre MainActivity con el id para hacer deep-link a la entidad del
+        // aviso. Cada tipo de alerta trae la suya: GDD el monitoreo, reporte cercano el reporte
+        // y biofix la plantación que arrancó a acumular.
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             data["tipo"]?.let { putExtra(EXTRA_TIPO, it) }
             data["monitoreo_id"]?.let { putExtra(EXTRA_MONITOREO_ID, it) }
             data["reporte_id"]?.let { putExtra(EXTRA_REPORTE_ID, it) }
+            data["plantacion_id"]?.let { putExtra(EXTRA_PLANTACION_ID, it) }
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -90,6 +92,7 @@ class PlagOutMessagingService : FirebaseMessagingService() {
         // simplemente no muestra nada, así que no hace falta chequear acá.
         val id = data["monitoreo_id"]?.toIntOrNull()
             ?: data["reporte_id"]?.toIntOrNull()
+            ?: data["plantacion_id"]?.toIntOrNull()
             ?: data["entidad_id"]?.toIntOrNull()
             ?: System.currentTimeMillis().toInt()
         NotificationManagerCompat.from(this).notify(id, notification)
@@ -97,12 +100,18 @@ class PlagOutMessagingService : FirebaseMessagingService() {
 
     private fun crearCanal() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Un solo canal para los tres tipos de aviso (GDD, reportes cercanos, biofix): el
+            // nombre es genérico a propósito, porque es lo que el usuario ve en los ajustes del
+            // sistema. El id no se toca —cambiarlo crearía un canal nuevo y perdería la
+            // configuración que el usuario ya tenga— y es el mismo que declara el manifest
+            // como default_notification_channel_id de FCM.
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Alertas de riesgo",
+                "Alertas y avisos",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Alertas cuando el riesgo calculado supera tu umbral"
+                description = "Riesgo por GDD, reportes de plagas cercanos e inicio de " +
+                        "acumulación (biofix) de tus plantaciones"
             }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
@@ -114,6 +123,7 @@ class PlagOutMessagingService : FirebaseMessagingService() {
         const val EXTRA_TIPO = "tipo"
         const val EXTRA_MONITOREO_ID = "monitoreo_id"
         const val EXTRA_REPORTE_ID = "reporte_id"
+        const val EXTRA_PLANTACION_ID = "plantacion_id"
         const val EXTRA_ENTIDAD_ID = "entidad_id"
     }
 }

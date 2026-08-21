@@ -372,6 +372,9 @@ fun destinoDe(notificacion: NotificacionResponse): String? {
         tipo.contains("GDD") || tipo.contains("MONITOREO") -> {
             if (id != null) "monitoreo/$id" else "monitoreos"
         }
+        tipo.contains("BIOFIX") || tipo.contains("PLANTACION") -> {
+            if (id != null) "plantacion/$id" else "terrenos"
+        }
         id != null -> "ver_reporte/$id"
         else -> null
     }

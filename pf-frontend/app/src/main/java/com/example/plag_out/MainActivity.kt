@@ -77,6 +77,7 @@ class MainActivity : ComponentActivity() {
     // para hacer el deep-link una vez que hay sesión y NavController.
     private val deepLinkMonitoreoId = mutableStateOf<String?>(null)
     private val deepLinkReporteId = mutableStateOf<String?>(null)
+    private val deepLinkPlantacionId = mutableStateOf<String?>(null)
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -99,7 +100,9 @@ class MainActivity : ComponentActivity() {
                         deepLinkMonitoreoId = deepLinkMonitoreoId.value,
                         onDeepLinkMonitoreoConsumido = { deepLinkMonitoreoId.value = null },
                         deepLinkReporteId = deepLinkReporteId.value,
-                        onDeepLinkReporteConsumido = { deepLinkReporteId.value = null }
+                        onDeepLinkReporteConsumido = { deepLinkReporteId.value = null },
+                        deepLinkPlantacionId = deepLinkPlantacionId.value,
+                        onDeepLinkPlantacionConsumido = { deepLinkPlantacionId.value = null }
                     )
                 }
             }
@@ -117,9 +120,20 @@ class MainActivity : ComponentActivity() {
         intent?.getStringExtra(PlagOutMessagingService.EXTRA_MONITOREO_ID)?.let {
             deepLinkMonitoreoId.value = it
         }
-        (intent?.getStringExtra(PlagOutMessagingService.EXTRA_REPORTE_ID)
-            ?: intent?.getStringExtra(PlagOutMessagingService.EXTRA_ENTIDAD_ID))?.let {
+        intent?.getStringExtra(PlagOutMessagingService.EXTRA_REPORTE_ID)?.let {
             deepLinkReporteId.value = it
+        }
+        intent?.getStringExtra(PlagOutMessagingService.EXTRA_PLANTACION_ID)?.let {
+            deepLinkPlantacionId.value = it
+        }
+        // Push genérico (solo entidad_id): el tipo dice a qué entidad apunta ese id.
+        intent?.getStringExtra(PlagOutMessagingService.EXTRA_ENTIDAD_ID)?.let { id ->
+            when {
+                intent.getStringExtra(PlagOutMessagingService.EXTRA_TIPO)
+                    ?.uppercase()?.contains("BIOFIX") == true -> deepLinkPlantacionId.value = id
+                deepLinkMonitoreoId.value == null && deepLinkReporteId.value == null &&
+                    deepLinkPlantacionId.value == null -> deepLinkReporteId.value = id
+            }
         }
     }
 }
@@ -130,7 +144,9 @@ fun AppNavigation(
     deepLinkMonitoreoId: String? = null,
     onDeepLinkMonitoreoConsumido: () -> Unit = {},
     deepLinkReporteId: String? = null,
-    onDeepLinkReporteConsumido: () -> Unit = {}
+    onDeepLinkReporteConsumido: () -> Unit = {},
+    deepLinkPlantacionId: String? = null,
+    onDeepLinkPlantacionConsumido: () -> Unit = {}
 ) {
     val context = LocalContext.current.applicationContext
     val db = remember(context) { AppDatabase.getDatabase(context) }
@@ -243,8 +259,9 @@ fun AppNavigation(
         }
     }
 
-    // Deep-link desde una notificación: el aviso siempre es sobre un monitoreo puntual, así que
-    // el único destino posible es su pantalla de detalle.
+    // Deep-link desde una notificación: cada aviso lleva a la entidad que lo originó
+    // (monitoreo para las alertas de GDD, reporte para los reportes cercanos y plantación
+    // para el biofix).
     LaunchedEffect(deepLinkMonitoreoId, sessionStatus) {
         if (deepLinkMonitoreoId != null && sessionStatus is SessionStatus.Authenticated) {
             navController.navigate("monitoreo/$deepLinkMonitoreoId")
@@ -256,6 +273,14 @@ fun AppNavigation(
         if (deepLinkReporteId != null && sessionStatus is SessionStatus.Authenticated) {
             navController.navigate("ver_reporte/$deepLinkReporteId")
             onDeepLinkReporteConsumido()
+        }
+    }
+
+    // Aviso de biofix: la entidad es la plantación que arrancó a acumular GDD.
+    LaunchedEffect(deepLinkPlantacionId, sessionStatus) {
+        if (deepLinkPlantacionId != null && sessionStatus is SessionStatus.Authenticated) {
+            navController.navigate("plantacion/$deepLinkPlantacionId")
+            onDeepLinkPlantacionConsumido()
         }
     }
 
