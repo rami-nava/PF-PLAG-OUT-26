@@ -3,6 +3,7 @@ package com.example.plag_out
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -518,7 +519,8 @@ fun MonitoreosPorPlantacion(
     viewModel: MonitoreosViewModel,
     plantacionesViewModel: PlantacionesViewModel,
     onBack: () -> Unit,
-    onMonitoreoClick: (Int) -> Unit = {}
+    onMonitoreoClick: (Int) -> Unit = {},
+    onAgregarMonitoreo: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     val plantacionesState by plantacionesViewModel.state.collectAsState()
@@ -539,7 +541,28 @@ fun MonitoreosPorPlantacion(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            AnimatedVisibility(
+                visible = pagerState.currentPage == PAGINA_MONITOREOS_PLANTACION && plantacion?.activa == true,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                ExtendedFloatingActionButton(
+                    onClick = onAgregarMonitoreo,
+                    containerColor = PlagOutColors.Forest,
+                    contentColor = PlagOutColors.TextOnDark,
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .padding(bottom = 16.dp)
+                        .testTag("btnNuevoMonitoreoPlantacion")
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Nuevo Monitoreo", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
     ) { padding ->
     Column(
         modifier = Modifier

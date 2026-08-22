@@ -28,12 +28,17 @@ data class AgregarMonitoreoUIState(
     val plantaciones: List<PlantacionesResponse> = emptyList(),
     val plagas: List<PlagaResponse> = emptyList(),
     val plagasDisponibles: List<PlagaResponse> = emptyList(),
-    val plagaSeleccionada: PlagaResponse? = null,
+    val plagasSeleccionadas: List<PlagaResponse> = emptyList(),
     val umbralDeRiesgo: Int = 80, //Inicializado en un valor tipico
+    val contextoFijado: Boolean = false,
     val isLoading: Boolean = false,
     val isGuardando: Boolean = false,
     val error: String? = null
-)
+) {
+
+    val todasLasPlagasElegidas: Boolean
+        get() = plagasDisponibles.isNotEmpty() && plagasSeleccionadas.size == plagasDisponibles.size
+}
 
 @RequiresApi(Build.VERSION_CODES.O)
 class AgregarMonitoreoViewModel(
@@ -46,6 +51,20 @@ class AgregarMonitoreoViewModel(
 
     private val _state = MutableStateFlow(AgregarMonitoreoUIState())
     val state: StateFlow<AgregarMonitoreoUIState> = _state.asStateFlow()
+
+    /** Monitoreos creados en un lote que falló a medias, a la espera del reintento del resto. */
+    private val creadosEnIntentosPrevios = mutableListOf<MonitoreoResponse>()
+
+    /**
+     * Lo creado hasta ahora en un lote incompleto. Si el usuario se va sin reintentar, esos
+     * monitoreos ya existen (backend + Room) y hay que entregarlos igual, o la lista de la pantalla
+     * anterior no se entera hasta el próximo refresco.
+     */
+    fun consumirCreadosPendientes(): List<MonitoreoResponse> {
+        val pendientes = creadosEnIntentosPrevios.toList()
+        creadosEnIntentosPrevios.clear()
+        return pendientes
+    }
 
     fun cargarPlagas() {
         _state.value = _state.value.copy(isLoading = true, error = null)
@@ -102,13 +121,37 @@ class AgregarMonitoreoViewModel(
     }
 
 
+    fun precargarContexto(plantacionId: Int) {
+        viewModelScope.launch {
+            val plantacion = withContext(Dispatchers.IO) {
+                plantacionRepository.obtenerPlantaciones().find { it.plantacion_id == plantacionId }
+            }
+            if (plantacion == null) {
+                _state.value = _state.value.copy(error = "No se encontró la plantación")
+                return@launch
+            }
+
+            val terreno = withContext(Dispatchers.IO) {
+                terrenoRepository.obtenerTerrenos().find { it.terreno_id == plantacion.terreno_id }
+            }
+            _state.value = _state.value.copy(
+                terrenoSeleccionado = terreno,
+                plantacionSeleccionada = plantacion,
+                plantaciones = listOf(plantacion),
+                contextoFijado = true,
+                error = null
+            )
+        }
+    }
+
+
     fun seleccionarPlantacion(plantacion: PlantacionesResponse){
         val terreno = _state.value.terrenoSeleccionado ?: return
         if (plantacion.terreno_id != terreno.terreno_id) return
         if (_state.value.plantacionSeleccionada?.plantacion_id == plantacion.plantacion_id) return
         _state.value = _state.value.copy(
             plantacionSeleccionada = plantacion,
-            plagaSeleccionada = null,
+            plagasSeleccionadas = emptyList(),
             error = null
         )
     }
@@ -118,16 +161,28 @@ class AgregarMonitoreoViewModel(
         _state.value = _state.value.copy(
             terrenoSeleccionado = terreno,
             plantacionSeleccionada = null,
-            plagaSeleccionada = null,
+            plagasSeleccionadas = emptyList(),
             plantaciones = emptyList(),
             error = null
         )
     }
 
-    fun seleccionarPlaga(plaga: PlagaResponse){
+    fun alternarPlaga(plaga: PlagaResponse){
         if (_state.value.plagasDisponibles.none { it.id == plaga.id }) return
+        val actuales = _state.value.plagasSeleccionadas
+        val nuevas =
+            if (actuales.any { it.id == plaga.id }) actuales.filter { it.id != plaga.id }
+            else actuales + plaga
         _state.value = _state.value.copy(
-            plagaSeleccionada = plaga,
+            plagasSeleccionadas = nuevas,
+            error = null
+        )
+    }
+
+    fun alternarTodasLasPlagas(){
+        _state.value = _state.value.copy(
+            plagasSeleccionadas = if (_state.value.todasLasPlagasElegidas) emptyList()
+                                  else _state.value.plagasDisponibles,
             error = null
         )
     }
@@ -138,14 +193,21 @@ class AgregarMonitoreoViewModel(
         )
     }
 
-    fun guardarMonitoreo(onSuccess: () -> Unit) {
+    /**
+     * Un POST por plaga elegida: el backend crea los monitoreos de a uno. Se hacen en secuencia
+     * para que un error no deje a medias un lote en paralelo, y las que fallan quedan seleccionadas
+     * para reintentar solo esas.
+     */
+    fun guardarMonitoreo(onSuccess: (List<MonitoreoResponse>) -> Unit) {
         val currentState = _state.value
-        val plaga = currentState.plagaSeleccionada
+        val plagas = currentState.plagasSeleccionadas
         val terreno = currentState.terrenoSeleccionado
         val plantacion = currentState.plantacionSeleccionada
         val umbralDeRiesgo = currentState.umbralDeRiesgo
 
-        if (terreno == null) {
+        val terrenoId = terreno?.terreno_id ?: plantacion?.terreno_id
+
+        if (terrenoId == null) {
             _state.value = _state.value.copy(error = "Debe seleccionar un terreno")
             return
         }
@@ -155,12 +217,12 @@ class AgregarMonitoreoViewModel(
             return
         }
 
-        if (plaga == null) {
+        if (plagas.isEmpty()) {
             _state.value = _state.value.copy(error = "Debe seleccionar una plaga")
             return
         }
 
-        if (currentState.plagasDisponibles.none { it.id == plaga.id }) {
+        if (plagas.any { elegida -> currentState.plagasDisponibles.none { it.id == elegida.id } }) {
             _state.value = _state.value.copy(
                 error = "La plaga seleccionada no afecta al cultivo de esta plantación"
             )
@@ -170,50 +232,64 @@ class AgregarMonitoreoViewModel(
         _state.value = _state.value.copy(isGuardando = true, error = null)
 
         viewModelScope.launch {
-            try {
+            val creados = mutableListOf<MonitoreoResponse>()
+            val fallidas = mutableListOf<PlagaResponse>()
+            var primerError: String? = null
+
+            for (plaga in plagas) {
                 val request = MonitoreoRequest(
-                    terreno_id = terreno.terreno_id,
+                    terreno_id = terrenoId,
                     plantacion_id = plantacion.plantacion_id,
                     plaga_id = plaga.id,
                     umbral_riesgo = umbralDeRiesgo
                 )
 
-                val response = withContext(Dispatchers.IO) {
-                    gddService.createMonitoreo(request)
-                }
-
-                if (response.isSuccessful) {
+                try {
+                    val response = withContext(Dispatchers.IO) {
+                        gddService.createMonitoreo(request)
+                    }
                     val monitoreoResponse = response.body()
-                    if (monitoreoResponse != null) {
 
+                    if (response.isSuccessful && monitoreoResponse != null) {
                         withContext(Dispatchers.IO) {
                             monitoreoRepository.guardarMonitoreo(monitoreoResponse)
                         }
-
-                        _state.value = _state.value.copy(isGuardando = false)
-
-                        withContext(Dispatchers.Main) {
-                            onSuccess()
-                        }
+                        creados += monitoreoResponse
                     } else {
-                        _state.value = _state.value.copy(
-                            isGuardando = false,
-                            error = "Error: Respuesta vacía del servidor"
-                        )
+                        fallidas += plaga
+                        if (primerError == null) {
+                            primerError = if (response.isSuccessful) "Error: Respuesta vacía del servidor"
+                                          else response.errorBody()?.string()?.takeIf { it.isNotBlank() }
+                                              ?: "Error del servidor al crear el monitoreo"
+                        }
                     }
-                } else {
-                    val errorMsg = response.errorBody()?.string() ?: "Error del servidor al crear el monitoreo"
-                    _state.value = _state.value.copy(
-                        isGuardando = false,
-                        error = errorMsg
-                    )
+                } catch (e: Exception) {
+                    fallidas += plaga
+                    if (primerError == null) primerError = "Error al guardar: ${e.message}"
+                    Log.e("CREAR_MONITOREO", "Error al crear monitoreo de ${plaga.nombre}: ${e.message}")
                 }
-            } catch (e: Exception) {
+            }
+
+            // Los de intentos anteriores ya están en Room; se suman acá para que la lista en memoria
+            // de la pantalla anterior también los reciba.
+            creadosEnIntentosPrevios += creados
+
+            if (fallidas.isEmpty()) {
+                val total = creadosEnIntentosPrevios.toList()
+                creadosEnIntentosPrevios.clear()
+                _state.value = _state.value.copy(isGuardando = false)
+                withContext(Dispatchers.Main) {
+                    onSuccess(total)
+                }
+            } else {
                 _state.value = _state.value.copy(
                     isGuardando = false,
-                    error = "Error al guardar: ${e.message}"
+                    // Quedan elegidas solo las que faltan: el botón reintenta esas.
+                    plagasSeleccionadas = fallidas,
+                    error = if (creados.isEmpty()) primerError
+                            else "Se crearon ${creados.size} de ${plagas.size} monitoreos. " +
+                                "Reintentá con: ${fallidas.joinToString { it.nombre }}"
                 )
-                Log.e("CREAR_MONITOREO", "Error al crear monitoreo: ${e.message}")
             }
         }
     }

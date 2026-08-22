@@ -138,6 +138,14 @@ class MonitoreosViewModel(
         }
     }
 
+    fun agregarEnMemoria(nuevos: List<MonitoreoResponse>) {
+        if (nuevos.isEmpty()) return
+        val ids = nuevos.map { it.monitoreo_id }.toSet()
+        _state.value = _state.value.copy(
+            monitoreos = _state.value.monitoreos.filterNot { it.monitoreo_id in ids } + nuevos
+        )
+    }
+
     /**
      * Purga local (Room + memoria) de los monitoreos de un terreno eliminado. No llama a la red:
      * el DELETE del terreno ya se hizo y se asume que el backend eliminó en cascada; esto solo
