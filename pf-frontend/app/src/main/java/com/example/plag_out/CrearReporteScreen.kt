@@ -79,6 +79,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.plag_out.ui.theme.BotonInfoCampo
 import com.example.plag_out.ui.theme.PlagOutColors
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -517,19 +518,11 @@ fun CrearReporteScreen(
                                 color = PlagOutColors.TextMain,
                                 modifier = Modifier.weight(1f)
                             )
-                            IconButton(
+                            BotonInfoCampo(
                                 onClick = { mostrarInfoSeveridad = true },
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .testTag("btnInfoSeveridad")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Info,
-                                    contentDescription = "Información sobre Nivel de Severidad",
-                                    tint = PlagOutColors.Forest,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                                contentDescription = "Información sobre Nivel de Severidad",
+                                modifier = Modifier.testTag("btnInfoSeveridad")
+                            )
                         }
 
                         Spacer(Modifier.height(14.dp))

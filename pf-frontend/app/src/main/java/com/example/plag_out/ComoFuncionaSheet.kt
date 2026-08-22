@@ -18,7 +18,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PlayCircleOutline
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -110,24 +109,8 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
 
             Spacer(Modifier.height(20.dp))
 
-            TarjetaConcepto(Icons.Outlined.Thermostat, "¿Qué son los GDD?") {
-                Text(
-                    "Grados Día de Crecimiento: una medida del calor acumulado desde que arranca " +
-                        "el conteo (la siembra de tu plantación o el biofix de la plaga). " +
-                        "Plag-Out compara los GDD acumulados de tu plantación con el objetivo de la " +
-                        "plaga que estás monitoreando: cuanto más cerca del objetivo, más avanzado " +
-                        "está su desarrollo y más alto el riesgo.",
-                    fontSize = 13.sp,
-                    color = PlagOutColors.TextSecondary
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Los valores se recalculan una vez por día.",
-                    fontSize = 11.sp,
-                    color = PlagOutColors.TextSecondary,
-                    fontWeight = FontWeight.Medium
-                )
-            }
+            // Mismo bloque de GDD que muestra la hoja del umbral de riesgo.
+            TarjetaGDD()
 
             Spacer(Modifier.height(12.dp))
 

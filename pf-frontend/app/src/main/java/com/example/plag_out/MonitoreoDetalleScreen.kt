@@ -15,7 +15,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.Landscape
@@ -30,7 +29,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
 import com.example.plag_out.ui.theme.AnilloRiesgoGrande
+import com.example.plag_out.ui.theme.BotonInfoCampo
 import com.example.plag_out.ui.theme.CargandoCentrado
 import com.example.plag_out.ui.theme.EstadisticaCompacta
 import com.example.plag_out.ui.theme.EtiquetaInfo
@@ -62,6 +63,7 @@ fun MonitoreoDetalleScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
     var mostrarInfoNivel by remember { mutableStateOf(false) }
+    var mostrarInfoUmbral by remember { mutableStateOf(false) }
 
     LaunchedEffect(monitoreoId) { viewModel.cargar(monitoreoId) }
 
@@ -95,6 +97,7 @@ fun MonitoreoDetalleScreen(
                     onVerTerreno = onVerTerreno,
                     onEditarUmbral = { viewModel.abrirEditorUmbral() },
                     onVerInfoNivel = { mostrarInfoNivel = true },
+                    onVerInfoUmbral = { mostrarInfoUmbral = true },
                     finalizando = state.finalizando,
                     onFinalizarClick = { mostrarDialogoFinalizar = true }
                 )
@@ -106,6 +109,13 @@ fun MonitoreoDetalleScreen(
         NivelDeAlertaSheet(
             nivelActual = monitoreo?.nivel_alerta,
             onDismiss = { mostrarInfoNivel = false }
+        )
+    }
+
+    if (mostrarInfoUmbral) {
+        UmbralDeRiesgoSheet(
+            umbralActual = monitoreo?.umbral_riesgo,
+            onDismiss = { mostrarInfoUmbral = false }
         )
     }
 
@@ -188,6 +198,7 @@ private fun ContenidoMonitoreoDetalle(
     onVerTerreno: (Int) -> Unit,
     onEditarUmbral: () -> Unit,
     onVerInfoNivel: () -> Unit,
+    onVerInfoUmbral: () -> Unit,
     finalizando: Boolean,
     onFinalizarClick: () -> Unit
 ) {
@@ -244,15 +255,7 @@ private fun ContenidoMonitoreoDetalle(
                     modifier = Modifier.testTag("anilloRiesgo")
                 )
                 Spacer(Modifier.height(8.dp))
-                // El sello también abre la explicación: es lo primero que se mira al entrar y la
-                // duda ("¿qué quiere decir Alto?") aparece justo ahí.
-                SelloDeNivel(
-                    estilo,
-                    pulsante = monitoreo.nivel_alerta >= 2,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .clickable(onClick = onVerInfoNivel)
-                )
+                SelloDeNivel(estilo, pulsante = monitoreo.nivel_alerta >= 2)
             }
 
             Spacer(Modifier.height(14.dp))
@@ -356,65 +359,75 @@ private fun ContenidoMonitoreoDetalle(
 
             Spacer(Modifier.height(10.dp))
 
-            Surface(
-                onClick = { if (monitoreo.umbral_riesgo != null && monitoreo.activo) onEditarUmbral() },
-                color = PlagOutColors.Surface,
-                shape = RoundedCornerShape(18.dp),
-                shadowElevation = 2.dp,
-                modifier = Modifier.fillMaxWidth().testTag("btnEditarUmbral")
+            TarjetaCampo(
+                titulo = "Umbral de riesgo",
+                onInfo = onVerInfoUmbral,
+                descripcionInfo = "Qué es el umbral de riesgo",
+                tagInfo = "btnInfoUmbral"
             ) {
-                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Umbral de riesgo", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = PlagOutColors.TextMain, modifier = Modifier.weight(1f))
-                    if (monitoreo.umbral_riesgo != null) {
-                        Text("${monitoreo.umbral_riesgo}%", fontWeight = FontWeight.Bold, color = PlagOutColors.Forest)
-                        if (monitoreo.activo) {
-                            Spacer(Modifier.width(6.dp))
-                            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(18.dp))
+                if (monitoreo.umbral_riesgo != null) {
+                    // El toque sobre la fila abre el editor; la "i" queda afuera de esa zona.
+                    val editable = monitoreo.activo
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .let { if (editable) it.clickable(onClick = onEditarUmbral) else it }
+                            .testTag("btnEditarUmbral")
+                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "${monitoreo.umbral_riesgo}%",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = PlagOutColors.Forest
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            if (editable) "Te avisamos al superarlo · tocá para ajustar"
+                            else "Umbral con el que se siguió este monitoreo",
+                            fontSize = 12.sp,
+                            color = PlagOutColors.TextSecondary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (editable) {
+                            Icon(
+                                Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                tint = PlagOutColors.TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
-                    } else {
-                        Text("No disponible", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
                     }
+                } else {
+                    Text(
+                        "No disponible",
+                        fontSize = 13.sp,
+                        color = PlagOutColors.TextSecondary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp)
+                    )
                 }
             }
 
             Spacer(Modifier.height(10.dp))
 
-            Surface(
-                onClick = onVerInfoNivel,
-                color = PlagOutColors.Surface,
-                shape = RoundedCornerShape(18.dp),
-                shadowElevation = 2.dp,
-                modifier = Modifier.fillMaxWidth().testTag("btnInfoNivelAlerta")
+            TarjetaCampo(
+                titulo = "Nivel de alerta",
+                onInfo = onVerInfoNivel,
+                descripcionInfo = "Qué es el nivel de alerta",
+                tagInfo = "btnInfoNivelAlerta",
+                tintInfo = estilo.color
             ) {
-                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier.size(34.dp).background(estilo.color.copy(alpha = 0.12f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Outlined.HelpOutline,
-                            contentDescription = null,
-                            tint = estilo.color,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            "Nivel de alerta: ${estilo.etiqueta}",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
-                            color = PlagOutColors.TextMain
-                        )
-                        Text(
-                            "Qué significa y cómo se calcula con el IRA",
-                            fontSize = 12.sp,
-                            color = PlagOutColors.TextSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(18.dp))
+                Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
+                    SelloDeNivel(estilo, pulsante = false)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        estilo.descripcion,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        color = PlagOutColors.TextSecondary
+                    )
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -452,6 +465,43 @@ private fun ContenidoMonitoreoDetalle(
         }
 
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+
+@Composable
+private fun TarjetaCampo(
+    titulo: String,
+    onInfo: () -> Unit,
+    descripcionInfo: String,
+    tagInfo: String,
+    tintInfo: Color = PlagOutColors.Forest,
+    contenido: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        color = PlagOutColors.Surface,
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    titulo,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    color = PlagOutColors.TextMain,
+                    modifier = Modifier.weight(1f)
+                )
+                BotonInfoCampo(
+                    onClick = onInfo,
+                    contentDescription = descripcionInfo,
+                    tint = tintInfo,
+                    modifier = Modifier.testTag(tagInfo)
+                )
+            }
+            contenido()
+        }
     }
 }
 

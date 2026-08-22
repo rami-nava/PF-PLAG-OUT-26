@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.plag_out.ui.theme.BotonInfoCampo
 import com.example.plag_out.ui.theme.PlagOutColors
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -63,6 +64,7 @@ fun AgregarMonitoreoScreen(
     var dropdownTerrenoExpanded by remember { mutableStateOf(false) }
     var dropdownPlantacionExpanded by remember { mutableStateOf(false) }
     var dropdownPlagaExpanded by remember { mutableStateOf(false) }
+    var mostrarInfoUmbral by remember { mutableStateOf(false) }
 
     // Salida por la flecha o por el gesto del sistema: las dos tienen que entregar lo ya creado.
     val salir = { onBack(viewModel.consumirCreadosPendientes()) }
@@ -420,7 +422,8 @@ fun AgregarMonitoreoScreen(
 
             UmbralDeRiesgoSlider(
                 umbralActual = state.umbralDeRiesgo,
-                onUmbralChange = { viewModel.actualizarUmbralDeRiesgo(it) }
+                onUmbralChange = { viewModel.actualizarUmbralDeRiesgo(it) },
+                onInfo = { mostrarInfoUmbral = true }
             )
 
             AnimatedVisibility(
@@ -473,6 +476,13 @@ fun AgregarMonitoreoScreen(
                 }
             }
         }
+    }
+
+    if (mostrarInfoUmbral) {
+        UmbralDeRiesgoSheet(
+            umbralActual = state.umbralDeRiesgo,
+            onDismiss = { mostrarInfoUmbral = false }
+        )
     }
 }
 
@@ -646,7 +656,9 @@ private fun PreviewFila(
 @Composable
 fun UmbralDeRiesgoSlider(
     umbralActual: Int,
-    onUmbralChange: (Int) -> Unit
+    onUmbralChange: (Int) -> Unit,
+    /** Si viene, se dibuja la "i" que explica qué es el umbral. */
+    onInfo: (() -> Unit)? = null
 ) {
     val colorRiesgo = when {
         umbralActual < 34 -> PlagOutColors.RiskOk
@@ -674,7 +686,16 @@ fun UmbralDeRiesgoSlider(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Umbral de riesgo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PlagOutColors.TextMain)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Umbral de riesgo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PlagOutColors.TextMain)
+                    if (onInfo != null) {
+                        BotonInfoCampo(
+                            onClick = onInfo,
+                            contentDescription = "Qué es el umbral de riesgo",
+                            modifier = Modifier.testTag("btnInfoUmbral")
+                        )
+                    }
+                }
 
                 Box(
                     modifier = Modifier

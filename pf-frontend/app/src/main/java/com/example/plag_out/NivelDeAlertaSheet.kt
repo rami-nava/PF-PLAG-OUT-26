@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -65,29 +66,22 @@ fun NivelDeAlertaSheet(nivelActual: Int?, onDismiss: () -> Unit) {
                 fontWeight = FontWeight.ExtraBold,
                 color = PlagOutColors.TextMain
             )
+            Spacer(Modifier.height(12.dp))
+
             Text(
-                "Bajo · Moderado · Alto",
-                fontSize = 12.sp,
-                color = PlagOutColors.TextSecondary,
-                modifier = Modifier.padding(top = 4.dp)
+                "Resume en tres escalones qué tan favorables fueron las condiciones ambientales " +
+                    "para la plaga. No mide lo que hay hoy en el lote: estima la densidad " +
+                    "poblacional que podés esperar.",
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                color = PlagOutColors.TextSecondary
             )
 
             Spacer(Modifier.height(16.dp))
 
-            Text(
-                "El nivel de alerta resume, en tres escalones, qué tan favorables fueron las " +
-                    "condiciones ambientales para el desarrollo de la plaga que estás monitoreando. " +
-                    "No mide la plaga que hay hoy en el lote: estima el riesgo —la densidad " +
-                    "poblacional que se espera encontrar— si las condiciones siguen así.",
-                fontSize = 14.sp,
-                color = PlagOutColors.TextSecondary
-            )
-
-            Spacer(Modifier.height(20.dp))
-
             TarjetaIRA()
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
 
             Text(
                 "Los tres niveles",
@@ -97,20 +91,27 @@ fun NivelDeAlertaSheet(nivelActual: Int?, onDismiss: () -> Unit) {
             )
             Spacer(Modifier.height(10.dp))
 
-            FilaNivelDeAlerta(0, destacado = nivelActual == 0)
-            FilaNivelDeAlerta(1, destacado = nivelActual == 1)
-            FilaNivelDeAlerta(2, destacado = nivelActual != null && nivelActual >= 2)
+            val destacados = listOf(
+                nivelActual == 0,
+                nivelActual == 1,
+                nivelActual != null && nivelActual >= 2
+            )
+            // Solo el nivel del monitoreo abierto suma la recomendación.
+            destacados.forEachIndexed { nivel, destacado ->
+                FilaNivelDeAlerta(nivel, destacado = destacado, mostrarRecomendacion = destacado)
+            }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
 
             Text(
-                "El umbral de riesgo que elegís en cada monitoreo define a partir de qué porcentaje " +
-                    "querés que te avisemos. El IRA se recalcula una vez por día.",
+                "Se recalcula una vez por día. El umbral de riesgo define desde qué porcentaje " +
+                    "querés que te avisemos.",
                 fontSize = 12.sp,
+                lineHeight = 17.sp,
                 color = PlagOutColors.TextSecondary
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
             Button(
                 onClick = onDismiss,
@@ -179,10 +180,31 @@ fun TarjetaConcepto(
 fun TarjetaIRA(modifier: Modifier = Modifier) {
     TarjetaConcepto(Icons.Outlined.Insights, "¿Qué es el IRA?", modifier) {
         Text(
-            "IRA es el Índice de Riesgo Ambiental: combina los GDD acumulados de tu plantación con " +
-                "las condiciones que fue viendo la plaga para estimar cuánto la favoreció el ambiente. " +
-                "De ese índice sale el nivel de alerta y el porcentaje que ves en el anillo de riesgo.",
+            "Índice de Riesgo Ambiental: combina los GDD acumulados con las condiciones que " +
+                "atravesó la plaga para estimar cuánto la favoreció el ambiente. De ahí salen el " +
+                "nivel de alerta y el porcentaje del anillo.",
             fontSize = 13.sp,
+            color = PlagOutColors.TextSecondary
+        )
+    }
+}
+
+/** Bloque explicativo de los GDD; lo comparten la ayuda general y la hoja del umbral de riesgo. */
+@Composable
+fun TarjetaGDD(modifier: Modifier = Modifier) {
+    TarjetaConcepto(Icons.Outlined.Thermostat, "¿Qué son los GDD?", modifier) {
+        Text(
+            "Grados Día de Crecimiento: el calor que se fue acumulando desde que arranca el conteo " +
+                "(la siembra de tu plantación o el biofix de la plaga). Cada plaga necesita juntar " +
+                "cierta cantidad para eclosionar, y ese total es el objetivo del monitoreo.",
+            fontSize = 13.sp,
+            color = PlagOutColors.TextSecondary
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Los valores se recalculan una vez por día.",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
             color = PlagOutColors.TextSecondary
         )
     }
@@ -193,7 +215,11 @@ fun TarjetaIRA(modifier: Modifier = Modifier) {
  * monitoreo que se está viendo.
  */
 @Composable
-fun FilaNivelDeAlerta(nivel: Int, destacado: Boolean = false) {
+fun FilaNivelDeAlerta(
+    nivel: Int,
+    destacado: Boolean = false,
+    mostrarRecomendacion: Boolean = true
+) {
     val estilo = estiloDeNivel(nivel)
     val fondo = if (destacado) estilo.color.copy(alpha = 0.08f) else PlagOutColors.Surface
 
@@ -229,7 +255,7 @@ fun FilaNivelDeAlerta(nivel: Int, destacado: Boolean = false) {
             fontSize = 12.sp,
             color = PlagOutColors.TextSecondary
         )
-        if (estilo.recomendacion.isNotBlank()) {
+        if (mostrarRecomendacion && estilo.recomendacion.isNotBlank()) {
             Spacer(Modifier.height(4.dp))
             Text(
                 estilo.recomendacion,

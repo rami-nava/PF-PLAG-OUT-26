@@ -28,11 +28,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Egg
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.Schedule
@@ -106,12 +109,12 @@ fun MonitoreosScreen(
     // -1 = activos; 0/1/2 = nivel de alerta (activos); FILTRO_FINALIZADOS = finalizados
     var filtro by rememberSaveable { mutableStateOf(-1) }
     var filtrosExpandidos by rememberSaveable { mutableStateOf(false) }
+    // Por defecto, el % de eclosión más alto arriba: lo más cerca de eclosionar, primero.
+    var criterioOrden by rememberSaveable { mutableStateOf(ORDEN_PROGRESO) }
+    var ordenAscendente by rememberSaveable { mutableStateOf(false) }
 
-    val ordenados = remember(state.monitoreos) {
-        state.monitoreos.sortedWith(
-            compareByDescending<MonitoreoResponse> { it.nivel_alerta }
-                .thenByDescending { it.progreso }
-        )
+    val ordenados = remember(state.monitoreos, criterioOrden, ordenAscendente) {
+        ordenarMonitoreos(state.monitoreos, criterioOrden, ordenAscendente)
     }
     val filtrados = remember(ordenados, filtro) {
         when (filtro) {
@@ -168,6 +171,8 @@ fun MonitoreosScreen(
                     OpcionFiltro(FILTRO_FINALIZADOS, "Finalizados", state.monitoreos.count { !it.activo }, Icons.Filled.Flag, PlagOutColors.TextSecondary)
                 )
             }
+            val etiquetaOrden = (if (criterioOrden == ORDEN_DIAS_AL_UMBRAL) "días al umbral" else "% de eclosión") +
+                if (ordenAscendente) " ↑" else " ↓"
             val hayFiltroActivo = filtro != -1
             // Con "Finalizados" el universo es todo el histórico, no solo los activos
             val totalBase = if (filtro == FILTRO_FINALIZADOS) state.monitoreos.size else activos.size
@@ -177,9 +182,9 @@ fun MonitoreosScreen(
                 hayFiltroActivo = hayFiltroActivo,
                 etiquetaAbrir = "Filtrar monitoreos",
                 resumen = if (hayFiltroActivo) {
-                    "Mostrando ${filtrados.size} de $totalBase (Filtros activos)"
+                    "Mostrando ${filtrados.size} de $totalBase · por $etiquetaOrden"
                 } else {
-                    "Mostrando ${activos.size} ${if (activos.size == 1) "monitoreo" else "monitoreos"}"
+                    "Mostrando ${activos.size} ${if (activos.size == 1) "monitoreo" else "monitoreos"} · por $etiquetaOrden"
                 },
                 onLimpiar = { filtro = -1 }
             ) {
@@ -188,6 +193,24 @@ fun MonitoreosScreen(
                     opciones = opciones,
                     seleccionado = filtro,
                     onSeleccion = { filtro = it },
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    EncabezadoGrupoFiltro(Icons.AutoMirrored.Outlined.Sort, "ORDENAR POR")
+                    Spacer(Modifier.weight(1f))
+                    BotonDireccionOrden(
+                        ascendente = ordenAscendente,
+                        onToggle = { ordenAscendente = !ordenAscendente }
+                    )
+                }
+                FiltroChipsRow(
+                    opciones = listOf(
+                        OpcionFiltro(ORDEN_PROGRESO, "% de eclosión", icono = Icons.Outlined.Egg),
+                        OpcionFiltro(ORDEN_DIAS_AL_UMBRAL, "Días al umbral", icono = Icons.Outlined.Schedule)
+                    ),
+                    seleccionado = criterioOrden,
+                    onSeleccion = { criterioOrden = it },
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
             }
@@ -367,32 +390,103 @@ private fun LeyendaEstado(estilo: NivelEstilo, cantidad: Int) {
 
 // ── Dominio: proyección de días al umbral ───────────────────────────────────
 
-/**
- * Días estimados hasta alcanzar el GDD objetivo, o null si ya se alcanzó o si no hay forma de
- * proyectar un ritmo diario. Única fuente de esta cuenta: la usan tanto [MonitoreoCard] como la
- * pantalla de detalle de monitoreo.
- */
+fun alcanzoElUmbral(monitoreo: MonitoreoResponse): Boolean =
+    monitoreo.gdd_objetivo - monitoreo.gdd_acumulado <= 0f || monitoreo.progreso >= 100f
+
+
 @RequiresApi(Build.VERSION_CODES.O)
 fun diasEstimadosAlUmbral(monitoreo: MonitoreoResponse): Int? {
     val restante = monitoreo.gdd_objetivo - monitoreo.gdd_acumulado
-    val umbralAlcanzado = restante <= 0f || monitoreo.progreso >= 100f
-    if (umbralAlcanzado) return null
+    if (alcanzoElUmbral(monitoreo)) return null
 
     val promedioDiario = promedioGddDiario(monitoreo)
     return if (promedioDiario > 0f) ceil(restante / promedioDiario).toInt() else null
 }
 
-/**
- * Promedio de GDD acumulados por día desde `fecha_inicio`. Más estable que `gdd_diario` (el
- * ritmo de un solo día), que puede variar mucho por el clima puntual de esa jornada. Si el
- * backend todavía no manda `fecha_inicio`, o el monitoreo arrancó hoy mismo (0 días
- * transcurridos), no hay historial para promediar y se cae al GDD del día como aproximación.
- */
+
 @RequiresApi(Build.VERSION_CODES.O)
 private fun promedioGddDiario(monitoreo: MonitoreoResponse): Float {
     val inicio = monitoreo.fecha_inicio ?: return monitoreo.gdd_diario
     val diasTranscurridos = ChronoUnit.DAYS.between(inicio, monitoreo.fecha_actualizacion)
     return if (diasTranscurridos > 0) monitoreo.gdd_acumulado / diasTranscurridos else monitoreo.gdd_diario
+}
+
+/** Invierte el orden. La flecha rota al cambiar, para que se lea como una sola cosa que gira. */
+@Composable
+private fun BotonDireccionOrden(ascendente: Boolean, onToggle: () -> Unit) {
+    val rotacion by animateFloatAsState(
+        targetValue = if (ascendente) 180f else 0f,
+        animationSpec = tween(280, easing = FastOutSlowInEasing),
+        label = "rotacionOrden"
+    )
+    Surface(
+        onClick = onToggle,
+        shape = CircleShape,
+        color = PlagOutColors.Surface,
+        border = BorderStroke(1.dp, PlagOutColors.Divider),
+        modifier = Modifier
+            .padding(end = 16.dp)
+            .testTag("btnDireccionOrden")
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Filled.ArrowDownward,
+                contentDescription = if (ascendente) "Orden ascendente" else "Orden descendente",
+                tint = PlagOutColors.Forest,
+                modifier = Modifier
+                    .size(14.dp)
+                    .graphicsLayer { rotationZ = rotacion }
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                if (ascendente) "Menor a mayor" else "Mayor a menor",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = PlagOutColors.TextMain
+            )
+        }
+    }
+}
+
+// ── Orden de la lista ───────────────────────────────────────────────────────
+
+const val ORDEN_PROGRESO = 0
+const val ORDEN_DIAS_AL_UMBRAL = 1
+
+
+@RequiresApi(Build.VERSION_CODES.O)
+fun clavePorDiasAlUmbral(monitoreo: MonitoreoResponse): Int? =
+    if (alcanzoElUmbral(monitoreo)) 0 else diasEstimadosAlUmbral(monitoreo)
+
+/**
+ * Ordena por [ORDEN_PROGRESO] (% de eclosión) o [ORDEN_DIAS_AL_UMBRAL]. Los monitoreos sin días
+ * proyectables van al final en las dos direcciones: no son "los que más faltan", son desconocidos.
+ * Con [finalizadosAlFinal] los finalizados se hunden al fondo cualquiera sea su progreso, porque ya
+ * no piden ninguna acción. Desempate por id para que el orden no baile entre recomposiciones.
+ */
+@RequiresApi(Build.VERSION_CODES.O)
+fun ordenarMonitoreos(
+    monitoreos: List<MonitoreoResponse>,
+    criterio: Int,
+    ascendente: Boolean,
+    finalizadosAlFinal: Boolean = false
+): List<MonitoreoResponse> {
+    val porCriterio: Comparator<MonitoreoResponse> = if (criterio == ORDEN_DIAS_AL_UMBRAL) {
+        compareBy<MonitoreoResponse> { clavePorDiasAlUmbral(it) == null }
+            .then(
+                if (ascendente) compareBy { clavePorDiasAlUmbral(it) ?: 0 }
+                else compareByDescending { clavePorDiasAlUmbral(it) ?: 0 }
+            )
+    } else {
+        if (ascendente) compareBy { it.progreso } else compareByDescending { it.progreso }
+    }
+    val comparador =
+        if (finalizadosAlFinal) compareBy<MonitoreoResponse> { !it.activo }.then(porCriterio)
+        else porCriterio
+    return monitoreos.sortedWith(comparador.thenBy { it.monitoreo_id })
 }
 
 // ── Card de monitoreo ───────────────────────────────────────────────────────
@@ -407,8 +501,7 @@ fun MonitoreoCard(
     val interactionSource = remember { MutableInteractionSource() }
     val escala = rememberPressScale(interactionSource)
 
-    val restante = monitoreo.gdd_objetivo - monitoreo.gdd_acumulado
-    val umbralAlcanzado = monitoreo.activo && (restante <= 0f || monitoreo.progreso >= 100f)
+    val umbralAlcanzado = monitoreo.activo && alcanzoElUmbral(monitoreo)
     val diasEstimados = diasEstimadosAlUmbral(monitoreo)
 
     Surface(
@@ -524,7 +617,14 @@ fun MonitoreosPorPlantacion(
 ) {
     val state by viewModel.state.collectAsState()
     val plantacionesState by plantacionesViewModel.state.collectAsState()
-    val monitoreosFiltrados = state.monitoreos.filter { it.plantacion_id == plantacionId }
+    val monitoreosFiltrados = remember(state.monitoreos, plantacionId) {
+        ordenarMonitoreos(
+            state.monitoreos.filter { it.plantacion_id == plantacionId },
+            criterio = ORDEN_PROGRESO,
+            ascendente = false,
+            finalizadosAlFinal = true
+        )
+    }
     val referencia = monitoreosFiltrados.firstOrNull()
     val plantacion = plantacionesState.plantaciones.find { it.plantacion_id == plantacionId }
 
@@ -655,11 +755,13 @@ private fun InformacionPlantacionTab(
     var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
     var mostrarDialogoEliminar by remember { mutableStateOf(false) }
 
-    val sanos = monitoreosDeLaPlantacion.count { it.nivel_alerta == 0 }
-    val atencion = monitoreosDeLaPlantacion.count { it.nivel_alerta == 1 }
-    val criticos = monitoreosDeLaPlantacion.count { it.nivel_alerta >= 2 }
+    val activos = monitoreosDeLaPlantacion.filter { it.activo }
+    val finalizados = monitoreosDeLaPlantacion.size - activos.size
+    val sanos = activos.count { it.nivel_alerta == 0 }
+    val atencion = activos.count { it.nivel_alerta == 1 }
+    val criticos = activos.count { it.nivel_alerta >= 2 }
     val total = monitoreosDeLaPlantacion.size
-    val totalAnimado = contadorAnimado(total)
+    val activosAnimado = contadorAnimado(activos.size)
     val diasDesdeSiembra = plantacion?.let { ChronoUnit.DAYS.between(it.fecha_siembra, LocalDate.now()).toInt() }
 
     Column(
@@ -700,13 +802,13 @@ private fun InformacionPlantacionTab(
                     atencion to estiloDeNivel(1).color,
                     criticos to estiloDeNivel(2).color
                 ),
-                total = total,
+                total = activos.size,
                 modifier = Modifier.size(104.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("$totalAnimado", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
+                    Text("$activosAnimado", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
                     Text(
-                        if (total == 1) "monitoreo" else "monitoreos",
+                        if (activos.size == 1) "activo" else "activos",
                         fontSize = 10.sp,
                         color = PlagOutColors.TextSecondary,
                         fontWeight = FontWeight.Medium
@@ -718,6 +820,11 @@ private fun InformacionPlantacionTab(
                 LeyendaEstadoTerrenoClaro(estiloDeNivel(0), sanos)
                 LeyendaEstadoTerrenoClaro(estiloDeNivel(1), atencion)
                 LeyendaEstadoTerrenoClaro(estiloDeNivel(2), criticos)
+                // Fuera del anillo a propósito: son historial, no estado actual.
+                if (finalizados > 0) {
+                    HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.width(140.dp))
+                    LeyendaEstadoTerrenoClaro(estiloFinalizado(), finalizados)
+                }
             }
         }
 
@@ -745,6 +852,14 @@ private fun InformacionPlantacionTab(
         if (total == 0) {
             Spacer(Modifier.height(10.dp))
             EtiquetaInfo(Icons.Outlined.BugReport, "Todavía no hay monitoreos en esta plantación", PlagOutColors.RiskUnknown)
+        } else if (activos.isEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            EtiquetaInfo(
+                Icons.Filled.Flag,
+                if (finalizados == 1) "El único monitoreo de esta plantación está finalizado"
+                else "Los $finalizados monitoreos de esta plantación están finalizados",
+                PlagOutColors.Bark
+            )
         }
 
         if (plantacion != null) {

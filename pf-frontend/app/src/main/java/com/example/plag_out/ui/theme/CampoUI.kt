@@ -43,10 +43,12 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -433,6 +435,23 @@ fun EstadisticaCompacta(etiqueta: String, valor: String, modifier: Modifier = Mo
 }
 
 @Composable
+fun BotonInfoCampo(
+    onClick: () -> Unit,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    tint: Color = PlagOutColors.Forest
+) {
+    IconButton(onClick = onClick, modifier = modifier.size(32.dp)) {
+        Icon(
+            Icons.Outlined.Info,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+@Composable
 fun EtiquetaInfo(icono: ImageVector, texto: String, color: Color, modifier: Modifier = Modifier) {
     Row(
         modifier
@@ -451,7 +470,7 @@ fun EtiquetaInfo(icono: ImageVector, texto: String, color: Color, modifier: Modi
 data class OpcionFiltro(
     val id: Int,
     val etiqueta: String,
-    val cantidad: Int,
+    val cantidad: Int? = null,
     val icono: ImageVector? = null,
     val colorIcono: Color = PlagOutColors.TextMain
 )
@@ -503,13 +522,15 @@ fun FiltroChipsRow(
                         Spacer(Modifier.width(6.dp))
                     }
                     Text(opcion.etiqueta, color = tinta, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        "${opcion.cantidad}",
-                        color = tinta.copy(alpha = 0.65f),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (opcion.cantidad != null) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "${opcion.cantidad}",
+                            color = tinta.copy(alpha = 0.65f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
