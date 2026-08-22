@@ -4,8 +4,10 @@ import android.net.Uri
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -15,6 +17,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,11 +31,15 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Landscape
+import androidx.compose.material.icons.outlined.NearMe
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -44,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,6 +79,15 @@ import java.util.Locale
 
 private const val FILTRO_TODOS = "Todos"
 
+private const val DISTANCIA_TODAS = -1
+
+private val RADIOS_KM = listOf(5, 10, 25, 50)
+
+private const val TAB_PROPIOS = 0
+private const val TAB_COMUNIDAD = 1
+
+private val AzulComunidad = Color(0xFF1565C0)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -84,19 +101,62 @@ fun MisReportesScreen(
         viewModel.cargarReportes()
     }
 
-    var filtroSeveridad by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
-    var filtroTerreno by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
+    var tabSeleccionado by rememberSaveable { mutableIntStateOf(TAB_PROPIOS) }
     var filtrosExpandidos by rememberSaveable { mutableStateOf(false) }
 
-    val terrenosDisponibles = remember(state.reportes) {
-        state.reportes.map { it.terreno_nombre ?: "Sin terreno" }.filter { it.isNotBlank() }.distinct().sorted()
+    // Filtros separados por ámbito: si se compartieran, cambiar de pestaña dejaría
+    // aplicado un filtro que ahí no significa nada y la lista aparecería vacía.
+    var filtroSeveridadPropios by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
+    var filtroTerreno by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
+    var filtroSeveridadComunidad by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
+    var filtroDistancia by rememberSaveable { mutableIntStateOf(DISTANCIA_TODAS) }
+    var filtroPlaga by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
+
+    val reportesPropios = remember(state.reportes) { state.reportes.filter { it.es_propio } }
+    val reportesComunidad = remember(state.reportes) { state.reportes.filterNot { it.es_propio } }
+
+    val esComunidad = tabSeleccionado == TAB_COMUNIDAD
+    val reportesAmbito = if (esComunidad) reportesComunidad else reportesPropios
+    val filtroSeveridad = if (esComunidad) filtroSeveridadComunidad else filtroSeveridadPropios
+
+    val terrenosDisponibles = remember(reportesPropios) {
+        reportesPropios.map { it.terreno_nombre ?: "Sin terreno" }.filter { it.isNotBlank() }.distinct().sorted()
+    }
+    val plagasDisponibles = remember(reportesComunidad) {
+        reportesComunidad.map { it.plaga_nombre }.filter { it.isNotBlank() }.distinct().sorted()
     }
 
-    val reportesFiltrados = remember(state.reportes, filtroSeveridad, filtroTerreno) {
-        state.reportes.filter { r ->
-            val coincideSeveridad = filtroSeveridad == FILTRO_TODOS || r.nivel_severidad.equals(filtroSeveridad, ignoreCase = true)
-            val coincideTerreno = filtroTerreno == FILTRO_TODOS || (r.terreno_nombre ?: "Sin terreno").equals(filtroTerreno, ignoreCase = true)
-            coincideSeveridad && coincideTerreno
+    val reportesFiltrados = remember(
+        reportesAmbito, esComunidad, filtroSeveridad, filtroTerreno, filtroDistancia, filtroPlaga
+    ) {
+        reportesAmbito.filter { r ->
+            val coincideSeveridad =
+                filtroSeveridad == FILTRO_TODOS || r.nivel_severidad.equals(filtroSeveridad, ignoreCase = true)
+            val coincideAmbito = if (esComunidad) {
+                val coincideDistancia = filtroDistancia == DISTANCIA_TODAS || dentroDelRadio(r, filtroDistancia)
+                val coincidePlaga = filtroPlaga == FILTRO_TODOS || r.plaga_nombre.equals(filtroPlaga, ignoreCase = true)
+                coincideDistancia && coincidePlaga
+            } else {
+                filtroTerreno == FILTRO_TODOS || (r.terreno_nombre ?: "Sin terreno").equals(filtroTerreno, ignoreCase = true)
+            }
+            coincideSeveridad && coincideAmbito
+        }
+    }
+
+    val hayFiltroActivo = if (esComunidad) {
+        filtroSeveridadComunidad != FILTRO_TODOS || filtroDistancia != DISTANCIA_TODAS || filtroPlaga != FILTRO_TODOS
+    } else {
+        filtroSeveridadPropios != FILTRO_TODOS || filtroTerreno != FILTRO_TODOS
+    }
+
+    val limpiarFiltrosDelAmbito = {
+        if (esComunidad) {
+            filtroSeveridadComunidad = FILTRO_TODOS
+            filtroDistancia = DISTANCIA_TODAS
+            filtroPlaga = FILTRO_TODOS
+        } else {
+            filtroSeveridadPropios = FILTRO_TODOS
+            filtroTerreno = FILTRO_TODOS
         }
     }
 
@@ -140,83 +200,119 @@ fun MisReportesScreen(
                 .padding(padding)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Header unificado con gradiente verde
-                PanelHeaderReportes(totalReportes = state.reportes.size, reportes = state.reportes)
+                PanelHeaderReportes(
+                    tabSeleccionado = tabSeleccionado,
+                    onTabChange = { tabSeleccionado = it },
+                    reportesPropios = reportesPropios,
+                    reportesComunidad = reportesComunidad
+                )
 
-                // Panel superior de filtros (Barra Toggle + Contenido Plegable)
-                val filtroActivo = filtroSeveridad != FILTRO_TODOS || filtroTerreno != FILTRO_TODOS
-                val totalOriginal = state.reportes.size
-                val totalFiltrados = reportesFiltrados.size
 
-                PanelFiltrosPlegable(
-                    expandido = filtrosExpandidos,
-                    onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
-                    hayFiltroActivo = filtroActivo,
-                    etiquetaAbrir = "Filtrar reportes",
-                    resumen = if (filtroActivo) {
-                        "Mostrando $totalFiltrados de $totalOriginal (Filtros activos)"
-                    } else {
-                        "Mostrando $totalOriginal reportes"
-                    },
-                    onLimpiar = {
-                        filtroSeveridad = FILTRO_TODOS
-                        filtroTerreno = FILTRO_TODOS
-                    }
-                ) {
-                    // --- Categoría 1: Nivel de Severidad ---
-                    EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE SEVERIDAD")
+                if (reportesAmbito.isNotEmpty()) {
+                    val totalOriginal = reportesAmbito.size
+                    val totalFiltrados = reportesFiltrados.size
 
-                    val opcionesSeveridad = remember(state.reportes) {
-                        listOf(
-                            OpcionFiltro(-1, "Severidad: Todas", state.reportes.size, Icons.Outlined.FilterList),
-                            OpcionFiltro(0, "Alto", state.reportes.count { it.nivel_severidad.equals("Alto", ignoreCase = true) }, Icons.Default.ErrorOutline, Color(0xFFC62828)),
-                            OpcionFiltro(1, "Medio", state.reportes.count { it.nivel_severidad.equals("Medio", ignoreCase = true) }, Icons.Default.WarningAmber, Color(0xFFEF6C00)),
-                            OpcionFiltro(2, "Bajo", state.reportes.count { it.nivel_severidad.equals("Bajo", ignoreCase = true) }, Icons.Default.CheckCircle, Color(0xFF2E7D32))
-                        )
-                    }
-                    val chipSeveridadSeleccionadoId = when (filtroSeveridad) {
-                        "Alto" -> 0
-                        "Medio" -> 1
-                        "Bajo" -> 2
-                        else -> -1
-                    }
-                    FiltroChipsRow(
-                        opciones = opcionesSeveridad,
-                        seleccionado = chipSeveridadSeleccionadoId,
-                        onSeleccion = { id ->
-                            filtroSeveridad = when (id) {
-                                0 -> "Alto"
-                                1 -> "Medio"
-                                2 -> "Bajo"
-                                else -> FILTRO_TODOS
-                            }
+                    PanelFiltrosPlegable(
+                        expandido = filtrosExpandidos,
+                        onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
+                        hayFiltroActivo = hayFiltroActivo,
+                        etiquetaAbrir = if (esComunidad) "Filtrar reportes cercanos" else "Filtrar mis reportes",
+                        resumen = if (hayFiltroActivo) {
+                            "Mostrando $totalFiltrados de $totalOriginal (Filtros activos)"
+                        } else {
+                            "Mostrando $totalOriginal ${if (totalOriginal == 1) "reporte" else "reportes"}"
                         },
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-
-                    // --- Categoría 2: Terreno / Lugar ---
-                    if (terrenosDisponibles.isNotEmpty()) {
-                        EncabezadoGrupoFiltro(Icons.Outlined.Landscape, "TERRENO / LUGAR")
-
-                        val opcionesTerrenos = remember(state.reportes, terrenosDisponibles) {
-                            val list = mutableListOf(
-                                OpcionFiltro(-1, "Terrenos: Todos", state.reportes.size, Icons.Outlined.Landscape, PlagOutColors.Forest)
-                            )
-                            terrenosDisponibles.forEachIndexed { index, terreno ->
-                                val cant = state.reportes.count { (it.terreno_nombre ?: "Sin terreno") == terreno }
-                                list.add(OpcionFiltro(index, terreno, cant, Icons.Outlined.Landscape, PlagOutColors.Forest))
+                        onLimpiar = limpiarFiltrosDelAmbito
+                    ) {
+                        // --- Categoría común: Nivel de Severidad ---
+                        GrupoFiltroSeveridad(
+                            reportes = reportesAmbito,
+                            seleccionado = filtroSeveridad,
+                            onSeleccion = { nivel ->
+                                if (esComunidad) filtroSeveridadComunidad = nivel else filtroSeveridadPropios = nivel
                             }
-                            list
-                        }
-                        val chipTerrenoSeleccionadoId = if (filtroTerreno == FILTRO_TODOS) -1 else terrenosDisponibles.indexOf(filtroTerreno)
-                        FiltroChipsRow(
-                            opciones = opcionesTerrenos,
-                            seleccionado = chipTerrenoSeleccionadoId,
-                            onSeleccion = { id ->
-                                filtroTerreno = if (id in terrenosDisponibles.indices) terrenosDisponibles[id] else FILTRO_TODOS
-                            },
-                            modifier = Modifier.padding(vertical = 4.dp)
                         )
+
+                        if (esComunidad) {
+                            EncabezadoGrupoFiltro(Icons.Outlined.Explore, "CERCANÍA")
+
+                            val opcionesDistancia = remember(reportesComunidad) {
+                                val list = mutableListOf(
+                                    OpcionFiltro(
+                                        DISTANCIA_TODAS, "Distancia: Toda", reportesComunidad.size,
+                                        Icons.Outlined.Explore, AzulComunidad
+                                    )
+                                )
+                                RADIOS_KM.forEach { radio ->
+                                    val cant = reportesComunidad.count { dentroDelRadio(it, radio) }
+                                    list.add(
+                                        OpcionFiltro(radio, "Hasta $radio km", cant, Icons.Outlined.NearMe, AzulComunidad)
+                                    )
+                                }
+                                list
+                            }
+                            FiltroChipsRow(
+                                opciones = opcionesDistancia,
+                                seleccionado = filtroDistancia,
+                                onSeleccion = { id -> filtroDistancia = id },
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+
+
+                            if (plagasDisponibles.size > 1) {
+                                EncabezadoGrupoFiltro(Icons.Outlined.BugReport, "PLAGA")
+
+                                val opcionesPlagas = remember(reportesComunidad, plagasDisponibles) {
+                                    val list = mutableListOf(
+                                        OpcionFiltro(
+                                            -1, "Plagas: Todas", reportesComunidad.size,
+                                            Icons.Outlined.BugReport, PlagOutColors.Forest
+                                        )
+                                    )
+                                    plagasDisponibles.forEachIndexed { index, plaga ->
+                                        val cant = reportesComunidad.count { it.plaga_nombre == plaga }
+                                        list.add(
+                                            OpcionFiltro(index, plaga, cant, Icons.Outlined.BugReport, PlagOutColors.Forest)
+                                        )
+                                    }
+                                    list
+                                }
+                                val chipPlagaSeleccionadaId =
+                                    if (filtroPlaga == FILTRO_TODOS) -1 else plagasDisponibles.indexOf(filtroPlaga)
+                                FiltroChipsRow(
+                                    opciones = opcionesPlagas,
+                                    seleccionado = chipPlagaSeleccionadaId,
+                                    onSeleccion = { id ->
+                                        filtroPlaga = if (id in plagasDisponibles.indices) plagasDisponibles[id] else FILTRO_TODOS
+                                    },
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            }
+                        } else if (terrenosDisponibles.isNotEmpty()) {
+                            // --- Terreno / Lugar: sólo tiene sentido sobre los propios ---
+                            EncabezadoGrupoFiltro(Icons.Outlined.Landscape, "TERRENO / LUGAR")
+
+                            val opcionesTerrenos = remember(reportesPropios, terrenosDisponibles) {
+                                val list = mutableListOf(
+                                    OpcionFiltro(-1, "Terrenos: Todos", reportesPropios.size, Icons.Outlined.Landscape, PlagOutColors.Forest)
+                                )
+                                terrenosDisponibles.forEachIndexed { index, terreno ->
+                                    val cant = reportesPropios.count { (it.terreno_nombre ?: "Sin terreno") == terreno }
+                                    list.add(OpcionFiltro(index, terreno, cant, Icons.Outlined.Landscape, PlagOutColors.Forest))
+                                }
+                                list
+                            }
+                            val chipTerrenoSeleccionadoId =
+                                if (filtroTerreno == FILTRO_TODOS) -1 else terrenosDisponibles.indexOf(filtroTerreno)
+                            FiltroChipsRow(
+                                opciones = opcionesTerrenos,
+                                seleccionado = chipTerrenoSeleccionadoId,
+                                onSeleccion = { id ->
+                                    filtroTerreno = if (id in terrenosDisponibles.indices) terrenosDisponibles[id] else FILTRO_TODOS
+                                },
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
                     }
                 }
 
@@ -224,28 +320,38 @@ fun MisReportesScreen(
                     AnimatedContent(
                         targetState = when {
                             state.isLoading -> "cargando"
-                            state.reportes.isEmpty() -> "vacio"
-                            reportesFiltrados.isEmpty() -> "sin-resultados"
-                            else -> "lista-$filtroSeveridad-$filtroTerreno"
+                            reportesAmbito.isEmpty() -> "vacio-$tabSeleccionado"
+                            reportesFiltrados.isEmpty() -> "sin-resultados-$tabSeleccionado"
+                            else -> "lista-$tabSeleccionado-$filtroSeveridad-$filtroTerreno-$filtroDistancia-$filtroPlaga"
                         },
                         transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(180)) },
                         label = "reportesContent"
                     ) { target ->
-                        when (target) {
-                            "cargando" -> SkeletonCargando(alturaTarjeta = 140.dp, cantidad = 4)
-                            "vacio" -> Box(
+                        when {
+                            target == "cargando" -> SkeletonCargando(alturaTarjeta = 140.dp, cantidad = 4)
+
+                            target.startsWith("vacio") -> Box(
                                 Modifier
                                     .fillMaxSize()
                                     .verticalScroll(rememberScrollState()),
                                 contentAlignment = Alignment.Center
                             ) {
-                                EstadoVacioFlotante(
-                                    icono = Icons.Outlined.BugReport,
-                                    titulo = "No tenés reportes cargados",
-                                    subtitulo = "Presioná el botón flotante '+' para registrar la presencia de plagas en tus terrenos."
-                                )
+                                if (esComunidad) {
+                                    EstadoVacioFlotante(
+                                        icono = Icons.Filled.Group,
+                                        titulo = "No hay reportes cerca de tus terrenos",
+                                        subtitulo = "Acá vas a ver lo que reportan otros productores en la zona de tus terrenos."
+                                    )
+                                } else {
+                                    EstadoVacioFlotante(
+                                        icono = Icons.Outlined.BugReport,
+                                        titulo = "No tenés reportes cargados",
+                                        subtitulo = "Presioná el botón flotante '+' para registrar la presencia de plagas en tus terrenos."
+                                    )
+                                }
                             }
-                            "sin-resultados" -> Box(
+
+                            target.startsWith("sin-resultados") -> Box(
                                 Modifier
                                     .fillMaxSize()
                                     .verticalScroll(rememberScrollState()),
@@ -253,13 +359,23 @@ fun MisReportesScreen(
                             ) {
                                 val detalleFiltro = buildString {
                                     if (filtroSeveridad != FILTRO_TODOS) append("severidad '$filtroSeveridad'")
-                                    if (filtroTerreno != FILTRO_TODOS) {
+                                    if (esComunidad) {
+                                        if (filtroDistancia != DISTANCIA_TODAS) {
+                                            if (isNotEmpty()) append(" y ")
+                                            append("a menos de $filtroDistancia km")
+                                        }
+                                        if (filtroPlaga != FILTRO_TODOS) {
+                                            if (isNotEmpty()) append(" y ")
+                                            append("plaga '$filtroPlaga'")
+                                        }
+                                    } else if (filtroTerreno != FILTRO_TODOS) {
                                         if (isNotEmpty()) append(" y ")
                                         append("terreno '$filtroTerreno'")
                                     }
                                 }
                                 EstadoSinResultados(subtitulo = "No hay reportes con $detalleFiltro.")
                             }
+
                             else -> LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
@@ -293,8 +409,63 @@ fun MisReportesScreen(
     }
 }
 
+
+private fun dentroDelRadio(reporte: ReporteDetalleResponse, radioKm: Int): Boolean {
+    val dist = reporte.distancia_km ?: return false
+    return dist <= radioKm
+}
+
+
+private fun formatearKm(km: Float): String =
+    String.format(Locale.getDefault(), if (km >= 10f) "%.0f" else "%.1f", km)
+
+
 @Composable
-private fun PanelHeaderReportes(totalReportes: Int, reportes: List<ReporteDetalleResponse>) {
+private fun GrupoFiltroSeveridad(
+    reportes: List<ReporteDetalleResponse>,
+    seleccionado: String,
+    onSeleccion: (String) -> Unit
+) {
+    EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE SEVERIDAD")
+
+    val opcionesSeveridad = remember(reportes) {
+        listOf(
+            OpcionFiltro(-1, "Severidad: Todas", reportes.size, Icons.Outlined.FilterList),
+            OpcionFiltro(0, "Alto", reportes.count { it.nivel_severidad.equals("Alto", ignoreCase = true) }, Icons.Default.ErrorOutline, Color(0xFFC62828)),
+            OpcionFiltro(1, "Medio", reportes.count { it.nivel_severidad.equals("Medio", ignoreCase = true) }, Icons.Default.WarningAmber, Color(0xFFEF6C00)),
+            OpcionFiltro(2, "Bajo", reportes.count { it.nivel_severidad.equals("Bajo", ignoreCase = true) }, Icons.Default.CheckCircle, Color(0xFF2E7D32))
+        )
+    }
+    val chipSeveridadSeleccionadoId = when (seleccionado) {
+        "Alto" -> 0
+        "Medio" -> 1
+        "Bajo" -> 2
+        else -> -1
+    }
+    FiltroChipsRow(
+        opciones = opcionesSeveridad,
+        seleccionado = chipSeveridadSeleccionadoId,
+        onSeleccion = { id ->
+            onSeleccion(
+                when (id) {
+                    0 -> "Alto"
+                    1 -> "Medio"
+                    2 -> "Bajo"
+                    else -> FILTRO_TODOS
+                }
+            )
+        },
+        modifier = Modifier.padding(vertical = 4.dp)
+    )
+}
+
+@Composable
+private fun PanelHeaderReportes(
+    tabSeleccionado: Int,
+    onTabChange: (Int) -> Unit,
+    reportesPropios: List<ReporteDetalleResponse>,
+    reportesComunidad: List<ReporteDetalleResponse>
+) {
     val respiracion = rememberInfiniteTransition(label = "respiracionHeaderReportes")
     val escalaDecorativa by respiracion.animateFloat(
         initialValue = 1f,
@@ -302,6 +473,9 @@ private fun PanelHeaderReportes(totalReportes: Int, reportes: List<ReporteDetall
         animationSpec = infiniteRepeatable(tween(4200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "escalaDecorativa"
     )
+
+    val reportes = if (tabSeleccionado == TAB_COMUNIDAD) reportesComunidad else reportesPropios
+    val totalReportes = reportes.size
 
     val conteoAlto = remember(reportes) { reportes.count { it.nivel_severidad.equals("Alto", ignoreCase = true) } }
     val conteoMedio = remember(reportes) { reportes.count { it.nivel_severidad.equals("Medio", ignoreCase = true) } }
@@ -348,6 +522,15 @@ private fun PanelHeaderReportes(totalReportes: Int, reportes: List<ReporteDetall
                 fontWeight = FontWeight.ExtraBold
             )
 
+            Spacer(Modifier.height(14.dp))
+
+            SelectorAmbito(
+                tabSeleccionado = tabSeleccionado,
+                onTabChange = onTabChange,
+                cantidadPropios = reportesPropios.size,
+                cantidadComunidad = reportesComunidad.size
+            )
+
             Spacer(Modifier.height(18.dp))
 
             // La severidad de un reporte se pinta con la misma paleta sobre oscuro que el
@@ -388,7 +571,88 @@ private fun PanelHeaderReportes(totalReportes: Int, reportes: List<ReporteDetall
     }
 }
 
-/** Fila de la leyenda del header, en el mismo formato que la de Monitoreos y Terrenos. */
+@Composable
+private fun SelectorAmbito(
+    tabSeleccionado: Int,
+    onTabChange: (Int) -> Unit,
+    cantidadPropios: Int,
+    cantidadComunidad: Int
+) {
+    Surface(
+        color = PlagOutColors.TextOnDark.copy(alpha = 0.14f),
+        shape = CircleShape,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(46.dp)
+    ) {
+        BoxWithConstraints(Modifier.padding(4.dp)) {
+            val anchoSegmento = maxWidth / 2
+            val desplazamiento by animateDpAsState(
+                targetValue = if (tabSeleccionado == TAB_COMUNIDAD) anchoSegmento else 0.dp,
+                animationSpec = tween(320, easing = FastOutSlowInEasing),
+                label = "indicadorAmbito"
+            )
+            Box(
+                Modifier
+                    .offset(x = desplazamiento)
+                    .width(anchoSegmento)
+                    .fillMaxHeight()
+                    .background(PlagOutColors.Cream, CircleShape)
+            )
+            Row(Modifier.fillMaxSize()) {
+                SegmentoAmbito(
+                    activo = tabSeleccionado == TAB_PROPIOS,
+                    icono = Icons.Outlined.Person,
+                    etiqueta = "Míos",
+                    cantidad = cantidadPropios,
+                    onClick = { onTabChange(TAB_PROPIOS) },
+                    modifier = Modifier.testTag("tabReportesPropios")
+                )
+                SegmentoAmbito(
+                    activo = tabSeleccionado == TAB_COMUNIDAD,
+                    icono = Icons.Filled.Group,
+                    etiqueta = "Comunidad",
+                    cantidad = cantidadComunidad,
+                    onClick = { onTabChange(TAB_COMUNIDAD) },
+                    modifier = Modifier.testTag("tabReportesComunidad")
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.SegmentoAmbito(
+    activo: Boolean,
+    icono: ImageVector,
+    etiqueta: String,
+    cantidad: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tinta by animateColorAsState(
+        targetValue = if (activo) PlagOutColors.Forest else PlagOutColors.TextOnDark.copy(alpha = 0.82f),
+        animationSpec = tween(260),
+        label = "tintaAmbito"
+    )
+    Row(
+        modifier = modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .clip(CircleShape)
+            .clickable(enabled = !activo, onClick = onClick),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icono, contentDescription = null, tint = tinta, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(7.dp))
+        Text(etiqueta, color = tinta, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.width(6.dp))
+        Text("$cantidad", color = tinta.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+
 @Composable
 private fun LeyendaSeveridad(estilo: NivelEstilo, etiqueta: String, cantidad: Int) {
     val valor = contadorAnimado(cantidad)
@@ -432,17 +696,17 @@ fun TarjetaReporteItem(
     }
 
     val esPropio = reporte.es_propio
+    val distanciaFormateada = reporte.distancia_km?.let { formatearKm(it) }
     val terrenoNombre = if (esPropio) {
         reporte.terreno_nombre?.takeIf { it.isNotBlank() } ?: "Terreno no especificado"
     } else {
         val tNom = reporte.terreno_nombre?.takeIf { it.isNotBlank() }
-        val dist = reporte.distancia_km
-        if (tNom != null && dist != null) {
-            "Cercano a $tNom (${dist} km)"
+        if (tNom != null && distanciaFormateada != null) {
+            "Cercano a $tNom ($distanciaFormateada km)"
         } else if (tNom != null) {
             "Cercano a $tNom"
-        } else if (dist != null) {
-            "A ${dist} km de tu terreno"
+        } else if (distanciaFormateada != null) {
+            "A $distanciaFormateada km de tu terreno"
         } else {
             "Comunidad (área cercana)"
         }
@@ -485,20 +749,30 @@ fun TarjetaReporteItem(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(Modifier.height(6.dp))
-
-                // Chip distintivo: Propio vs Comunidad
-                Surface(
-                    color = if (esPropio) PlagOutColors.Forest.copy(alpha = 0.12f) else Color(0xFF1565C0).copy(alpha = 0.12f),
-                    shape = CircleShape
-                ) {
-                    Text(
-                        text = if (esPropio) "Propio" else "Comunidad",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (esPropio) PlagOutColors.Forest else Color(0xFF1565C0),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
+                // Dentro de la pestaña "Míos" un chip "Propio" no aporta nada; en los
+                // ajenos lo que informa es qué tan cerca cayó.
+                if (!esPropio) {
+                    Spacer(Modifier.height(8.dp))
+                    Surface(color = AzulComunidad.copy(alpha = 0.12f), shape = CircleShape) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Outlined.NearMe,
+                                contentDescription = null,
+                                tint = AzulComunidad,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = distanciaFormateada?.let { "A $it km de tus terrenos" } ?: "Comunidad",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AzulComunidad
+                            )
+                        }
+                    }
                 }
 
                 Spacer(Modifier.height(14.dp))
