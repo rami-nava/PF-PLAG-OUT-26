@@ -89,6 +89,22 @@ class DetalleMonitoreoTest {
     }
 
     @Test
+    fun la_i_del_umbral_abre_su_explicacion_sin_abrir_el_editor() {
+        composeRule.onNodeWithTag("btnInfoUmbral").performClick()
+
+        composeRule.onNodeWithTag("hojaUmbralRiesgo").assertExists()
+        // La "i" no puede disparar la acción de la tarjeta: son dos gestos distintos.
+        composeRule.onNodeWithTag("sheetUmbral").assertDoesNotExist()
+    }
+
+    @Test
+    fun la_i_del_nivel_de_alerta_abre_su_explicacion() {
+        composeRule.onNodeWithTag("btnInfoNivelAlerta").performClick()
+
+        composeRule.onNodeWithTag("hojaNivelAlerta").assertExists()
+    }
+
+    @Test
     fun finalizar_muestra_dialogo_y_cancelar_no_finaliza() {
         composeRule.onNodeWithTag("btnFinalizarMonitoreo").performClick()
         composeRule.onNodeWithTag("dialogFinalizar").assertExists()

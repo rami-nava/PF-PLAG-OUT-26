@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.SquareFoot
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
@@ -99,8 +100,12 @@ fun TerrenoScreen(
     var filtro by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
     var filtrosExpandidos by rememberSaveable { mutableStateOf(false) }
 
+    // Solo los monitoreos en curso definen el estado del terreno: uno finalizado conserva
+    // congelado su último nivel de alerta y lo pintaría en rojo para siempre.
     fun nivelMaxDe(terreno: TerrenoResponse): Int =
-        monitoreosState.monitoreos.filter { it.terreno_id == terreno.terreno_id }.maxOfOrNull { it.nivel_alerta } ?: -1
+        monitoreosState.monitoreos
+            .filter { it.terreno_id == terreno.terreno_id && it.activo }
+            .maxOfOrNull { it.nivel_alerta } ?: -1
 
     val ordenados = remember(state.terrenos, monitoreosState.monitoreos) {
         state.terrenos.sortedByDescending { nivelMaxDe(it) }
@@ -249,7 +254,9 @@ fun TerrenoScreen(
 @Composable
 private fun PanelDeCampoTerrenos(terrenos: List<TerrenoResponse>, monitoreos: List<MonitoreoResponse>) {
     val total = terrenos.size
-    val nivelesMax = terrenos.map { t -> monitoreos.filter { it.terreno_id == t.terreno_id }.maxOfOrNull { it.nivel_alerta } ?: -1 }
+    val nivelesMax = terrenos.map { t ->
+        monitoreos.filter { it.terreno_id == t.terreno_id && it.activo }.maxOfOrNull { it.nivel_alerta } ?: -1
+    }
     val sanos = nivelesMax.count { it == 0 }
     val atencion = nivelesMax.count { it == 1 }
     val criticos = nivelesMax.count { it >= 2 }
@@ -377,14 +384,16 @@ fun TerrenoCard(
     plantacionesActivas: Int,
     onClick: () -> Unit
 ) {
-    val nivelMax = monitoreos.maxOfOrNull { it.nivel_alerta } ?: -1
+    val activos = monitoreos.filter { it.activo }
+    val nivelMax = activos.maxOfOrNull { it.nivel_alerta } ?: -1
     val estilo = estiloDeNivel(nivelMax)
     val interactionSource = remember { MutableInteractionSource() }
     val escala = rememberPressScale(interactionSource)
 
-    val sanos = monitoreos.count { it.nivel_alerta == 0 }
-    val atencion = monitoreos.count { it.nivel_alerta == 1 }
-    val criticos = monitoreos.count { it.nivel_alerta >= 2 }
+    val sanos = activos.count { it.nivel_alerta == 0 }
+    val atencion = activos.count { it.nivel_alerta == 1 }
+    val criticos = activos.count { it.nivel_alerta >= 2 }
+    val finalizados = monitoreos.size - activos.size
 
     Surface(
         onClick = onClick,
@@ -437,13 +446,14 @@ fun TerrenoCard(
                             atencion to estiloDeNivel(1).color,
                             criticos to estiloDeNivel(2).color
                         ),
-                        total = monitoreos.size,
+                        total = activos.size,
                         modifier = Modifier.size(66.dp),
                         grosor = 7.dp
                     ) {
+                        // El total (con finalizados) queda abajo, en la fila de estadísticas.
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("${monitoreos.size}", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
-                            Text("monit.", fontSize = 9.sp, color = PlagOutColors.TextSecondary)
+                            Text("${activos.size}", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
+                            Text("activos", fontSize = 9.sp, color = PlagOutColors.TextSecondary)
                         }
                     }
                 }
@@ -462,6 +472,11 @@ fun TerrenoCard(
                     EstadisticaCompacta("Plantaciones", "$plantacionesActivas", Modifier.weight(1f))
                     SeparadorVertical()
                     EstadisticaCompacta("Monitoreos", "${monitoreos.size}", Modifier.weight(1f))
+                    // Solo si hay: en un terreno sin historial la columna sería ruido.
+                    if (finalizados > 0) {
+                        SeparadorVertical()
+                        EstadisticaCompacta("Finalizados", "$finalizados", Modifier.weight(1f))
+                    }
                 }
 
                 Spacer(Modifier.height(12.dp))
@@ -471,6 +486,7 @@ fun TerrenoCard(
                         criticos > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$criticos en estado crítico", PlagOutColors.RiskDanger)
                         atencion > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$atencion en atención", PlagOutColors.RiskWarn)
                         monitoreos.isEmpty() -> EtiquetaInfo(Icons.AutoMirrored.Outlined.HelpOutline, "Sin monitoreos", PlagOutColors.RiskUnknown)
+                        activos.isEmpty() -> EtiquetaInfo(Icons.Filled.Flag, "Todos finalizados", PlagOutColors.Bark)
                         else -> EtiquetaInfo(Icons.Default.CheckCircle, "Todo en orden", PlagOutColors.RiskOk)
                     }
                     Spacer(Modifier.weight(1f))

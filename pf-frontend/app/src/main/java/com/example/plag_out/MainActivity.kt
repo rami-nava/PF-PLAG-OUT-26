@@ -441,7 +441,8 @@ fun AppNavigation(
                     viewModel = monitoreosViewModel,
                     plantacionesViewModel = plantacionesViewModel,
                     onBack = { navController.popBackStack() },
-                    onMonitoreoClick = { monitoreoId -> navController.navigate("monitoreo/$monitoreoId") }
+                    onMonitoreoClick = { monitoreoId -> navController.navigate("monitoreo/$monitoreoId") },
+                    onAgregarMonitoreo = { navController.navigate("agregar_monitoreo/$plantacionId") }
                 )
             }
             composable("monitoreo/{monitoreo_id}") { backStackEntry ->
@@ -498,8 +499,32 @@ fun AppNavigation(
 
                 AgregarMonitoreoScreen(
                     viewModel = agregarMonitoreoViewModel,
-                    onBack = { navController.popBackStack() },
-                    onSuccess = { navController.popBackStack() }
+                    onBack = { creados ->
+                        monitoreosViewModel.agregarEnMemoria(creados)
+                        navController.popBackStack()
+                    },
+                    onSuccess = { creados ->
+                        monitoreosViewModel.agregarEnMemoria(creados)
+                        navController.popBackStack()
+                    }
+                )
+            }
+            // Alta desde la pantalla de una plantación: terreno y plantación ya vienen decididos.
+            composable("agregar_monitoreo/{plantacion_id}") { backStackEntry ->
+                val agregarMonitoreoViewModel: AgregarMonitoreoViewModel = viewModel(factory = AgregarMonitoreoViewModelFactory(context, monitoreoRepository, plantacionRepository, terrenoRepository))
+                val plantacionId = backStackEntry.arguments?.getString("plantacion_id")?.toIntOrNull()
+
+                AgregarMonitoreoScreen(
+                    viewModel = agregarMonitoreoViewModel,
+                    plantacionId = plantacionId,
+                    onBack = { creados ->
+                        monitoreosViewModel.agregarEnMemoria(creados)
+                        navController.popBackStack()
+                    },
+                    onSuccess = { creados ->
+                        monitoreosViewModel.agregarEnMemoria(creados)
+                        navController.popBackStack()
+                    }
                 )
             }
             /*composable("seleccionar_cultivo") {
@@ -635,7 +660,7 @@ private fun PantallaCargandoSesion(esperaAgotada: Boolean, onIrAlLogin: () -> Un
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo", "logIn", "crearCuenta", "editarPerfil", "monitoreo/{monitoreo_id}", "crear_reporte", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo", "agregar_monitoreo/{plantacion_id}", "logIn", "crearCuenta", "editarPerfil", "monitoreo/{monitoreo_id}", "crear_reporte", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}")
     return !screensWithoutNavBar.contains(currentScreen)
 }
 

@@ -171,6 +171,13 @@ class CreacionMonitoreoTest {
             .assertIsEnabled()
     }
 
+    @Test
+    fun la_i_del_umbral_explica_que_es_antes_de_crear_el_monitoreo() {
+        composeRule.onNodeWithTag("btnInfoUmbral").performClick()
+
+        composeRule.onNodeWithTag("hojaUmbralRiesgo").assertExists()
+    }
+
     @After
     fun tearDown() {
         db.close()

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
@@ -65,6 +66,7 @@ import com.example.plag_out.ui.theme.SeparadorVertical
 import com.example.plag_out.ui.theme.StaggeredAppear
 import com.example.plag_out.ui.theme.contadorAnimado
 import com.example.plag_out.ui.theme.estiloDeNivel
+import com.example.plag_out.ui.theme.estiloFinalizado
 import com.example.plag_out.ui.theme.rememberPressScale
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -96,7 +98,7 @@ fun PlantacionesPorTerreno(
 
     val terreno = terrenosState.terrenos.find { it.terreno_id == terrenoId }
     val plantacionesDelTerreno = plantacionesState.plantaciones.filter { it.terreno_id == terrenoId }
-    val monitoreosDelTerreno = monitoreosState.monitoreos.filter { it.terreno_id == terrenoId && it.activo }
+    val monitoreosDelTerreno = monitoreosState.monitoreos.filter { it.terreno_id == terrenoId }
 
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { 2 })
@@ -252,12 +254,15 @@ private fun InformacionTerrenoTab(
     val context = LocalContext.current
     val terrenosState by terrenoViewModel.state.collectAsState()
     var mostrarDialogoEliminar by remember { mutableStateOf(false) }
-    val sanos = monitoreosDelTerreno.count { it.nivel_alerta == 0 }
-    val atencion = monitoreosDelTerreno.count { it.nivel_alerta == 1 }
-    val criticos = monitoreosDelTerreno.count { it.nivel_alerta >= 2 }
-    val total = monitoreosDelTerreno.size
+    // Un monitoreo finalizado conserva congelado su último nivel de alerta: contarlo acá pintaría
+    // el terreno con un estado que ya no existe.
+    val monitoreosActivos = monitoreosDelTerreno.filter { it.activo }
+    val finalizados = monitoreosDelTerreno.size - monitoreosActivos.size
+    val sanos = monitoreosActivos.count { it.nivel_alerta == 0 }
+    val atencion = monitoreosActivos.count { it.nivel_alerta == 1 }
+    val criticos = monitoreosActivos.count { it.nivel_alerta >= 2 }
     val activas = plantacionesDelTerreno.count { it.activa }
-    val totalAnimado = contadorAnimado(total)
+    val activosAnimado = contadorAnimado(monitoreosActivos.size)
 
     Column(
         Modifier
@@ -272,13 +277,13 @@ private fun InformacionTerrenoTab(
                     atencion to estiloDeNivel(1).color,
                     criticos to estiloDeNivel(2).color
                 ),
-                total = total,
+                total = monitoreosActivos.size,
                 modifier = Modifier.size(104.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("$totalAnimado", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
+                    Text("$activosAnimado", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
                     Text(
-                        if (total == 1) "monitoreo" else "monitoreos",
+                        if (monitoreosActivos.size == 1) "activo" else "activos",
                         fontSize = 10.sp,
                         color = PlagOutColors.TextSecondary,
                         fontWeight = FontWeight.Medium
@@ -290,6 +295,11 @@ private fun InformacionTerrenoTab(
                 LeyendaEstadoTerreno(estiloDeNivel(0), sanos)
                 LeyendaEstadoTerreno(estiloDeNivel(1), atencion)
                 LeyendaEstadoTerreno(estiloDeNivel(2), criticos)
+                // Fuera del anillo a propósito: son historial, no estado actual.
+                if (finalizados > 0) {
+                    HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.width(140.dp))
+                    LeyendaEstadoTerreno(estiloFinalizado(), finalizados)
+                }
             }
         }
 
@@ -340,9 +350,17 @@ private fun InformacionTerrenoTab(
             }
         }
 
-        if (total == 0) {
+        if (monitoreosDelTerreno.isEmpty()) {
             Spacer(Modifier.height(10.dp))
             EtiquetaInfo(Icons.AutoMirrored.Outlined.HelpOutline, "Todavía no hay monitoreos en este terreno", PlagOutColors.RiskUnknown)
+        } else if (monitoreosActivos.isEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            EtiquetaInfo(
+                Icons.Filled.Flag,
+                if (finalizados == 1) "El único monitoreo de este terreno está finalizado"
+                else "Los $finalizados monitoreos de este terreno están finalizados",
+                PlagOutColors.Bark
+            )
         }
 
         if (terreno != null) {
@@ -519,7 +537,8 @@ fun PlantacionCard(
     monitoreos: List<MonitoreoResponse>,
     onClick: () -> Unit = {}
 ) {
-    val nivelMax = monitoreos.maxOfOrNull { it.nivel_alerta } ?: -1
+    // Solo los monitoreos en curso definen el estado: uno finalizado no puede seguir tiñendo la card.
+    val nivelMax = monitoreos.filter { it.activo }.maxOfOrNull { it.nivel_alerta } ?: -1
     val estadoColor = if (plantacion.activa) estiloDeNivel(nivelMax).color else PlagOutColors.RiskUnknown
 
     val interactionSource = remember { MutableInteractionSource() }

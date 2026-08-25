@@ -35,6 +35,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.plag_out.ui.theme.PlagOutColors
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+
+
+@RequiresApi(Build.VERSION_CODES.O)
+@OptIn(ExperimentalMaterial3Api::class)
+internal fun fechasDeSiembraValidas(hoy: LocalDate): SelectableDates {
+    val desde = hoy.minusYears(1)
+    return object : SelectableDates {
+        override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+            val fecha = Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneOffset.UTC).toLocalDate()
+            return !fecha.isBefore(desde) && !fecha.isAfter(hoy)
+        }
+
+        override fun isSelectableYear(year: Int): Boolean = year in desde.year..hoy.year
+    }
+}
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,7 +66,10 @@ fun AgregarPlantacionScreen(
     val state by viewModel.state.collectAsState()
     var dropdownExpanded by remember { mutableStateOf(false) }
 
-    val datePickerState = rememberDatePickerState()
+    val hoy = remember { LocalDate.now() }
+    val datePickerState = rememberDatePickerState(
+        selectableDates = remember(hoy) { fechasDeSiembraValidas(hoy) }
+    )
     var showDatePicker by remember { mutableStateOf(false) }
 
     if (showDatePicker) {

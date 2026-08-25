@@ -1,6 +1,7 @@
 package com.example.plag_out
 
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -14,6 +15,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -22,7 +25,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.Landscape
@@ -38,6 +44,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.plag_out.ui.theme.BotonInfoCampo
 import com.example.plag_out.ui.theme.PlagOutColors
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -45,8 +52,11 @@ import com.example.plag_out.ui.theme.PlagOutColors
 @Composable
 fun AgregarMonitoreoScreen(
     viewModel: AgregarMonitoreoViewModel,
-    onBack: () -> Unit,
-    onSuccess: () -> Unit
+    /** Recibe lo que haya quedado creado de un lote incompleto, para no perderlo al salir. */
+    onBack: (List<MonitoreoResponse>) -> Unit,
+    onSuccess: (List<MonitoreoResponse>) -> Unit,
+    /** Si viene, el terreno y la plantación quedan fijados y solo se elige la plaga. */
+    plantacionId: Int? = null
 ) {
     val state by viewModel.state.collectAsState()
     val scrollState = rememberScrollState()
@@ -54,10 +64,15 @@ fun AgregarMonitoreoScreen(
     var dropdownTerrenoExpanded by remember { mutableStateOf(false) }
     var dropdownPlantacionExpanded by remember { mutableStateOf(false) }
     var dropdownPlagaExpanded by remember { mutableStateOf(false) }
+    var mostrarInfoUmbral by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
+    // Salida por la flecha o por el gesto del sistema: las dos tienen que entregar lo ya creado.
+    val salir = { onBack(viewModel.consumirCreadosPendientes()) }
+    BackHandler(onBack = salir)
+
+    LaunchedEffect(plantacionId) {
         viewModel.cargarPlagas()
-        viewModel.cargarTerrenos()
+        if (plantacionId != null) viewModel.precargarContexto(plantacionId) else viewModel.cargarTerrenos()
     }
 
     LaunchedEffect(state.terrenoSeleccionado) {
@@ -77,7 +92,13 @@ fun AgregarMonitoreoScreen(
             .fillMaxSize()
             .background(PlagOutColors.Cream)
     ) {
-        HeaderNuevoMonitoreo(onBack = onBack)
+        HeaderNuevoMonitoreo(
+            onBack = salir,
+            bajada = state.plantacionSeleccionada
+                ?.takeIf { state.contextoFijado }
+                ?.let { "${it.cultivo_nombre} · ${it.terreno_nombre}" }
+                ?: "Seguimiento de plagas"
+        )
 
         Column(
             modifier = Modifier
@@ -100,181 +121,207 @@ fun AgregarMonitoreoScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(20.dp)) {
-                        // ── Paso 1: Terreno ─────────────────────────────────────
-                        PasoLabel(numero = 1, texto = "Terreno a monitorear")
-                        Spacer(Modifier.height(10.dp))
+                        // Entrando desde la plantación, el terreno y la plantación ya están
+                        // decididos: se muestran fijados y el único paso real es la plaga.
+                        if (state.contextoFijado) {
+                            ContextoFijado(plantacion = state.plantacionSeleccionada, terreno = state.terrenoSeleccionado)
+                            Spacer(Modifier.height(22.dp))
+                        } else {
+                            // ── Paso 1: Terreno ─────────────────────────────────────
+                            PasoLabel(numero = 1, texto = "Terreno a monitorear")
+                            Spacer(Modifier.height(10.dp))
 
-                        ExposedDropdownMenuBox(
-                            expanded = dropdownTerrenoExpanded,
-                            onExpandedChange = { dropdownTerrenoExpanded = !dropdownTerrenoExpanded },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            OutlinedTextField(
-                                readOnly = true,
-                                value = state.terrenoSeleccionado?.terreno_nombre ?: "",
-                                onValueChange = {},
-                                label = { Text("Seleccioná un terreno") },
-                                leadingIcon = { Icon(Icons.Outlined.Landscape, contentDescription = null, tint = PlagOutColors.Forest) },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownTerrenoExpanded) },
-                                shape = RoundedCornerShape(16.dp),
-                                colors = camposColors(),
-                                modifier = Modifier
-                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                                    .fillMaxWidth()
-                                    .testTag("txtTerreno")
-                            )
-
-                            ExposedDropdownMenu(
+                            ExposedDropdownMenuBox(
                                 expanded = dropdownTerrenoExpanded,
-                                onDismissRequest = { dropdownTerrenoExpanded = false }
+                                onExpandedChange = { dropdownTerrenoExpanded = !dropdownTerrenoExpanded },
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                if (state.terrenos.isEmpty()) {
-                                    DropdownMenuItem(
-                                        text = { Text("No tienes terrenos", color = PlagOutColors.TextSecondary) },
-                                        onClick = { dropdownTerrenoExpanded = false }
-                                    )
-                                } else {
-                                    state.terrenos.forEach { terreno ->
+                                OutlinedTextField(
+                                    readOnly = true,
+                                    value = state.terrenoSeleccionado?.terreno_nombre ?: "",
+                                    onValueChange = {},
+                                    label = { Text("Seleccioná un terreno") },
+                                    leadingIcon = { Icon(Icons.Outlined.Landscape, contentDescription = null, tint = PlagOutColors.Forest) },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownTerrenoExpanded) },
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = camposColors(),
+                                    modifier = Modifier
+                                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                                        .fillMaxWidth()
+                                        .testTag("txtTerreno")
+                                )
+
+                                ExposedDropdownMenu(
+                                    expanded = dropdownTerrenoExpanded,
+                                    onDismissRequest = { dropdownTerrenoExpanded = false }
+                                ) {
+                                    if (state.terrenos.isEmpty()) {
                                         DropdownMenuItem(
-                                            text = {
-                                                Column {
-                                                    Text(terreno.terreno_nombre, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
-                                                    Text(
-                                                        "Hectáreas: ${terreno.terreno_area}",
-                                                        fontSize = 12.sp,
-                                                        fontStyle = FontStyle.Italic,
-                                                        color = PlagOutColors.TextSecondary
-                                                    )
-                                                    Text(
-                                                        "Latitud: ${terreno.terreno_latitud}, Longitud: ${terreno.terreno_longitud}",
-                                                        fontSize = 11.sp,
-                                                        color = PlagOutColors.TextSecondary
-                                                    )
-                                                }
-                                            },
-                                            onClick = {
-                                                viewModel.seleccionarTerreno(terreno)
-                                                dropdownTerrenoExpanded = false
-                                            }
+                                            text = { Text("No tienes terrenos", color = PlagOutColors.TextSecondary) },
+                                            onClick = { dropdownTerrenoExpanded = false }
                                         )
-                                    }
-                                }
-                            }
-                        }
-
-                        state.terrenoSeleccionado?.let { terreno ->
-                            Spacer(Modifier.height(10.dp))
-                            PreviewFila(
-                                icono = Icons.Outlined.Landscape,
-                                titulo = terreno.terreno_nombre,
-                                subtitulo = "${terreno.terreno_area} ha · ${"%.2f".format(terreno.terreno_latitud)}, ${"%.2f".format(terreno.terreno_longitud)}"
-                            )
-                        }
-
-                        Spacer(Modifier.height(22.dp))
-
-                        // ── Paso 2: Plantación ──────────────────────────────────
-                        // Las plantaciones son las del terreno elegido: sin terreno el paso queda
-                        // bloqueado.
-                        val terrenoElegido = state.terrenoSeleccionado
-
-                        PasoLabel(numero = 2, texto = "Plantación a monitorear")
-                        Spacer(Modifier.height(10.dp))
-
-                        ExposedDropdownMenuBox(
-                            expanded = dropdownPlantacionExpanded,
-                            onExpandedChange = {
-                                if (terrenoElegido != null) dropdownPlantacionExpanded = !dropdownPlantacionExpanded
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            OutlinedTextField(
-                                readOnly = true,
-                                enabled = terrenoElegido != null,
-                                value = state.plantacionSeleccionada?.cultivo_nombre ?: "",
-                                onValueChange = {},
-                                label = {
-                                    Text(
-                                        if (terrenoElegido != null) "Seleccioná una plantación"
-                                        else "Elegí un terreno primero"
-                                    )
-                                },
-                                leadingIcon = { Icon(Icons.Outlined.Grass, contentDescription = null, tint = PlagOutColors.Forest) },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownPlantacionExpanded) },
-                                shape = RoundedCornerShape(16.dp),
-                                colors = camposColors(),
-                                modifier = Modifier
-                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                                    .fillMaxWidth()
-                                    .testTag("txtPlantacion")
-                            )
-
-                            ExposedDropdownMenu(
-                                expanded = dropdownPlantacionExpanded,
-                                onDismissRequest = { dropdownPlantacionExpanded = false }
-                            ) {
-                                if (state.plantaciones.isEmpty()) {
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                if (terrenoElegido != null) "Sin plantaciones activas en ${terrenoElegido.terreno_nombre}"
-                                                else "Seleccioná un terreno",
-                                                color = PlagOutColors.TextSecondary
+                                    } else {
+                                        state.terrenos.forEach { terreno ->
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Column {
+                                                        Text(terreno.terreno_nombre, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
+                                                        Text(
+                                                            "Hectáreas: ${terreno.terreno_area}",
+                                                            fontSize = 12.sp,
+                                                            fontStyle = FontStyle.Italic,
+                                                            color = PlagOutColors.TextSecondary
+                                                        )
+                                                        Text(
+                                                            "Latitud: ${terreno.terreno_latitud}, Longitud: ${terreno.terreno_longitud}",
+                                                            fontSize = 11.sp,
+                                                            color = PlagOutColors.TextSecondary
+                                                        )
+                                                    }
+                                                },
+                                                onClick = {
+                                                    viewModel.seleccionarTerreno(terreno)
+                                                    dropdownTerrenoExpanded = false
+                                                }
                                             )
-                                        },
-                                        onClick = { dropdownPlantacionExpanded = false }
-                                    )
-                                } else {
-                                    state.plantaciones.forEach { plantacion ->
-                                        DropdownMenuItem(
-                                            text = {
-                                                Column {
-                                                    Text(plantacion.cultivo_nombre, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
-                                                    Text(
-                                                        plantacion.cultivo_nombre_cientifico,
-                                                        fontSize = 12.sp,
-                                                        fontStyle = FontStyle.Italic,
-                                                        color = PlagOutColors.TextSecondary
-                                                    )
-                                                    Text(
-                                                        "Sembrado: ${plantacion.fecha_siembra}",
-                                                        fontSize = 11.sp,
-                                                        color = PlagOutColors.TextSecondary
-                                                    )
-                                                }
-                                            },
-                                            onClick = {
-                                                viewModel.seleccionarPlantacion(plantacion)
-                                                dropdownPlantacionExpanded = false
-                                            }
-                                        )
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        state.plantacionSeleccionada?.let { plantacion ->
+                            state.terrenoSeleccionado?.let { terreno ->
+                                Spacer(Modifier.height(10.dp))
+                                PreviewFila(
+                                    icono = Icons.Outlined.Landscape,
+                                    titulo = terreno.terreno_nombre,
+                                    subtitulo = "${terreno.terreno_area} ha · ${"%.2f".format(terreno.terreno_latitud)}, ${"%.2f".format(terreno.terreno_longitud)}"
+                                )
+                            }
+
+                            Spacer(Modifier.height(22.dp))
+
+                            // ── Paso 2: Plantación ──────────────────────────────────
+                            // Las plantaciones son las del terreno elegido: sin terreno el paso queda
+                            // bloqueado.
+                            val terrenoElegido = state.terrenoSeleccionado
+
+                            PasoLabel(numero = 2, texto = "Plantación a monitorear")
                             Spacer(Modifier.height(10.dp))
-                            PreviewFila(
-                                icono = Icons.Outlined.Grass,
-                                titulo = plantacion.cultivo_nombre,
-                                subtitulo = "${plantacion.cultivo_nombre_cientifico} · Sembrado ${plantacion.fecha_siembra}"
-                            )
+
+                            ExposedDropdownMenuBox(
+                                expanded = dropdownPlantacionExpanded,
+                                onExpandedChange = {
+                                    if (terrenoElegido != null) dropdownPlantacionExpanded = !dropdownPlantacionExpanded
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                OutlinedTextField(
+                                    readOnly = true,
+                                    enabled = terrenoElegido != null,
+                                    value = state.plantacionSeleccionada?.cultivo_nombre ?: "",
+                                    onValueChange = {},
+                                    label = {
+                                        Text(
+                                            if (terrenoElegido != null) "Seleccioná una plantación"
+                                            else "Elegí un terreno primero"
+                                        )
+                                    },
+                                    leadingIcon = { Icon(Icons.Outlined.Grass, contentDescription = null, tint = PlagOutColors.Forest) },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownPlantacionExpanded) },
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = camposColors(),
+                                    modifier = Modifier
+                                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                                        .fillMaxWidth()
+                                        .testTag("txtPlantacion")
+                                )
+
+                                ExposedDropdownMenu(
+                                    expanded = dropdownPlantacionExpanded,
+                                    onDismissRequest = { dropdownPlantacionExpanded = false }
+                                ) {
+                                    if (state.plantaciones.isEmpty()) {
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    if (terrenoElegido != null) "Sin plantaciones activas en ${terrenoElegido.terreno_nombre}"
+                                                    else "Seleccioná un terreno",
+                                                    color = PlagOutColors.TextSecondary
+                                                )
+                                            },
+                                            onClick = { dropdownPlantacionExpanded = false }
+                                        )
+                                    } else {
+                                        state.plantaciones.forEach { plantacion ->
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Column {
+                                                        Text(plantacion.cultivo_nombre, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
+                                                        Text(
+                                                            plantacion.cultivo_nombre_cientifico,
+                                                            fontSize = 12.sp,
+                                                            fontStyle = FontStyle.Italic,
+                                                            color = PlagOutColors.TextSecondary
+                                                        )
+                                                        Text(
+                                                            "Sembrado: ${plantacion.fecha_siembra}",
+                                                            fontSize = 11.sp,
+                                                            color = PlagOutColors.TextSecondary
+                                                        )
+                                                    }
+                                                },
+                                                onClick = {
+                                                    viewModel.seleccionarPlantacion(plantacion)
+                                                    dropdownPlantacionExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            state.plantacionSeleccionada?.let { plantacion ->
+                                Spacer(Modifier.height(10.dp))
+                                PreviewFila(
+                                    icono = Icons.Outlined.Grass,
+                                    titulo = plantacion.cultivo_nombre,
+                                    subtitulo = "${plantacion.cultivo_nombre_cientifico} · Sembrado ${plantacion.fecha_siembra}"
+                                )
+                            }
+
+                            Spacer(Modifier.height(22.dp))
                         }
 
-                        Spacer(Modifier.height(22.dp))
-
-                        // ── Paso 3: Plaga ───────────────────────────────────────
+                        // ── Paso Plaga ──────────────────────────────────────────
                         // El cultivo de la plantación define qué plagas aplican: sin plantación
                         // elegida el paso queda bloqueado.
                         val plantacionElegida = state.plantacionSeleccionada
                         val plagasDisponibles = state.plagasDisponibles
 
-                        PasoLabel(
-                            numero = 3,
-                            texto = if (plantacionElegida != null) "Plaga que afecta al ${plantacionElegida.cultivo_nombre}"
-                                    else "Plaga a monitorear"
-                        )
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            PasoLabel(
+                                numero = if (state.contextoFijado) 1 else 3,
+                                texto = if (plantacionElegida != null) "Plagas que afectan al ${plantacionElegida.cultivo_nombre}"
+                                        else "Plagas a monitorear"
+                            )
+                            Spacer(Modifier.weight(1f))
+                            // Con una sola plaga disponible el atajo no aporta nada.
+                            if (plagasDisponibles.size > 1) {
+                                TextButton(
+                                    onClick = { viewModel.alternarTodasLasPlagas() },
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                    modifier = Modifier.testTag("btnTodasLasPlagas")
+                                ) {
+                                    Text(
+                                        if (state.todasLasPlagasElegidas) "Quitar todas"
+                                        else "Todas (${plagasDisponibles.size})",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = PlagOutColors.Forest
+                                    )
+                                }
+                            }
+                        }
                         Spacer(Modifier.height(10.dp))
 
                         ExposedDropdownMenuBox(
@@ -287,11 +334,15 @@ fun AgregarMonitoreoScreen(
                             OutlinedTextField(
                                 readOnly = true,
                                 enabled = plantacionElegida != null,
-                                value = state.plagaSeleccionada?.nombre ?: "",
+                                value = when (state.plagasSeleccionadas.size) {
+                                    0 -> ""
+                                    1 -> state.plagasSeleccionadas.first().nombre
+                                    else -> "${state.plagasSeleccionadas.size} plagas seleccionadas"
+                                },
                                 onValueChange = {},
                                 label = {
                                     Text(
-                                        if (plantacionElegida != null) "Seleccioná una plaga"
+                                        if (plantacionElegida != null) "Seleccioná una o más plagas"
                                         else "Elegí una plantación primero"
                                     )
                                 },
@@ -322,6 +373,7 @@ fun AgregarMonitoreoScreen(
                                     )
                                 } else {
                                     plagasDisponibles.forEach { plaga ->
+                                        val elegida = state.plagasSeleccionadas.any { it.id == plaga.id }
                                         DropdownMenuItem(
                                             text = {
                                                 Column {
@@ -334,8 +386,11 @@ fun AgregarMonitoreoScreen(
                                                     )
                                                 }
                                             },
+                                            trailingIcon = {
+                                                if (elegida) Icon(Icons.Filled.Check, contentDescription = "Seleccionada", tint = PlagOutColors.Forest)
+                                            },
                                             onClick = {
-                                                viewModel.seleccionarPlaga(plaga)
+                                                viewModel.alternarPlaga(plaga)
                                                 dropdownPlagaExpanded = false
                                             }
                                         )
@@ -344,13 +399,20 @@ fun AgregarMonitoreoScreen(
                             }
                         }
 
-                        state.plagaSeleccionada?.let { plaga ->
+                        if (state.plagasSeleccionadas.isNotEmpty()) {
                             Spacer(Modifier.height(10.dp))
-                            PreviewFila(
-                                icono = Icons.Filled.BugReport,
-                                titulo = plaga.nombre,
-                                subtitulo = plaga.nombre_cientifico
+                            PlagasElegidasChips(
+                                plagas = state.plagasSeleccionadas,
+                                onQuitar = { viewModel.alternarPlaga(it) }
                             )
+                            if (state.plagasSeleccionadas.size > 1) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Se va a crear un monitoreo por cada plaga, todos con el mismo umbral.",
+                                    fontSize = 12.sp,
+                                    color = PlagOutColors.TextSecondary
+                                )
+                            }
                         }
                     }
                 }
@@ -360,7 +422,8 @@ fun AgregarMonitoreoScreen(
 
             UmbralDeRiesgoSlider(
                 umbralActual = state.umbralDeRiesgo,
-                onUmbralChange = { viewModel.actualizarUmbralDeRiesgo(it) }
+                onUmbralChange = { viewModel.actualizarUmbralDeRiesgo(it) },
+                onInfo = { mostrarInfoUmbral = true }
             )
 
             AnimatedVisibility(
@@ -385,8 +448,8 @@ fun AgregarMonitoreoScreen(
             Spacer(Modifier.height(20.dp))
 
             Button(
-                onClick = { viewModel.guardarMonitoreo { onSuccess() } },
-                enabled = !state.isGuardando && state.plantacionSeleccionada != null && state.plagaSeleccionada != null,
+                onClick = { viewModel.guardarMonitoreo { creado -> onSuccess(creado) } },
+                enabled = !state.isGuardando && state.plantacionSeleccionada != null && state.plagasSeleccionadas.isNotEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)
@@ -404,17 +467,29 @@ fun AgregarMonitoreoScreen(
                 } else {
                     Icon(Icons.Filled.BugReport, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Iniciar monitoreo", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (state.plagasSeleccionadas.size > 1) "Iniciar ${state.plagasSeleccionadas.size} monitoreos"
+                        else "Iniciar monitoreo",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
+    }
+
+    if (mostrarInfoUmbral) {
+        UmbralDeRiesgoSheet(
+            umbralActual = state.umbralDeRiesgo,
+            onDismiss = { mostrarInfoUmbral = false }
+        )
     }
 }
 
 // ─── Composables auxiliares ───────────────────────────────────────────────────
 
 @Composable
-private fun HeaderNuevoMonitoreo(onBack: () -> Unit) {
+private fun HeaderNuevoMonitoreo(onBack: () -> Unit, bajada: String = "Seguimiento de plagas") {
     val respiracion = rememberInfiniteTransition(label = "respiracionHeaderMonitoreo")
     val escalaDecorativa by respiracion.animateFloat(
         initialValue = 1f,
@@ -451,7 +526,7 @@ private fun HeaderNuevoMonitoreo(onBack: () -> Unit) {
             }
             Column {
                 Text(
-                    "Seguimiento de plagas",
+                    bajada,
                     color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
@@ -463,6 +538,70 @@ private fun HeaderNuevoMonitoreo(onBack: () -> Unit) {
                     fontSize = 24.sp,
                     fontWeight = FontWeight.ExtraBold)
             }
+        }
+    }
+}
+
+/**
+ * Terreno y plantación ya resueltos por la pantalla desde la que se entró: se muestran como
+ * contexto de solo lectura en lugar de pedirlos de nuevo.
+ */
+@Composable
+private fun ContextoFijado(plantacion: PlantacionesResponse?, terreno: TerrenoResponse?) {
+    if (plantacion == null) return
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Filled.Lock, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(
+            "Monitoreo para esta plantación",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = PlagOutColors.TextMain
+        )
+    }
+    Spacer(Modifier.height(10.dp))
+
+    PreviewFila(
+        icono = Icons.Outlined.Landscape,
+        titulo = terreno?.terreno_nombre ?: plantacion.terreno_nombre,
+        subtitulo = terreno?.let {
+            "${it.terreno_area} ha · ${"%.2f".format(it.terreno_latitud)}, ${"%.2f".format(it.terreno_longitud)}"
+        } ?: "Terreno de la plantación",
+        modifier = Modifier.testTag("filaTerrenoFijado")
+    )
+    Spacer(Modifier.height(10.dp))
+    PreviewFila(
+        icono = Icons.Outlined.Grass,
+        titulo = plantacion.cultivo_nombre,
+        subtitulo = "${plantacion.cultivo_nombre_cientifico} · Sembrado ${plantacion.fecha_siembra}",
+        modifier = Modifier.testTag("filaPlantacionFijada")
+    )
+}
+
+/** Una plaga elegida = un monitoreo. Se muestran como chips para poder sacar cualquiera. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PlagasElegidasChips(plagas: List<PlagaResponse>, onQuitar: (PlagaResponse) -> Unit) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().testTag("chipsPlagasElegidas"),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        plagas.forEach { plaga ->
+            InputChip(
+                selected = true,
+                onClick = { onQuitar(plaga) },
+                label = { Text(plaga.nombre, fontSize = 13.sp, fontWeight = FontWeight.Medium) },
+                avatar = { Icon(Icons.Filled.BugReport, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                trailingIcon = { Icon(Icons.Filled.Close, contentDescription = "Quitar ${plaga.nombre}", modifier = Modifier.size(16.dp)) },
+                colors = InputChipDefaults.inputChipColors(
+                    selectedContainerColor = PlagOutColors.Forest.copy(alpha = 0.12f),
+                    selectedLabelColor = PlagOutColors.Forest,
+                    selectedLeadingIconColor = PlagOutColors.Forest,
+                    selectedTrailingIconColor = PlagOutColors.Forest
+                )
+            )
         }
     }
 }
@@ -485,9 +624,14 @@ private fun PasoLabel(numero: Int, texto: String) {
 }
 
 @Composable
-private fun PreviewFila(icono: androidx.compose.ui.graphics.vector.ImageVector, titulo: String, subtitulo: String) {
+private fun PreviewFila(
+    icono: androidx.compose.ui.graphics.vector.ImageVector,
+    titulo: String,
+    subtitulo: String,
+    modifier: Modifier = Modifier
+) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .background(PlagOutColors.Cream, RoundedCornerShape(14.dp))
             .padding(12.dp),
@@ -512,7 +656,9 @@ private fun PreviewFila(icono: androidx.compose.ui.graphics.vector.ImageVector, 
 @Composable
 fun UmbralDeRiesgoSlider(
     umbralActual: Int,
-    onUmbralChange: (Int) -> Unit
+    onUmbralChange: (Int) -> Unit,
+    /** Si viene, se dibuja la "i" que explica qué es el umbral. */
+    onInfo: (() -> Unit)? = null
 ) {
     val colorRiesgo = when {
         umbralActual < 34 -> PlagOutColors.RiskOk
@@ -540,7 +686,16 @@ fun UmbralDeRiesgoSlider(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Umbral de riesgo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PlagOutColors.TextMain)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Umbral de riesgo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PlagOutColors.TextMain)
+                    if (onInfo != null) {
+                        BotonInfoCampo(
+                            onClick = onInfo,
+                            contentDescription = "Qué es el umbral de riesgo",
+                            modifier = Modifier.testTag("btnInfoUmbral")
+                        )
+                    }
+                }
 
                 Box(
                     modifier = Modifier
