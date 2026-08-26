@@ -20,6 +20,7 @@ import com.example.plag_out.TerrenoCreateResponse
 import com.example.plag_out.TerrenoResponse
 import com.example.plag_out.UpdateMonitoreoRequest
 import com.example.plag_out.UpdatePlantacionRequest
+import com.example.plag_out.UpdateTerrenoRequest
 import com.example.plag_out.UpdateUserRequest
 import com.example.plag_out.UsuarioResponse
 import com.example.plag_out.CreateReporteRequest
@@ -50,6 +51,7 @@ class FakeGDDService : GDDService {
     var getTerrenosResult: () -> Response<List<TerrenoResponse>> = { noDeclarado("getTerrenos") }
     var getPlantacionesResult: () -> Response<List<PlantacionesResponse>> = { noDeclarado("getPlantaciones") }
     var createTerrenoResult: () -> Response<TerrenoCreateResponse> = { noDeclarado("createTerreno") }
+    var actualizarTerrenoResult: () -> Response<TerrenoResponse> = { noDeclarado("actualizarTerreno") }
     var eliminarTerrenoResult: () -> Response<Unit> = { noDeclarado("eliminarTerreno") }
     var getCultivosResult: () -> Response<List<CultivoResponse>> = { noDeclarado("getCultivos") }
     var getPlagasResult: () -> Response<List<PlagaResponse>> = { noDeclarado("getPlagas") }
@@ -88,6 +90,10 @@ class FakeGDDService : GDDService {
 
     override suspend fun createTerreno(data: CreateTerrenoRequest): Response<TerrenoCreateResponse> {
         llamadas += "createTerreno"; ultimoCreateTerreno = data; return createTerrenoResult()
+    }
+
+    override suspend fun actualizarTerreno(id: Int, data: UpdateTerrenoRequest): Response<TerrenoResponse> {
+        llamadas += "actualizarTerreno"; ultimoActualizarTerreno = data; return actualizarTerrenoResult()
     }
 
     override suspend fun eliminarTerreno(id: Int): Response<Unit> {
@@ -186,6 +192,8 @@ class FakeGDDService : GDDService {
 
     // Cuerpos de las peticiones recibidas, para verificar que el ViewModel arma bien el request.
     var ultimoCreateTerreno: CreateTerrenoRequest? = null
+        private set
+    var ultimoActualizarTerreno: UpdateTerrenoRequest? = null
         private set
     var ultimoCreatePlantacion: CreatePlantacionRequest? = null
         private set

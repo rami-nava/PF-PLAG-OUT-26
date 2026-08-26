@@ -103,6 +103,60 @@ class TerrenosViewModelTest {
     }
 
     @Test
+    fun `editar terreno actualiza estado y cache`() {
+        CacheTracker.marcarConsultado(context, CacheTracker.TERRENOS)
+        val (vm, dao) = viewModelCon(cache = listOf(Fixtures.terreno(id = 3, nombre = "Lote Viejo", area = 100f)))
+        vm.getTerrenos()
+        esperarEstado(vm.state) { it.terrenos.isNotEmpty() }
+        gddService.actualizarTerrenoResult = {
+            Response.success(Fixtures.terreno(id = 3, nombre = "Lote Nuevo", area = 250f))
+        }
+
+        var recibido: TerrenoResponse? = null
+        vm.editarTerreno(terrenoId = 3, nombre = "  Lote Nuevo  ", areaHectareas = "250") { recibido = it }
+
+        val estado = esperarEstado(vm.state) { !it.procesando && it.terrenos.first().terreno_nombre == "Lote Nuevo" }
+        assertEquals(250f, estado.terrenos.first().terreno_area, 0.001f)
+        assertEquals("Lote Nuevo", recibido?.terreno_nombre)
+        // El request se arma con el nombre sin espacios sobrantes.
+        assertEquals("Lote Nuevo", gddService.ultimoActualizarTerreno?.nombre)
+        assertEquals(250.0, gddService.ultimoActualizarTerreno?.area_hectareas ?: 0.0, 0.001)
+        assertTrue(dao.operaciones.contains("insert"))
+    }
+
+    @Test
+    fun `editar con datos invalidos no llama a la red`() {
+        CacheTracker.marcarConsultado(context, CacheTracker.TERRENOS)
+        val (vm, _) = viewModelCon(cache = listOf(Fixtures.terreno(id = 3)))
+        vm.getTerrenos()
+        esperarEstado(vm.state) { it.terrenos.isNotEmpty() }
+
+        vm.editarTerreno(terrenoId = 3, nombre = "   ", areaHectareas = "10") {}
+        assertEquals("El nombre del terreno no puede estar vacío", vm.state.value.error)
+
+        vm.editarTerreno(terrenoId = 3, nombre = "Lote", areaHectareas = "0") {}
+        assertEquals("Las hectáreas deben ser un número decimal mayor a 0", vm.state.value.error)
+
+        assertTrue("Con datos inválidos no debe haber PATCH", gddService.llamadas.isEmpty())
+    }
+
+    @Test
+    fun `si el PATCH falla el terreno queda como estaba`() {
+        CacheTracker.marcarConsultado(context, CacheTracker.TERRENOS)
+        val (vm, _) = viewModelCon(cache = listOf(Fixtures.terreno(id = 3, nombre = "Lote Viejo")))
+        vm.getTerrenos()
+        esperarEstado(vm.state) { it.terrenos.isNotEmpty() }
+        gddService.actualizarTerrenoResult = { FakeGDDService.errorServidor(500) }
+
+        var llamado = false
+        vm.editarTerreno(terrenoId = 3, nombre = "Lote Nuevo", areaHectareas = "250") { llamado = true }
+
+        val estado = esperarEstado(vm.state) { !it.procesando && it.error != null }
+        assertEquals("Lote Viejo", estado.terrenos.first().terreno_nombre)
+        assertFalse("No debe avisar éxito si el backend rechazó el cambio", llamado)
+    }
+
+    @Test
     fun `error HTTP no corrompe el estado y conserva el cache`() {
         val (vm, _) = viewModelCon(cache = listOf(Fixtures.terreno(id = 5)))
         gddService.getTerrenosResult = { FakeGDDService.errorServidor(500) }

@@ -155,6 +155,14 @@ data class CreateTerrenoRequest(
 )
 
 @Serializable
+data class UpdateTerrenoRequest(
+    @SerializedName("nombre")
+    val nombre: String? = null,
+    @SerializedName("area_hectareas")
+    val area_hectareas: Double? = null
+)
+
+@Serializable
 data class TerrenoCreateResponse(
     @SerializedName("id")
     val terreno_id: Int,

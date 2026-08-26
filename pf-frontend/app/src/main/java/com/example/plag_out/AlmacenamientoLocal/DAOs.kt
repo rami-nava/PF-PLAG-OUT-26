@@ -35,6 +35,9 @@ interface MonitoreoDao {
 
     @Query("DELETE FROM monitoreos WHERE plantacion_id = :plantacionId")
     suspend fun deleteByPlantacionId(plantacionId: Int)
+
+    @Query("UPDATE monitoreos SET terreno_nombre = :nombre WHERE terreno_id = :terrenoId")
+    suspend fun updateTerrenoNombre(terrenoId: Int, nombre: String)
 }
 
 @Dao
@@ -76,6 +79,9 @@ interface PlantacionDao {
 
     @Query("DELETE FROM plantaciones WHERE terreno_id = :terrenoId")
     suspend fun deleteByTerrenoId(terrenoId: Int)
+
+    @Query("UPDATE plantaciones SET terreno_nombre = :nombre WHERE terreno_id = :terrenoId")
+    suspend fun updateTerrenoNombre(terrenoId: Int, nombre: String)
 }
 
 /** Solo se cachea el usuario logueado en este dispositivo: la tabla tiene, a lo sumo, una fila. */
