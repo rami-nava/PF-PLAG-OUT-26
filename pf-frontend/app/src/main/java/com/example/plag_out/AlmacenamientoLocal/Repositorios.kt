@@ -33,6 +33,10 @@ class MonitoreoRepository(
         monitoreoDao.deleteByPlantacionId(plantacionId)
     }
 
+    suspend fun renombrarTerreno(terrenoId: Int, nombre: String) {
+        monitoreoDao.updateTerrenoNombre(terrenoId, nombre)
+    }
+
     suspend fun guardarMonitoreos(monitoreos: List<MonitoreoResponse>) {
         monitoreoDao.insertAll(monitoreos)
     }
@@ -105,6 +109,10 @@ class PlantacionRepository(
 
     suspend fun borrarPorTerreno(terrenoId: Int) {
         plantacionDao.deleteByTerrenoId(terrenoId)
+    }
+
+    suspend fun renombrarTerreno(terrenoId: Int, nombre: String) {
+        plantacionDao.updateTerrenoNombre(terrenoId, nombre)
     }
 
     suspend fun borrarTodos() {

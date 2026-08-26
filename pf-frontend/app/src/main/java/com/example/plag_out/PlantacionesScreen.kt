@@ -24,6 +24,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -31,10 +32,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.SquareFoot
 import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Terrain
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -47,6 +51,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -105,7 +110,10 @@ fun PlantacionesPorTerreno(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(terrenosState.error) {
-        terrenosState.error?.let { snackbarHostState.showSnackbar(it) }
+        terrenosState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            terrenoViewModel.limpiarError()
+        }
     }
 
     var filtro by rememberSaveable { mutableStateOf(FILTRO_TODAS) }
@@ -254,6 +262,7 @@ private fun InformacionTerrenoTab(
     val context = LocalContext.current
     val terrenosState by terrenoViewModel.state.collectAsState()
     var mostrarDialogoEliminar by remember { mutableStateOf(false) }
+    var mostrarDialogoEditar by remember { mutableStateOf(false) }
     // Un monitoreo finalizado conserva congelado su último nivel de alerta: contarlo acá pintaría
     // el terreno con un estado que ya no existe.
     val monitoreosActivos = monitoreosDelTerreno.filter { it.activo }
@@ -365,6 +374,24 @@ private fun InformacionTerrenoTab(
 
         if (terreno != null) {
             Spacer(Modifier.height(20.dp))
+            Button(
+                onClick = { mostrarDialogoEditar = true },
+                enabled = !terrenosState.procesando,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PlagOutColors.Forest,
+                    contentColor = PlagOutColors.TextOnDark
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .testTag("btnEditarTerreno")
+            ) {
+                Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Editar terreno", fontWeight = FontWeight.SemiBold)
+            }
+
+            Spacer(Modifier.height(10.dp))
             OutlinedButton(
                 onClick = { mostrarDialogoEliminar = true },
                 enabled = !terrenosState.procesando,
@@ -384,6 +411,23 @@ private fun InformacionTerrenoTab(
         }
 
         Spacer(Modifier.height(16.dp))
+    }
+
+    if (mostrarDialogoEditar && terreno != null) {
+        EditarTerrenoDialog(
+            terreno = terreno,
+            procesando = terrenosState.procesando,
+            onDismiss = { mostrarDialogoEditar = false },
+            onGuardar = { nombre, hectareas ->
+                terrenoViewModel.editarTerreno(terreno.terreno_id, nombre, hectareas) { actualizado ->
+                    // El nombre del terreno viaja desnormalizado en plantaciones y monitoreos:
+                    // sin esto, las pantallas hijas seguirían mostrando el nombre viejo.
+                    plantacionesViewModel.renombrarTerreno(actualizado.terreno_id, actualizado.terreno_nombre)
+                    monitoreosViewModel.renombrarTerreno(actualizado.terreno_id, actualizado.terreno_nombre)
+                    mostrarDialogoEditar = false
+                }
+            }
+        )
     }
 
     if (mostrarDialogoEliminar && terreno != null) {
@@ -418,6 +462,99 @@ private fun InformacionTerrenoTab(
         )
     }
 }
+
+@Composable
+private fun EditarTerrenoDialog(
+    terreno: TerrenoResponse,
+    procesando: Boolean,
+    onDismiss: () -> Unit,
+    onGuardar: (nombre: String, hectareas: String) -> Unit
+) {
+    // Números reales, igual que en el alta del terreno
+    val regex = remember { Regex("^\\d*\\.?\\d*$") }
+
+    var nombre by remember(terreno.terreno_id) { mutableStateOf(terreno.terreno_nombre) }
+    var hectareas by remember(terreno.terreno_id) { mutableStateOf(formatearHectareas(terreno.terreno_area)) }
+
+    val area = hectareas.trim().toDoubleOrNull()
+    val formularioValido = nombre.trim().isNotEmpty() && area != null && area > 0.0
+    val huboCambios = nombre.trim() != terreno.terreno_nombre ||
+        area?.toFloat() != terreno.terreno_area
+
+    AlertDialog(
+        onDismissRequest = { if (!procesando) onDismiss() },
+        modifier = Modifier.testTag("dialogEditarTerreno"),
+        containerColor = PlagOutColors.Surface,
+        icon = {
+            Box(
+                Modifier.size(40.dp).background(PlagOutColors.Forest.copy(alpha = 0.12f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Outlined.Edit, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
+            }
+        },
+        title = { Text("Editar terreno", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = nombre,
+                    onValueChange = { nombre = it },
+                    label = { Text("Nombre del terreno") },
+                    leadingIcon = { Icon(Icons.Outlined.Terrain, contentDescription = null, tint = PlagOutColors.Forest) },
+                    singleLine = true,
+                    enabled = !procesando,
+                    isError = nombre.isNotEmpty() && nombre.isBlank(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = camposColors(),
+                    modifier = Modifier.fillMaxWidth().testTag("txtEditarNombre")
+                )
+
+                Spacer(Modifier.height(14.dp))
+
+                OutlinedTextField(
+                    value = hectareas,
+                    onValueChange = { if (it.matches(regex)) hectareas = it },
+                    label = { Text("Hectáreas") },
+                    leadingIcon = { Icon(Icons.Filled.SquareFoot, contentDescription = null, tint = PlagOutColors.Forest) },
+                    trailingIcon = { Text("ha", color = PlagOutColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.padding(end = 12.dp)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    enabled = !procesando,
+                    isError = hectareas.isNotEmpty() && (area == null || area <= 0.0),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = camposColors(),
+                    modifier = Modifier.fillMaxWidth().testTag("txtEditarHectareas")
+                )
+            }
+        },
+        confirmButton = {
+            val puedeGuardar = formularioValido && huboCambios && !procesando
+            TextButton(
+                onClick = { onGuardar(nombre, hectareas) },
+                enabled = puedeGuardar,
+                modifier = Modifier.testTag("btnConfirmarEditarTerreno")
+            ) {
+                if (procesando) {
+                    CircularProgressIndicator(color = PlagOutColors.Forest, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                } else {
+                    // El color explícito pisa el contentColor de deshabilitado del TextButton:
+                    // sin atenuarlo a mano, "Guardar" se ve activo aunque no lo esté.
+                    Text(
+                        "Guardar",
+                        color = PlagOutColors.Forest.copy(alpha = if (puedeGuardar) 1f else 0.38f),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !procesando) { Text("Cancelar") }
+        }
+    )
+}
+
+private fun formatearHectareas(area: Float): String =
+    if (area % 1f == 0f) area.toInt().toString() else area.toString()
 
 @Composable
 private fun LeyendaEstadoTerreno(estilo: NivelEstilo, cantidad: Int) {

@@ -7,6 +7,7 @@ import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
 import com.example.plag_out.CreateTerrenoRequest
 import com.example.plag_out.TerrenoCreateResponse
+import com.example.plag_out.UpdateTerrenoRequest
 import com.example.plag_out.CultivoResponse
 import com.example.plag_out.CreatePlantacionRequest
 import com.example.plag_out.MonitoreoRequest
@@ -48,6 +49,12 @@ interface GDDService {
 
     @POST("/terrenos")
     suspend fun createTerreno(@Body data: CreateTerrenoRequest): Response<TerrenoCreateResponse>
+
+    @PATCH("/terrenos/{id}")
+    suspend fun actualizarTerreno(
+        @Path("id") id: Int,
+        @Body data: UpdateTerrenoRequest
+    ): Response<TerrenoResponse>
 
     @DELETE("/terrenos/{id}")
     suspend fun eliminarTerreno(@Path("id") id: Int): Response<Unit>

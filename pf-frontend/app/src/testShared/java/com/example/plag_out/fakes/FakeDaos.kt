@@ -68,6 +68,11 @@ class FakePlantacionDao(inicial: List<PlantacionesResponse> = emptyList()) : Pla
     override suspend fun deleteByTerrenoId(terrenoId: Int) {
         operaciones += "deleteByTerrenoId"; filas.removeAll { it.terreno_id == terrenoId }
     }
+
+    override suspend fun updateTerrenoNombre(terrenoId: Int, nombre: String) {
+        operaciones += "updateTerrenoNombre"
+        filas.replaceAll { if (it.terreno_id == terrenoId) it.copy(terreno_nombre = nombre) else it }
+    }
 }
 
 class FakeMonitoreoDao(inicial: List<MonitoreoResponse> = emptyList()) : MonitoreoDao {
@@ -106,5 +111,10 @@ class FakeMonitoreoDao(inicial: List<MonitoreoResponse> = emptyList()) : Monitor
 
     override suspend fun deleteByPlantacionId(plantacionId: Int) {
         operaciones += "deleteByPlantacionId"; filas.removeAll { it.plantacion_id == plantacionId }
+    }
+
+    override suspend fun updateTerrenoNombre(terrenoId: Int, nombre: String) {
+        operaciones += "updateTerrenoNombre"
+        filas.replaceAll { if (it.terreno_id == terrenoId) it.copy(terreno_nombre = nombre) else it }
     }
 }

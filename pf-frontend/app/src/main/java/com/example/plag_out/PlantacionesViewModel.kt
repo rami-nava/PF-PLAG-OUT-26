@@ -174,6 +174,17 @@ class PlantacionesViewModel(
         }
     }
 
+    fun renombrarTerreno(terrenoId: Int, nombre: String) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { plantacionRepository.renombrarTerreno(terrenoId, nombre) }
+            _state.value = _state.value.copy(
+                plantaciones = _state.value.plantaciones.map {
+                    if (it.terreno_id == terrenoId) it.copy(terreno_nombre = nombre) else it
+                }
+            )
+        }
+    }
+
     private fun mensajeDeError(codigo: Int): String = when (codigo) {
         400, 422 -> "Revisá los datos ingresados."
         401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."

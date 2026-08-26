@@ -101,6 +101,65 @@ class TerrenosViewModel(
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun editarTerreno(
+        terrenoId: Int,
+        nombre: String,
+        areaHectareas: String,
+        onSuccess: (TerrenoResponse) -> Unit
+    ) {
+        val actual = _state.value.terrenos.find { it.terreno_id == terrenoId } ?: return
+
+        val nombreLimpio = nombre.trim()
+        if (nombreLimpio.isEmpty()) {
+            _state.value = _state.value.copy(error = "El nombre del terreno no puede estar vacío")
+            return
+        }
+
+        val area = areaHectareas.trim().toDoubleOrNull()
+        if (area == null || area <= 0.0) {
+            _state.value = _state.value.copy(error = "Las hectáreas deben ser un número decimal mayor a 0")
+            return
+        }
+
+        _state.value = _state.value.copy(procesando = true, error = null)
+        viewModelScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    gddService.actualizarTerreno(
+                        terrenoId,
+                        UpdateTerrenoRequest(nombre = nombreLimpio, area_hectareas = area)
+                    )
+                }
+                if (response.isSuccessful) {
+                    // Si el backend no devuelve el terreno (204 o cuerpo vacío) se aplica el cambio local:
+                    // el PATCH ya se aceptó, así que los valores enviados son los vigentes.
+                    val actualizado = response.body()
+                        ?: actual.copy(terreno_nombre = nombreLimpio, terreno_area = area.toFloat())
+                    withContext(Dispatchers.IO) { terrenoRepository.guardarTerreno(actualizado) }
+                    _state.value = _state.value.copy(
+                        terrenos = _state.value.terrenos.map { if (it.terreno_id == terrenoId) actualizado else it },
+                        procesando = false
+                    )
+                    onSuccess(actualizado)
+                } else {
+                    _state.value = _state.value.copy(procesando = false, error = mensajeDeEdicion(response.code()))
+                    Log.e("TERRENOS", "Error al editar: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    procesando = false,
+                    error = "No se pudieron guardar los cambios. Revisá tu conexión."
+                )
+                Log.e("TERRENOS", "Error al editar: ${e.message}")
+            }
+        }
+    }
+
+    fun limpiarError() {
+        _state.value = _state.value.copy(error = null)
+    }
+
     /**
      * Elimina un terreno de forma permanente. El backend es responsable de eliminar en cascada las
      * plantaciones y monitoreos asociados; del lado del cliente [onSuccess] es quien dispara la
@@ -131,6 +190,13 @@ class TerrenosViewModel(
                 Log.e("TERRENOS", "Error al eliminar: ${e.message}")
             }
         }
+    }
+
+    private fun mensajeDeEdicion(codigo: Int): String = when (codigo) {
+        400, 422 -> "Revisá los datos ingresados."
+        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
+        404 -> "El terreno ya no existe."
+        else -> "No se pudieron guardar los cambios. Intentá de nuevo."
     }
 
     private fun mensajeDeError(codigo: Int): String = when (codigo) {

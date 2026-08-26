@@ -173,6 +173,17 @@ class MonitoreosViewModel(
             )
         }
     }
+
+    fun renombrarTerreno(terrenoId: Int, nombre: String) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { monitoreosRepository.renombrarTerreno(terrenoId, nombre) }
+            _state.value = _state.value.copy(
+                monitoreos = _state.value.monitoreos.map {
+                    if (it.terreno_id == terrenoId) it.copy(terreno_nombre = nombre) else it
+                }
+            )
+        }
+    }
 }
 
 class MonitoreosViewModelFactory(
