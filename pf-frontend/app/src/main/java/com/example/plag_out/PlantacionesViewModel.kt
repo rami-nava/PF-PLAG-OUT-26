@@ -126,7 +126,7 @@ class PlantacionesViewModel(
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     procesando = false,
-                    error = "No se pudo finalizarel cultivo. Revisá tu conexión."
+                    error = "No se pudo finalizar el cultivo. Revisá tu conexión."
                 )
                 Log.e("CULTIVOS", "Error al finalizar: ${e.message}")
             }

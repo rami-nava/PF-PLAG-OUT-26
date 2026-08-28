@@ -34,7 +34,7 @@ import retrofit2.Response
  *  - `filtrarPlagas` deja en `plagasDisponibles` solo las plagas del cultivo elegido.
  *  - `guardarMonitoreo` valida en orden terreno → cultivo → plaga, y crea un monitoreo por
  *    cada plaga elegida.
- *  - `precargarContexto` fija terreno y cultivo cuando se entra desdeel cultivo.
+ *  - `precargarContexto` fija terreno y cultivo cuando se entra desde el cultivo.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -252,7 +252,7 @@ class AgregarMonitoreoViewModelTest {
         assertEquals(emptyList<PlagaResponse>(), vm.state.value.plagasSeleccionadas)
     }
 
-    // ---------- precargarContexto: alta desdeel cultivo ----------
+    // ---------- precargarContexto: alta desde el cultivo ----------
 
     @Test
     fun `precargarContexto fija el terreno y la plantacion`() = runTest {
@@ -276,12 +276,12 @@ class AgregarMonitoreoViewModelTest {
         vm.precargarContexto(plantacionId = 99)
 
         val estado = esperarEstado(vm.state) { it.error != null }
-        assertEquals("No se encontróel cultivo", estado.error)
+        assertEquals("No se encontró el cultivo", estado.error)
         assertFalse(estado.contextoFijado)
         assertNull(estado.plantacionSeleccionada)
     }
 
-    /** El terreno solo se muestra: el id para crear el monitoreo saledel cultivo. */
+    /** El terreno solo se muestra: el id para crear el monitoreo sale del cultivo. */
     @Test
     fun `precargarContexto sin el terreno en cache igual permite guardar`() = runTest {
         val vm = viewModel(plantaciones = listOf(Fixtures.plantacion(id = 7, terrenoId = 3)))

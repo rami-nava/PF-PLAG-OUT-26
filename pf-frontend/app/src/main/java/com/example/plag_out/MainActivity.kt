@@ -276,7 +276,7 @@ fun AppNavigation(
         }
     }
 
-    // Aviso de biofix: la entidad esel cultivo que arrancó a acumular GDD.
+    // Aviso de biofix: la entidad es el cultivo que arrancó a acumular GDD.
     LaunchedEffect(deepLinkPlantacionId, sessionStatus) {
         if (deepLinkPlantacionId != null && sessionStatus is SessionStatus.Authenticated) {
             navController.navigate("plantacion/$deepLinkPlantacionId")

@@ -117,7 +117,7 @@ fun estiloDeNivel(nivel: Int): NivelEstilo = when {
         "Moderado",
         Icons.Filled.WarningAmber,
         "Hubo períodos con condiciones favorables: la densidad poblacional esperada es intermedia.",
-        "Revisáel cultivo más seguido y prepará el control por las dudas."
+        "Revisá el cultivo más seguido y prepará el control por las dudas."
     )
     else -> NivelEstilo(
         PlagOutColors.RiskDanger,
@@ -125,7 +125,7 @@ fun estiloDeNivel(nivel: Int): NivelEstilo = when {
         "Alto",
         Icons.Filled.ErrorOutline,
         "Las condiciones fueron muy favorables para la plaga: se espera una densidad poblacional alta.",
-        "Inspeccionáel cultivo cuanto antes y evaluá aplicar control."
+        "Inspeccioná el cultivo cuanto antes y evaluá aplicar control."
     )
 }
 

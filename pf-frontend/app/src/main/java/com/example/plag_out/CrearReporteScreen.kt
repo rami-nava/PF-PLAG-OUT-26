@@ -285,7 +285,7 @@ fun CrearReporteScreen(
                             ) {
                                 if (state.plantaciones.isEmpty()) {
                                     DropdownMenuItem(
-                                        text = { Text("Este terreno no tienecultivos activos", color = PlagOutColors.TextSecondary) },
+                                        text = { Text("Este terreno no tiene cultivos activos", color = PlagOutColors.TextSecondary) },
                                         onClick = { dropdownPlantacionExpanded = false }
                                     )
                                 } else {
