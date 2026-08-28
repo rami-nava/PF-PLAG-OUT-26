@@ -97,7 +97,7 @@ class AgregarMonitoreoViewModel(
         }
     }
 
-    /** Sin cultivo elegida ([cultivoId] nulo) no hay plagas para ofrecer. */
+    /** Sin cultivo elegido ([cultivoId] nulo) no hay plagas para ofrecer. */
     fun filtrarPlagas(cultivoId: Int?){
         val plagasParaCultivo = if (cultivoId == null) emptyList() else {
             _state.value.plagas
@@ -127,7 +127,7 @@ class AgregarMonitoreoViewModel(
                 plantacionRepository.obtenerPlantaciones().find { it.plantacion_id == plantacionId }
             }
             if (plantacion == null) {
-                _state.value = _state.value.copy(error = "No se encontróel cultivo")
+                _state.value = _state.value.copy(error = "No se encontró el cultivo")
                 return@launch
             }
 

@@ -162,7 +162,7 @@ class MonitoreosViewModel(
 
     /**
      * Purga local (Room + memoria) de los monitoreos de un cultivo eliminada. No llama a la
-     * red: el DELETEdel cultivo ya se hizo y se asume que el backend eliminó en cascada;
+     * red: el DELETE del cultivo ya se hizo y se asume que el backend eliminó en cascada;
      * esto solo sincroniza el caché del cliente para que no queden monitoreos huérfanos.
      */
     fun purgarPorPlantacion(plantacionId: Int) {

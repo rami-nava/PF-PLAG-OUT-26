@@ -291,7 +291,7 @@ private fun HeaderAgregarPlantacion(onBack: () -> Unit) {
             }
             Column {
                 Text(
-                    "Nueva cultivo",
+                    "Nuevo cultivo",
                     color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,

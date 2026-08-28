@@ -97,7 +97,7 @@ class CreacionMonitoreoTest {
             cultivos_afectados = listOf(trigo.id)
         )
 
-        // Plaga de otro cultivo: no debe ofrecerse al elegirel cultivo de trigo.
+        // Plaga de otro cultivo: no debe ofrecerse al elegir el cultivo de trigo.
         val plagaDelMaiz = PlagaResponse(
             id = 2,
             nombre = "Gusano cogollero",

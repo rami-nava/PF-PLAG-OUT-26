@@ -63,7 +63,7 @@ class PlagOutMessagingService : FirebaseMessagingService() {
 
         // Intent de tap: reabre MainActivity con el id para hacer deep-link a la entidad del
         // aviso. Cada tipo de alerta trae la suya: GDD el monitoreo, reporte cercano el reporte
-        // y biofixel cultivo que arrancó a acumular.
+        // y biofix el cultivo que arrancó a acumular.
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             data["tipo"]?.let { putExtra(EXTRA_TIPO, it) }

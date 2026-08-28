@@ -53,7 +53,7 @@ class CreacionReporteTest {
             cultivosAfectados = listOf(1)
         )
 
-        // Plaga de otro cultivo: no debe ofrecerse al elegirel cultivo de trigo.
+        // Plaga de otro cultivo: no debe ofrecerse al elegir el cultivo de trigo.
         val plagaDelMaiz = Fixtures.plaga(
             id = 2,
             nombre = "Gusano cogollero",
@@ -93,13 +93,13 @@ class CreacionReporteTest {
         composeRule.onNodeWithTag("txtTipoPlaga").assertIsNotEnabled()
         composeRule.onNodeWithTag("btnGuardarReporte").assertIsNotEnabled()
 
-        // Caso 3: recién conel cultivo elegida se habilita la plaga
+        // Caso 3: recién con el cultivo elegido se habilita la plaga
         composeRule.onNodeWithTag("txtPlantacionReporte").performClick()
         composeRule.onNodeWithText("Trigo").performClick()
         composeRule.onNodeWithTag("txtTipoPlaga").assertIsEnabled()
         composeRule.onNodeWithTag("btnGuardarReporte").assertIsNotEnabled()
 
-        // Caso 4: las plagas ofrecidas son solo las del cultivodel cultivo
+        // Caso 4: las plagas ofrecidas son solo las del cultivo
         composeRule.onNodeWithTag("txtTipoPlaga").performClick()
         composeRule.onNodeWithText("Gusano cogollero").assertDoesNotExist()
 

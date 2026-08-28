@@ -55,7 +55,7 @@ fun AgregarMonitoreoScreen(
     /** Recibe lo que haya quedado creado de un lote incompleto, para no perderlo al salir. */
     onBack: (List<MonitoreoResponse>) -> Unit,
     onSuccess: (List<MonitoreoResponse>) -> Unit,
-    /** Si viene, el terreno yel cultivo quedan fijados y solo se elige la plaga. */
+    /** Si viene, el terreno y el cultivo quedan fijados y solo se elige la plaga. */
     plantacionId: Int? = null
 ) {
     val state by viewModel.state.collectAsState()
@@ -80,7 +80,7 @@ fun AgregarMonitoreoScreen(
         if (state.terrenoSeleccionado != null) viewModel.cargarPlantaciones(state.terrenoSeleccionado!!.terreno_id)
     }
 
-    // Corre también en la primera composición, cuando todavía no hay cultivo elegida, y cada vez
+    // Corre también en la primera composición, cuando todavía no hay cultivo elegido, y cada vez
     // que llegan las plagas de la red: por eso el cultivo va como nullable y `plagas` es una clave.
     LaunchedEffect(state.plantacionSeleccionada, state.plagas) {
         dropdownPlagaExpanded = false
@@ -121,7 +121,7 @@ fun AgregarMonitoreoScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(20.dp)) {
-                        // Entrando desdeel cultivo, el terreno yel cultivo ya están
+                        // Entrando desde el cultivo, el terreno y el cultivo ya están
                         // decididos: se muestran fijados y el único paso real es la plaga.
                         if (state.contextoFijado) {
                             ContextoFijado(plantacion = state.plantacionSeleccionada, terreno = state.terrenoSeleccionado)
@@ -293,7 +293,7 @@ fun AgregarMonitoreoScreen(
                         }
 
                         // ── Paso Plaga ──────────────────────────────────────────
-                        // El cultivodel cultivo define qué plagas aplican: sin cultivo
+                        // El cultivo define qué plagas aplican: sin cultivo
                         // elegida el paso queda bloqueado.
                         val plantacionElegida = state.plantacionSeleccionada
                         val plagasDisponibles = state.plagasDisponibles
@@ -567,7 +567,7 @@ private fun ContextoFijado(plantacion: PlantacionesResponse?, terreno: TerrenoRe
         titulo = terreno?.terreno_nombre ?: plantacion.terreno_nombre,
         subtitulo = terreno?.let {
             "${it.terreno_area} ha · ${"%.2f".format(it.terreno_latitud)}, ${"%.2f".format(it.terreno_longitud)}"
-        } ?: "Terrenodel cultivo",
+        } ?: "Terreno del cultivo",
         modifier = Modifier.testTag("filaTerrenoFijado")
     )
     Spacer(Modifier.height(10.dp))
