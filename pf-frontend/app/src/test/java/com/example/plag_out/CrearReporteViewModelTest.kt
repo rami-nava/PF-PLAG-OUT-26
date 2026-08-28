@@ -106,7 +106,7 @@ class CrearReporteViewModelTest {
         viewModel = CrearReporteViewModel(context, gddService)
         esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
 
-        // Las plagas solo se pueden elegir con terreno y plantación ya definidos
+        // Las plagas solo se pueden elegir con terreno y cultivo ya definidos
         viewModel.seleccionarTerreno(Fixtures.terreno(id = 1))
         viewModel.seleccionarPlantacion(Fixtures.plantacion(id = 10, terrenoId = 1))
 
@@ -136,7 +136,7 @@ class CrearReporteViewModelTest {
     fun `sin plantacion no hay plagas para elegir`() {
         val estado = esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
 
-        // El catálogo llegó, pero nada está disponible hasta elegir una plantación
+        // El catálogo llegó, pero nada está disponible hasta elegir un cultivo
         assertTrue(estado.plagas.isNotEmpty())
         assertTrue(estado.plagasDisponibles.isEmpty())
     }

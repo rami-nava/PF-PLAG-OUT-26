@@ -236,7 +236,7 @@ fun MonitoreosScreen(
                             EstadoVacioFlotante(
                                 icono = Icons.Outlined.BugReport,
                                 titulo = "Sin monitoreos activos",
-                                subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en tus plantaciones."
+                                subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en tus cultivos."
                             )
                         }
                         "sin-resultados" -> Box(
@@ -599,7 +599,7 @@ fun MonitoreoCard(
     }
 }
 
-// ── Monitoreos de una plantación ────────────────────────────────────────────
+// ── Monitoreos de un cultivo ────────────────────────────────────────────
 
 private const val PAGINA_INFO_PLANTACION = 0
 private const val PAGINA_MONITOREOS_PLANTACION = 1
@@ -685,13 +685,13 @@ fun MonitoreosPorPlantacion(
                 }
                 Column {
                     Text(
-                        "Detalle de plantación",
+                        "Detalle de cultivo",
                         color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        plantacion?.cultivo_nombre ?: referencia?.cultivo_nombre ?: "Plantación",
+                        plantacion?.cultivo_nombre ?: referencia?.cultivo_nombre ?: "Cultivo",
                         color = PlagOutColors.TextOnDark,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.ExtraBold
@@ -851,13 +851,13 @@ private fun InformacionPlantacionTab(
 
         if (total == 0) {
             Spacer(Modifier.height(10.dp))
-            EtiquetaInfo(Icons.Outlined.BugReport, "Todavía no hay monitoreos en esta plantación", PlagOutColors.RiskUnknown)
+            EtiquetaInfo(Icons.Outlined.BugReport, "Todavía no hay monitoreos en este cultivo", PlagOutColors.RiskUnknown)
         } else if (activos.isEmpty()) {
             Spacer(Modifier.height(10.dp))
             EtiquetaInfo(
                 Icons.Filled.Flag,
-                if (finalizados == 1) "El único monitoreo de esta plantación está finalizado"
-                else "Los $finalizados monitoreos de esta plantación están finalizados",
+                if (finalizados == 1) "El único monitoreo de este cultivo está finalizado"
+                else "Los $finalizados monitoreos de este cultivo están finalizados",
                 PlagOutColors.Bark
             )
         }
@@ -879,7 +879,7 @@ private fun InformacionPlantacionTab(
                     if (plantacionesState.procesando) {
                         CircularProgressIndicator(color = PlagOutColors.RiskWarn, modifier = Modifier.size(20.dp))
                     } else {
-                        Text("Finalizar plantación", fontWeight = FontWeight.SemiBold)
+                        Text("Finalizar cultivo", fontWeight = FontWeight.SemiBold)
                     }
                 }
                 Spacer(Modifier.height(10.dp))
@@ -898,7 +898,7 @@ private fun InformacionPlantacionTab(
                 if (plantacionesState.procesando) {
                     CircularProgressIndicator(color = PlagOutColors.RiskDanger, modifier = Modifier.size(20.dp))
                 } else {
-                    Text("Eliminar plantación", fontWeight = FontWeight.SemiBold)
+                    Text("Eliminar cultivo", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -910,7 +910,7 @@ private fun InformacionPlantacionTab(
         AlertDialog(
             onDismissRequest = { mostrarDialogoFinalizar = false },
             modifier = Modifier.testTag("dialogFinalizarPlantacion"),
-            title = { Text("¿Finalizar plantación?") },
+            title = { Text("¿Finalizar cultivo?") },
             text = {
                 Text(
                     "Vas a marcar \"${plantacion.cultivo_nombre}\" como pausada. Vas a poder seguir viendo su " +
@@ -940,7 +940,7 @@ private fun InformacionPlantacionTab(
         AlertDialog(
             onDismissRequest = { mostrarDialogoEliminar = false },
             modifier = Modifier.testTag("dialogEliminarPlantacion"),
-            title = { Text("¿Eliminar plantación?") },
+            title = { Text("¿Eliminar cultivo?") },
             text = {
                 Text(
                     "Se va a eliminar \"${plantacion.cultivo_nombre}\" de forma permanente, junto con sus monitoreos. " +
@@ -1008,7 +1008,7 @@ private fun MonitoreosDePlantacionTab(
                 EstadoVacioFlotante(
                     icono = Icons.Outlined.BugReport,
                     titulo = "Sin monitoreos activos",
-                    subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en esta plantación."
+                    subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en este cultivo."
                 )
             }
         } else {

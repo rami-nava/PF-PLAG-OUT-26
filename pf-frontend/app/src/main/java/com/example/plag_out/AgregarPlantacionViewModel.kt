@@ -154,7 +154,7 @@ class AgregarPlantacionViewModel(
                         )
                     }
                 } else {
-                    val errorMsg = response.errorBody()?.string() ?: "Error del servidor al registrar plantación"
+                    val errorMsg = response.errorBody()?.string() ?: "Error del servidor al registrar cultivo"
                     _state.value = _state.value.copy(
                         isGuardando = false,
                         error = errorMsg
@@ -165,7 +165,7 @@ class AgregarPlantacionViewModel(
                     isGuardando = false,
                     error = "Error al guardar: ${e.message}"
                 )
-                Log.e("AGREGAR_PLANTACION", "Error al guardar plantación: ${e.message}")
+                Log.e("AGREGAR_PLANTACION", "Error al guardar cultivo: ${e.message}")
             }
         }
     }

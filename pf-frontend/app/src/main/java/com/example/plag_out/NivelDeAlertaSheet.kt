@@ -195,7 +195,7 @@ fun TarjetaGDD(modifier: Modifier = Modifier) {
     TarjetaConcepto(Icons.Outlined.Thermostat, "¿Qué son los GDD?", modifier) {
         Text(
             "Grados Día de Crecimiento: el calor que se fue acumulando desde que arranca el conteo " +
-                "(la siembra de tu plantación o el biofix de la plaga). Cada plaga necesita juntar " +
+                "(la siembra de tu cultivo o el biofix de la plaga). Cada plaga necesita juntar " +
                 "cierta cantidad para eclosionar, y ese total es el objetivo del monitoreo.",
             fontSize = 13.sp,
             color = PlagOutColors.TextSecondary

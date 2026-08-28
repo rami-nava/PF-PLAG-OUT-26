@@ -153,7 +153,7 @@ fun PlantacionesPorTerreno(
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Nueva Plantación", fontWeight = FontWeight.SemiBold)
+                    Text("Nueva Cultivo", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -190,7 +190,7 @@ fun PlantacionesPorTerreno(
                         Spacer(Modifier.height(4.dp))
                         val activas = plantacionesDelTerreno.count { it.activa }
                         Text(
-                            if (plantacionesDelTerreno.isEmpty()) "Sin plantaciones registradas"
+                            if (plantacionesDelTerreno.isEmpty()) "Sin cultivos registrados"
                             else "$activas activa${if (activas == 1) "" else "s"} de ${plantacionesDelTerreno.size}",
                             color = PlagOutColors.TextOnDark.copy(alpha = 0.8f),
                             fontSize = 13.sp
@@ -212,7 +212,7 @@ fun PlantacionesPorTerreno(
                 Tab(
                     selected = pagerState.currentPage == PAGINA_PLANTACIONES,
                     onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_PLANTACIONES) } },
-                    text = { Text("Plantaciones", fontWeight = FontWeight.SemiBold) }
+                    text = { Text("Cultivos", fontWeight = FontWeight.SemiBold) }
                 )
             }
 
@@ -323,7 +323,7 @@ private fun InformacionTerrenoTab(
             Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 EstadisticaCompacta("Hectáreas", terreno?.let { "${it.terreno_area.toInt()}" } ?: "—", Modifier.weight(1f))
                 SeparadorVertical()
-                EstadisticaCompacta("Plantaciones", "${plantacionesDelTerreno.size}", Modifier.weight(1f))
+                EstadisticaCompacta("Cultivos", "${plantacionesDelTerreno.size}", Modifier.weight(1f))
                 SeparadorVertical()
                 EstadisticaCompacta("Activas", "$activas", Modifier.weight(1f))
             }
@@ -438,7 +438,7 @@ private fun InformacionTerrenoTab(
             text = {
                 Text(
                     "Se va a eliminar \"${terreno.terreno_nombre}\" de forma permanente, junto con sus " +
-                        "plantaciones y monitoreos. Esta acción no se puede deshacer."
+                        "cultivos y monitoreos. Esta acción no se puede deshacer."
                 )
             },
             confirmButton = {
@@ -585,7 +585,7 @@ private fun abrirUbicacionEnMapa(context: Context, terreno: TerrenoResponse) {
     }
 }
 
-// ── Pestaña "Plantaciones" ───────────────────────────────────────────────────
+// ── Pestaña "Cultivos" ───────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -633,7 +633,7 @@ private fun PlantacionesTab(
                         ) {
                             EstadoVacioFlotante(
                                 icono = Icons.Outlined.Grass,
-                                titulo = "No hay plantaciones",
+                                titulo = "No hay cultivos",
                                 subtitulo = "Registrá un cultivo en este terreno para empezar a monitorear plagas."
                             )
                         }
@@ -641,7 +641,7 @@ private fun PlantacionesTab(
                             Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                             contentAlignment = Alignment.Center
                         ) {
-                            EstadoSinResultados(subtitulo = "No hay plantaciones en este estado.")
+                            EstadoSinResultados(subtitulo = "No hay cultivos en este estado.")
                         }
                         else -> LazyColumn(
                             modifier = Modifier.fillMaxSize(),
@@ -665,7 +665,7 @@ private fun PlantacionesTab(
     }
 }
 
-// ── Card de plantación ───────────────────────────────────────────────────────
+// ── Card de cultivo ───────────────────────────────────────────────────────
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable

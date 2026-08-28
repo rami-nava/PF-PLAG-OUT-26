@@ -206,8 +206,6 @@ fun MisReportesScreen(
                     reportesPropios = reportesPropios,
                     reportesComunidad = reportesComunidad
                 )
-
-
                 if (reportesAmbito.isNotEmpty()) {
                     val totalOriginal = reportesAmbito.size
                     val totalFiltrados = reportesFiltrados.size
@@ -416,8 +414,15 @@ private fun dentroDelRadio(reporte: ReporteDetalleResponse, radioKm: Int): Boole
 }
 
 
-private fun formatearKm(km: Float): String =
-    String.format(Locale.getDefault(), if (km >= 10f) "%.0f" else "%.1f", km)
+private fun formatearKm(km: Float): String {
+    return if (km < 1.0f) {
+        "${(km * 1000).toInt()} m"
+    } else if (km >= 10.0f) {
+        String.format(Locale.getDefault(), "%.0f km", km)
+    } else {
+        String.format(Locale.getDefault(), "%.1f km", km)
+    }
+}
 
 
 @Composable
@@ -524,15 +529,6 @@ private fun PanelHeaderReportes(
 
             Spacer(Modifier.height(14.dp))
 
-            SelectorAmbito(
-                tabSeleccionado = tabSeleccionado,
-                onTabChange = onTabChange,
-                cantidadPropios = reportesPropios.size,
-                cantidadComunidad = reportesComunidad.size
-            )
-
-            Spacer(Modifier.height(18.dp))
-
             // La severidad de un reporte se pinta con la misma paleta sobre oscuro que el
             // nivel de alerta de un monitoreo: Alto↔nivel 2, Medio↔nivel 1, Bajo↔nivel 0.
             val estiloAlto = estiloDeNivel(2)
@@ -567,6 +563,15 @@ private fun PanelHeaderReportes(
                     LeyendaSeveridad(estiloBajo, "Bajo", conteoBajo)
                 }
             }
+
+            Spacer(Modifier.height(18.dp))
+
+            SelectorAmbito(
+                tabSeleccionado = tabSeleccionado,
+                onTabChange = onTabChange,
+                cantidadPropios = reportesPropios.size,
+                cantidadComunidad = reportesComunidad.size
+            )
         }
     }
 }
@@ -702,11 +707,11 @@ fun TarjetaReporteItem(
     } else {
         val tNom = reporte.terreno_nombre?.takeIf { it.isNotBlank() }
         if (tNom != null && distanciaFormateada != null) {
-            "Cercano a $tNom ($distanciaFormateada km)"
+            "Cercano a $tNom ($distanciaFormateada)"
         } else if (tNom != null) {
             "Cercano a $tNom"
         } else if (distanciaFormateada != null) {
-            "A $distanciaFormateada km de tu terreno"
+            "A $distanciaFormateada de tu terreno"
         } else {
             "Comunidad (área cercana)"
         }
@@ -766,7 +771,7 @@ fun TarjetaReporteItem(
                             )
                             Spacer(Modifier.width(5.dp))
                             Text(
-                                text = distanciaFormateada?.let { "A $it km de tus terrenos" } ?: "Comunidad",
+                                text = distanciaFormateada?.let { "A $it de tus terrenos" } ?: "Comunidad",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = AzulComunidad

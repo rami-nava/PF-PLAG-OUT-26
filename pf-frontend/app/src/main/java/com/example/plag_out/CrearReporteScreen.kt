@@ -221,7 +221,7 @@ fun CrearReporteScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // ── Card 2: Selección de Plantación ──────────────────────────────
+                // ── Card 2: Selección de Cultivo ──────────────────────────────
                 Surface(
                     color = PlagOutColors.Surface,
                     shape = RoundedCornerShape(22.dp),
@@ -262,7 +262,7 @@ fun CrearReporteScreen(
                                 value = plantacionTexto,
                                 onValueChange = {},
                                 enabled = state.terrenoSeleccionado != null,
-                                label = { Text("Seleccioná una plantación") },
+                                label = { Text("Seleccioná un cultivo") },
                                 leadingIcon = {
                                     Icon(
                                         Icons.Outlined.Grass,
@@ -285,7 +285,7 @@ fun CrearReporteScreen(
                             ) {
                                 if (state.plantaciones.isEmpty()) {
                                     DropdownMenuItem(
-                                        text = { Text("Este terreno no tiene plantaciones activas", color = PlagOutColors.TextSecondary) },
+                                        text = { Text("Este terreno no tienecultivos activos", color = PlagOutColors.TextSecondary) },
                                         onClick = { dropdownPlantacionExpanded = false }
                                     )
                                 } else {
@@ -358,7 +358,7 @@ fun CrearReporteScreen(
                                 label = {
                                     Text(
                                         if (plantacionElegida != null) "Seleccioná un tipo de plaga"
-                                        else "Elegí una plantación primero"
+                                        else "Elegí un cultivo primero"
                                     )
                                 },
                                 leadingIcon = {
@@ -385,7 +385,7 @@ fun CrearReporteScreen(
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                if (plantacionElegida == null) "Seleccioná una plantación"
+                                                if (plantacionElegida == null) "Seleccioná un cultivo"
                                                 else "No hay plagas registradas para ${plantacionElegida.cultivo_nombre}",
                                                 color = PlagOutColors.TextSecondary
                                             )
@@ -757,7 +757,7 @@ fun CrearReporteScreen(
                 if (!formularioValido) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Seleccioná Terreno, Plantación, Plaga y Etapa Biológica para habilitar el envío.",
+                        "Seleccioná Terreno, Cultivo, Plaga y Etapa Biológica para habilitar el envío.",
                         fontSize = 12.sp,
                         color = PlagOutColors.TextSecondary,
                         modifier = Modifier.align(Alignment.CenterHorizontally)

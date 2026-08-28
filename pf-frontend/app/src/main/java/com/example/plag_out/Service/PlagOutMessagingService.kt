@@ -63,7 +63,7 @@ class PlagOutMessagingService : FirebaseMessagingService() {
 
         // Intent de tap: reabre MainActivity con el id para hacer deep-link a la entidad del
         // aviso. Cada tipo de alerta trae la suya: GDD el monitoreo, reporte cercano el reporte
-        // y biofix la plantación que arrancó a acumular.
+        // y biofixel cultivo que arrancó a acumular.
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             data["tipo"]?.let { putExtra(EXTRA_TIPO, it) }
@@ -111,7 +111,7 @@ class PlagOutMessagingService : FirebaseMessagingService() {
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Riesgo por GDD, reportes de plagas cercanos e inicio de " +
-                        "acumulación (biofix) de tus plantaciones"
+                        "acumulación (biofix) de tus cultivos"
             }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)

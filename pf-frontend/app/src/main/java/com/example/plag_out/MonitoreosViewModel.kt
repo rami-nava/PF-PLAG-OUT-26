@@ -115,7 +115,7 @@ class MonitoreosViewModel(
     }
 
     /**
-     * Al pausar una plantación, el backend cascadea `activo = false` a sus monitoreos en el mismo
+     * Al pausar un cultivo, el backend cascadea `activo = false` a sus monitoreos en el mismo
      * PATCH `/plantaciones/{id}` — acá solo reflejamos localmente (Room + memoria) lo que el
      * servidor ya hizo, sin llamadas de red adicionales.
      */
@@ -161,8 +161,8 @@ class MonitoreosViewModel(
     }
 
     /**
-     * Purga local (Room + memoria) de los monitoreos de una plantación eliminada. No llama a la
-     * red: el DELETE de la plantación ya se hizo y se asume que el backend eliminó en cascada;
+     * Purga local (Room + memoria) de los monitoreos de un cultivo eliminada. No llama a la
+     * red: el DELETEdel cultivo ya se hizo y se asume que el backend eliminó en cascada;
      * esto solo sincroniza el caché del cliente para que no queden monitoreos huérfanos.
      */
     fun purgarPorPlantacion(plantacionId: Int) {

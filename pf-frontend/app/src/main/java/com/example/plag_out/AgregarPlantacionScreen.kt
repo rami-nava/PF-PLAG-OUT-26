@@ -246,7 +246,7 @@ fun AgregarPlantacionScreen(
                 if (state.isGuardando) {
                     CircularProgressIndicator(color = PlagOutColors.TextOnDark, modifier = Modifier.size(22.dp))
                 } else {
-                    Text("Guardar plantación", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("Guardar cultivo", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -291,13 +291,13 @@ private fun HeaderAgregarPlantacion(onBack: () -> Unit) {
             }
             Column {
                 Text(
-                    "Nueva plantación",
+                    "Nueva cultivo",
                     color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     letterSpacing = 0.3.sp
                 )
-                Text("Agregar Plantación", color = PlagOutColors.TextOnDark, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Agregar Cultivo", color = PlagOutColors.TextOnDark, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
     }
