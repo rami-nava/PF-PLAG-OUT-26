@@ -75,7 +75,7 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
 
             Text(
                 "Plag-Out te ayuda a anticipar el riesgo de plagas en tus cultivos: seguís tus " +
-                    "terrenos y plantaciones, la app calcula día a día qué tan favorable fue el " +
+                    "terrenos y cultivos, la app calcula día a día qué tan favorable fue el " +
                     "ambiente para cada plaga y te avisa cuando el riesgo sube.",
                 fontSize = 14.sp,
                 color = PlagOutColors.TextSecondary
@@ -90,7 +90,7 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
             )
             PasoAyuda(
                 2,
-                "Agregá tus plantaciones",
+                "Agregá tus cultivos",
                 "Qué cultivo sembraste en ese terreno y en qué fecha."
             )
             PasoAyuda(

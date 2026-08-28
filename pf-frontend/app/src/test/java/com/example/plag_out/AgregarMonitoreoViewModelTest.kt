@@ -32,9 +32,9 @@ import retrofit2.Response
  *  - `cargarPlantaciones(terrenoId)` filtra por `terreno_id == terrenoId && activa`:
  *    quedan afuera las plantaciones inactivas y las de otro terreno.
  *  - `filtrarPlagas` deja en `plagasDisponibles` solo las plagas del cultivo elegido.
- *  - `guardarMonitoreo` valida en orden terreno → plantación → plaga, y crea un monitoreo por
+ *  - `guardarMonitoreo` valida en orden terreno → cultivo → plaga, y crea un monitoreo por
  *    cada plaga elegida.
- *  - `precargarContexto` fija terreno y plantación cuando se entra desde la plantación.
+ *  - `precargarContexto` fija terreno y cultivo cuando se entra desdeel cultivo.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -252,7 +252,7 @@ class AgregarMonitoreoViewModelTest {
         assertEquals(emptyList<PlagaResponse>(), vm.state.value.plagasSeleccionadas)
     }
 
-    // ---------- precargarContexto: alta desde la plantación ----------
+    // ---------- precargarContexto: alta desdeel cultivo ----------
 
     @Test
     fun `precargarContexto fija el terreno y la plantacion`() = runTest {
@@ -276,12 +276,12 @@ class AgregarMonitoreoViewModelTest {
         vm.precargarContexto(plantacionId = 99)
 
         val estado = esperarEstado(vm.state) { it.error != null }
-        assertEquals("No se encontró la plantación", estado.error)
+        assertEquals("No se encontróel cultivo", estado.error)
         assertFalse(estado.contextoFijado)
         assertNull(estado.plantacionSeleccionada)
     }
 
-    /** El terreno solo se muestra: el id para crear el monitoreo sale de la plantación. */
+    /** El terreno solo se muestra: el id para crear el monitoreo saledel cultivo. */
     @Test
     fun `precargarContexto sin el terreno en cache igual permite guardar`() = runTest {
         val vm = viewModel(plantaciones = listOf(Fixtures.plantacion(id = 7, terrenoId = 3)))
@@ -317,7 +317,7 @@ class AgregarMonitoreoViewModelTest {
 
     // ---------- guardarMonitoreo: un monitoreo por plaga ----------
 
-    /** VM con terreno, plantación de trigo y [plagas] ya disponibles: listo para guardar. */
+    /** VM con terreno, cultivo de trigo y [plagas] ya disponibles: listo para guardar. */
     private fun viewModelListoParaGuardar(plagas: List<PlagaResponse>): AgregarMonitoreoViewModel {
         val vm = viewModel(plagas = plagas)
         vm.seleccionarTerreno(Fixtures.terreno(id = 1))

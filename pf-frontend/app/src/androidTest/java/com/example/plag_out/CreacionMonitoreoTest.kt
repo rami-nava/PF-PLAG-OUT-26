@@ -97,7 +97,7 @@ class CreacionMonitoreoTest {
             cultivos_afectados = listOf(trigo.id)
         )
 
-        // Plaga de otro cultivo: no debe ofrecerse al elegir la plantación de trigo.
+        // Plaga de otro cultivo: no debe ofrecerse al elegirel cultivo de trigo.
         val plagaDelMaiz = PlagaResponse(
             id = 2,
             nombre = "Gusano cogollero",
@@ -145,7 +145,7 @@ class CreacionMonitoreoTest {
         composeRule.onNodeWithTag("txtPlaga")
             .assertIsNotEnabled()
 
-        //Caso 3: solo pueden crearse monitoreos de plantaciones activas
+        //Caso 3: solo pueden crearse monitoreos de cultivos activos
         composeRule.onNodeWithTag("txtPlantacion").performClick()
         composeRule.onNodeWithText("Trigo")
             .assertExists()
@@ -158,7 +158,7 @@ class CreacionMonitoreoTest {
         composeRule.onNodeWithTag("btnGuardar")
             .assertIsNotEnabled()
 
-        // Caso 5: las plagas ofrecidas son solo las del cultivo de la plantación
+        // Caso 5: las plagas ofrecidas son solo las del cultivo deel cultivo
         composeRule.onNodeWithTag("txtPlaga")
             .performClick()
         composeRule.onNodeWithText("Gusano cogollero")

@@ -85,8 +85,37 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Polygon
+import android.location.Geocoder
+import android.location.Address
+import android.widget.Toast
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import org.osmdroid.api.IMapController
+import java.util.Locale
+import kotlin.math.sqrt
+import kotlin.math.PI
+
+private val OsmTileSource = XYTileSource(
+    "OSM_FR",
+    0, 19, 256, ".png",
+    arrayOf(
+        "https://a.tile.openstreetmap.fr/osmfr/",
+        "https://b.tile.openstreetmap.fr/osmfr/",
+        "https://c.tile.openstreetmap.fr/osmfr/"
+    )
+)
 
 @SuppressLint("MissingPermission")
 @RequiresApi(Build.VERSION_CODES.O)
@@ -111,6 +140,36 @@ fun SelectLocationScreen(
 
     //UBICACION EN MAPA
     var selectedLocation by remember { mutableStateOf<GeoPoint?>(null) }
+    var mapController by remember { mutableStateOf<IMapController?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+    var searchQuery by remember { mutableStateOf("") }
+    var isSearching by remember { mutableStateOf(false) }
+    var searchResults by remember { mutableStateOf<List<Address>>(emptyList()) }
+    var showDropdown by remember { mutableStateOf(false) }
+
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.length < 3) {
+            searchResults = emptyList()
+            showDropdown = false
+            return@LaunchedEffect
+        }
+        delay(500) // Debounce
+        isSearching = true
+        try {
+            val geocoder = Geocoder(context, Locale.getDefault())
+            val results = withContext(Dispatchers.IO) {
+                geocoder.getFromLocationName(searchQuery, 10)
+            }
+            if (results != null) {
+                searchResults = results.filter { it.countryCode == "AR" || (it.latitude in -55.0..-21.8 && it.longitude in -73.6..-53.6) }.take(5)
+                showDropdown = searchResults.isNotEmpty()
+            }
+        } catch (e: Exception) {
+            Log.e("GEOCODER", "Error en búsqueda asíncrona: ${e.message}")
+        } finally {
+            isSearching = false
+        }
+    }
 
     // Estados locales para los campos de texto
     var latInput by remember { mutableStateOf(state.latitud?.toString() ?: "") }
@@ -129,13 +188,17 @@ fun SelectLocationScreen(
 
     //SI NO TENGO PERMISO PARA ACCEDER A SU UBICACION SE LO PIDO
     val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted -> isGranted = granted }
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+        onResult = { permissions -> 
+            isGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true || 
+                        permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true 
+        }
     )
 
     LaunchedEffect(Unit) {
         //Consultar si ya tengo permiso para acceder a la ubicacion
-        isGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        isGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
 
     // Rangos y validación de Argentina
@@ -199,67 +262,156 @@ fun SelectLocationScreen(
                         color = PlagOutColors.Surface,
                         shadowElevation = 2.dp
                     ) {
-                        AndroidView(
-                            modifier = Modifier.fillMaxSize(),
-                            factory = { ctx ->
-                                Configuration.getInstance().userAgentValue = "PlagOutMobileApp/1.0.1 (contacto@mi-app.com)"
-                                Configuration.getInstance().load(
-                                    ctx,
-                                    ctx.getSharedPreferences("plag_out_prefs", android.content.Context.MODE_PRIVATE)
-                                )
-                                Log.d("OSM_DEBUG", "User-Agent en MapView: ${Configuration.getInstance().userAgentValue}")
-
-                                val cartoTileSource = XYTileSource(
-                                    "CartoDB-Positron",
-                                    0, 19, 256, ".png",
-                                    arrayOf(
-                                        "https://a.basemaps.cartocdn.com/light_all/",
-                                        "https://b.basemaps.cartocdn.com/light_all/",
-                                        "https://c.basemaps.cartocdn.com/light_all/"
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            AndroidView(
+                                modifier = Modifier.fillMaxSize(),
+                                factory = { ctx ->
+                                    Configuration.getInstance().userAgentValue = "com.example.plag_out/1.0.1 (Android; App Agro; contacto@plagout.app)"
+                                    Configuration.getInstance().load(
+                                        ctx,
+                                        ctx.getSharedPreferences("plag_out_prefs", android.content.Context.MODE_PRIVATE)
                                     )
-                                )
+                                    Log.d("OSM_DEBUG", "User-Agent en MapView: ${Configuration.getInstance().userAgentValue}")
 
-                                MapView(ctx).apply {
-                                    setMultiTouchControls(true)
-                                    setTileSource(cartoTileSource)
-                                    controller.setZoom(5.0)
-                                    controller.setCenter(selectedLocation ?: GeoPoint(-34.6037, -58.3816))
+                                    Configuration.getInstance().cacheMapTileCount = 12
+                                    Configuration.getInstance().cacheMapTileOvershoot = 2
 
-                                    val receiver = object : MapEventsReceiver {
-                                        override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
-                                            p?.let {
-                                                selectedLocation = it
-                                                latInput = it.latitude.toString()
-                                                lonInput = it.longitude.toString()
+                                    MapView(ctx).apply {
+                                        setMultiTouchControls(true)
+                                        zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+                                        setTileSource(OsmTileSource)
+                                        controller.setZoom(5.0)
+                                        controller.setCenter(selectedLocation ?: GeoPoint(-34.6037, -58.3816))
+                                        
+                                        mapController = this.controller
+
+                                        val receiver = object : MapEventsReceiver {
+                                            override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
+                                                p?.let {
+                                                    selectedLocation = it
+                                                    latInput = it.latitude.toString()
+                                                    lonInput = it.longitude.toString()
+                                                }
+                                                return true
                                             }
-                                            return true
+
+                                            override fun longPressHelper(p: GeoPoint?): Boolean = false
                                         }
 
-                                        override fun longPressHelper(p: GeoPoint?): Boolean = false
+                                        overlays.add(MapEventsOverlay(receiver))
+                                        onResume()
+                                    }
+                                },
+                                update = { map ->
+                                    map.overlays.removeAll { it is Marker || it is Polygon }
+
+                                    val receiver = map.overlays.firstOrNull { it is MapEventsOverlay }
+                                    map.overlays.clear()
+                                    receiver?.let { map.overlays.add(it) }
+
+                                    selectedLocation?.let { point ->
+                                        // Dibujar polígono representativo si hay hectáreas
+                                        val hectareas = state.areaHectareas.toDoubleOrNull()
+                                        if (hectareas != null && hectareas > 0.0) {
+                                            val radioMetros = sqrt((hectareas * 10000.0) / PI)
+                                            val circlePolygon = Polygon(map).apply {
+                                                points = Polygon.pointsAsCircle(point, radioMetros)
+                                                fillPaint.color = android.graphics.Color.argb(50, 76, 175, 80) // Semi-transparent forest
+                                                outlinePaint.color = android.graphics.Color.argb(200, 56, 142, 60)
+                                                outlinePaint.strokeWidth = 3f
+                                            }
+                                            map.overlays.add(circlePolygon)
+                                        }
+
+                                        val marker = Marker(map)
+                                        marker.position = point
+                                        marker.title = "Ubicación del terreno"
+                                        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                        map.overlays.add(marker)
                                     }
 
-                                    overlays.add(MapEventsOverlay(receiver))
-                                    onResume()
+                                    map.invalidate()
                                 }
-                            },
-                            update = { map ->
-                                map.overlays.removeAll { it is Marker }
+                            )
 
-                                val receiver = map.overlays.firstOrNull { it is MapEventsOverlay }
-                                map.overlays.clear()
-                                receiver?.let { map.overlays.add(it) }
+                            // Buscador de Localidades Asíncrono
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    .align(Alignment.TopCenter)
+                            ) {
+                                OutlinedTextField(
+                                    value = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    placeholder = { Text("Buscar localidad...", fontSize = 14.sp) },
+                                    leadingIcon = {
+                                        if (isSearching) {
+                                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = PlagOutColors.Forest, strokeWidth = 2.dp)
+                                        } else {
+                                            Icon(Icons.Default.Search, contentDescription = null, tint = PlagOutColors.Forest)
+                                        }
+                                    },
+                                    trailingIcon = {
+                                        if (searchQuery.isNotEmpty()) {
+                                            IconButton(onClick = { 
+                                                searchQuery = "" 
+                                                showDropdown = false
+                                            }) {
+                                                Icon(Icons.Default.Clear, contentDescription = "Limpiar", tint = PlagOutColors.TextSecondary)
+                                            }
+                                        }
+                                    },
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedContainerColor = PlagOutColors.Surface.copy(alpha = 0.95f),
+                                        focusedContainerColor = PlagOutColors.Surface,
+                                        unfocusedBorderColor = PlagOutColors.CreamDeep,
+                                        focusedBorderColor = PlagOutColors.Forest
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
 
-                                selectedLocation?.let { point ->
-                                    val marker = Marker(map)
-                                    marker.position = point
-                                    marker.title = "Ubicación del terreno"
-                                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                    map.overlays.add(marker)
+                                AnimatedVisibility(visible = showDropdown && searchResults.isNotEmpty()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(16.dp),
+                                        shadowElevation = 4.dp,
+                                        color = PlagOutColors.Surface,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 6.dp)
+                                    ) {
+                                        Column {
+                                            searchResults.forEach { address ->
+                                                val addressName = address.getAddressLine(0) ?: address.featureName ?: "Ubicación desconocida"
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable {
+                                                            searchQuery = addressName
+                                                            showDropdown = false
+                                                            val pt = GeoPoint(address.latitude, address.longitude)
+                                                            selectedLocation = pt
+                                                            latInput = address.latitude.toString()
+                                                            lonInput = address.longitude.toString()
+                                                            mapController?.animateTo(pt)
+                                                            mapController?.setZoom(14.0)
+                                                        }
+                                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
+                                                    Spacer(Modifier.width(10.dp))
+                                                    Text(addressName, fontSize = 14.sp, color = PlagOutColors.TextMain)
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
-
-                                map.invalidate()
                             }
-                        )
+                        }
                     }
                 } else {
                     Surface(
@@ -315,36 +467,54 @@ fun SelectLocationScreen(
                                 modifier = Modifier.fillMaxWidth().testTag("txtLongitud")
                             )
 
-                            OutlinedButton(
+                            Button(
                                 onClick = {
                                     if (isGranted) {
                                         obteniendoUbicacion = true
-                                        fusedLocationClient
-                                            .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                                        fusedLocationClient.lastLocation
                                             .addOnSuccessListener { location ->
                                                 obteniendoUbicacion = false
-                                                location?.let {
-                                                    latInput = it.latitude.toString()
-                                                    lonInput = it.longitude.toString()
+                                                if (location != null) {
+                                                    val lat = if (location.latitude > 0) -location.latitude else location.latitude
+                                                    val lon = if (location.longitude > 0) -location.longitude else location.longitude
+                                                    latInput = lat.toString()
+                                                    lonInput = lon.toString()
+                                                    val pt = GeoPoint(lat, lon)
+                                                    selectedLocation = pt
+                                                    mapController?.animateTo(pt)
+                                                    mapController?.setZoom(16.0)
+                                                    selectedTabIndex = 0 // Cambiar a pestaña mapa
+                                                } else {
+                                                    Toast.makeText(context, "No se pudo obtener la ubicación actual correctamente.", Toast.LENGTH_SHORT).show()
                                                 }
                                             }
-                                            .addOnFailureListener { obteniendoUbicacion = false }
+                                            .addOnFailureListener {
+                                                obteniendoUbicacion = false
+                                                Toast.makeText(context, "No se pudo obtener la ubicación actual correctamente.", Toast.LENGTH_SHORT).show()
+                                            }
                                     } else {
-                                        launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                        launcher.launch(
+                                            arrayOf(
+                                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                                Manifest.permission.ACCESS_COARSE_LOCATION
+                                            )
+                                        )
                                     }
                                 },
                                 enabled = !obteniendoUbicacion,
                                 shape = RoundedCornerShape(16.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.Forest),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, PlagOutColors.Forest),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = PlagOutColors.Forest,
+                                    contentColor = PlagOutColors.TextOnDark
+                                ),
                                 modifier = Modifier.fillMaxWidth().height(50.dp)
                             ) {
                                 if (obteniendoUbicacion) {
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = PlagOutColors.Forest)
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = PlagOutColors.TextOnDark)
                                 } else {
                                     Icon(Icons.Default.MyLocation, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Usar ubicación actual", fontWeight = FontWeight.SemiBold)
+                                    Text("Usar ubicación actual", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                 }
                             }
                         }

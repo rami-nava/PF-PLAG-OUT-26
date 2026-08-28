@@ -83,7 +83,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val osmConfig = Configuration.getInstance()
-        osmConfig.userAgentValue = "PlagOutMobileApp/1.0.1 (contacto@mi-app.com)"
+        osmConfig.userAgentValue = "com.example.plag_out/1.0.1 (Android; App Agro; contacto@plagout.app)"
         osmConfig.osmdroidBasePath = java.io.File(cacheDir, "osmdroid")
         osmConfig.osmdroidTileCache = java.io.File(cacheDir, "osmdroid/tiles")
         osmConfig.load(applicationContext, applicationContext.getSharedPreferences("plag_out_prefs", android.content.Context.MODE_PRIVATE))
@@ -260,7 +260,7 @@ fun AppNavigation(
     }
 
     // Deep-link desde una notificación: cada aviso lleva a la entidad que lo originó
-    // (monitoreo para las alertas de GDD, reporte para los reportes cercanos y plantación
+    // (monitoreo para las alertas de GDD, reporte para los reportes cercanos y cultivo
     // para el biofix).
     LaunchedEffect(deepLinkMonitoreoId, sessionStatus) {
         if (deepLinkMonitoreoId != null && sessionStatus is SessionStatus.Authenticated) {
@@ -276,7 +276,7 @@ fun AppNavigation(
         }
     }
 
-    // Aviso de biofix: la entidad es la plantación que arrancó a acumular GDD.
+    // Aviso de biofix: la entidad esel cultivo que arrancó a acumular GDD.
     LaunchedEffect(deepLinkPlantacionId, sessionStatus) {
         if (deepLinkPlantacionId != null && sessionStatus is SessionStatus.Authenticated) {
             navController.navigate("plantacion/$deepLinkPlantacionId")
@@ -509,7 +509,7 @@ fun AppNavigation(
                     }
                 )
             }
-            // Alta desde la pantalla de una plantación: terreno y plantación ya vienen decididos.
+            // Alta desde la pantalla de un cultivo: terreno y cultivo ya vienen decididos.
             composable("agregar_monitoreo/{plantacion_id}") { backStackEntry ->
                 val agregarMonitoreoViewModel: AgregarMonitoreoViewModel = viewModel(factory = AgregarMonitoreoViewModelFactory(context, monitoreoRepository, plantacionRepository, terrenoRepository))
                 val plantacionId = backStackEntry.arguments?.getString("plantacion_id")?.toIntOrNull()

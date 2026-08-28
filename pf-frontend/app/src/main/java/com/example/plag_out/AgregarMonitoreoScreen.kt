@@ -55,7 +55,7 @@ fun AgregarMonitoreoScreen(
     /** Recibe lo que haya quedado creado de un lote incompleto, para no perderlo al salir. */
     onBack: (List<MonitoreoResponse>) -> Unit,
     onSuccess: (List<MonitoreoResponse>) -> Unit,
-    /** Si viene, el terreno y la plantación quedan fijados y solo se elige la plaga. */
+    /** Si viene, el terreno yel cultivo quedan fijados y solo se elige la plaga. */
     plantacionId: Int? = null
 ) {
     val state by viewModel.state.collectAsState()
@@ -80,7 +80,7 @@ fun AgregarMonitoreoScreen(
         if (state.terrenoSeleccionado != null) viewModel.cargarPlantaciones(state.terrenoSeleccionado!!.terreno_id)
     }
 
-    // Corre también en la primera composición, cuando todavía no hay plantación elegida, y cada vez
+    // Corre también en la primera composición, cuando todavía no hay cultivo elegida, y cada vez
     // que llegan las plagas de la red: por eso el cultivo va como nullable y `plagas` es una clave.
     LaunchedEffect(state.plantacionSeleccionada, state.plagas) {
         dropdownPlagaExpanded = false
@@ -121,7 +121,7 @@ fun AgregarMonitoreoScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(20.dp)) {
-                        // Entrando desde la plantación, el terreno y la plantación ya están
+                        // Entrando desdeel cultivo, el terreno yel cultivo ya están
                         // decididos: se muestran fijados y el único paso real es la plaga.
                         if (state.contextoFijado) {
                             ContextoFijado(plantacion = state.plantacionSeleccionada, terreno = state.terrenoSeleccionado)
@@ -200,12 +200,12 @@ fun AgregarMonitoreoScreen(
 
                             Spacer(Modifier.height(22.dp))
 
-                            // ── Paso 2: Plantación ──────────────────────────────────
+                            // ── Paso 2: Cultivo ──────────────────────────────────
                             // Las plantaciones son las del terreno elegido: sin terreno el paso queda
                             // bloqueado.
                             val terrenoElegido = state.terrenoSeleccionado
 
-                            PasoLabel(numero = 2, texto = "Plantación a monitorear")
+                            PasoLabel(numero = 2, texto = "Cultivo a monitorear")
                             Spacer(Modifier.height(10.dp))
 
                             ExposedDropdownMenuBox(
@@ -222,7 +222,7 @@ fun AgregarMonitoreoScreen(
                                     onValueChange = {},
                                     label = {
                                         Text(
-                                            if (terrenoElegido != null) "Seleccioná una plantación"
+                                            if (terrenoElegido != null) "Seleccioná un cultivo"
                                             else "Elegí un terreno primero"
                                         )
                                     },
@@ -244,7 +244,7 @@ fun AgregarMonitoreoScreen(
                                         DropdownMenuItem(
                                             text = {
                                                 Text(
-                                                    if (terrenoElegido != null) "Sin plantaciones activas en ${terrenoElegido.terreno_nombre}"
+                                                    if (terrenoElegido != null) "Sin cultivos activos en ${terrenoElegido.terreno_nombre}"
                                                     else "Seleccioná un terreno",
                                                     color = PlagOutColors.TextSecondary
                                                 )
@@ -293,7 +293,7 @@ fun AgregarMonitoreoScreen(
                         }
 
                         // ── Paso Plaga ──────────────────────────────────────────
-                        // El cultivo de la plantación define qué plagas aplican: sin plantación
+                        // El cultivodel cultivo define qué plagas aplican: sin cultivo
                         // elegida el paso queda bloqueado.
                         val plantacionElegida = state.plantacionSeleccionada
                         val plagasDisponibles = state.plagasDisponibles
@@ -343,7 +343,7 @@ fun AgregarMonitoreoScreen(
                                 label = {
                                     Text(
                                         if (plantacionElegida != null) "Seleccioná una o más plagas"
-                                        else "Elegí una plantación primero"
+                                        else "Elegí un cultivo primero"
                                     )
                                 },
                                 leadingIcon = { Icon(Icons.Outlined.BugReport, contentDescription = null, tint = PlagOutColors.Forest) },
@@ -364,7 +364,7 @@ fun AgregarMonitoreoScreen(
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                if (plantacionElegida == null) "Seleccioná una plantación"
+                                                if (plantacionElegida == null) "Seleccioná un cultivo"
                                                 else "No hay plagas registradas para ${plantacionElegida.cultivo_nombre}",
                                                 color = PlagOutColors.TextSecondary
                                             )
@@ -543,7 +543,7 @@ private fun HeaderNuevoMonitoreo(onBack: () -> Unit, bajada: String = "Seguimien
 }
 
 /**
- * Terreno y plantación ya resueltos por la pantalla desde la que se entró: se muestran como
+ * Terreno y cultivo ya resueltos por la pantalla desde la que se entró: se muestran como
  * contexto de solo lectura en lugar de pedirlos de nuevo.
  */
 @Composable
@@ -554,7 +554,7 @@ private fun ContextoFijado(plantacion: PlantacionesResponse?, terreno: TerrenoRe
         Icon(Icons.Filled.Lock, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(8.dp))
         Text(
-            "Monitoreo para esta plantación",
+            "Monitoreo para este cultivo",
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             color = PlagOutColors.TextMain
@@ -567,7 +567,7 @@ private fun ContextoFijado(plantacion: PlantacionesResponse?, terreno: TerrenoRe
         titulo = terreno?.terreno_nombre ?: plantacion.terreno_nombre,
         subtitulo = terreno?.let {
             "${it.terreno_area} ha · ${"%.2f".format(it.terreno_latitud)}, ${"%.2f".format(it.terreno_longitud)}"
-        } ?: "Terreno de la plantación",
+        } ?: "Terrenodel cultivo",
         modifier = Modifier.testTag("filaTerrenoFijado")
     )
     Spacer(Modifier.height(10.dp))

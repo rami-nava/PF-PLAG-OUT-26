@@ -216,7 +216,7 @@ data class PlantacionCreateResponse(
 
 /**
  * [cultivos_afectados] son los **ids** de los cultivos que esta plaga afecta (el backend manda
- * `[1, 3]`, no objetos): se usa para ofrecer solo las plagas que tienen sentido para la plantación
+ * `[1, 3]`, no objetos): se usa para ofrecer solo las plagas que tienen sentido parael cultivo
  * elegida (ver `AgregarMonitoreoViewModel.filtrarPlagas`).
  *
  * Es nullable porque el campo es opcional en el backend y Gson no aplica los valores por defecto

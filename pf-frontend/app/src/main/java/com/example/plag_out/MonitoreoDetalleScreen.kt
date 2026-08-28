@@ -142,7 +142,7 @@ fun MonitoreoDetalleScreen(
             text = {
                 Text(
                     "¿Finalizar el monitoreo de ${monitoreo.plaga_nombre} en ${monitoreo.cultivo_nombre}? " +
-                        "Vas a dejar de recibir alertas de esta plaga en esta plantación."
+                        "Vas a dejar de recibir alertas de esta plaga en este cultivo."
                 )
             },
             confirmButton = {
@@ -345,7 +345,7 @@ private fun ContenidoMonitoreoDetalle(
                     FilaContexto(
                         icono = Icons.Outlined.Grass,
                         titulo = monitoreo.cultivo_nombre,
-                        subtitulo = "Plantación",
+                        subtitulo = "Cultivo",
                         onClick = { onVerPlantacion(monitoreo.plantacion_id) }
                     )
                     FilaContexto(

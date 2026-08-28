@@ -469,7 +469,7 @@ fun TerrenoCard(
                 ) {
                     EstadisticaCompacta("Hectáreas", "${terreno.terreno_area.toInt()}", Modifier.weight(1f))
                     SeparadorVertical()
-                    EstadisticaCompacta("Plantaciones", "$plantacionesActivas", Modifier.weight(1f))
+                    EstadisticaCompacta("Cultivos", "$plantacionesActivas", Modifier.weight(1f))
                     SeparadorVertical()
                     EstadisticaCompacta("Monitoreos", "${monitoreos.size}", Modifier.weight(1f))
                     // Solo si hay: en un terreno sin historial la columna sería ruido.
@@ -490,7 +490,7 @@ fun TerrenoCard(
                         else -> EtiquetaInfo(Icons.Default.CheckCircle, "Todo en orden", PlagOutColors.RiskOk)
                     }
                     Spacer(Modifier.weight(1f))
-                    Text("Plantaciones", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.Leaf)
+                    Text("Cultivos", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.Leaf)
                     Icon(
                         Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = null,

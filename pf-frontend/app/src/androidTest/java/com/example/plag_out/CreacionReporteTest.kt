@@ -19,7 +19,7 @@ import retrofit2.Response
 
 /**
  * Los pasos del formulario de reporte se habilitan en cadena: sin terreno no hay
- * plantación, sin plantación no hay plaga, y sin plaga no hay etapa biológica.
+ * cultivo, sin cultivo no hay plaga, y sin plaga no hay etapa biológica.
  */
 @RunWith(AndroidJUnit4::class)
 class CreacionReporteTest {
@@ -35,7 +35,7 @@ class CreacionReporteTest {
 
         val terreno = Fixtures.terreno(id = 1, nombre = "Lote Norte")
 
-        // Dos plantaciones activas a propósito: con una sola el ViewModel la elegiría
+        // Dos cultivos activos a propósito: con una sola el ViewModel la elegiría
         // solo y no se podría verificar que la plaga queda bloqueada tras el terreno.
         val plantacionTrigo = Fixtures.plantacion(
             id = 1, terrenoId = 1, terrenoNombre = "Lote Norte",
@@ -53,7 +53,7 @@ class CreacionReporteTest {
             cultivosAfectados = listOf(1)
         )
 
-        // Plaga de otro cultivo: no debe ofrecerse al elegir la plantación de trigo.
+        // Plaga de otro cultivo: no debe ofrecerse al elegirel cultivo de trigo.
         val plagaDelMaiz = Fixtures.plaga(
             id = 2,
             nombre = "Gusano cogollero",
@@ -93,13 +93,13 @@ class CreacionReporteTest {
         composeRule.onNodeWithTag("txtTipoPlaga").assertIsNotEnabled()
         composeRule.onNodeWithTag("btnGuardarReporte").assertIsNotEnabled()
 
-        // Caso 3: recién con la plantación elegida se habilita la plaga
+        // Caso 3: recién conel cultivo elegida se habilita la plaga
         composeRule.onNodeWithTag("txtPlantacionReporte").performClick()
         composeRule.onNodeWithText("Trigo").performClick()
         composeRule.onNodeWithTag("txtTipoPlaga").assertIsEnabled()
         composeRule.onNodeWithTag("btnGuardarReporte").assertIsNotEnabled()
 
-        // Caso 4: las plagas ofrecidas son solo las del cultivo de la plantación
+        // Caso 4: las plagas ofrecidas son solo las del cultivodel cultivo
         composeRule.onNodeWithTag("txtTipoPlaga").performClick()
         composeRule.onNodeWithText("Gusano cogollero").assertDoesNotExist()
 

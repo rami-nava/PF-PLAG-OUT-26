@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -50,9 +52,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -62,19 +68,37 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Close
 import com.example.plag_out.ui.theme.CargandoCentrado
-import com.example.plag_out.ui.theme.EtiquetaInfo
 import com.example.plag_out.ui.theme.NivelEstilo
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.SelloDeNivel
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.views.MapView
+import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Polyline
+import androidx.core.content.ContextCompat
+import android.graphics.Color as AndroidColor
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private val OsmTileSource = XYTileSource(
+    "OSM_FR",
+    0, 19, 256, ".png",
+    arrayOf(
+        "https://a.tile.openstreetmap.fr/osmfr/",
+        "https://b.tile.openstreetmap.fr/osmfr/",
+        "https://c.tile.openstreetmap.fr/osmfr/"
+    )
+)
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -109,6 +133,7 @@ fun VerReporteScreen(
 
                 is VerReporteUiState.Exito -> ContenidoVerReporte(
                     detalle = s.detalle,
+                    terrenoReferencia = s.terrenoReferencia,
                     onBack = onBack
                 )
             }
@@ -121,6 +146,7 @@ fun VerReporteScreen(
 @Composable
 private fun ContenidoVerReporte(
     detalle: ReporteDetalleResponse,
+    terrenoReferencia: TerrenoResponse?,
     onBack: () -> Unit
 ) {
     val scrollState = rememberScrollState()
@@ -261,11 +287,11 @@ private fun ContenidoVerReporte(
                         val nom = detalle.terreno_nombre?.takeIf { it.isNotBlank() }
                         val dist = detalle.distancia_km
                         val cercaniaStr = if (nom != null && dist != null) {
-                            "Cercano a $nom, a $dist km"
+                            "Cercano a $nom, a ${formatearDistancia(dist)}"
                         } else if (nom != null) {
                             "Cercano a $nom"
                         } else if (dist != null) {
-                            "A $dist km de tu terreno"
+                            "A ${formatearDistancia(dist)} de tu terreno"
                         } else {
                             "Área cercana"
                         }
@@ -298,13 +324,13 @@ private fun ContenidoVerReporte(
 
                         val context = LocalContext.current
                         val geoPoint = GeoPoint(detalle.latitud, detalle.longitud)
+                        var mostrarMapaExpandido by remember { mutableStateOf(false) }
 
-                        Surface(
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(200.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            color = PlagOutColors.CreamDeep
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(16.dp))
                         ) {
                             AndroidView(
                                 modifier = Modifier
@@ -312,25 +338,22 @@ private fun ContenidoVerReporte(
                                     .testTag("mapaReporte"),
                                 factory = { ctx ->
                                     Configuration.getInstance().userAgentValue =
-                                        "PlagOutMobileApp/1.0.1 (contacto@mi-app.com)"
+                                        "com.example.plag_out/1.0.1 (Android; App Agro; contacto@plagout.app)"
                                     Configuration.getInstance().load(
                                         ctx,
                                         ctx.getSharedPreferences("plag_out_prefs", android.content.Context.MODE_PRIVATE)
                                     )
 
-                                    val cartoSource = XYTileSource(
-                                        "CartoDB-Positron",
-                                        0, 19, 256, ".png",
-                                        arrayOf(
-                                            "https://a.basemaps.cartocdn.com/light_all/",
-                                            "https://b.basemaps.cartocdn.com/light_all/",
-                                            "https://c.basemaps.cartocdn.com/light_all/"
-                                        )
-                                    )
+                                    Configuration.getInstance().cacheMapTileCount = 12
+                                    Configuration.getInstance().cacheMapTileOvershoot = 2
 
                                     MapView(ctx).apply {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                            clipToOutline = true
+                                        }
                                         setMultiTouchControls(false)   // solo lectura
-                                        setTileSource(cartoSource)
+                                        zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+                                        setTileSource(OsmTileSource)
                                         controller.setZoom(13.0)
                                         controller.setCenter(geoPoint)
 
@@ -354,6 +377,133 @@ private fun ContenidoVerReporte(
                                     map.invalidate()
                                 }
                             )
+
+                            // Capa transparente para atrapar los toques y abrir el modal
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable { mostrarMapaExpandido = true }
+                            )
+                        }
+
+                        if (mostrarMapaExpandido) {
+                            Dialog(
+                                onDismissRequest = { mostrarMapaExpandido = false },
+                                properties = DialogProperties(usePlatformDefaultWidth = false)
+                            ) {
+                                Surface(
+                                    modifier = Modifier.fillMaxSize(),
+                                    color = PlagOutColors.Cream
+                                ) {
+                                    Column(
+                                        Modifier
+                                            .fillMaxSize()
+                                            .systemBarsPadding()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(PlagOutColors.Surface)
+                                                .padding(horizontal = 8.dp, vertical = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            IconButton(onClick = { mostrarMapaExpandido = false }) {
+                                                Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = PlagOutColors.TextMain)
+                                            }
+                                            Text(
+                                                "Ubicación del reporte",
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = PlagOutColors.TextMain,
+                                                modifier = Modifier.padding(start = 8.dp)
+                                            )
+                                        }
+
+                                        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                                            AndroidView(
+                                                modifier = Modifier.fillMaxSize(),
+                                                factory = { ctx ->
+                                                    Configuration.getInstance().userAgentValue = "com.example.plag_out/1.0.1 (Android; App Agro; contacto@plagout.app)"
+                                                    Configuration.getInstance().cacheMapTileCount = 12
+                                                    Configuration.getInstance().cacheMapTileOvershoot = 2
+
+                                                    MapView(ctx).apply {
+                                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                                            clipToOutline = true
+                                                        }
+                                                        setMultiTouchControls(true)
+                                                        zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+                                                        setTileSource(OsmTileSource)
+                                                        
+                                                        val marker = Marker(this)
+                                                        marker.position = geoPoint
+                                                        marker.title = "${detalle.plaga_nombre} - Severidad: ${detalle.nivel_severidad}"
+                                                        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                                        overlays.add(marker)
+
+                                                        if (!detalle.es_propio && terrenoReferencia != null) {
+                                                            val terrenoGeoPoint = GeoPoint(terrenoReferencia.terreno_latitud.toDouble(), terrenoReferencia.terreno_longitud.toDouble())
+                                                            
+                                                            val markerTerreno = Marker(this)
+                                                            markerTerreno.position = terrenoGeoPoint
+                                                            markerTerreno.title = "Tu lote: ${terrenoReferencia.terreno_nombre}"
+                                                            markerTerreno.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                                            markerTerreno.icon = ContextCompat.getDrawable(ctx, org.osmdroid.library.R.drawable.marker_default)?.apply {
+                                                                setTint(AndroidColor.GREEN)
+                                                            }
+                                                            overlays.add(markerTerreno)
+
+                                                            val polyline = Polyline(this)
+                                                            polyline.addPoint(geoPoint)
+                                                            polyline.addPoint(terrenoGeoPoint)
+                                                            polyline.outlinePaint.color = AndroidColor.BLUE
+                                                            polyline.outlinePaint.strokeWidth = 5f
+                                                            overlays.add(polyline)
+                                                            
+                                                            post {
+                                                                val box = BoundingBox.fromGeoPoints(listOf(geoPoint, terrenoGeoPoint))
+                                                                this@apply.zoomToBoundingBox(box.increaseByScale(1.2f), true)
+                                                            }
+                                                        } else {
+                                                            controller.setZoom(14.0)
+                                                            controller.setCenter(geoPoint)
+                                                        }
+                                                    }
+                                                }
+                                            )
+                                            
+                                            // Card Flotante
+                                            if (!detalle.es_propio && terrenoReferencia != null && detalle.distancia_km != null) {
+                                                androidx.compose.material3.Card(
+                                                    modifier = Modifier
+                                                        .align(Alignment.BottomCenter)
+                                                        .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
+                                                    shape = RoundedCornerShape(16.dp),
+                                                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                                                    colors = CardDefaults.cardColors(containerColor = PlagOutColors.Surface)
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(16.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = PlagOutColors.Forest)
+                                                        Spacer(Modifier.width(8.dp))
+                                                        val distKm = detalle.distancia_km
+                                                        val textDist = formatearDistancia(distKm)
+
+                                                        Text(
+                                                            "A $textDist de tu lote ${terrenoReferencia.terreno_nombre}",
+                                                            color = PlagOutColors.TextMain,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 14.sp
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -361,6 +511,16 @@ private fun ContenidoVerReporte(
 
             Spacer(Modifier.height(8.dp))
         }
+    }
+}
+
+private fun formatearDistancia(km: Float): String {
+    return if (km < 1.0f) {
+        "${(km * 1000).toInt()} m"
+    } else if (km >= 10.0f) {
+        String.format(Locale.getDefault(), "%.0f km", km)
+    } else {
+        String.format(Locale.getDefault(), "%.1f km", km)
     }
 }
 
@@ -454,6 +614,7 @@ private fun HeaderVerReporte(onBack: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .zIndex(1f)
             .background(
                 brush = Brush.verticalGradient(listOf(PlagOutColors.Forest, PlagOutColors.Leaf)),
                 shape = forma

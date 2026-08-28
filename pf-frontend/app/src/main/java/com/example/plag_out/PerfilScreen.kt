@@ -537,7 +537,7 @@ private fun TarjetaActividad(terrenos: Int, plantacionesActivas: Int, monitoreos
         ) {
             EstadisticaCompacta("TERRENOS", "${contadorAnimado(terrenos)}")
             SeparadorVertical()
-            EstadisticaCompacta("PLANTACIONES", "${contadorAnimado(plantacionesActivas)}")
+            EstadisticaCompacta("CULTIVOS", "${contadorAnimado(plantacionesActivas)}")
             SeparadorVertical()
             EstadisticaCompacta("MONITOREOS", "${contadorAnimado(monitoreos)}")
         }
@@ -809,7 +809,7 @@ private fun DialogoEliminarCuenta(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Se van a borrar tu perfil, tus terrenos, tus plantaciones, tus monitoreos y " +
+                    "Se van a borrar tu perfil, tus terrenos, tus cultivos, tus monitoreos y " +
                         "tus notificaciones. No vas a poder recuperarlos.",
                     color = PlagOutColors.TextSecondary,
                     fontSize = 13.sp

@@ -12,11 +12,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.example.plag_out.TerrenoResponse
 import kotlinx.serialization.json.Json
 
 sealed class VerReporteUiState {
     object Cargando : VerReporteUiState()
-    data class Exito(val detalle: ReporteDetalleResponse) : VerReporteUiState()
+    data class Exito(
+        val detalle: ReporteDetalleResponse,
+        val terrenoReferencia: TerrenoResponse? = null
+    ) : VerReporteUiState()
     data class Error(val mensaje: String) : VerReporteUiState()
 }
 
@@ -44,7 +48,21 @@ class VerReporteViewModel(
             try {
                 val res = withContext(Dispatchers.IO) { gddService.getReporte(reporteId) }
                 if (res.isSuccessful && res.body() != null) {
-                    _state.value = VerReporteUiState.Exito(res.body()!!)
+                    val detalle = res.body()!!
+                    var terrenoRef: TerrenoResponse? = null
+                    
+                    if (!detalle.es_propio && detalle.terreno_mas_cercano_id != null) {
+                        try {
+                            val resTerrenos = withContext(Dispatchers.IO) { gddService.getTerrenos() }
+                            if (resTerrenos.isSuccessful && resTerrenos.body() != null) {
+                                terrenoRef = resTerrenos.body()!!.find { it.terreno_id == detalle.terreno_mas_cercano_id }
+                            }
+                        } catch (e: Exception) {
+                            Log.w("VER_REPORTE", "Fallo al obtener terrenos para referencia: ${e.message}")
+                        }
+                    }
+                    
+                    _state.value = VerReporteUiState.Exito(detalle, terrenoRef)
                     return@launch
                 }
                 Log.w("VER_REPORTE", "GET /reportes/$reporteId -> ${res.code()}, usando fallback")

@@ -73,7 +73,7 @@ class CrearReporteViewModel(
 
                     withContext(Dispatchers.Main) {
                         val currentPlantacion = _state.value.plantacionSeleccionada
-                        // Sin plantación elegida no hay plagas para ofrecer: el paso 3 arranca bloqueado.
+                        // Sin cultivo elegida no hay plagas para ofrecer: el paso 3 arranca bloqueado.
                         val plagasFiltradas = if (currentPlantacion != null) {
                             filtrarPlagasPorCultivo(listaPlagas, currentPlantacion.cultivo_id, currentPlantacion.cultivo_nombre)
                         } else {
@@ -190,7 +190,7 @@ class CrearReporteViewModel(
     }
 
     fun seleccionarPlaga(plaga: PlagaResponse) {
-        // Solo plagas del cultivo de la plantación elegida.
+        // Solo plagas del cultivodel cultivo elegida.
         if (_state.value.plagasDisponibles.none { it.id == plaga.id }) return
 
         val etapas = obtenerEtapasParaPlaga(plaga)
@@ -247,7 +247,7 @@ class CrearReporteViewModel(
         }
 
         if (plantacion == null) {
-            _state.value = _state.value.copy(error = "Debes seleccionar una plantación")
+            _state.value = _state.value.copy(error = "Debes seleccionar un cultivo")
             return
         }
 
