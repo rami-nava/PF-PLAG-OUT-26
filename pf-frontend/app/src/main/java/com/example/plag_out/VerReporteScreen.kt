@@ -361,6 +361,7 @@ private fun ContenidoVerReporte(
                                         marker.position = geoPoint
                                         marker.title = "Ubicación del reporte"
                                         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                        marker.icon = MapMarkerUtils.getMarkerIcon(ctx, isGreen = false)
                                         overlays.add(marker)
 
                                         onResume()
@@ -373,6 +374,7 @@ private fun ContenidoVerReporte(
                                     marker.position = geoPoint
                                     marker.title = "Ubicación del reporte"
                                     marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                    marker.icon = MapMarkerUtils.getMarkerIcon(map.context, isGreen = false)
                                     map.overlays.add(marker)
                                     map.invalidate()
                                 }
@@ -439,6 +441,7 @@ private fun ContenidoVerReporte(
                                                         marker.position = geoPoint
                                                         marker.title = "${detalle.plaga_nombre} - Severidad: ${detalle.nivel_severidad}"
                                                         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                                        marker.icon = MapMarkerUtils.getMarkerIcon(ctx, isGreen = false)
                                                         overlays.add(marker)
 
                                                         if (!detalle.es_propio && terrenoReferencia != null) {
@@ -448,9 +451,7 @@ private fun ContenidoVerReporte(
                                                             markerTerreno.position = terrenoGeoPoint
                                                             markerTerreno.title = "Tu lote: ${terrenoReferencia.terreno_nombre}"
                                                             markerTerreno.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                                            markerTerreno.icon = ContextCompat.getDrawable(ctx, org.osmdroid.library.R.drawable.marker_default)?.apply {
-                                                                setTint(AndroidColor.GREEN)
-                                                            }
+                                                            markerTerreno.icon = MapMarkerUtils.getMarkerIcon(ctx, isGreen = true)
                                                             overlays.add(markerTerreno)
 
                                                             val polyline = Polyline(this)
