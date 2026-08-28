@@ -327,6 +327,7 @@ fun SelectLocationScreen(
                                         marker.position = point
                                         marker.title = "Ubicación del terreno"
                                         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                        marker.icon = MapMarkerUtils.getMarkerIcon(map.context, isGreen = true)
                                         map.overlays.add(marker)
                                     }
 
