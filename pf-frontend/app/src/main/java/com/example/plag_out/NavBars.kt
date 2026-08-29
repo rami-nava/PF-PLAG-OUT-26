@@ -57,6 +57,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.plag_out.ui.theme.PlagOutColors
 
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.HelpOutline
 
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Add
@@ -233,13 +234,13 @@ private fun RowScope.BotonNuevoReporte(navController: NavController, currentDest
     }
 }
 
-/**
- * Barra superior: la marca y el timbre de notificaciones. El perfil vive en la barra inferior
- * y el resto de los ajustes, en su drawer.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopBar(noLeidas: Int = 0, onNotificacionesClick: () -> Unit = {}) {
+fun TopBar(
+    noLeidas: Int = 0,
+    onNotificacionesClick: () -> Unit = {},
+    onAyudaClick: () -> Unit = {}
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -255,6 +256,21 @@ fun TopBar(noLeidas: Int = 0, onNotificacionesClick: () -> Unit = {}) {
             color = PlagOutColors.TextOnDark,
             letterSpacing = 3.sp
         )
+
+        IconButton(
+            onClick = onAyudaClick,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 6.dp)
+                .testTag("btnAyuda")
+        ) {
+            Icon(
+                Icons.Outlined.HelpOutline,
+                contentDescription = "Cómo se usa la app",
+                tint = PlagOutColors.TextOnDark,
+                modifier = Modifier.size(26.dp)
+            )
+        }
 
         // El BadgedBox va por fuera del IconButton a propósito: adentro, el clip circular del
         // botón le come la esquina al badge. El padding derecho deja lugar a que sobresalga.

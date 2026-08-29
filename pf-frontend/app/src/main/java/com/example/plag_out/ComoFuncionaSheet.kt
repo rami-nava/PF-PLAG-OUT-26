@@ -74,9 +74,11 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
             Spacer(Modifier.height(16.dp))
 
             Text(
-                "Plag-Out te ayuda a anticipar el riesgo de plagas en tus cultivos: seguís tus " +
-                    "terrenos y cultivos, la app calcula día a día qué tan favorable fue el " +
-                    "ambiente para cada plaga y te avisa cuando el riesgo sube.",
+                "Plag-Out te ayuda a anticipar el riesgo de plagas en tus cultivos: cargás tus " +
+                    "terrenos y lo que sembraste en cada uno, monitoreás las plagas que te " +
+                    "importan y reportás lo que ves a campo. Con el clima de tu ubicación la app " +
+                    "calcula día a día qué tan favorable fue el ambiente para cada plaga y te " +
+                    "avisa cuando el riesgo sube o cuando se viene un nuevo biofix.",
                 fontSize = 14.sp,
                 color = PlagOutColors.TextSecondary
             )
@@ -85,8 +87,9 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
 
             PasoAyuda(
                 1,
-                "Registrá tu terreno",
-                "Nombre, hectáreas y ubicación en el mapa."
+                "Cargá tus terrenos",
+                "Nombre, hectáreas y ubicación en el mapa: de ahí sale el clima con el que se " +
+                    "calcula todo lo demás."
             )
             PasoAyuda(
                 2,
@@ -95,15 +98,23 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
             )
             PasoAyuda(
                 3,
-                "Creá un monitoreo",
+                "Iniciá monitoreos",
                 "Elegí la plaga que querés seguir y el umbral de riesgo a partir del cual querés " +
                     "que te avisemos."
             )
             PasoAyuda(
                 4,
+                "Realizá reportes",
+                "Con el botón + de la barra registrás lo que ves a campo: plaga, etapa " +
+                    "biológica, severidad, ubicación y fecha. Queda en Reportes como historial " +
+                    "de lo que pasó en cada terreno."
+            )
+            PasoAyuda(
+                5,
                 "Recibí alertas",
                 "Cada monitoreo muestra un nivel de alerta —Bajo, Moderado o Alto— y te " +
-                    "notificamos cuando el riesgo supera tu umbral.",
+                    "notificamos cuando el riesgo supera tu umbral y cuando detectamos un " +
+                    "posible biofix, para que llegues antes que la plaga.",
                 ultimo = true
             )
 
