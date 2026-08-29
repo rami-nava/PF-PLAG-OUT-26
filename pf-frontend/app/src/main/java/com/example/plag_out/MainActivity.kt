@@ -286,6 +286,8 @@ fun AppNavigation(
 
     val notificacionesState by notificacionesViewModel.state.collectAsState()
     var mostrarNotificaciones by remember { mutableStateOf(false) }
+    var mostrarAyudaRapida by remember { mutableStateOf(false) }
+    var mostrarComoFunciona by remember { mutableStateOf(false) }
 
     // Recién autenticado (login o sesión restaurada): el ON_RESUME de abajo ya pasó con la app
     // en primer plano, así que sin esto el badge se quedaría en cero hasta minimizar y volver.
@@ -344,7 +346,8 @@ fun AppNavigation(
                     onNotificacionesClick = {
                         notificacionesViewModel.cargar()
                         mostrarNotificaciones = true
-                    }
+                    },
+                    onAyudaClick = { mostrarAyudaRapida = true }
                 )
             }
         },
@@ -603,6 +606,22 @@ fun AppNavigation(
                 notificacionesViewModel.descartarError()
             }
         )
+    }
+
+    if (mostrarAyudaRapida) {
+        AyudaRapidaSheet(
+            onDismiss = { mostrarAyudaRapida = false },
+            // La guía larga es la misma que ofrece Perfil → Ajustes; desde acá se abre directo
+            // para no obligar a pasar por el drawer.
+            onVerGuiaCompleta = {
+                mostrarAyudaRapida = false
+                mostrarComoFunciona = true
+            }
+        )
+    }
+
+    if (mostrarComoFunciona) {
+        ComoFuncionaSheet(onDismiss = { mostrarComoFunciona = false })
     }
 }
 
