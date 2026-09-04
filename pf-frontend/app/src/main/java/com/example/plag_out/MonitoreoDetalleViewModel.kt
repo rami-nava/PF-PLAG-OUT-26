@@ -11,12 +11,16 @@ import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
+import com.google.gson.JsonNull
+import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 data class MonitoreoDetalleUIState(
     val isLoading: Boolean = true,
@@ -24,6 +28,8 @@ data class MonitoreoDetalleUIState(
     /** Valor en vivo del slider mientras el bottom sheet de umbral está abierto; null = cerrado. */
     val umbralEditado: Int? = null,
     val guardandoUmbral: Boolean = false,
+    val umbralMlEditado: Int? = null,
+    val guardandoUmbralMl: Boolean = false,
     val finalizando: Boolean = false,
     /** Dispara la navegación de vuelta cuando el PATCH de finalizar tuvo éxito. */
     val finalizado: Boolean = false,
@@ -103,6 +109,26 @@ class MonitoreoDetalleViewModel(
         _state.value = _state.value.copy(umbralEditado = null)
     }
 
+    fun abrirEditorUmbralMl() {
+        val monitoreo = _state.value.monitoreo ?: return
+        val recomendado = monitoreo.umbral_alerta_ml_recomendado ?: return
+        if (monitoreo.modelo_alerta_ml_id == null) return
+        val inicial = monitoreo.umbral_alerta_ml?.roundToInt()
+            ?: monitoreo.umbral_alerta_ml_efectivo?.roundToInt()
+            ?: ceil(recomendado.toDouble()).toInt()
+        _state.value = _state.value.copy(
+            umbralMlEditado = inicial.coerceIn(ceil(recomendado.toDouble()).toInt(), 100)
+        )
+    }
+
+    fun actualizarUmbralMlEditado(valor: Int) {
+        _state.value = _state.value.copy(umbralMlEditado = valor)
+    }
+
+    fun cancelarEdicionUmbralMl() {
+        _state.value = _state.value.copy(umbralMlEditado = null)
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     fun guardarUmbral(onSuccess: () -> Unit) {
         val monitoreo = _state.value.monitoreo ?: return
@@ -144,6 +170,77 @@ class MonitoreoDetalleViewModel(
                     error = "No se pudo actualizar el umbral. Revisá tu conexión."
                 )
                 Log.e("MONITOREO_DETALLE", "Error al guardar umbral: ${e.message}")
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun guardarUmbralMl(onSuccess: () -> Unit) {
+        val monitoreo = _state.value.monitoreo ?: return
+        val nuevo = _state.value.umbralMlEditado ?: return
+        val recomendado = monitoreo.umbral_alerta_ml_recomendado ?: return
+        if (monitoreo.modelo_alerta_ml_id == null) return
+
+        val minimo = ceil(recomendado.toDouble()).toInt()
+        if (nuevo !in minimo..100) {
+            _state.value = _state.value.copy(error = "El threshold ML debe estar entre $minimo y 100%.")
+            return
+        }
+        actualizarUmbralMl(monitoreo, JsonObject().apply { addProperty("umbral_alerta_ml", nuevo) }, onSuccess)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun usarUmbralMlRecomendado(onSuccess: () -> Unit) {
+        val monitoreo = _state.value.monitoreo ?: return
+        if (monitoreo.modelo_alerta_ml_id == null || monitoreo.umbral_alerta_ml_recomendado == null) return
+        actualizarUmbralMl(
+            monitoreo,
+            JsonObject().apply { add("umbral_alerta_ml", JsonNull.INSTANCE) },
+            onSuccess
+        )
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun actualizarUmbralMl(
+        monitoreo: MonitoreoResponse,
+        body: JsonObject,
+        onSuccess: () -> Unit
+    ) {
+        _state.value = _state.value.copy(guardandoUmbralMl = true, error = null)
+        viewModelScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    gddService.actualizarUmbralAlertaMl(monitoreo.monitoreo_id, body)
+                }
+                if (response.isSuccessful) {
+                    val actualizado = response.body() ?: monitoreo.copy(
+                        umbral_alerta_ml = body.get("umbral_alerta_ml")?.takeUnless { it.isJsonNull }?.asFloat,
+                        umbral_alerta_ml_efectivo = body.get("umbral_alerta_ml")
+                            ?.takeUnless { it.isJsonNull }?.asFloat
+                            ?: monitoreo.umbral_alerta_ml_recomendado
+                    )
+                    withContext(Dispatchers.IO) { repository.guardarMonitoreo(actualizado) }
+                    _state.value = _state.value.copy(
+                        monitoreo = actualizado,
+                        guardandoUmbralMl = false,
+                        umbralMlEditado = null
+                    )
+                    onSuccess()
+                } else {
+                    _state.value = _state.value.copy(
+                        guardandoUmbralMl = false,
+                        error = if (response.code() == 422) {
+                            "Ese threshold ML no es válido para el modelo disponible."
+                        } else mensajeDeError(response.code())
+                    )
+                    Log.e("MONITOREO_DETALLE", "Error al guardar threshold ML: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    guardandoUmbralMl = false,
+                    error = "No se pudo actualizar el threshold ML. Revisá tu conexión."
+                )
+                Log.e("MONITOREO_DETALLE", "Error al guardar threshold ML: ${e.message}")
             }
         }
     }

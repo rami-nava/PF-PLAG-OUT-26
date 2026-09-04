@@ -119,6 +119,7 @@ fun PerfilScreen(
     var confirmarEliminarCuenta by remember { mutableStateOf(false) }
     var mostrarComoFunciona by remember { mutableStateOf(false) }
     var mostrarCambiarPassword by remember { mutableStateOf(false) }
+    var cambioConsentimientoPendiente by remember { mutableStateOf<Boolean?>(null) }
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -134,6 +135,7 @@ fun PerfilScreen(
 
     LaunchedEffect(Unit) {
         userViewModel.getUsuario()
+        userViewModel.cargarConsentimientoModelo()
         // Cache-first: alimentan el resumen de actividad sin pegarle de más al backend
         terrenosViewModel.getTerrenos()
         plantacionesViewModel.getPlantaciones()
@@ -144,6 +146,12 @@ fun PerfilScreen(
         drawerState = drawerState,
         drawerContent = {
             DrawerAjustes(
+                consentimiento = state.consentimientoModelo,
+                cargandoConsentimiento = state.cargandoConsentimiento || state.guardandoConsentimiento,
+                consentimientoError = state.consentimientoError,
+                onCambiarConsentimiento = { consentir ->
+                    cerrarDrawerY { cambioConsentimientoPendiente = consentir }
+                },
                 onComoFunciona = { cerrarDrawerY { mostrarComoFunciona = true } },
                 onCambiarPassword = { cerrarDrawerY { mostrarCambiarPassword = true } },
                 onCerrarSesion = { cerrarDrawerY { confirmarCierre = true } },
@@ -246,6 +254,17 @@ fun PerfilScreen(
         DialogoCambiarPassword(
             authViewModel = authViewModel,
             onDismiss = { mostrarCambiarPassword = false }
+        )
+    }
+
+    cambioConsentimientoPendiente?.let { consentir ->
+        DialogoConsentimientoModelo(
+            consentir = consentir,
+            onConfirmar = {
+                cambioConsentimientoPendiente = null
+                userViewModel.actualizarConsentimientoModelo(consentir)
+            },
+            onDismiss = { cambioConsentimientoPendiente = null }
         )
     }
 }
@@ -375,6 +394,10 @@ private fun HeaderPerfil(usuario: UsuarioResponse?, onAbrirAjustes: () -> Unit, 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun DrawerAjustes(
+    consentimiento: ConsentimientoModeloResponse?,
+    cargandoConsentimiento: Boolean,
+    consentimientoError: String?,
+    onCambiarConsentimiento: (Boolean) -> Unit,
     onComoFunciona: () -> Unit,
     onCambiarPassword: () -> Unit,
     onCerrarSesion: () -> Unit,
@@ -420,6 +443,15 @@ private fun DrawerAjustes(
                     .padding(horizontal = 16.dp, vertical = 16.dp)
             ) {
                 TarjetaPermisos()
+
+                Spacer(Modifier.height(12.dp))
+
+                TarjetaConsentimientoModelo(
+                    consentimiento = consentimiento,
+                    cargando = cargandoConsentimiento,
+                    error = consentimientoError,
+                    onCambio = onCambiarConsentimiento
+                )
 
                 Spacer(Modifier.height(12.dp))
 
@@ -540,6 +572,50 @@ private fun TarjetaActividad(terrenos: Int, plantacionesActivas: Int, monitoreos
             EstadisticaCompacta("CULTIVOS", "${contadorAnimado(plantacionesActivas)}")
             SeparadorVertical()
             EstadisticaCompacta("MONITOREOS", "${contadorAnimado(monitoreos)}")
+        }
+    }
+}
+
+@Composable
+private fun TarjetaConsentimientoModelo(
+    consentimiento: ConsentimientoModeloResponse?,
+    cargando: Boolean,
+    error: String?,
+    onCambio: (Boolean) -> Unit
+) {
+    TarjetaPerfil {
+        Text(
+            "Modelos de riesgo",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = PlagOutColors.TextMain
+        )
+        Text(
+            "Controlá el uso futuro de tus reportes",
+            fontSize = 12.sp,
+            color = PlagOutColors.TextSecondary,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        FilaSwitch(
+            icono = Icons.Outlined.Info,
+            titulo = "Consentimiento ML",
+            subtitulo = when {
+                cargando -> "Actualizando…"
+                consentimiento?.consentido == true -> "Aceptado · podés revocarlo cuando quieras"
+                else -> "Tus próximos reportes no se usarán para evaluar modelos"
+            },
+            activo = consentimiento?.consentido == true,
+            enabled = consentimiento != null && !cargando,
+            tag = "switchConsentimientoMl",
+            onCambio = onCambio
+        )
+        if (error != null) {
+            Text(
+                error,
+                color = PlagOutColors.RiskDanger,
+                fontSize = 11.sp,
+                modifier = Modifier.testTag("txtErrorConsentimientoMl")
+            )
         }
     }
 }
@@ -899,6 +975,62 @@ private fun DialogoEliminarCuenta(
     )
 }
 
+@Composable
+private fun DialogoConsentimientoModelo(
+    consentir: Boolean,
+    onConfirmar: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = PlagOutColors.Surface,
+        title = {
+            Text(
+                if (consentir) "¿Autorizar uso de reportes?" else "¿Revocar consentimiento?",
+                fontWeight = FontWeight.Bold,
+                color = PlagOutColors.TextMain
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    if (consentir) {
+                        "Si aceptás, los reportes que envíes a partir de ahora podrán utilizarse " +
+                            "para evaluar y mejorar los modelos de riesgo de plagas de Plag-Out. " +
+                            "Tus reportes anteriores no se incluyen por este consentimiento. " +
+                            "Podés revocarlo cuando quieras desde Ajustes; la revocación se aplica " +
+                            "hacia adelante y no borra el historial ya registrado."
+                    } else {
+                        "Los reportes que envíes después de revocar ya no podrán utilizarse para " +
+                            "evaluar modelos. El historial ya registrado no se borra."
+                    },
+                    color = PlagOutColors.TextSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Versión: $VERSION_CONSENTIMIENTO_ML",
+                    color = PlagOutColors.TextSecondary,
+                    fontSize = 11.sp
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirmar, modifier = Modifier.testTag("btnConfirmarConsentimientoMl")) {
+                Text(
+                    if (consentir) "Aceptar" else "Revocar",
+                    color = if (consentir) PlagOutColors.Forest else PlagOutColors.RiskDanger,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar", color = PlagOutColors.TextSecondary) }
+        }
+    )
+}
+
 private const val PALABRA_CONFIRMACION = "ELIMINAR"
 
 /** Cambio de contraseña contra Supabase, con el molde visual de [DialogoCerrarSesion]. */
@@ -1143,6 +1275,7 @@ private fun FilaSwitch(
     titulo: String,
     subtitulo: String,
     activo: Boolean,
+    enabled: Boolean = true,
     tag: String,
     onCambio: (Boolean) -> Unit
 ) {
@@ -1172,6 +1305,7 @@ private fun FilaSwitch(
         Switch(
             checked = activo,
             onCheckedChange = onCambio,
+            enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = PlagOutColors.Surface,
                 checkedTrackColor = PlagOutColors.Forest,

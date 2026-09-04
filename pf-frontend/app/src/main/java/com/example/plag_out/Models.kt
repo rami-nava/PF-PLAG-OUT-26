@@ -101,7 +101,17 @@ data class MonitoreoResponse(
     @SerializedName("fecha_inicio")
     val fecha_inicio: LocalDate? = null,
     @SerializedName("plaga_nombre_cientifico")
-    val plaga_nombre_cientifico: String? = null
+    val plaga_nombre_cientifico: String? = null,
+    @SerializedName("umbral_alerta_ml")
+    val umbral_alerta_ml: Float? = null,
+    @SerializedName("umbral_alerta_ml_recomendado")
+    val umbral_alerta_ml_recomendado: Float? = null,
+    @SerializedName("umbral_alerta_ml_efectivo")
+    val umbral_alerta_ml_efectivo: Float? = null,
+    @SerializedName("modelo_alerta_ml_id")
+    val modelo_alerta_ml_id: String? = null,
+    @SerializedName("horizonte_alerta_ml_dias")
+    val horizonte_alerta_ml_dias: Int? = null
 )
 
 @Entity(tableName = "terrenos")
@@ -281,6 +291,19 @@ data class UpdateUserRequest(
     val apellido: String? = null,
     @SerializedName("cargo_id")
     val cargo_id: Int? = null
+)
+
+@Serializable
+data class ConsentimientoModeloRequest(
+    @SerializedName("consentido") val consentido: Boolean,
+    @SerializedName("version_contrato") val version_contrato: String
+)
+
+@Serializable
+data class ConsentimientoModeloResponse(
+    @SerializedName("consentido") val consentido: Boolean,
+    @SerializedName("vigente_desde") val vigente_desde: String?,
+    @SerializedName("version_contrato") val version_contrato: String
 )
 
 @Serializable

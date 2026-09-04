@@ -19,7 +19,7 @@ import java.util.Date
 
 @Database(
     entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class, UsuarioResponse::class, FeedbackPrediccionPendiente::class],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 
@@ -43,7 +43,7 @@ abstract class AppDatabase : RoomDatabase() {
                     appContext,
                     AppDatabase::class.java,
                     "gdd_database"
-                ).addMigrations(MIGRATION_10_11)
+                ).addMigrations(MIGRATION_10_11, MIGRATION_11_12)
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     // Si una versión futura cae en la migración destructiva, también se invalidan
                     // las marcas que describían el caché eliminado.
@@ -71,6 +71,16 @@ abstract class AppDatabase : RoomDatabase() {
                         PRIMARY KEY(`owner_id`, `prediccion_id`)
                     )""".trimIndent()
                 )
+            }
+        }
+
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `umbral_alerta_ml` REAL")
+                db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `umbral_alerta_ml_recomendado` REAL")
+                db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `umbral_alerta_ml_efectivo` REAL")
+                db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `modelo_alerta_ml_id` TEXT")
+                db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `horizonte_alerta_ml_dias` INTEGER")
             }
         }
     }
