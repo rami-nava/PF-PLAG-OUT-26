@@ -10,6 +10,8 @@ import com.example.plag_out.TerrenoResponse
 import com.example.plag_out.UsuarioResponse
 import java.time.LocalDate
 import java.time.LocalDateTime
+import com.example.plag_out.PrediccionConfirmacionEstado
+import com.example.plag_out.PrediccionDetalleResponse
 
 /** Constructores de datos de prueba con valores por defecto razonables. */
 object Fixtures {
@@ -160,5 +162,27 @@ object Fixtures {
         latitud = latitud,
         longitud = longitud,
         timestamp_ms = timestampMs
+    )
+
+    fun prediccion(
+        id: Int = 41,
+        estado: String = "pendiente",
+        respuesta: String? = null
+    ) = PrediccionDetalleResponse(
+        id = id,
+        plantacion_id = 11,
+        plaga_id = 12,
+        plaga_nombre_cientifico = "Dalbulus maidis",
+        fecha = LocalDate.of(2026, 8, 30),
+        model_id = "approved-fixture",
+        horizon_days = 14,
+        probabilidad_porcentaje = 30f,
+        umbral_modelo_recomendado_porcentaje = 24.67f,
+        umbral_efectivo_porcentaje = 25f,
+        confirmacion = PrediccionConfirmacionEstado(
+            estado = estado,
+            expira_en = "2026-09-01T12:00:00Z",
+            respuesta = respuesta
+        )
     )
 }
