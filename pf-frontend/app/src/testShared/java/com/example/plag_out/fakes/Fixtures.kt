@@ -66,7 +66,12 @@ object Fixtures {
         umbralRiesgo: Int? = 80,
         activo: Boolean = true,
         fechaInicio: LocalDate? = LocalDate.of(2026, 1, 1),
-        plagaNombreCientifico: String? = "Dalbulus maidis"
+        plagaNombreCientifico: String? = "Dalbulus maidis",
+        umbralAlertaMl: Float? = null,
+        umbralAlertaMlRecomendado: Float? = null,
+        umbralAlertaMlEfectivo: Float? = null,
+        modeloAlertaMlId: String? = null,
+        horizonteAlertaMlDias: Int? = null
     ) = MonitoreoResponse(
         monitoreo_id = id,
         plantacion_id = plantacionId,
@@ -83,7 +88,12 @@ object Fixtures {
         umbral_riesgo = umbralRiesgo,
         activo = activo,
         fecha_inicio = fechaInicio,
-        plaga_nombre_cientifico = plagaNombreCientifico
+        plaga_nombre_cientifico = plagaNombreCientifico,
+        umbral_alerta_ml = umbralAlertaMl,
+        umbral_alerta_ml_recomendado = umbralAlertaMlRecomendado,
+        umbral_alerta_ml_efectivo = umbralAlertaMlEfectivo,
+        modelo_alerta_ml_id = modeloAlertaMlId,
+        horizonte_alerta_ml_dias = horizonteAlertaMlDias
     )
 
     fun cultivo(

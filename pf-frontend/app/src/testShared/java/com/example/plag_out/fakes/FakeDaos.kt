@@ -5,9 +5,11 @@ import com.example.plag_out.AlmacenamientoLocal.PlantacionDao
 import com.example.plag_out.AlmacenamientoLocal.TerrenoDao
 import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionDao
 import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionPendiente
+import com.example.plag_out.AlmacenamientoLocal.UsuarioDao
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
+import com.example.plag_out.UsuarioResponse
 
 /**
  * DAOs falsos respaldados por una lista en memoria.
@@ -119,6 +121,12 @@ class FakeMonitoreoDao(inicial: List<MonitoreoResponse> = emptyList()) : Monitor
         operaciones += "updateTerrenoNombre"
         filas.replaceAll { if (it.terreno_id == terrenoId) it.copy(terreno_nombre = nombre) else it }
     }
+}
+
+class FakeUsuarioDao(private var usuario: UsuarioResponse? = null) : UsuarioDao {
+    override suspend fun get(): UsuarioResponse? = usuario
+    override suspend fun insert(usuario: UsuarioResponse) { this.usuario = usuario }
+    override suspend fun deleteAll() { usuario = null }
 }
 
 class FakeFeedbackPrediccionDao(

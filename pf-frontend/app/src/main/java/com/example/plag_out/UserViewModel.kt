@@ -20,7 +20,11 @@ data class UserUIState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val usuario: UsuarioResponse? = null,
-    val error: String? = null
+    val error: String? = null,
+    val consentimientoModelo: ConsentimientoModeloResponse? = null,
+    val cargandoConsentimiento: Boolean = false,
+    val guardandoConsentimiento: Boolean = false,
+    val consentimientoError: String? = null
 )
 
 class UserViewModel(
@@ -67,7 +71,12 @@ class UserViewModel(
                 }
                 val usuario = response.body()
                 if (response.isSuccessful && usuario != null) {
-                    _state.value = UserUIState(usuario = usuario)
+                    _state.value = _state.value.copy(
+                        usuario = usuario,
+                        isLoading = false,
+                        isRefreshing = false,
+                        error = null
+                    )
                     withContext(Dispatchers.IO) { usuarioRepository.guardarUsuario(usuario) }
                 } else {
                     _state.value = _state.value.copy(
@@ -94,8 +103,71 @@ class UserViewModel(
      * volver a pedirlo al backend.
      */
     fun aplicarUsuario(usuario: UsuarioResponse) {
-        _state.value = UserUIState(usuario = usuario)
+        _state.value = _state.value.copy(usuario = usuario)
         viewModelScope.launch(Dispatchers.IO) { usuarioRepository.guardarUsuario(usuario) }
+    }
+
+    fun cargarConsentimientoModelo() {
+        if (_state.value.cargandoConsentimiento || _state.value.consentimientoModelo != null) return
+        _state.value = _state.value.copy(cargandoConsentimiento = true, consentimientoError = null)
+        viewModelScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) { gddService.getConsentimientoModelo() }
+                val body = response.body()
+                _state.value = if (response.isSuccessful && body != null) {
+                    _state.value.copy(
+                        consentimientoModelo = body,
+                        cargandoConsentimiento = false,
+                        consentimientoError = null
+                    )
+                } else {
+                    _state.value.copy(
+                        cargandoConsentimiento = false,
+                        consentimientoError = "No se pudo cargar el consentimiento ML."
+                    )
+                }
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    cargandoConsentimiento = false,
+                    consentimientoError = "No se pudo cargar el consentimiento ML. Revisá tu conexión."
+                )
+            }
+        }
+    }
+
+    fun actualizarConsentimientoModelo(consentido: Boolean) {
+        if (_state.value.guardandoConsentimiento) return
+        _state.value = _state.value.copy(guardandoConsentimiento = true, consentimientoError = null)
+        viewModelScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    gddService.actualizarConsentimientoModelo(
+                        ConsentimientoModeloRequest(consentido, VERSION_CONSENTIMIENTO_ML)
+                    )
+                }
+                val body = response.body()
+                _state.value = when {
+                    response.isSuccessful && body != null -> _state.value.copy(
+                        consentimientoModelo = body,
+                        guardandoConsentimiento = false,
+                        consentimientoError = null
+                    )
+                    response.code() == 409 -> _state.value.copy(
+                        guardandoConsentimiento = false,
+                        consentimientoError = "Actualizá la app para revisar la versión vigente del consentimiento."
+                    )
+                    else -> _state.value.copy(
+                        guardandoConsentimiento = false,
+                        consentimientoError = "No se pudo actualizar el consentimiento ML."
+                    )
+                }
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    guardandoConsentimiento = false,
+                    consentimientoError = "No se pudo actualizar el consentimiento ML. Revisá tu conexión."
+                )
+            }
+        }
     }
 
 
@@ -129,6 +201,8 @@ class UserViewModel(
         _state.value = UserUIState()
     }
 }
+
+const val VERSION_CONSENTIMIENTO_ML = "report-ml-consent-v1"
 
 class UserViewModelFactory(
     private val usuarioRepository: UsuarioRepository,

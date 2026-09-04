@@ -45,7 +45,7 @@ fun UmbralDeRiesgoSheet(umbralActual: Int?, onDismiss: () -> Unit) {
                 .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 28.dp)
         ) {
             Text(
-                "¿Qué es el umbral de riesgo?",
+                "¿Qué es el umbral GDD?",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = PlagOutColors.TextMain

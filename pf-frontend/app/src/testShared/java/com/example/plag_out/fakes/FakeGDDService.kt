@@ -29,7 +29,10 @@ import com.example.plag_out.ReporteDetalleResponse
 import com.example.plag_out.PrediccionConfirmacionRequest
 import com.example.plag_out.PrediccionConfirmacionResponse
 import com.example.plag_out.PrediccionDetalleResponse
+import com.example.plag_out.ConsentimientoModeloRequest
+import com.example.plag_out.ConsentimientoModeloResponse
 import com.example.plag_out.Service.GDDService
+import com.google.gson.JsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.Response
@@ -64,9 +67,12 @@ class FakeGDDService : GDDService {
     var createMonitoreoResult: () -> Response<MonitoreoResponse> = { noDeclarado("createMonitoreo") }
     var getMonitoreoResult: () -> Response<MonitoreoResponse> = { noDeclarado("getMonitoreo") }
     var actualizarMonitoreoResult: () -> Response<MonitoreoResponse> = { noDeclarado("actualizarMonitoreo") }
+    var actualizarUmbralAlertaMlResult: () -> Response<MonitoreoResponse> = { noDeclarado("actualizarUmbralAlertaMl") }
     var createUserResult: () -> Response<CreateUserResponse> = { noDeclarado("createUser") }
     var getUsuarioActualResult: () -> Response<UsuarioResponse> = { noDeclarado("getUsuarioActual") }
     var actualizarUsuarioResult: () -> Response<UsuarioResponse> = { noDeclarado("actualizarUsuario") }
+    var getConsentimientoModeloResult: () -> Response<ConsentimientoModeloResponse> = { noDeclarado("getConsentimientoModelo") }
+    var actualizarConsentimientoModeloResult: () -> Response<ConsentimientoModeloResponse> = { noDeclarado("actualizarConsentimientoModelo") }
     var registrarDispositivoResult: () -> Response<DispositivoResponse> = { noDeclarado("registrarDispositivo") }
     var eliminarDispositivoResult: () -> Response<Unit> = { noDeclarado("eliminarDispositivo") }
     var eliminarCuentaResult: () -> Response<AccountDeletionResponse> = { noDeclarado("eliminarCuenta") }
@@ -137,6 +143,10 @@ class FakeGDDService : GDDService {
         llamadas += "actualizarMonitoreo"; ultimoActualizarMonitoreo = data; return actualizarMonitoreoResult()
     }
 
+    override suspend fun actualizarUmbralAlertaMl(id: Int, data: JsonObject): Response<MonitoreoResponse> {
+        llamadas += "actualizarUmbralAlertaMl"; ultimoUmbralAlertaMl = data; return actualizarUmbralAlertaMlResult()
+    }
+
     override suspend fun createUser(data: CreateUserRequest): Response<CreateUserResponse> {
         llamadas += "createUser"; return createUserResult()
     }
@@ -147,6 +157,18 @@ class FakeGDDService : GDDService {
 
     override suspend fun actualizarUsuario(data: UpdateUserRequest): Response<UsuarioResponse> {
         llamadas += "actualizarUsuario"; ultimoActualizarUsuario = data; return actualizarUsuarioResult()
+    }
+
+    override suspend fun getConsentimientoModelo(): Response<ConsentimientoModeloResponse> {
+        llamadas += "getConsentimientoModelo"; return getConsentimientoModeloResult()
+    }
+
+    override suspend fun actualizarConsentimientoModelo(
+        data: ConsentimientoModeloRequest
+    ): Response<ConsentimientoModeloResponse> {
+        llamadas += "actualizarConsentimientoModelo"
+        ultimoConsentimientoModelo = data
+        return actualizarConsentimientoModeloResult()
     }
 
     override suspend fun registrarDispositivo(data: DispositivoRequest): Response<DispositivoResponse> {
@@ -222,6 +244,10 @@ class FakeGDDService : GDDService {
     var ultimoActualizarUsuario: UpdateUserRequest? = null
         private set
     var ultimoActualizarMonitoreo: UpdateMonitoreoRequest? = null
+        private set
+    var ultimoUmbralAlertaMl: JsonObject? = null
+        private set
+    var ultimoConsentimientoModelo: ConsentimientoModeloRequest? = null
         private set
     var ultimoActualizarPlantacion: UpdatePlantacionRequest? = null
         private set
