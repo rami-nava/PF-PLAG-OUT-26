@@ -26,6 +26,9 @@ import com.example.plag_out.UsuarioResponse
 import com.example.plag_out.CreateReporteRequest
 import com.example.plag_out.ReporteResponse
 import com.example.plag_out.ReporteDetalleResponse
+import com.example.plag_out.PrediccionConfirmacionRequest
+import com.example.plag_out.PrediccionConfirmacionResponse
+import com.example.plag_out.PrediccionDetalleResponse
 import com.example.plag_out.Service.GDDService
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -74,6 +77,8 @@ class FakeGDDService : GDDService {
     var createReporteApiResult: () -> Response<ReporteResponse> = { noDeclarado("createReporteApi") }
     var getReporteResult: () -> Response<ReporteDetalleResponse> = { noDeclarado("getReporte") }
     var getReportesResult: () -> Response<List<ReporteDetalleResponse>> = { noDeclarado("getReportes") }
+    var getPrediccionResult: () -> Response<PrediccionDetalleResponse> = { noDeclarado("getPrediccion") }
+    var confirmarPrediccionResult: () -> Response<PrediccionConfirmacionResponse> = { noDeclarado("confirmarPrediccion") }
     var healthResult: () -> Response<Unit> = { noDeclarado("health") }
 
     override suspend fun getMonitoreos(): Response<List<MonitoreoResponse>> {
@@ -186,6 +191,19 @@ class FakeGDDService : GDDService {
         llamadas += "getReportes"; return getReportesResult()
     }
 
+    override suspend fun getPrediccion(id: Int): Response<PrediccionDetalleResponse> {
+        llamadas += "getPrediccion"; return getPrediccionResult()
+    }
+
+    override suspend fun confirmarPrediccion(
+        id: Int,
+        data: PrediccionConfirmacionRequest
+    ): Response<PrediccionConfirmacionResponse> {
+        llamadas += "confirmarPrediccion"
+        ultimaConfirmacionPrediccion = data
+        return confirmarPrediccionResult()
+    }
+
     override suspend fun health(): Response<Unit> {
         llamadas += "health"; return healthResult()
     }
@@ -212,6 +230,8 @@ class FakeGDDService : GDDService {
     var ultimoEliminarDispositivo: String? = null
         private set
     var ultimaNotificacionLeida: Int? = null
+        private set
+    var ultimaConfirmacionPrediccion: PrediccionConfirmacionRequest? = null
         private set
 
     private fun <T> noDeclarado(endpoint: String): Response<T> =
