@@ -497,18 +497,12 @@ data class UsuarioResponse(
 
 @Serializable
 data class CreateReporteRequest(
-    @SerializedName("terreno_id")
-    val terreno_id: Int? = null,
     @SerializedName("plantacion_id")
     val plantacion_id: Int,
     @SerializedName("plaga_id")
     val plaga_id: Int,
     @SerializedName("nivel_severidad")
     val nivel_severidad: String,
-    @SerializedName("latitud")
-    val latitud: Double?,
-    @SerializedName("longitud")
-    val longitud: Double?,
     @SerializedName("timestamp_ms")
     val timestamp_ms: Long,
     @SerializedName("etapa_biologica")

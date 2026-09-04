@@ -263,23 +263,15 @@ class CrearReporteViewModel(
                 val currentMs = System.currentTimeMillis()
                 val etapaStr = currentState.etapaBiologica.ifBlank { null }
                 val request = CreateReporteRequest(
-                    terreno_id = terreno.terreno_id,
                     plantacion_id = plantacion.plantacion_id,
                     plaga_id = plaga.id,
                     nivel_severidad = currentState.nivelSeveridad,
-                    latitud = currentState.latitud,
-                    longitud = currentState.longitud,
                     timestamp_ms = currentMs,
                     etapa_biologica = etapaStr
                 )
 
                 val response = withContext(Dispatchers.IO) {
-                    val res = gddService.createReporte(request)
-                    if (!res.isSuccessful && res.code() == 404) {
-                        gddService.createReporteApi(request)
-                    } else {
-                        res
-                    }
+                    gddService.createReporte(request)
                 }
 
                 if (response.isSuccessful) {

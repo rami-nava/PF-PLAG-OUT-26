@@ -9,6 +9,7 @@ import com.example.plag_out.util.esperarEstado
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -96,6 +97,10 @@ class CrearReporteViewModelTest {
         assertEquals(99, estado.reporteNavPayload?.id)
         assertEquals("Oruga", estado.reporteNavPayload?.plaga_nombre)
         assertEquals(1, gddService.vecesLlamado("createReporte"))
+        val jsonEnviado = com.google.gson.Gson().toJson(gddService.ultimoCreateReporte)
+        assertFalse(jsonEnviado.contains("terreno_id"))
+        assertFalse(jsonEnviado.contains("latitud"))
+        assertFalse(jsonEnviado.contains("longitud"))
     }
 
     @Test
