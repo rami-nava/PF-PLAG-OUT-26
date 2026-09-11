@@ -131,6 +131,49 @@ class MonitoreoDetalleViewModelTest {
         assertEquals("Tu sesión expiró. Volvé a iniciar sesión.", vm.state.value.error)
     }
 
+    @Test
+    fun `guardar threshold ML respeta el minimo recomendado y envia entero`() {
+        val monitoreo = Fixtures.monitoreo(
+            umbralAlertaMlRecomendado = 24.67f,
+            umbralAlertaMlEfectivo = 24.67f,
+            modeloAlertaMlId = "modelo-1"
+        )
+        val (vm, _) = viewModelCon(listOf(monitoreo))
+        vm.cargar(monitoreo.monitoreo_id)
+        esperarEstado(vm.state) { it.monitoreo != null }
+        gddService.actualizarUmbralAlertaMlResult = {
+            Response.success(monitoreo.copy(umbral_alerta_ml = 25f, umbral_alerta_ml_efectivo = 25f))
+        }
+
+        vm.abrirEditorUmbralMl()
+        assertEquals(25, vm.state.value.umbralMlEditado)
+        vm.guardarUmbralMl {}
+
+        esperarEstado(vm.state) { !it.guardandoUmbralMl }
+        assertEquals(25, gddService.ultimoUmbralAlertaMl?.get("umbral_alerta_ml")?.asInt)
+    }
+
+    @Test
+    fun `usar recomendado envia null explicito`() {
+        val monitoreo = Fixtures.monitoreo(
+            umbralAlertaMl = 40f,
+            umbralAlertaMlRecomendado = 24.67f,
+            umbralAlertaMlEfectivo = 40f,
+            modeloAlertaMlId = "modelo-1"
+        )
+        val (vm, _) = viewModelCon(listOf(monitoreo))
+        vm.cargar(monitoreo.monitoreo_id)
+        esperarEstado(vm.state) { it.monitoreo != null }
+        gddService.actualizarUmbralAlertaMlResult = {
+            Response.success(monitoreo.copy(umbral_alerta_ml = null, umbral_alerta_ml_efectivo = 24.67f))
+        }
+
+        vm.usarUmbralMlRecomendado {}
+
+        esperarEstado(vm.state) { !it.guardandoUmbralMl }
+        assertTrue(gddService.ultimoUmbralAlertaMl?.get("umbral_alerta_ml")?.isJsonNull == true)
+    }
+
     // ---------- finalizarMonitoreo ----------
 
     @Test

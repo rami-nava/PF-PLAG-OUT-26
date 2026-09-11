@@ -29,6 +29,9 @@ import com.example.plag_out.ReporteDetalleResponse
 import com.example.plag_out.PrediccionConfirmacionRequest
 import com.example.plag_out.PrediccionConfirmacionResponse
 import com.example.plag_out.PrediccionDetalleResponse
+import com.example.plag_out.ConsentimientoModeloRequest
+import com.example.plag_out.ConsentimientoModeloResponse
+import com.google.gson.JsonObject
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -92,6 +95,12 @@ interface GDDService {
         @Body data: UpdateMonitoreoRequest
     ): Response<MonitoreoResponse>
 
+    @PATCH("/monitoreos/{id}")
+    suspend fun actualizarUmbralAlertaMl(
+        @Path("id") id: Int,
+        @Body data: JsonObject
+    ): Response<MonitoreoResponse>
+
     @POST("/usuarios")
     suspend fun createUser(@Body data: CreateUserRequest): Response<CreateUserResponse>
 
@@ -101,6 +110,14 @@ interface GDDService {
 
     @PATCH("/usuarios/me")
     suspend fun actualizarUsuario(@Body data: UpdateUserRequest): Response<UsuarioResponse>
+
+    @GET("/api/v1/usuarios/me/consentimiento-modelo")
+    suspend fun getConsentimientoModelo(): Response<ConsentimientoModeloResponse>
+
+    @PATCH("/api/v1/usuarios/me/consentimiento-modelo")
+    suspend fun actualizarConsentimientoModelo(
+        @Body data: ConsentimientoModeloRequest
+    ): Response<ConsentimientoModeloResponse>
 
     // Baja definitiva de la cuenta del usuario del JWT (y de todos sus datos en el backend)
     @DELETE("/usuarios/me")
