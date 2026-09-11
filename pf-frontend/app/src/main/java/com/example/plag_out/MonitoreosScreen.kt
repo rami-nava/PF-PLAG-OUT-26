@@ -628,7 +628,13 @@ fun MonitoreosPorPlantacion(
     val referencia = monitoreosFiltrados.firstOrNull()
     val plantacion = plantacionesState.plantaciones.find { it.plantacion_id == plantacionId }
 
-    LaunchedEffect(Unit) { plantacionesViewModel.getPlantaciones() }
+    // Al volver del detalle (donde se pudo haber cambiado un umbral) hay que releer el caché de
+    // Room y, si quedó invalidado, el backend: sin esto la tarjeta seguía mostrando el valor
+    // viejo hasta reiniciar la app.
+    LaunchedEffect(Unit) {
+        viewModel.getMonitoreos()
+        plantacionesViewModel.getPlantaciones()
+    }
 
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { 2 })

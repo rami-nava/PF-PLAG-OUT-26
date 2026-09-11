@@ -14,6 +14,7 @@ import com.example.plag_out.Service.RetrofitClient
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,15 +48,22 @@ class MonitoreoDetalleViewModel(
     private val _state = MutableStateFlow(MonitoreoDetalleUIState())
     val state: StateFlow<MonitoreoDetalleUIState> = _state.asStateFlow()
 
+    /** Carga en vuelo: se cancela si llega otra, para que gane siempre la respuesta más nueva. */
+    private var cargaEnCurso: Job? = null
+
     /**
      * Offline-first, igual que el resto de la app: primero se sirve del caché de Room
      * (instantáneo), después intenta refrescar contra el backend.
      */
     @RequiresApi(Build.VERSION_CODES.O)
     fun cargar(monitoreoId: Int) {
-        if (_state.value.monitoreo?.monitoreo_id == monitoreoId && !_state.value.isLoading) return
-
-        viewModelScope.launch {
+        // Antes se salía cuando ya había un monitoreo cargado con ese id: eso dejaba el dato
+        // congelado durante toda la vida del ViewModel (el caché rancio sólo se iba cuando se
+        // reiniciaba la app) y además volvía inútil el botón "Reintentar". Ahora cada entrada a
+        // la pantalla vuelve a pedir el monitoreo; se cancela la carga anterior para no tener dos
+        // respuestas compitiendo y que gane la más nueva.
+        cargaEnCurso?.cancel()
+        cargaEnCurso = viewModelScope.launch {
             val cache = withContext(Dispatchers.IO) { repository.obtenerMonitoreo(monitoreoId) }
             if (cache != null) {
                 _state.value = _state.value.copy(monitoreo = cache, isLoading = false)
@@ -154,6 +162,9 @@ class MonitoreoDetalleViewModel(
                 if (response.isSuccessful) {
                     val actualizado = response.body() ?: monitoreo.copy(umbral_riesgo = nuevo)
                     withContext(Dispatchers.IO) { repository.guardarMonitoreo(actualizado) }
+                    // El listado sirve del caché hasta el corte diario de GDD: sin invalidar,
+                    // seguiría mostrando el umbral viejo aunque Room ya tenga el nuevo.
+                    CacheTracker.invalidar(context, CacheTracker.MONITOREOS)
                     _state.value = _state.value.copy(
                         monitoreo = actualizado,
                         guardandoUmbral = false,
@@ -220,6 +231,7 @@ class MonitoreoDetalleViewModel(
                             ?: monitoreo.umbral_alerta_ml_recomendado
                     )
                     withContext(Dispatchers.IO) { repository.guardarMonitoreo(actualizado) }
+                    CacheTracker.invalidar(context, CacheTracker.MONITOREOS)
                     _state.value = _state.value.copy(
                         monitoreo = actualizado,
                         guardandoUmbralMl = false,

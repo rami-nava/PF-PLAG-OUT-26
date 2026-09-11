@@ -144,9 +144,6 @@ interface GDDService {
     @POST("/reportes")
     suspend fun createReporte(@Body data: CreateReporteRequest): Response<ReporteResponse>
 
-    @POST("/api/reports")
-    suspend fun createReporteApi(@Body data: CreateReporteRequest): Response<ReporteResponse>
-
     @GET("/reportes/{id}")
     suspend fun getReporte(@Path("id") id: Int): Response<ReporteDetalleResponse>
 

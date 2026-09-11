@@ -4,9 +4,15 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
+import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
 import com.google.gson.JsonSerializer
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.Converter
+import java.lang.reflect.Type
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.time.LocalDate
@@ -17,6 +23,37 @@ import com.example.plag_out.SupabaseProvider
 import io.github.jan.supabase.auth.auth
 
 object RetrofitClient {
+
+    /**
+     * Gson descarta por defecto toda propiedad cuyo valor sea JSON null, así que el body
+     * `{"umbral_alerta_ml": null}` que arma [com.example.plag_out.MonitoreoDetalleViewModel]
+     * salía al cable como `{}`. El contrato de la Fase 4 distingue *omitir* el campo (preserva
+     * el valor actual) de *mandar null* (limpia el override), con lo cual perder el null hacía
+     * imposible volver al threshold recomendado desde la app.
+     *
+     * `serializeNulls()` en el [GsonBuilder] general arreglaría esto pero cambiaría el body de
+     * TODOS los requests (los PATCH tipados dependen de que los campos null se omitan), así que
+     * el arreglo se acota a los bodies declarados como [JsonObject] —hoy sólo el PATCH del
+     * umbral ML— con un converter propio que corre antes del de Gson.
+     */
+    internal object JsonObjectConNullsConverterFactory : Converter.Factory() {
+
+        private val JSON = "application/json; charset=UTF-8".toMediaType()
+        private val gsonConNulls = GsonBuilder().serializeNulls().create()
+
+        override fun requestBodyConverter(
+            type: Type,
+            parameterAnnotations: Array<out Annotation>,
+            methodAnnotations: Array<out Annotation>,
+            retrofit: Retrofit
+        ): Converter<*, RequestBody>? {
+            if (type != JsonObject::class.java) return null
+            return Converter<JsonObject, RequestBody> { value ->
+                gsonConNulls.toJson(value).toRequestBody(JSON)
+            }
+        }
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     private val gson = GsonBuilder()
         .registerTypeAdapter(LocalDate::class.java, JsonDeserializer { json, _, _ ->
@@ -57,7 +94,8 @@ object RetrofitClient {
         .build()
 
     @RequiresApi(Build.VERSION_CODES.O)
-    private val retrofit = Retrofit.Builder()
+    internal val retrofit: Retrofit = Retrofit.Builder()
+        .addConverterFactory(JsonObjectConNullsConverterFactory)
         .addConverterFactory(GsonConverterFactory.create(gson))
         .baseUrl(com.example.plag_out.BuildConfig.BACKEND_URL)
         .client(client)

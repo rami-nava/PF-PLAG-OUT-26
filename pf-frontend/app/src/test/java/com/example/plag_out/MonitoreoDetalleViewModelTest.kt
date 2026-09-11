@@ -2,12 +2,15 @@ package com.example.plag_out
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.fakes.FakeMonitoreoDao
 import com.example.plag_out.fakes.Fixtures
 import com.example.plag_out.util.MainDispatcherRule
+import com.example.plag_out.Service.RetrofitClient
 import com.example.plag_out.util.esperarEstado
+import com.google.gson.JsonObject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -20,6 +23,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import okhttp3.RequestBody
+import okio.Buffer
+import retrofit2.Converter
 import retrofit2.Response
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -172,6 +178,106 @@ class MonitoreoDetalleViewModelTest {
 
         esperarEstado(vm.state) { !it.guardandoUmbralMl }
         assertTrue(gddService.ultimoUmbralAlertaMl?.get("umbral_alerta_ml")?.isJsonNull == true)
+    }
+
+    /**
+     * Regresión: assertear sobre el [com.google.gson.JsonObject] no alcanza, porque el null se
+     * perdía recién al serializar (Gson descarta las propiedades null salvo `serializeNulls`).
+     * Este test toma el body que arma el ViewModel y lo pasa por el converter real de Retrofit,
+     * el mismo que usa RetrofitClient, para verificar lo que sale al cable.
+     */
+    @Test
+    fun `usar recomendado serializa null explicito en el body HTTP`() {
+        val monitoreo = Fixtures.monitoreo(
+            umbralAlertaMl = 40f,
+            umbralAlertaMlRecomendado = 24.67f,
+            umbralAlertaMlEfectivo = 40f,
+            modeloAlertaMlId = "modelo-1"
+        )
+        val (vm, _) = viewModelCon(listOf(monitoreo))
+        vm.cargar(monitoreo.monitoreo_id)
+        esperarEstado(vm.state) { it.monitoreo != null }
+        gddService.actualizarUmbralAlertaMlResult = {
+            Response.success(monitoreo.copy(umbral_alerta_ml = null, umbral_alerta_ml_efectivo = 24.67f))
+        }
+
+        vm.usarUmbralMlRecomendado {}
+        esperarEstado(vm.state) { !it.guardandoUmbralMl }
+
+        val body = requireNotNull(gddService.ultimoUmbralAlertaMl)
+        assertEquals("{\"umbral_alerta_ml\":null}", serializarComoRetrofit(body))
+    }
+
+    /**
+     * Regresión del caché rancio: volver a entrar a la pantalla (mismo ViewModel, nuevo
+     * LaunchedEffect) tiene que volver a pedir el monitoreo al backend. Antes el early-return
+     * dejaba congelado el override ML hasta reiniciar el proceso.
+     */
+    @Test
+    fun `volver a cargar el mismo monitoreo refresca contra el backend`() {
+        val conOverride = Fixtures.monitoreo(
+            id = 41,
+            umbralAlertaMl = 50f,
+            umbralAlertaMlRecomendado = 24.67f,
+            umbralAlertaMlEfectivo = 50f,
+            modeloAlertaMlId = "modelo-1"
+        )
+        val (vm, dao) = viewModelCon(cache = listOf(conOverride))
+        gddService.getMonitoreoResult = { Response.success(conOverride) }
+        vm.cargar(41)
+        esperarEstado(vm.state) { it.monitoreo != null }
+
+        // El override se limpió del lado del servidor (por ejemplo, desde otro dispositivo).
+        val sinOverride = conOverride.copy(umbral_alerta_ml = null, umbral_alerta_ml_efectivo = 24.67f)
+        gddService.getMonitoreoResult = { Response.success(sinOverride) }
+
+        vm.cargar(41)
+
+        esperarEstado(vm.state) { it.monitoreo?.umbral_alerta_ml == null }
+        assertEquals(24.67f, vm.state.value.monitoreo?.umbral_alerta_ml_efectivo)
+        val persistido = runBlocking { dao.getAll() }.find { it.monitoreo_id == 41 }
+        assertEquals(null, persistido?.umbral_alerta_ml)
+    }
+
+    /**
+     * Regresión del caché rancio en el listado: el listado se sirve del caché hasta el corte
+     * diario de GDD, así que un cambio de threshold tiene que invalidar esa marca.
+     */
+    @Test
+    fun `guardar el threshold ML invalida el cache del listado`() {
+        val monitoreo = Fixtures.monitoreo(
+            umbralAlertaMl = null,
+            umbralAlertaMlRecomendado = 24.67f,
+            umbralAlertaMlEfectivo = 24.67f,
+            modeloAlertaMlId = "modelo-1"
+        )
+        val (vm, _) = viewModelCon(listOf(monitoreo))
+        vm.cargar(monitoreo.monitoreo_id)
+        esperarEstado(vm.state) { it.monitoreo != null }
+        CacheTracker.marcarConsultado(context, CacheTracker.MONITOREOS)
+        gddService.actualizarUmbralAlertaMlResult = {
+            Response.success(monitoreo.copy(umbral_alerta_ml = 50f, umbral_alerta_ml_efectivo = 50f))
+        }
+
+        vm.abrirEditorUmbralMl()
+        vm.actualizarUmbralMlEditado(50)
+        vm.guardarUmbralMl {}
+
+        esperarEstado(vm.state) { !it.guardandoUmbralMl }
+        assertFalse(CacheTracker.yaConsultado(context, CacheTracker.MONITOREOS))
+    }
+
+    /** Usa el converter real de [RetrofitClient], el mismo que arma el body del PATCH. */
+    private fun serializarComoRetrofit(body: JsonObject): String {
+        val converter: Converter<JsonObject, RequestBody> =
+            RetrofitClient.retrofit.requestBodyConverter(
+                JsonObject::class.java,
+                emptyArray(),
+                emptyArray()
+            )
+        val buffer = Buffer()
+        converter.convert(body)!!.writeTo(buffer)
+        return buffer.readUtf8()
     }
 
     // ---------- finalizarMonitoreo ----------
