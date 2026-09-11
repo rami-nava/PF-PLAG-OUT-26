@@ -102,13 +102,25 @@ class PlagOutMessagingService : FirebaseMessagingService() {
         NotificationManagerCompat.from(this).notify(id, notification)
     }
 
-    private fun crearCanal() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Un solo canal para los tres tipos de aviso (GDD, reportes cercanos, biofix): el
-            // nombre es genérico a propósito, porque es lo que el usuario ve en los ajustes del
-            // sistema. El id no se toca —cambiarlo crearía un canal nuevo y perdería la
-            // configuración que el usuario ya tenga— y es el mismo que declara el manifest
-            // como default_notification_channel_id de FCM.
+    private fun crearCanal() = crearCanal(this)
+
+    companion object {
+        const val CHANNEL_ID = "alertas_gdd"
+
+        /**
+         * Crea el canal de avisos. Se llama al arrancar el proceso, no sólo al recibir un
+         * mensaje: cuando la app está en segundo plano o cerrada, quien muestra la
+         * notificación es el SDK de Firebase y [onMessageReceived] no corre, así que si el
+         * canal no existía el aviso caía en `fcm_fallback_notification_channel` con
+         * importancia DEFAULT en vez de "Alertas y avisos" con importancia alta.
+         */
+        fun crearCanal(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+            // Un solo canal para todos los tipos de aviso (GDD, reportes cercanos, biofix y
+            // alertas predictivas ML): el nombre es genérico a propósito, porque es lo que el
+            // usuario ve en los ajustes del sistema. El id no se toca —cambiarlo crearía un
+            // canal nuevo y perdería la configuración que el usuario ya tenga— y es el mismo
+            // que declara el manifest como default_notification_channel_id de FCM.
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Alertas y avisos",
@@ -117,13 +129,11 @@ class PlagOutMessagingService : FirebaseMessagingService() {
                 description = "Riesgo por GDD, reportes de plagas cercanos e inicio de " +
                         "acumulación (biofix) de tus cultivos y alertas predictivas"
             }
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val manager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
         }
-    }
 
-    companion object {
-        const val CHANNEL_ID = "alertas_gdd"
         const val EXTRA_TIPO = "tipo"
         const val EXTRA_MONITOREO_ID = "monitoreo_id"
         const val EXTRA_REPORTE_ID = "reporte_id"
