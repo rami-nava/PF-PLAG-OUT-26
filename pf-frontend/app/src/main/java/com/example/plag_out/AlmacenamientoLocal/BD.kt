@@ -9,6 +9,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.room.migration.Migration
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
@@ -17,8 +18,8 @@ import java.time.LocalDate
 import java.util.Date
 
 @Database(
-    entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class, UsuarioResponse::class],
-    version = 10,
+    entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class, UsuarioResponse::class, FeedbackPrediccionPendiente::class],
+    version = 11,
     exportSchema = false
 )
 
@@ -29,6 +30,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun terrenoDao(): TerrenoDao
     abstract fun plantacionDao(): PlantacionDao
     abstract fun usuarioDao(): UsuarioDao
+    abstract fun feedbackPrediccionDao(): FeedbackPrediccionDao
 
     companion object {
         @Volatile
@@ -41,10 +43,10 @@ abstract class AppDatabase : RoomDatabase() {
                     appContext,
                     AppDatabase::class.java,
                     "gdd_database"
-                ).fallbackToDestructiveMigration(dropAllTables = true)
-                    // Al subir de versión Room borra las tablas. Sin esto, los flags de CacheTracker
-                    // quedarían marcados sobre un caché vacío y las pantallas no volverían a
-                    // consultar el backend.
+                ).addMigrations(MIGRATION_10_11)
+                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    // Si una versión futura cae en la migración destructiva, también se invalidan
+                    // las marcas que describían el caché eliminado.
                     .addCallback(object : RoomDatabase.Callback() {
                         override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
                             CacheTracker.limpiarTodo(appContext)
@@ -53,6 +55,22 @@ abstract class AppDatabase : RoomDatabase() {
                     .build()
                 INSTANCE = instance
                 instance
+            }
+        }
+
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `feedback_prediccion_pendiente` (
+                        `owner_id` TEXT NOT NULL,
+                        `prediccion_id` INTEGER NOT NULL,
+                        `respuesta` TEXT NOT NULL,
+                        `idempotency_key` TEXT NOT NULL,
+                        `estado` TEXT NOT NULL,
+                        `creado_en_ms` INTEGER NOT NULL,
+                        PRIMARY KEY(`owner_id`, `prediccion_id`)
+                    )""".trimIndent()
+                )
             }
         }
     }

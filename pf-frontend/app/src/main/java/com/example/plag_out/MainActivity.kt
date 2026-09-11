@@ -33,6 +33,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +44,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -61,6 +65,7 @@ import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
 import com.example.plag_out.AlmacenamientoLocal.UsuarioRepository
+import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionRepository
 import com.example.plag_out.Service.RetrofitClient
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.PlagasGDDTheme
@@ -78,6 +83,7 @@ class MainActivity : ComponentActivity() {
     private val deepLinkMonitoreoId = mutableStateOf<String?>(null)
     private val deepLinkReporteId = mutableStateOf<String?>(null)
     private val deepLinkPlantacionId = mutableStateOf<String?>(null)
+    private val deepLinkPrediccionId = mutableStateOf<String?>(null)
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,7 +108,9 @@ class MainActivity : ComponentActivity() {
                         deepLinkReporteId = deepLinkReporteId.value,
                         onDeepLinkReporteConsumido = { deepLinkReporteId.value = null },
                         deepLinkPlantacionId = deepLinkPlantacionId.value,
-                        onDeepLinkPlantacionConsumido = { deepLinkPlantacionId.value = null }
+                        onDeepLinkPlantacionConsumido = { deepLinkPlantacionId.value = null },
+                        deepLinkPrediccionId = deepLinkPrediccionId.value,
+                        onDeepLinkPrediccionConsumido = { deepLinkPrediccionId.value = null }
                     )
                 }
             }
@@ -117,23 +125,21 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun leerDeepLink(intent: Intent?) {
-        intent?.getStringExtra(PlagOutMessagingService.EXTRA_MONITOREO_ID)?.let {
-            deepLinkMonitoreoId.value = it
-        }
-        intent?.getStringExtra(PlagOutMessagingService.EXTRA_REPORTE_ID)?.let {
-            deepLinkReporteId.value = it
-        }
-        intent?.getStringExtra(PlagOutMessagingService.EXTRA_PLANTACION_ID)?.let {
-            deepLinkPlantacionId.value = it
-        }
-        // Push genérico (solo entidad_id): el tipo dice a qué entidad apunta ese id.
-        intent?.getStringExtra(PlagOutMessagingService.EXTRA_ENTIDAD_ID)?.let { id ->
-            when {
-                intent.getStringExtra(PlagOutMessagingService.EXTRA_TIPO)
-                    ?.uppercase()?.contains("BIOFIX") == true -> deepLinkPlantacionId.value = id
-                deepLinkMonitoreoId.value == null && deepLinkReporteId.value == null &&
-                    deepLinkPlantacionId.value == null -> deepLinkReporteId.value = id
-            }
+        intent ?: return
+        val destino = destinoDePush(
+            tipo = intent.getStringExtra(PlagOutMessagingService.EXTRA_TIPO),
+            prediccionId = intent.getStringExtra(PlagOutMessagingService.EXTRA_PREDICCION_ID),
+            monitoreoId = intent.getStringExtra(PlagOutMessagingService.EXTRA_MONITOREO_ID),
+            reporteId = intent.getStringExtra(PlagOutMessagingService.EXTRA_REPORTE_ID),
+            plantacionId = intent.getStringExtra(PlagOutMessagingService.EXTRA_PLANTACION_ID),
+            entidadId = intent.getStringExtra(PlagOutMessagingService.EXTRA_ENTIDAD_ID)
+        ) ?: return
+        val id = destino.substringAfterLast('/')
+        when {
+            destino.startsWith("prediccion/") -> deepLinkPrediccionId.value = id
+            destino.startsWith("monitoreo/") -> deepLinkMonitoreoId.value = id
+            destino.startsWith("ver_reporte/") -> deepLinkReporteId.value = id
+            destino.startsWith("plantacion/") -> deepLinkPlantacionId.value = id
         }
     }
 }
@@ -146,7 +152,9 @@ fun AppNavigation(
     deepLinkReporteId: String? = null,
     onDeepLinkReporteConsumido: () -> Unit = {},
     deepLinkPlantacionId: String? = null,
-    onDeepLinkPlantacionConsumido: () -> Unit = {}
+    onDeepLinkPlantacionConsumido: () -> Unit = {},
+    deepLinkPrediccionId: String? = null,
+    onDeepLinkPrediccionConsumido: () -> Unit = {}
 ) {
     val context = LocalContext.current.applicationContext
     val db = remember(context) { AppDatabase.getDatabase(context) }
@@ -154,6 +162,10 @@ fun AppNavigation(
     val terrenoRepository = remember(db) { TerrenoRepository(db.terrenoDao()) }
     val plantacionRepository = remember(db) { PlantacionRepository(db.plantacionDao()) }
     val usuarioRepository = remember(db) { UsuarioRepository(db.usuarioDao()) }
+    val feedbackPrediccionRepository = remember(db) {
+        FeedbackPrediccionRepository(db.feedbackPrediccionDao())
+    }
+    val actionScope = rememberCoroutineScope()
 
     val monitoreosViewModel: MonitoreosViewModel = viewModel(
         factory = remember(context, monitoreoRepository) { MonitoreosViewModelFactory(context, monitoreoRepository) }
@@ -284,6 +296,13 @@ fun AppNavigation(
         }
     }
 
+    LaunchedEffect(deepLinkPrediccionId, sessionStatus) {
+        if (deepLinkPrediccionId != null && sessionStatus is SessionStatus.Authenticated) {
+            navController.navigate("prediccion/$deepLinkPrediccionId")
+            onDeepLinkPrediccionConsumido()
+        }
+    }
+
     val notificacionesState by notificacionesViewModel.state.collectAsState()
     var mostrarNotificaciones by remember { mutableStateOf(false) }
     var mostrarAyudaRapida by remember { mutableStateOf(false) }
@@ -316,7 +335,7 @@ fun AppNavigation(
         }
     }
 
-    val fullBleedScreens = listOf("logIn", "crearCuenta", "editarPerfil", "monitoreo/{monitoreo_id}", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}")
+    val fullBleedScreens = listOf("logIn", "crearCuenta", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}")
     val rutaActual = navBackStackEntry?.destination?.route
 
     // Cerrar sesión: AuthViewModel borra el almacenamiento local (token, Room,
@@ -404,7 +423,19 @@ fun AppNavigation(
                     // La cuenta ya se borró en el backend: queda limpiar el dispositivo y volver
                     // al login, igual que el cierre de sesión pero sin desregistrar el token FCM
                     // (el DELETE /usuarios/me ya se llevó los dispositivos junto con el usuario).
-                    onCuentaEliminada = { limpiarSesion(false) }
+                    onCuentaEliminada = {
+                        val ownerId = SupabaseProvider.client.auth.currentUserOrNull()?.id
+                        if (ownerId == null) {
+                            limpiarSesion(false)
+                        } else {
+                            actionScope.launch {
+                                withContext(Dispatchers.IO) {
+                                    feedbackPrediccionRepository.eliminarPorUsuario(ownerId)
+                                }
+                                limpiarSesion(false)
+                            }
+                        }
+                    }
                 )
             }
             composable("editarPerfil") {
@@ -463,6 +494,18 @@ fun AppNavigation(
                     },
                     onVerPlantacion = { plantacionId -> navController.navigate("plantacion/$plantacionId") },
                     onVerTerreno = { terrenoId -> navController.navigate("terreno/$terrenoId") }
+                )
+            }
+            composable("prediccion/{prediccion_id}") { backStackEntry ->
+                val prediccionId = backStackEntry.arguments
+                    ?.getString("prediccion_id")?.toIntOrNull() ?: 0
+                val prediccionViewModel: PrediccionDetalleViewModel = viewModel(
+                    factory = PrediccionDetalleViewModelFactory(feedbackPrediccionRepository)
+                )
+                PrediccionDetalleScreen(
+                    prediccionId = prediccionId,
+                    viewModel = prediccionViewModel,
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable("terreno/{terreno_id}") { backStackEntry ->
@@ -679,7 +722,7 @@ private fun PantallaCargandoSesion(esperaAgotada: Boolean, onIrAlLogin: () -> Un
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo", "agregar_monitoreo/{plantacion_id}", "logIn", "crearCuenta", "editarPerfil", "monitoreo/{monitoreo_id}", "crear_reporte", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo", "agregar_monitoreo/{plantacion_id}", "logIn", "crearCuenta", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "crear_reporte", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}")
     return !screensWithoutNavBar.contains(currentScreen)
 }
 
@@ -687,6 +730,6 @@ fun shouldShowBottomBar(navController: NavController): Boolean {
 fun shouldShowTopBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("logIn","crearCuenta","perfil","editarPerfil","monitoreo/{monitoreo_id}","ver_reporte/{reporte_id}","ver_reporte/{reporte_id}/{reporte_json}")
+    val screensWithoutNavBar = listOf("logIn","crearCuenta","perfil","editarPerfil","monitoreo/{monitoreo_id}","prediccion/{prediccion_id}","ver_reporte/{reporte_id}","ver_reporte/{reporte_id}/{reporte_json}")
     return !screensWithoutNavBar.contains(currentScreen)
 }

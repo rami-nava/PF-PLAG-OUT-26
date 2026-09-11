@@ -3,6 +3,8 @@ package com.example.plag_out.fakes
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoDao
 import com.example.plag_out.AlmacenamientoLocal.PlantacionDao
 import com.example.plag_out.AlmacenamientoLocal.TerrenoDao
+import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionDao
+import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionPendiente
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
@@ -116,5 +118,29 @@ class FakeMonitoreoDao(inicial: List<MonitoreoResponse> = emptyList()) : Monitor
     override suspend fun updateTerrenoNombre(terrenoId: Int, nombre: String) {
         operaciones += "updateTerrenoNombre"
         filas.replaceAll { if (it.terreno_id == terrenoId) it.copy(terreno_nombre = nombre) else it }
+    }
+}
+
+class FakeFeedbackPrediccionDao(
+    inicial: List<FeedbackPrediccionPendiente> = emptyList()
+) : FeedbackPrediccionDao {
+    private val filas = inicial.toMutableList()
+
+    override suspend fun get(ownerId: String, prediccionId: Int) =
+        filas.find { it.owner_id == ownerId && it.prediccion_id == prediccionId }
+
+    override suspend fun insert(feedback: FeedbackPrediccionPendiente) {
+        filas.removeAll {
+            it.owner_id == feedback.owner_id && it.prediccion_id == feedback.prediccion_id
+        }
+        filas += feedback
+    }
+
+    override suspend fun delete(ownerId: String, prediccionId: Int) {
+        filas.removeAll { it.owner_id == ownerId && it.prediccion_id == prediccionId }
+    }
+
+    override suspend fun deleteByOwner(ownerId: String) {
+        filas.removeAll { it.owner_id == ownerId }
     }
 }

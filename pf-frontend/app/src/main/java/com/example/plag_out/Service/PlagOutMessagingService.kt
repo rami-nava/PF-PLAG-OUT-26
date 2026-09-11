@@ -70,10 +70,14 @@ class PlagOutMessagingService : FirebaseMessagingService() {
             data["monitoreo_id"]?.let { putExtra(EXTRA_MONITOREO_ID, it) }
             data["reporte_id"]?.let { putExtra(EXTRA_REPORTE_ID, it) }
             data["plantacion_id"]?.let { putExtra(EXTRA_PLANTACION_ID, it) }
+            data["prediccion_id"]?.let { putExtra(EXTRA_PREDICCION_ID, it) }
+            data["entidad_id"]?.let { putExtra(EXTRA_ENTIDAD_ID, it) }
         }
+        val entidad = data["prediccion_id"] ?: data["monitoreo_id"] ?: data["reporte_id"]
+            ?: data["plantacion_id"] ?: data["entidad_id"] ?: "sin-id"
         val pendingIntent = PendingIntent.getActivity(
             this,
-            0,
+            "${data["tipo"]}:$entidad".hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -111,7 +115,7 @@ class PlagOutMessagingService : FirebaseMessagingService() {
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Riesgo por GDD, reportes de plagas cercanos e inicio de " +
-                        "acumulación (biofix) de tus cultivos"
+                        "acumulación (biofix) de tus cultivos y alertas predictivas"
             }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
@@ -124,6 +128,7 @@ class PlagOutMessagingService : FirebaseMessagingService() {
         const val EXTRA_MONITOREO_ID = "monitoreo_id"
         const val EXTRA_REPORTE_ID = "reporte_id"
         const val EXTRA_PLANTACION_ID = "plantacion_id"
+        const val EXTRA_PREDICCION_ID = "prediccion_id"
         const val EXTRA_ENTIDAD_ID = "entidad_id"
     }
 }

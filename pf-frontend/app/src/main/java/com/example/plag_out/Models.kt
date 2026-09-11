@@ -374,6 +374,9 @@ fun destinoDe(notificacion: NotificacionResponse): String? {
     val id = notificacion.entidad_id
     val tipo = notificacion.tipo.uppercase()
     return when {
+        tipo == "ALERTA_ML_RIESGO" -> {
+            if (id != null) "prediccion/$id" else null
+        }
         tipo.contains("REPORTE") -> {
             if (id != null) "ver_reporte/$id" else "reportes"
         }
@@ -383,10 +386,73 @@ fun destinoDe(notificacion: NotificacionResponse): String? {
         tipo.contains("BIOFIX") || tipo.contains("PLANTACION") -> {
             if (id != null) "plantacion/$id" else "terrenos"
         }
-        id != null -> "ver_reporte/$id"
         else -> null
     }
 }
+
+fun destinoDePush(
+    tipo: String?,
+    prediccionId: String? = null,
+    monitoreoId: String? = null,
+    reporteId: String? = null,
+    plantacionId: String? = null,
+    entidadId: String? = null
+): String? {
+    prediccionId?.toIntOrNull()?.let { return "prediccion/$it" }
+    monitoreoId?.toIntOrNull()?.let { return "monitoreo/$it" }
+    reporteId?.toIntOrNull()?.let { return "ver_reporte/$it" }
+    plantacionId?.toIntOrNull()?.let { return "plantacion/$it" }
+    val id = entidadId?.toIntOrNull() ?: return null
+    return when (tipo?.uppercase()) {
+        "ALERTA_ML_RIESGO" -> "prediccion/$id"
+        "ALERTA_GDD" -> "monitoreo/$id"
+        "REPORTE_CERCANO" -> "ver_reporte/$id"
+        "ALERTA_BIOFIX", "BIOFIX" -> "plantacion/$id"
+        else -> null
+    }
+}
+
+@Serializable
+data class PrediccionConfirmacionEstado(
+    @SerializedName("estado") val estado: String,
+    @SerializedName("solicitada_en") val solicitada_en: String? = null,
+    @SerializedName("expira_en") val expira_en: String? = null,
+    @SerializedName("respuesta") val respuesta: String? = null,
+    @SerializedName("respondido_en") val respondido_en: String? = null
+)
+
+@Serializable
+data class PrediccionDetalleResponse(
+    @SerializedName("id") val id: Int,
+    @SerializedName("plantacion_id") val plantacion_id: Int,
+    @SerializedName("plaga_id") val plaga_id: Int,
+    @SerializedName("plaga_nombre_cientifico") val plaga_nombre_cientifico: String,
+    @SerializedName("fecha") val fecha: LocalDate,
+    @SerializedName("model_id") val model_id: String,
+    @SerializedName("horizon_days") val horizon_days: Int,
+    @SerializedName("probabilidad_porcentaje") val probabilidad_porcentaje: Float,
+    @SerializedName("umbral_modelo_recomendado_porcentaje")
+    val umbral_modelo_recomendado_porcentaje: Float,
+    @SerializedName("umbral_efectivo_porcentaje")
+    val umbral_efectivo_porcentaje: Float? = null,
+    @SerializedName("confirmacion") val confirmacion: PrediccionConfirmacionEstado
+)
+
+@Serializable
+data class PrediccionConfirmacionRequest(
+    @SerializedName("respuesta") val respuesta: String,
+    @SerializedName("idempotency_key") val idempotency_key: String
+)
+
+@Serializable
+data class PrediccionConfirmacionResponse(
+    @SerializedName("id") val id: String,
+    @SerializedName("prediccion_id") val prediccion_id: Int,
+    @SerializedName("respuesta") val respuesta: String,
+    @SerializedName("respondido_en") val respondido_en: String,
+    @SerializedName("reporte_id") val reporte_id: Int? = null,
+    @SerializedName("reporte_creado") val reporte_creado: Boolean = false
+)
 
 @Entity(tableName = "usuario")
 @Serializable

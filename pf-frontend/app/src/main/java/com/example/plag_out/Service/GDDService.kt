@@ -26,6 +26,9 @@ import com.example.plag_out.NotificacionResponse
 import com.example.plag_out.CreateReporteRequest
 import com.example.plag_out.ReporteResponse
 import com.example.plag_out.ReporteDetalleResponse
+import com.example.plag_out.PrediccionConfirmacionRequest
+import com.example.plag_out.PrediccionConfirmacionResponse
+import com.example.plag_out.PrediccionDetalleResponse
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -132,6 +135,15 @@ interface GDDService {
 
     @GET("/reportes")
     suspend fun getReportes(): Response<List<ReporteDetalleResponse>>
+
+    @GET("/api/v1/predicciones/{id}")
+    suspend fun getPrediccion(@Path("id") id: Int): Response<PrediccionDetalleResponse>
+
+    @POST("/api/v1/predicciones/{id}/confirmacion")
+    suspend fun confirmarPrediccion(
+        @Path("id") id: Int,
+        @Body data: PrediccionConfirmacionRequest
+    ): Response<PrediccionConfirmacionResponse>
 
     @GET("api/gdd/health")
     suspend fun health(): Response<Unit>

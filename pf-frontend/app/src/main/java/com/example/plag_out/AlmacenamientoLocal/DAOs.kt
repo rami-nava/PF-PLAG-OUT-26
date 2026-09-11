@@ -97,3 +97,18 @@ interface UsuarioDao {
     @Query("DELETE FROM usuario")
     suspend fun deleteAll()
 }
+
+@Dao
+interface FeedbackPrediccionDao {
+    @Query("SELECT * FROM feedback_prediccion_pendiente WHERE owner_id = :ownerId AND prediccion_id = :prediccionId LIMIT 1")
+    suspend fun get(ownerId: String, prediccionId: Int): FeedbackPrediccionPendiente?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(feedback: FeedbackPrediccionPendiente)
+
+    @Query("DELETE FROM feedback_prediccion_pendiente WHERE owner_id = :ownerId AND prediccion_id = :prediccionId")
+    suspend fun delete(ownerId: String, prediccionId: Int)
+
+    @Query("DELETE FROM feedback_prediccion_pendiente WHERE owner_id = :ownerId")
+    suspend fun deleteByOwner(ownerId: String)
+}
