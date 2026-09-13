@@ -13,5 +13,6 @@ class PlagOutApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         PlagOutMessagingService.crearCanal(this)
+        PresenceRetryScheduler.start(this)
     }
 }

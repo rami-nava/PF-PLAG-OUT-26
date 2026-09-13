@@ -103,6 +103,7 @@ fun MonitoreoDetalleScreen(
                     onVerInfoNivel = { mostrarInfoNivel = true },
                     onVerInfoUmbral = { mostrarInfoUmbral = true },
                     finalizando = state.finalizando,
+                    onRefresh = { viewModel.cargar(monitoreoId) },
                     onFinalizarClick = { mostrarDialogoFinalizar = true }
                 )
             }
@@ -226,7 +227,8 @@ private fun ContenidoMonitoreoDetalle(
     onVerInfoNivel: () -> Unit,
     onVerInfoUmbral: () -> Unit,
     finalizando: Boolean,
-    onFinalizarClick: () -> Unit
+    onFinalizarClick: () -> Unit,
+    onRefresh: () -> Unit
 ) {
     val estilo = estiloDeNivel(monitoreo.nivel_alerta)
     // El umbral solo se considera alcanzado por el estado real del monitoreo, no por si se pudo
@@ -271,70 +273,7 @@ private fun ContenidoMonitoreoDetalle(
         ) {
             Spacer(Modifier.height(8.dp))
 
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                AnilloRiesgoGrande(
-                    progreso = monitoreo.progreso,
-                    nivelAlerta = monitoreo.nivel_alerta,
-                    umbralRiesgo = monitoreo.umbral_riesgo,
-                    tamano = TAMANO_ANILLO,
-                    grosor = 13.dp,
-                    modifier = Modifier.testTag("anilloRiesgo")
-                )
-                Spacer(Modifier.height(8.dp))
-                SelloDeNivel(estilo, pulsante = monitoreo.nivel_alerta >= 2)
-            }
-
-            Spacer(Modifier.height(14.dp))
-
-            Surface(
-                color = PlagOutColors.Surface,
-                shape = RoundedCornerShape(20.dp),
-                shadowElevation = 2.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    EstadisticaCompacta("Acumulado", "${monitoreo.gdd_acumulado.toInt()}", Modifier.weight(1f))
-                    SeparadorVertical()
-                    EstadisticaCompacta("Objetivo", "${monitoreo.gdd_objetivo.toInt()}", Modifier.weight(1f))
-                    SeparadorVertical()
-                    EstadisticaCompacta("GDD hoy", "+${monitoreo.gdd_diario.toInt()}", Modifier.weight(1f))
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            Surface(
-                color = PlagOutColors.Surface,
-                shape = RoundedCornerShape(20.dp),
-                shadowElevation = 2.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    EstadisticaCompacta(
-                        "Inicio",
-                        monitoreo.fecha_inicio?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))) ?: "—",
-                        Modifier.weight(1f)
-                    )
-                    SeparadorVertical()
-                    EstadisticaCompacta(
-                        "Actualizado",
-                        monitoreo.fecha_actualizacion.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))),
-                        Modifier.weight(1f)
-                    )
-                    // El objetivo ya no aplica a un monitoreo finalizado: no tiene sentido proyectar
-                    // una fecha de alcance para algo que ya terminó.
-                    if (monitoreo.activo) {
-                        SeparadorVertical()
-                        val dias = diasEstimadosAlUmbral(monitoreo)
-                        val estimado = when {
-                            umbralAlcanzado -> "Alcanzado"
-                            dias != null -> "$dias días"
-                            else -> "Sin datos"
-                        }
-                        EstadisticaCompacta("Al objetivo", estimado, Modifier.weight(1f))
-                    }
-                }
-            }
+            BiofixManual(monitoreo, onRefresh)
 
             if (datosDesactualizados) {
                 Spacer(Modifier.height(8.dp))

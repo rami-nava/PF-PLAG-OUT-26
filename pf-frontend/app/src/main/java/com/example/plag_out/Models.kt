@@ -111,7 +111,9 @@ data class MonitoreoResponse(
     @SerializedName("modelo_alerta_ml_id")
     val modelo_alerta_ml_id: String? = null,
     @SerializedName("horizonte_alerta_ml_dias")
-    val horizonte_alerta_ml_dias: Int? = null
+    val horizonte_alerta_ml_dias: Int? = null,
+    val estado_seguimiento: String? = null,
+    val ciclos: List<GddCicloResponse>? = null
 )
 
 @Entity(tableName = "terrenos")
@@ -397,6 +399,7 @@ fun destinoDe(notificacion: NotificacionResponse): String? {
     val id = notificacion.entidad_id
     val tipo = notificacion.tipo.uppercase()
     return when {
+        tipo in setOf("ALERTA_GDD_CICLO", "BIOFIX_CICLO") -> id?.let { "ciclo/$it" }
         tipo == "ALERTA_ML_RIESGO" -> {
             if (id != null) "prediccion/$id" else null
         }
@@ -419,8 +422,12 @@ fun destinoDePush(
     monitoreoId: String? = null,
     reporteId: String? = null,
     plantacionId: String? = null,
-    entidadId: String? = null
+    entidadId: String? = null,
+    cicloId: String? = null
 ): String? {
+    if (tipo in setOf("ALERTA_GDD_CICLO", "BIOFIX_CICLO")) {
+        return (cicloId ?: entidadId)?.toIntOrNull()?.let { "ciclo/$it" }
+    }
     prediccionId?.toIntOrNull()?.let { return "prediccion/$it" }
     monitoreoId?.toIntOrNull()?.let { return "monitoreo/$it" }
     reporteId?.toIntOrNull()?.let { return "ver_reporte/$it" }
@@ -446,6 +453,7 @@ data class PrediccionConfirmacionEstado(
 
 @Serializable
 data class PrediccionDetalleResponse(
+    val monitoreo_id: Int? = null,
     @SerializedName("id") val id: Int,
     @SerializedName("plantacion_id") val plantacion_id: Int,
     @SerializedName("plaga_id") val plaga_id: Int,
@@ -463,12 +471,14 @@ data class PrediccionDetalleResponse(
 
 @Serializable
 data class PrediccionConfirmacionRequest(
+    val biofix: BiofixRequest? = null,
     @SerializedName("respuesta") val respuesta: String,
     @SerializedName("idempotency_key") val idempotency_key: String
 )
 
 @Serializable
 data class PrediccionConfirmacionResponse(
+    val biofix: BiofixResult? = null,
     @SerializedName("id") val id: String,
     @SerializedName("prediccion_id") val prediccion_id: Int,
     @SerializedName("respuesta") val respuesta: String,
@@ -554,4 +564,32 @@ data class ReporteNavPayload(
     val latitud: Double?,
     val longitud: Double?,
     val timestamp_ms: Long
+)
+
+
+@Serializable
+data class GddCicloResponse(
+    val id: Int, val monitoreo_id: Int, val fecha_biofix: String,
+    val estado: String, val fecha_actualizacion: String,
+    val gdd_acumulado: Float, val gdd_diario: Float,
+    val gdd_eclosion: Float, val gdd_generacion: Float,
+    val progreso: Float, val estadio_biologico: String,
+    val nivel_alerta: Int, val dias_pendientes: Int
+)
+
+@Serializable
+data class BiofixRequest(
+    val idempotency_key: String,
+    val fecha_observacion: String,
+    val accion: String,
+    val ciclo_id: Int? = null,
+    val confirmar_ciclo_adicional: Boolean = false,
+    val version_contrato: String = "biofix-v1"
+)
+
+@Serializable
+data class BiofixResult(
+    val observacion_id: String, val reporte_id: Int,
+    val reporte_creado: Boolean, val ciclo_id: Int,
+    val ciclo_creado: Boolean, val ciclo: GddCicloResponse
 )

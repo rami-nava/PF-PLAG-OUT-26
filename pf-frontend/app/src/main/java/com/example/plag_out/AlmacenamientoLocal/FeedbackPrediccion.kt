@@ -10,6 +10,7 @@ data class FeedbackPrediccionPendiente(
     val owner_id: String,
     val prediccion_id: Int,
     val respuesta: String,
+    val biofix_json: String? = null,
     val idempotency_key: String,
     val estado: String = "pendiente",
     val creado_en_ms: Long = System.currentTimeMillis()

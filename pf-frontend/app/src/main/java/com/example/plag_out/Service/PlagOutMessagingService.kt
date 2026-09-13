@@ -66,6 +66,7 @@ class PlagOutMessagingService : FirebaseMessagingService() {
         // y biofix el cultivo que arrancó a acumular.
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            data["ciclo_id"]?.let { putExtra("ciclo_id", it) }
             data["tipo"]?.let { putExtra(EXTRA_TIPO, it) }
             data["monitoreo_id"]?.let { putExtra(EXTRA_MONITOREO_ID, it) }
             data["reporte_id"]?.let { putExtra(EXTRA_REPORTE_ID, it) }
@@ -73,7 +74,7 @@ class PlagOutMessagingService : FirebaseMessagingService() {
             data["prediccion_id"]?.let { putExtra(EXTRA_PREDICCION_ID, it) }
             data["entidad_id"]?.let { putExtra(EXTRA_ENTIDAD_ID, it) }
         }
-        val entidad = data["prediccion_id"] ?: data["monitoreo_id"] ?: data["reporte_id"]
+        val entidad = data["ciclo_id"] ?: data["prediccion_id"] ?: data["monitoreo_id"] ?: data["reporte_id"]
             ?: data["plantacion_id"] ?: data["entidad_id"] ?: "sin-id"
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -94,7 +95,9 @@ class PlagOutMessagingService : FirebaseMessagingService() {
 
         // POST_NOTIFICATIONS puede estar denegado (Android 13+): notify() no lanza,
         // simplemente no muestra nada, así que no hace falta chequear acá.
-        val id = data["monitoreo_id"]?.toIntOrNull()
+        val id = data["notificacion_id"]?.toIntOrNull()
+            ?: data["ciclo_id"]?.toIntOrNull()
+            ?: data["monitoreo_id"]?.toIntOrNull()
             ?: data["reporte_id"]?.toIntOrNull()
             ?: data["plantacion_id"]?.toIntOrNull()
             ?: data["entidad_id"]?.toIntOrNull()

@@ -159,6 +159,12 @@ interface GDDService {
         @Body data: PrediccionConfirmacionRequest
     ): Response<PrediccionConfirmacionResponse>
 
+    @POST("/monitoreos/{id}/observaciones")
+    suspend fun registrarBiofix(@Path("id") id: Int, @Body data: com.example.plag_out.BiofixRequest): Response<com.example.plag_out.BiofixResult>
+
+    @GET("/ciclos/{id}")
+    suspend fun getCiclo(@Path("id") id: Int): Response<com.example.plag_out.GddCicloResponse>
+
     @GET("api/gdd/health")
     suspend fun health(): Response<Unit>
 }
