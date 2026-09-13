@@ -22,6 +22,7 @@ data class PrediccionDetalleUIState(
     val feedbackPendiente: FeedbackPrediccionPendiente? = null,
     val enviando: Boolean = false,
     val noDisponible: Boolean = false,
+    val biofixResultado: BiofixResult? = null,
     val error: String? = null
 )
 
@@ -36,7 +37,18 @@ class PrediccionDetalleViewModel(
     private val _state = MutableStateFlow(PrediccionDetalleUIState())
     val state: StateFlow<PrediccionDetalleUIState> = _state.asStateFlow()
 
-    fun cargar(prediccionId: Int) {
+    init {
+        viewModelScope.launch {
+            PresenceRetryEvents.events.collect { event ->
+                if (event.kind == "ml" && event.owner == ownerIdProvider() && event.id == _state.value.prediccion?.id) {
+                    _state.value = _state.value.copy(biofixResultado = event.result)
+                    cargar(event.id)
+                }
+            }
+        }
+    }
+
+    fun cargar(prediccionId: Int, aviso: String? = null) {
         val ownerId = ownerIdProvider()
         if (ownerId == null) {
             _state.value = PrediccionDetalleUIState(error = "Tu sesión expiró. Volvé a iniciar sesión.")
@@ -62,6 +74,8 @@ class PrediccionDetalleViewModel(
                     }
                     _state.value = PrediccionDetalleUIState(
                         prediccion = prediccion,
+                        error = aviso,
+                        biofixResultado = _state.value.biofixResultado,
                         feedbackPendiente = if (terminal) null else pendiente
                     )
                 } else if (response.code() == 404) {
@@ -84,7 +98,8 @@ class PrediccionDetalleViewModel(
         }
     }
 
-    fun responder(respuesta: String) {
+    fun responder(respuesta: String, biofix: BiofixRequest? = null) {
+        if (respuesta == "presente" && biofix == null) return
         if (respuesta !in RESPUESTAS || _state.value.enviando) return
         val prediccion = _state.value.prediccion ?: return
         if (prediccion.confirmacion.estado != "pendiente") return
@@ -93,22 +108,26 @@ class PrediccionDetalleViewModel(
             return
         }
 
+        _state.value = _state.value.copy(enviando = true)
         viewModelScope.launch {
             val existente = withContext(Dispatchers.IO) {
                 feedbackRepository.obtener(ownerId, prediccion.id)
             }
-            if (existente != null && existente.respuesta != respuesta) {
+            if (existente != null && existente.estado != "requiere_revision" && existente.respuesta != respuesta) {
                 _state.value = _state.value.copy(
                     feedbackPendiente = existente,
+                    enviando = false,
                     error = "Ya hay una respuesta pendiente. Reintentá ese envío antes de continuar."
                 )
                 return@launch
             }
-            val feedback = existente ?: FeedbackPrediccionPendiente(
+            if (existente?.estado == "requiere_revision") borrarPendiente(ownerId, prediccion.id)
+            val feedback = existente?.takeUnless { it.estado == "requiere_revision" } ?: FeedbackPrediccionPendiente(
                 owner_id = ownerId,
                 prediccion_id = prediccion.id,
                 respuesta = respuesta,
-                idempotency_key = UUID.randomUUID().toString()
+                biofix_json = biofix?.let { com.google.gson.Gson().toJson(it) },
+                idempotency_key = biofix?.idempotency_key ?: UUID.randomUUID().toString()
             ).also { withContext(Dispatchers.IO) { feedbackRepository.guardar(it) } }
 
             _state.value = _state.value.copy(feedbackPendiente = feedback)
@@ -123,12 +142,17 @@ class PrediccionDetalleViewModel(
     }
 
     private suspend fun enviar(feedback: FeedbackPrediccionPendiente) {
+        if (feedback.respuesta == "presente" && (feedback.biofix_json == null || feedback.estado == "requiere_revision")) {
+            _state.value = _state.value.copy(error = "Revisá la fecha y el ciclo antes de confirmar presencia.")
+            return
+        }
         _state.value = _state.value.copy(enviando = true, error = null)
         try {
             val response = withContext(Dispatchers.IO) {
                 gddService.confirmarPrediccion(
                     feedback.prediccion_id,
                     PrediccionConfirmacionRequest(
+                        biofix = feedback.biofix_json?.let { com.google.gson.Gson().fromJson(it, BiofixRequest::class.java) },
                         respuesta = feedback.respuesta,
                         idempotency_key = feedback.idempotency_key
                     )
@@ -147,13 +171,15 @@ class PrediccionDetalleViewModel(
                             )
                         ),
                         feedbackPendiente = null,
+                        biofixResultado = response.body()?.biofix,
                         enviando = false
                     )
                 }
                 response.code() == 409 -> {
                     borrarPendiente(feedback.owner_id, feedback.prediccion_id)
                     _state.value = _state.value.copy(feedbackPendiente = null, enviando = false)
-                    cargar(feedback.prediccion_id)
+                    _state.value = _state.value.copy(error = "La solicitud cambió. Actualizá la predicción y revisá la selección del ciclo antes de volver a confirmar.")
+                    cargar(feedback.prediccion_id, "La solicitud cambió. Revisá la fecha y el ciclo antes de confirmar de nuevo.")
                 }
                 response.code() == 410 -> {
                     borrarPendiente(feedback.owner_id, feedback.prediccion_id)
@@ -183,14 +209,18 @@ class PrediccionDetalleViewModel(
                     error = if (response.code() in setOf(401, 403)) {
                         "Tu sesión expiró. Volvé a iniciar sesión."
                     } else {
-                        "No se pudo enviar la respuesta. Podés reintentar sin duplicarla."
+                        if (feedback.respuesta == "presente")
+                            "Envío pendiente. Se reintentará automáticamente con conexión; también podés reintentar ahora."
+                        else "No se pudo enviar la respuesta. Podés reintentar sin duplicarla."
                     }
                 )
             }
         } catch (_: Exception) {
             _state.value = _state.value.copy(
                 enviando = false,
-                error = "No se pudo enviar la respuesta. Podés reintentar sin duplicarla."
+                error = if (feedback.respuesta == "presente")
+                            "Envío pendiente. Se reintentará automáticamente con conexión; también podés reintentar ahora."
+                        else "No se pudo enviar la respuesta. Podés reintentar sin duplicarla."
             )
         }
     }

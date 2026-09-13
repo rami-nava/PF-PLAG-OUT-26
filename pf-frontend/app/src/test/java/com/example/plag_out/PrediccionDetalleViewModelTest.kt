@@ -54,7 +54,7 @@ class PrediccionDetalleViewModelTest {
             vm.cargar(41)
             esperarEstado(vm.state) { it.prediccion != null }
 
-            vm.responder(respuesta)
+            vm.responder(respuesta, if (respuesta == "presente") BiofixRequest(java.util.UUID.randomUUID().toString(), "2026-09-01", "iniciar_ciclo") else null)
 
             val estado = esperarEstado(vm.state) { it.prediccion?.confirmacion?.estado == "respondida" }
             assertEquals(respuesta, estado.prediccion?.confirmacion?.respuesta)
@@ -150,7 +150,7 @@ class PrediccionDetalleViewModelTest {
         val vm409 = viewModel(service409)
         vm409.cargar(41)
         esperarEstado(vm409.state) { it.prediccion != null }
-        vm409.responder("presente")
+        vm409.responder("presente", BiofixRequest(java.util.UUID.randomUUID().toString(), "2026-09-01", "iniciar_ciclo"))
         assertEquals("respondida", esperarEstado(vm409.state) {
             it.prediccion?.confirmacion?.estado == "respondida"
         }.prediccion?.confirmacion?.estado)
@@ -167,4 +167,44 @@ class PrediccionDetalleViewModelTest {
         esperarEstado(vm422.state) { it.error?.contains("respuesta válida") == true }
         assertNull(runBlocking { dao422.get(owner, 41) })
     }
+    @Test
+    fun `presencia sin biofix no se envia`() {
+        val service = FakeGDDService().apply { getPrediccionResult = { Response.success(Fixtures.prediccion()) } }
+        val vm = viewModel(service)
+        vm.cargar(41)
+        esperarEstado(vm.state) { it.prediccion != null }
+        vm.responder("presente")
+        assertEquals(0, service.vecesLlamado("confirmarPrediccion"))
+    }
+
+    @Test
+    fun `retry de biofix conserva fecha accion ciclo y UUID tras recrear viewmodel`() {
+        val dao = FakeFeedbackPrediccionDao()
+        val service = FakeGDDService().apply {
+            getPrediccionResult = { Response.success(Fixtures.prediccion()) }
+            confirmarPrediccionResult = { FakeGDDService.sinConexion() }
+        }
+        val vm = viewModel(service, dao)
+        vm.cargar(41)
+        esperarEstado(vm.state) { it.prediccion != null }
+        val payload = BiofixRequest(java.util.UUID.randomUUID().toString(), "2026-09-01", "asociar_ciclo", 73)
+        vm.responder("presente", payload)
+        esperarEstado(vm.state) { it.error != null && !it.enviando }
+        val reopened = viewModel(service, dao)
+        reopened.cargar(41)
+        esperarEstado(reopened.state) { it.feedbackPendiente != null }
+        reopened.reintentar()
+        esperarEstado(reopened.state) { it.error != null && !it.enviando }
+        assertEquals(payload, service.ultimaConfirmacionPrediccion?.biofix)
+        assertEquals(payload.idempotency_key, service.ultimaConfirmacionPrediccion?.idempotency_key)
+        assertEquals(2, service.vecesLlamado("confirmarPrediccion"))
+    }
+
+    @Test
+    fun `push de ciclos no abre monitoreo ni prediccion`() {
+        assertEquals("ciclo/73", destinoDePush("ALERTA_GDD_CICLO", monitoreoId="41", cicloId="73"))
+        assertEquals("ciclo/73", destinoDePush("BIOFIX_CICLO", entidadId="73"))
+        assertNull(destinoDePush("ALERTA_GDD_CICLO", monitoreoId="41"))
+    }
+
 }

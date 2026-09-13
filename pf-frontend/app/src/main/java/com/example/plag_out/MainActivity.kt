@@ -83,6 +83,7 @@ class MainActivity : ComponentActivity() {
     private val deepLinkMonitoreoId = mutableStateOf<String?>(null)
     private val deepLinkReporteId = mutableStateOf<String?>(null)
     private val deepLinkPlantacionId = mutableStateOf<String?>(null)
+    private val deepLinkCicloId = mutableStateOf<String?>(null)
     private val deepLinkPrediccionId = mutableStateOf<String?>(null)
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -109,6 +110,8 @@ class MainActivity : ComponentActivity() {
                         onDeepLinkReporteConsumido = { deepLinkReporteId.value = null },
                         deepLinkPlantacionId = deepLinkPlantacionId.value,
                         onDeepLinkPlantacionConsumido = { deepLinkPlantacionId.value = null },
+                        deepLinkCicloId = deepLinkCicloId.value,
+                        onDeepLinkCicloConsumido = { deepLinkCicloId.value = null },
                         deepLinkPrediccionId = deepLinkPrediccionId.value,
                         onDeepLinkPrediccionConsumido = { deepLinkPrediccionId.value = null }
                     )
@@ -127,6 +130,7 @@ class MainActivity : ComponentActivity() {
     private fun leerDeepLink(intent: Intent?) {
         intent ?: return
         val destino = destinoDePush(
+            cicloId = intent.getStringExtra("ciclo_id"),
             tipo = intent.getStringExtra(PlagOutMessagingService.EXTRA_TIPO),
             prediccionId = intent.getStringExtra(PlagOutMessagingService.EXTRA_PREDICCION_ID),
             monitoreoId = intent.getStringExtra(PlagOutMessagingService.EXTRA_MONITOREO_ID),
@@ -136,6 +140,7 @@ class MainActivity : ComponentActivity() {
         ) ?: return
         val id = destino.substringAfterLast('/')
         when {
+            destino.startsWith("ciclo/") -> deepLinkCicloId.value = id
             destino.startsWith("prediccion/") -> deepLinkPrediccionId.value = id
             destino.startsWith("monitoreo/") -> deepLinkMonitoreoId.value = id
             destino.startsWith("ver_reporte/") -> deepLinkReporteId.value = id
@@ -147,6 +152,8 @@ class MainActivity : ComponentActivity() {
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavigation(
+    deepLinkCicloId: String? = null,
+    onDeepLinkCicloConsumido: () -> Unit = {},
     deepLinkMonitoreoId: String? = null,
     onDeepLinkMonitoreoConsumido: () -> Unit = {},
     deepLinkReporteId: String? = null,
@@ -296,6 +303,12 @@ fun AppNavigation(
         }
     }
 
+    LaunchedEffect(deepLinkCicloId, sessionStatus) {
+        if (deepLinkCicloId != null && sessionStatus is SessionStatus.Authenticated) {
+            navController.navigate("ciclo/$deepLinkCicloId")
+            onDeepLinkCicloConsumido()
+        }
+    }
     LaunchedEffect(deepLinkPrediccionId, sessionStatus) {
         if (deepLinkPrediccionId != null && sessionStatus is SessionStatus.Authenticated) {
             navController.navigate("prediccion/$deepLinkPrediccionId")
@@ -495,6 +508,10 @@ fun AppNavigation(
                     onVerPlantacion = { plantacionId -> navController.navigate("plantacion/$plantacionId") },
                     onVerTerreno = { terrenoId -> navController.navigate("terreno/$terrenoId") }
                 )
+            }
+            composable("ciclo/{ciclo_id}") { entry ->
+                CicloDetalleScreen(entry.arguments?.getString("ciclo_id")?.toIntOrNull() ?: 0,
+                    onBack = { navController.popBackStack() })
             }
             composable("prediccion/{prediccion_id}") { backStackEntry ->
                 val prediccionId = backStackEntry.arguments

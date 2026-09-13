@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -49,6 +50,20 @@ fun PrediccionDetalleScreen(
     onBack: () -> Unit
 ) {
     val state by viewModel.state.collectAsState()
+    var mostrarBiofix by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    if (mostrarBiofix) {
+        state.prediccion?.monitoreo_id?.let { monitorId ->
+            BiofixDialog(monitorId, onDismiss = { mostrarBiofix = false }, onConfirm = {
+                mostrarBiofix = false
+                viewModel.responder("presente", it)
+            })
+        } ?: androidx.compose.material3.AlertDialog(
+            onDismissRequest = { mostrarBiofix = false },
+            title = { Text("Monitoreo no disponible") },
+            text = { Text("Actualizá la predicción antes de registrar presencia.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { mostrarBiofix = false; viewModel.cargar(prediccionId) }) { Text("Actualizar") } }
+        )
+    }
     LaunchedEffect(prediccionId) { viewModel.cargar(prediccionId) }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
@@ -81,7 +96,9 @@ fun PrediccionDetalleScreen(
             )
             else -> ContenidoPrediccion(
                 state = state,
-                onResponder = viewModel::responder,
+                onResponder = { respuesta ->
+                    if (respuesta == "presente") mostrarBiofix = true else viewModel.responder(respuesta)
+                },
                 onReintentar = viewModel::reintentar
             )
         }
@@ -133,9 +150,10 @@ private fun ContenidoPrediccion(
             }
         }
 
+        state.biofixResultado?.let { CicloCard(it.ciclo) }
         Spacer(Modifier.height(14.dp))
         when (prediccion.confirmacion.estado) {
-            "pendiente" -> if (state.feedbackPendiente == null) {
+            "pendiente" -> if (state.feedbackPendiente == null || state.feedbackPendiente.estado == "requiere_revision") {
                 Text("¿Pudiste verificar la presencia de la plaga?", fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
                 Spacer(Modifier.height(10.dp))
                 OpcionFeedback("Sí, está presente", "presente", state.enviando, onResponder)

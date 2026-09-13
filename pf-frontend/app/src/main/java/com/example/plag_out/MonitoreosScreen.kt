@@ -559,7 +559,7 @@ fun MonitoreoCard(
                         }
                     }
                     Spacer(Modifier.width(14.dp))
-                    AnilloProgreso(progreso = monitoreo.progreso, color = estilo.color, tamano = 66.dp)
+                    Text(if (monitoreo.ciclos.orEmpty().any { it.estado == "activo" }) "Ver ciclos" else "Esperando biofix")
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -571,11 +571,11 @@ fun MonitoreoCard(
                         .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    EstadisticaCompacta("Acumulado", "${monitoreo.gdd_acumulado.toInt()}", Modifier.weight(1f))
+                    EstadisticaCompacta("Ciclos activos", "${monitoreo.ciclos.orEmpty().count { it.estado == "activo" }}", Modifier.weight(1f))
                     SeparadorVertical()
                     EstadisticaCompacta("Objetivo", "${monitoreo.gdd_objetivo.toInt()}", Modifier.weight(1f))
                     SeparadorVertical()
-                    EstadisticaCompacta("GDD hoy", "+${monitoreo.gdd_diario.toInt()}", Modifier.weight(1f))
+                    EstadisticaCompacta("Seguimiento", "Por ciclo", Modifier.weight(1f))
                 }
 
                 Spacer(Modifier.height(12.dp))

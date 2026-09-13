@@ -245,7 +245,7 @@ private fun ContenidoVerReporte(
                     )
 
                     // Fecha y hora
-                    val sdf = SimpleDateFormat("dd/MM/yyyy  HH:mm", Locale.getDefault())
+                    val sdf = SimpleDateFormat("dd/MM/yyyy  HH:mm", androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
                     val fechaStr = sdf.format(Date(detalle.timestamp_ms))
                     FilaDato(
                         icono = Icons.Outlined.AccessTime,

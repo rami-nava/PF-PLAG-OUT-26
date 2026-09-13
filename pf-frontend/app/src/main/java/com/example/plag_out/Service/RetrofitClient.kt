@@ -1,7 +1,5 @@
 package com.example.plag_out.Service
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
 import com.google.gson.JsonObject
@@ -54,7 +52,6 @@ object RetrofitClient {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     private val gson = GsonBuilder()
         .registerTypeAdapter(LocalDate::class.java, JsonDeserializer { json, _, _ ->
             LocalDate.parse(json.asString)
@@ -93,7 +90,6 @@ object RetrofitClient {
         }
         .build()
 
-    @RequiresApi(Build.VERSION_CODES.O)
     internal val retrofit: Retrofit = Retrofit.Builder()
         .addConverterFactory(JsonObjectConNullsConverterFactory)
         .addConverterFactory(GsonConverterFactory.create(gson))
@@ -101,6 +97,16 @@ object RetrofitClient {
         .client(client)
         .build()
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    /** Pin each retry to one immutable session; never send A's queued payload as B. */
+    fun forPresenceRetry(owner: String): GDDService {
+        val retryClient = OkHttpClient.Builder().addInterceptor { chain ->
+            val session = SupabaseProvider.client.auth.currentSessionOrNull()
+            if (session?.user?.id != owner) throw java.io.IOException("presence_session_changed")
+            chain.proceed(chain.request().newBuilder()
+                .header("Authorization", "Bearer ${session.accessToken}").build())
+        }.build()
+        return retrofit.newBuilder().client(retryClient).build().create(GDDService::class.java)
+    }
+
     val gddService: GDDService = retrofit.create(GDDService::class.java)
 }

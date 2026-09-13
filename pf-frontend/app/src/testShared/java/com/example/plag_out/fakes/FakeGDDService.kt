@@ -255,6 +255,9 @@ class FakeGDDService : GDDService {
     var ultimaConfirmacionPrediccion: PrediccionConfirmacionRequest? = null
         private set
 
+    override suspend fun registrarBiofix(id: Int, data: com.example.plag_out.BiofixRequest): Response<com.example.plag_out.BiofixResult> = noDeclarado("registrarBiofix")
+    override suspend fun getCiclo(id: Int): Response<com.example.plag_out.GddCicloResponse> = noDeclarado("getCiclo")
+
     private fun <T> noDeclarado(endpoint: String): Response<T> =
         throw AssertionError(
             "El test no declaró una respuesta para '$endpoint', pero el código la invocó."
