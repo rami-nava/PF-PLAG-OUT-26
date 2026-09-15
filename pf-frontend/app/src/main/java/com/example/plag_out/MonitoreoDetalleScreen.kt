@@ -16,6 +16,9 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material3.*
@@ -65,6 +68,7 @@ fun MonitoreoDetalleScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
+    var notaAlFinalizar by remember { mutableStateOf("") }
     var mostrarInfoNivel by remember { mutableStateOf(false) }
     var mostrarInfoUmbral by remember { mutableStateOf(false) }
 
@@ -79,6 +83,10 @@ fun MonitoreoDetalleScreen(
     }
 
     val monitoreo = state.monitoreo
+
+    LaunchedEffect(mostrarDialogoFinalizar) {
+        if (mostrarDialogoFinalizar) notaAlFinalizar = monitoreo?.observaciones.orEmpty()
+    }
 
     Scaffold(
         containerColor = PlagOutColors.Cream,
@@ -100,6 +108,7 @@ fun MonitoreoDetalleScreen(
                     onVerTerreno = onVerTerreno,
                     onEditarUmbral = { viewModel.abrirEditorUmbral() },
                     onEditarUmbralMl = { viewModel.abrirEditorUmbralMl() },
+                    onEditarObservaciones = { viewModel.abrirEditorObservaciones() },
                     onVerInfoNivel = { mostrarInfoNivel = true },
                     onVerInfoUmbral = { mostrarInfoUmbral = true },
                     finalizando = state.finalizando,
@@ -159,22 +168,48 @@ fun MonitoreoDetalleScreen(
         )
     }
 
+    if (state.observacionesEditadas != null && monitoreo != null) {
+        SheetEditarObservaciones(
+            texto = state.observacionesEditadas ?: "",
+            textoOriginal = monitoreo.observaciones.orEmpty(),
+            guardando = state.guardandoObservaciones,
+            onTextoChange = viewModel::actualizarObservacionesEditadas,
+            onCancelar = viewModel::cancelarEdicionObservaciones,
+            onGuardar = {
+                viewModel.guardarObservaciones {
+                    scope.launch { snackbarHostState.showSnackbar("Nota guardada") }
+                }
+            }
+        )
+    }
+
     if (mostrarDialogoFinalizar && monitoreo != null) {
         AlertDialog(
             onDismissRequest = { mostrarDialogoFinalizar = false },
             modifier = Modifier.testTag("dialogFinalizar"),
             title = { Text("¿Finalizar monitoreo?") },
             text = {
-                Text(
-                    "¿Finalizar el monitoreo de ${monitoreo.plaga_nombre} en ${monitoreo.cultivo_nombre}? " +
-                        "Vas a dejar de recibir alertas de esta plaga en este cultivo."
-                )
+                Column {
+                    Text(
+                        "¿Finalizar el monitoreo de ${monitoreo.plaga_nombre} en ${monitoreo.cultivo_nombre}? " +
+                            "Vas a dejar de recibir alertas de esta plaga en este cultivo."
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    // El cierre de campaña es el momento en que el dato está fresco: se ofrece
+                    // escribir la nota acá mismo, sin obligar (el campo puede quedar vacío).
+                    CampoDeNota(
+                        texto = notaAlFinalizar,
+                        onTextoChange = { notaAlFinalizar = it.take(MAX_CARACTERES_OBSERVACIONES) },
+                        etiqueta = "Nota para la próxima campaña (opcional)",
+                        tag = "txtNotaFinalizar"
+                    )
+                }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         mostrarDialogoFinalizar = false
-                        viewModel.finalizarMonitoreo {}
+                        viewModel.finalizarMonitoreo(observaciones = notaAlFinalizar) {}
                     },
                     modifier = Modifier.testTag("btnConfirmarFinalizar")
                 ) {
@@ -223,16 +258,14 @@ private fun ContenidoMonitoreoDetalle(
     onVerTerreno: (Int) -> Unit,
     onEditarUmbral: () -> Unit,
     onEditarUmbralMl: () -> Unit,
+    onEditarObservaciones: () -> Unit,
     onVerInfoNivel: () -> Unit,
     onVerInfoUmbral: () -> Unit,
     finalizando: Boolean,
     onFinalizarClick: () -> Unit
 ) {
     val estilo = estiloDeNivel(monitoreo.nivel_alerta)
-    // El umbral solo se considera alcanzado por el estado real del monitoreo, no por si se pudo
-    // proyectar una fecha: `diasEstimadosAlUmbral` también devuelve null cuando falta ritmo diario
-    // para proyectar, y eso no significa que ya se haya llegado al objetivo.
-    val umbralAlcanzado = monitoreo.gdd_acumulado >= monitoreo.gdd_objetivo || monitoreo.progreso >= 100f
+    val eclosionAlcanzada = monitoreo.gdd_acumulado >= monitoreo.gdd_objetivo || monitoreo.progreso >= 100f
 
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Row(
@@ -321,17 +354,62 @@ private fun ContenidoMonitoreoDetalle(
                         monitoreo.fecha_actualizacion.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))),
                         Modifier.weight(1f)
                     )
-                    // El objetivo ya no aplica a un monitoreo finalizado: no tiene sentido proyectar
-                    // una fecha de alcance para algo que ya terminó.
-                    if (monitoreo.activo) {
+                    if (monitoreo.activo && !eclosionAlcanzada) {
                         SeparadorVertical()
                         val dias = diasEstimadosAlUmbral(monitoreo)
-                        val estimado = when {
-                            umbralAlcanzado -> "Alcanzado"
-                            dias != null -> "$dias días"
-                            else -> "Sin datos"
+                        EstadisticaCompacta(
+                            "Al objetivo",
+                            if (dias != null) "$dias días" else "Sin datos",
+                            Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            val fechaEclosion = monitoreo.fecha_eclosion
+            if (eclosionAlcanzada || !monitoreo.activo || fechaEclosion != null) {
+                Spacer(Modifier.height(10.dp))
+                val huboEclosion = eclosionAlcanzada || fechaEclosion != null
+                Surface(
+                    color = PlagOutColors.Surface,
+                    shape = RoundedCornerShape(20.dp),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            if (huboEclosion) Icons.Outlined.CalendarMonth else Icons.Outlined.EventBusy,
+                            contentDescription = null,
+                            tint = if (huboEclosion) PlagOutColors.Forest else PlagOutColors.TextSecondary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                if (huboEclosion) "Eclosión alcanzada" else "Eclosión no alcanzada",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PlagOutColors.TextMain,
+                                modifier = Modifier.testTag("txtEstadoEclosion")
+                            )
+                            Text(
+                                when {
+                                    fechaEclosion != null -> fechaEclosion.format(
+                                        DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.forLanguageTag("es"))
+                                    )
+                                    huboEclosion -> "Fecha no registrada"
+                                    else -> "El monitoreo se finalizó antes de llegar al objetivo"
+                                },
+                                fontSize = 12.sp,
+                                color = PlagOutColors.TextSecondary,
+                                modifier = Modifier.testTag("txtFechaEclosion")
+                            )
                         }
-                        EstadisticaCompacta("Al objetivo", estimado, Modifier.weight(1f))
                     }
                 }
             }
@@ -519,6 +597,59 @@ private fun ContenidoMonitoreoDetalle(
                     )
                 }
             }
+
+            Spacer(Modifier.height(10.dp))
+
+            TarjetaCampo(
+                titulo = "Notas de campaña",
+                onInfo = null,
+                descripcionInfo = "Para qué sirven las notas",
+                tagInfo = "btnInfoNotas"
+            ) {
+                val nota = monitoreo.observaciones?.takeIf { it.isNotBlank() }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClick = onEditarObservaciones)
+                        .testTag("btnEditarObservaciones")
+                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Outlined.EditNote,
+                        contentDescription = null,
+                        tint = PlagOutColors.Forest,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            nota ?: "Todavía no escribiste nada",
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp,
+                            color = if (nota != null) PlagOutColors.TextMain else PlagOutColors.TextSecondary,
+                            maxLines = 4,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.testTag("txtObservaciones")
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            if (nota != null) "Tocá para editar"
+                            else "Anotá si la plaga apareció, qué aplicaste y si sirvió",
+                            fontSize = 11.sp,
+                            color = PlagOutColors.TextSecondary
+                        )
+                    }
+                    Icon(
+                        Icons.Filled.ChevronRight,
+                        contentDescription = null,
+                        tint = PlagOutColors.TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
             Spacer(Modifier.height(12.dp))
         }
 
@@ -735,6 +866,100 @@ private fun SheetEditarUmbralMl(
                     enabled = !guardando,
                     colors = ButtonDefaults.buttonColors(containerColor = PlagOutColors.Forest),
                     modifier = Modifier.weight(1f).testTag("btnGuardarUmbralMl")
+                ) {
+                    if (guardando) CircularProgressIndicator(Modifier.size(18.dp), color = PlagOutColors.TextOnDark)
+                    else Text("Guardar")
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun CampoDeNota(
+    texto: String,
+    onTextoChange: (String) -> Unit,
+    etiqueta: String,
+    tag: String,
+    habilitado: Boolean = true
+) {
+    Column(Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = texto,
+            onValueChange = onTextoChange,
+            enabled = habilitado,
+            label = { Text(etiqueta) },
+            placeholder = { Text("Ej.: no apareció la plaga; apliqué X el 12/2 y funcionó") },
+            minLines = 3,
+            maxLines = 6,
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PlagOutColors.Forest,
+                cursorColor = PlagOutColors.Forest,
+                focusedLabelColor = PlagOutColors.Forest
+            ),
+            modifier = Modifier.fillMaxWidth().testTag(tag)
+        )
+        Text(
+            "${texto.length}/$MAX_CARACTERES_OBSERVACIONES",
+            fontSize = 11.sp,
+            color = if (texto.length >= MAX_CARACTERES_OBSERVACIONES) PlagOutColors.RiskWarn
+            else PlagOutColors.TextSecondary,
+            modifier = Modifier.align(Alignment.End).padding(top = 4.dp, end = 4.dp)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SheetEditarObservaciones(
+    texto: String,
+    textoOriginal: String,
+    guardando: Boolean,
+    onTextoChange: (String) -> Unit,
+    onCancelar: () -> Unit,
+    onGuardar: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onCancelar,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = PlagOutColors.Surface,
+        modifier = Modifier.testTag("sheetObservaciones")
+    ) {
+        Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+            Text("Notas de campaña", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Lo que escribas acá te va a servir el año que viene: si la plaga apareció, qué " +
+                    "tratamiento hiciste y si dio resultado.",
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                color = PlagOutColors.TextSecondary
+            )
+            Spacer(Modifier.height(16.dp))
+            CampoDeNota(
+                texto = texto,
+                onTextoChange = onTextoChange,
+                etiqueta = "Tu nota",
+                tag = "txtEditarObservaciones",
+                habilitado = !guardando
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = onCancelar, enabled = !guardando, modifier = Modifier.weight(1f)) {
+                    Text("Cancelar")
+                }
+                Button(
+                    onClick = onGuardar,
+                    enabled = !guardando && texto.trim() != textoOriginal,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PlagOutColors.Forest,
+                        contentColor = PlagOutColors.TextOnDark,
+                        disabledContainerColor = PlagOutColors.Forest.copy(alpha = 0.4f),
+                        disabledContentColor = PlagOutColors.TextOnDark.copy(alpha = 0.6f)
+                    ),
+                    modifier = Modifier.weight(1f).testTag("btnGuardarObservaciones")
                 ) {
                     if (guardando) CircularProgressIndicator(Modifier.size(18.dp), color = PlagOutColors.TextOnDark)
                     else Text("Guardar")

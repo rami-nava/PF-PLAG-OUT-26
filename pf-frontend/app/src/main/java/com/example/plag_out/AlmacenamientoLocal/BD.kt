@@ -19,7 +19,7 @@ import java.util.Date
 
 @Database(
     entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class, UsuarioResponse::class, FeedbackPrediccionPendiente::class],
-    version = 12,
+    version = 14,
     exportSchema = false
 )
 
@@ -43,7 +43,7 @@ abstract class AppDatabase : RoomDatabase() {
                     appContext,
                     AppDatabase::class.java,
                     "gdd_database"
-                ).addMigrations(MIGRATION_10_11, MIGRATION_11_12)
+                ).addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     // Si una versión futura cae en la migración destructiva, también se invalidan
                     // las marcas que describían el caché eliminado.
@@ -81,6 +81,19 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `umbral_alerta_ml_efectivo` REAL")
                 db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `modelo_alerta_ml_id` TEXT")
                 db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `horizonte_alerta_ml_dias` INTEGER")
+            }
+        }
+
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `observaciones` TEXT")
+            }
+        }
+
+        // Sin default: las filas viejas quedan en null, que es justo lo que significa "sin registrar".
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `fecha_eclosion` TEXT")
             }
         }
     }

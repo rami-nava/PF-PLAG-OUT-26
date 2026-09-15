@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -115,6 +116,37 @@ class DetalleMonitoreoTest {
         // Al cancelar, no se disparó el PATCH y el botón de finalizar sigue disponible.
         composeRule.onNodeWithTag("btnFinalizarMonitoreo").assertExists()
         assert(gddService.vecesLlamado("actualizarMonitoreo") == 0)
+    }
+
+    @Test
+    fun escribir_una_nota_de_campania_abre_la_hoja_y_guarda() {
+        val nota = "No apareció la plaga; igual apliqué preventivo"
+        gddService.actualizarMonitoreoResult = { Response.success(monitoreo.copy(observaciones = nota)) }
+
+        composeRule.onNodeWithTag("btnEditarObservaciones").performClick()
+        composeRule.onNodeWithTag("sheetObservaciones").assertExists()
+
+        composeRule.onNodeWithTag("txtEditarObservaciones").performTextInput(nota)
+        composeRule.onNodeWithTag("btnGuardarObservaciones").performClick()
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("sheetObservaciones").assertDoesNotExist()
+        assertEquals(nota, runBlocking { monitoreoRepository.obtenerMonitoreo(1) }?.observaciones)
+    }
+
+    @Test
+    fun el_dialogo_de_finalizar_deja_escribir_la_nota_de_cierre() {
+        val nota = "Cerré la campaña: el tratamiento funcionó"
+        gddService.actualizarMonitoreoResult = {
+            Response.success(monitoreo.copy(activo = false, observaciones = nota))
+        }
+
+        composeRule.onNodeWithTag("btnFinalizarMonitoreo").performClick()
+        composeRule.onNodeWithTag("txtNotaFinalizar").performTextInput(nota)
+        composeRule.onNodeWithTag("btnConfirmarFinalizar").performClick()
+
+        composeRule.waitForIdle()
+        assertEquals(nota, gddService.ultimoActualizarMonitoreo?.observaciones)
     }
 
     @After

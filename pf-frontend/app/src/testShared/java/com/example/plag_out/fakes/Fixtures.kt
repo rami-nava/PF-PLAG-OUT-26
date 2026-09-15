@@ -71,7 +71,9 @@ object Fixtures {
         umbralAlertaMlRecomendado: Float? = null,
         umbralAlertaMlEfectivo: Float? = null,
         modeloAlertaMlId: String? = null,
-        horizonteAlertaMlDias: Int? = null
+        horizonteAlertaMlDias: Int? = null,
+        observaciones: String? = null,
+        fechaEclosion: LocalDate? = null
     ) = MonitoreoResponse(
         monitoreo_id = id,
         plantacion_id = plantacionId,
@@ -93,7 +95,9 @@ object Fixtures {
         umbral_alerta_ml_recomendado = umbralAlertaMlRecomendado,
         umbral_alerta_ml_efectivo = umbralAlertaMlEfectivo,
         modelo_alerta_ml_id = modeloAlertaMlId,
-        horizonte_alerta_ml_dias = horizonteAlertaMlDias
+        horizonte_alerta_ml_dias = horizonteAlertaMlDias,
+        observaciones = observaciones,
+        fecha_eclosion = fechaEclosion
     )
 
     fun cultivo(
