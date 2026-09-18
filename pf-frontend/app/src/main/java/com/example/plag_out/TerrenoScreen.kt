@@ -3,6 +3,7 @@ package com.example.plag_out
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -12,12 +13,17 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -100,6 +106,20 @@ fun TerrenoScreen(
     var filtro by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
     var filtrosExpandidos by rememberSaveable { mutableStateOf(false) }
 
+    var panelFiltroVisible by remember { mutableStateOf(true) }
+    val scrollConnection = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+            ): androidx.compose.ui.geometry.Offset {
+                if (available.y < -15f) panelFiltroVisible = false
+                else if (available.y > 15f) panelFiltroVisible = true
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
+
     // Solo los monitoreos en curso definen el estado del terreno: uno finalizado conserva
     // congelado su último nivel de alerta y lo pintaría en rojo para siempre.
     fun nivelMaxDe(terreno: TerrenoResponse): Int =
@@ -155,7 +175,7 @@ fun TerrenoScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().nestedScroll(scrollConnection)) {
             PanelDeCampoTerrenos(terrenos = state.terrenos, monitoreos = monitoreosState.monitoreos.filter { it.activo })
 
             val opciones = remember(state.terrenos, monitoreosState.monitoreos) {
@@ -169,25 +189,31 @@ fun TerrenoScreen(
                 )
             }
             val hayFiltroActivo = filtro != FILTRO_TODOS
-            PanelFiltrosPlegable(
-                expandido = filtrosExpandidos,
-                onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
-                hayFiltroActivo = hayFiltroActivo,
-                etiquetaAbrir = "Filtrar terrenos",
-                resumen = if (hayFiltroActivo) {
-                    "Mostrando ${filtrados.size} de ${state.terrenos.size} (Filtros activos)"
-                } else {
-                    "Mostrando ${state.terrenos.size} ${if (state.terrenos.size == 1) "terreno" else "terrenos"}"
-                },
-                onLimpiar = { filtro = FILTRO_TODOS }
+            AnimatedVisibility(
+                visible = panelFiltroVisible,
+                enter = slideInVertically(animationSpec = tween(250, easing = LinearOutSlowInEasing)) { -it } + fadeIn(tween(250)),
+                exit = slideOutVertically(animationSpec = tween(180, easing = FastOutLinearInEasing)) { -it } + fadeOut(tween(150))
             ) {
-                EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE ALERTA MÁS ALTO")
-                FiltroChipsRow(
-                    opciones = opciones,
-                    seleccionado = filtro,
-                    onSeleccion = { filtro = it },
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
+                PanelFiltrosPlegable(
+                    expandido = filtrosExpandidos,
+                    onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
+                    hayFiltroActivo = hayFiltroActivo,
+                    etiquetaAbrir = "Filtrar terrenos",
+                    resumen = if (hayFiltroActivo) {
+                        "Mostrando ${filtrados.size} de ${state.terrenos.size} (Filtros activos)"
+                    } else {
+                        "Mostrando ${state.terrenos.size} ${if (state.terrenos.size == 1) "terreno" else "terrenos"}"
+                    },
+                    onLimpiar = { filtro = FILTRO_TODOS }
+                ) {
+                    EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE ALERTA MÁS ALTO")
+                    FiltroChipsRow(
+                        opciones = opciones,
+                        seleccionado = filtro,
+                        onSeleccion = { filtro = it },
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
             }
 
             Box(modifier = Modifier.weight(1f)) {
@@ -332,7 +358,7 @@ private fun PanelDeCampoTerrenos(terrenos: List<TerrenoResponse>, monitoreos: Li
                     }
                 }
                 Spacer(Modifier.width(24.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(15.dp)) { //changed from 8 to 15
                     LeyendaEstadoTerreno(estiloDeNivel(0), sanos)
                     LeyendaEstadoTerreno(estiloDeNivel(1), atencion)
                     LeyendaEstadoTerreno(estiloDeNivel(2), criticos)
@@ -369,8 +395,9 @@ private fun LeyendaEstadoTerreno(estilo: NivelEstilo, cantidad: Int) {
             color = PlagOutColors.TextOnDark.copy(alpha = 0.85f),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(72.dp)
+            modifier = Modifier.width(90.dp)
         )
+        Spacer(Modifier.width(12.dp))
         Text("$valor", color = PlagOutColors.TextOnDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }

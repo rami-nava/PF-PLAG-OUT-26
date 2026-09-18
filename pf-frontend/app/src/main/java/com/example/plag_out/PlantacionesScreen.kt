@@ -306,7 +306,7 @@ private fun InformacionTerrenoTab(
                 LeyendaEstadoTerreno(estiloDeNivel(2), criticos)
                 // Fuera del anillo a propósito: son historial, no estado actual.
                 if (finalizados > 0) {
-                    HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.width(140.dp))
+                    HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.width(150.dp))
                     LeyendaEstadoTerreno(estiloFinalizado(), finalizados)
                 }
             }
@@ -325,7 +325,7 @@ private fun InformacionTerrenoTab(
                 SeparadorVertical()
                 EstadisticaCompacta("Cultivos", "${plantacionesDelTerreno.size}", Modifier.weight(1f))
                 SeparadorVertical()
-                EstadisticaCompacta("Activas", "$activas", Modifier.weight(1f))
+                EstadisticaCompacta("Activos", "$activas", Modifier.weight(1f))
             }
         }
 
@@ -561,13 +561,13 @@ private fun LeyendaEstadoTerreno(estilo: NivelEstilo, cantidad: Int) {
     val valor = contadorAnimado(cantidad)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(estilo.icono, contentDescription = null, tint = estilo.color, modifier = Modifier.size(15.dp))
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(12.dp))
         Text(
             estilo.etiqueta,
             color = PlagOutColors.TextSecondary,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(72.dp)
+            modifier = Modifier.width(90.dp)
         )
         Text("$valor", color = PlagOutColors.TextMain, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
@@ -609,8 +609,8 @@ private fun PlantacionesTab(
             val opciones = remember(plantacionesDelTerreno) {
                 listOf(
                     OpcionFiltro(FILTRO_TODAS, "Todas", plantacionesDelTerreno.size),
-                    OpcionFiltro(FILTRO_ACTIVAS, "Activas", plantacionesDelTerreno.count { it.activa }, colorIcono = PlagOutColors.Leaf),
-                    OpcionFiltro(FILTRO_PAUSADAS, "Pausadas", plantacionesDelTerreno.count { !it.activa }, colorIcono = PlagOutColors.Bark)
+                    OpcionFiltro(FILTRO_ACTIVAS, "Activos", plantacionesDelTerreno.count { it.activa }, colorIcono = PlagOutColors.Leaf),
+                    OpcionFiltro(FILTRO_PAUSADAS, "Pausados", plantacionesDelTerreno.count { !it.activa }, colorIcono = PlagOutColors.Bark)
                 )
             }
             FiltroChipsRow(opciones = opciones, seleccionado = filtro, onSeleccion = onFiltroChange)
@@ -707,7 +707,7 @@ fun PlantacionCard(
                             shape = CircleShape
                         ) {
                             Text(
-                                if (plantacion.activa) "ACTIVA" else "PAUSADA",
+                                if (plantacion.activa) "ACTIVO" else "PAUSADO",
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,

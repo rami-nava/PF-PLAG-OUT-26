@@ -13,6 +13,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -20,6 +22,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -109,6 +114,20 @@ fun MonitoreosScreen(
     // -1 = activos; 0/1/2 = nivel de alerta (activos); FILTRO_FINALIZADOS = finalizados
     var filtro by rememberSaveable { mutableStateOf(-1) }
     var filtrosExpandidos by rememberSaveable { mutableStateOf(false) }
+
+    var panelFiltroVisible by remember { mutableStateOf(true) }
+    val scrollConnection = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+            ): androidx.compose.ui.geometry.Offset {
+                if (available.y < -15f) panelFiltroVisible = false
+                else if (available.y > 15f) panelFiltroVisible = true
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
     // Por defecto, el % de eclosión más alto arriba: lo más cerca de eclosionar, primero.
     var criterioOrden by rememberSaveable { mutableStateOf(ORDEN_PROGRESO) }
     var ordenAscendente by rememberSaveable { mutableStateOf(false) }
@@ -159,7 +178,7 @@ fun MonitoreosScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().nestedScroll(scrollConnection)) {
             PanelDeCampo(monitoreos = activos)
 
             val opciones = remember(state.monitoreos, activos) {
@@ -176,43 +195,49 @@ fun MonitoreosScreen(
             val hayFiltroActivo = filtro != -1
             // Con "Finalizados" el universo es todo el histórico, no solo los activos
             val totalBase = if (filtro == FILTRO_FINALIZADOS) state.monitoreos.size else activos.size
-            PanelFiltrosPlegable(
-                expandido = filtrosExpandidos,
-                onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
-                hayFiltroActivo = hayFiltroActivo,
-                etiquetaAbrir = "Filtrar monitoreos",
-                resumen = if (hayFiltroActivo) {
-                    "Mostrando ${filtrados.size} de $totalBase · por $etiquetaOrden"
-                } else {
-                    "Mostrando ${activos.size} ${if (activos.size == 1) "monitoreo" else "monitoreos"} · por $etiquetaOrden"
-                },
-                onLimpiar = { filtro = -1 }
+            AnimatedVisibility(
+                visible = panelFiltroVisible,
+                enter = slideInVertically(animationSpec = tween(250, easing = LinearOutSlowInEasing)) { -it } + fadeIn(tween(250)),
+                exit = slideOutVertically(animationSpec = tween(180, easing = FastOutLinearInEasing)) { -it } + fadeOut(tween(150))
             ) {
-                EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE ALERTA")
-                FiltroChipsRow(
-                    opciones = opciones,
-                    seleccionado = filtro,
-                    onSeleccion = { filtro = it },
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
+                PanelFiltrosPlegable(
+                    expandido = filtrosExpandidos,
+                    onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
+                    hayFiltroActivo = hayFiltroActivo,
+                    etiquetaAbrir = "Filtrar monitoreos",
+                    resumen = if (hayFiltroActivo) {
+                        "Mostrando ${filtrados.size} de $totalBase · por $etiquetaOrden"
+                    } else {
+                        "Mostrando ${activos.size} ${if (activos.size == 1) "monitoreo" else "monitoreos"} · por $etiquetaOrden"
+                    },
+                    onLimpiar = { filtro = -1 }
+                ) {
+                    EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE ALERTA")
+                    FiltroChipsRow(
+                        opciones = opciones,
+                        seleccionado = filtro,
+                        onSeleccion = { filtro = it },
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    EncabezadoGrupoFiltro(Icons.AutoMirrored.Outlined.Sort, "ORDENAR POR")
-                    Spacer(Modifier.weight(1f))
-                    BotonDireccionOrden(
-                        ascendente = ordenAscendente,
-                        onToggle = { ordenAscendente = !ordenAscendente }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        EncabezadoGrupoFiltro(Icons.AutoMirrored.Outlined.Sort, "ORDENAR POR")
+                        Spacer(Modifier.weight(1f))
+                        BotonDireccionOrden(
+                            ascendente = ordenAscendente,
+                            onToggle = { ordenAscendente = !ordenAscendente }
+                        )
+                    }
+                    FiltroChipsRow(
+                        opciones = listOf(
+                            OpcionFiltro(ORDEN_PROGRESO, "% de eclosión", icono = Icons.Outlined.Egg),
+                            OpcionFiltro(ORDEN_DIAS_AL_UMBRAL, "Días al umbral", icono = Icons.Outlined.Schedule)
+                        ),
+                        seleccionado = criterioOrden,
+                        onSeleccion = { criterioOrden = it },
+                        modifier = Modifier.padding(vertical = 4.dp)
                     )
                 }
-                FiltroChipsRow(
-                    opciones = listOf(
-                        OpcionFiltro(ORDEN_PROGRESO, "% de eclosión", icono = Icons.Outlined.Egg),
-                        OpcionFiltro(ORDEN_DIAS_AL_UMBRAL, "Días al umbral", icono = Icons.Outlined.Schedule)
-                    ),
-                    seleccionado = criterioOrden,
-                    onSeleccion = { criterioOrden = it },
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
             }
 
             Box(modifier = Modifier.weight(1f)) {
@@ -354,7 +379,7 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
                     }
                 }
                 Spacer(Modifier.width(24.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(15.dp)) { //canged from 10 to 15
                     Text(
                         "NIVEL DE ALERTA",
                         color = PlagOutColors.TextOnDark.copy(alpha = 0.6f),
@@ -384,6 +409,7 @@ private fun LeyendaEstado(estilo: NivelEstilo, cantidad: Int) {
             fontWeight = FontWeight.Medium,
             modifier = Modifier.width(80.dp)
         )
+        Spacer(Modifier.width(12.dp))
         Text("$valor", color = PlagOutColors.TextOnDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     }
 }
@@ -781,7 +807,7 @@ private fun InformacionPlantacionTab(
             shape = RoundedCornerShape(50)
         ) {
             Text(
-                if (plantacion?.activa != false) "ACTIVA" else "PAUSADA",
+                if (plantacion?.activa != false) "ACTIVO" else "PAUSADO",
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
@@ -985,8 +1011,9 @@ private fun LeyendaEstadoTerrenoClaro(estilo: NivelEstilo, cantidad: Int) {
             color = PlagOutColors.TextSecondary,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(72.dp)
+            modifier = Modifier.width(90.dp)
         )
+        Spacer(Modifier.width(12.dp))
         Text("$valor", color = PlagOutColors.TextMain, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }
