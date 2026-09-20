@@ -99,9 +99,21 @@ class DetalleMonitoreoTest {
 
     @Test
     fun la_i_del_nivel_de_alerta_abre_su_explicacion() {
+        composeRule.onNodeWithTag("tabCiclos").performClick()
+        composeRule.waitForIdle()
+
         composeRule.onNodeWithTag("btnInfoNivelAlerta").performClick()
 
         composeRule.onNodeWithTag("hojaNivelAlerta").assertExists()
+    }
+
+    @Test
+    fun la_pestana_de_ciclos_avisa_que_espera_el_biofix_cuando_no_hay_ninguno() {
+        composeRule.onNodeWithTag("tabCiclos").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("txtEsperandoBiofix").assertExists()
+        composeRule.onNodeWithTag("btnRegistrarBiofix").assertExists()
     }
 
     @Test
