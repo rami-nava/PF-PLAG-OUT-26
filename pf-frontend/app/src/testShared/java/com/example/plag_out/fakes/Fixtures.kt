@@ -160,7 +160,8 @@ object Fixtures {
         nivelSeveridad: String = "Alto",
         latitud: Double? = -34.6,
         longitud: Double? = -58.4,
-        timestampMs: Long = 1700000000000L
+        timestampMs: Long = 1700000000000L,
+        esPropio: Boolean = true
     ) = com.example.plag_out.ReporteDetalleResponse(
         id = id,
         plantacion_id = plantacionId,
@@ -171,7 +172,8 @@ object Fixtures {
         nivel_severidad = nivelSeveridad,
         latitud = latitud,
         longitud = longitud,
-        timestamp_ms = timestampMs
+        timestamp_ms = timestampMs,
+        es_propio = esPropio
     )
 
     fun prediccion(

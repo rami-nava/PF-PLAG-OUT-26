@@ -19,7 +19,9 @@ sealed class VerReporteUiState {
     object Cargando : VerReporteUiState()
     data class Exito(
         val detalle: ReporteDetalleResponse,
-        val terrenoReferencia: TerrenoResponse? = null
+        val terrenoReferencia: TerrenoResponse? = null,
+        val isEliminando: Boolean = false,
+        val errorEliminacion: String? = null
     ) : VerReporteUiState()
     data class Error(val mensaje: String) : VerReporteUiState()
 }
@@ -73,6 +75,51 @@ class VerReporteViewModel(
             // Intento 2: fallback JSON de navegacion
             // plaga_nombre aqui siempre proviene de CrearReporteUIState.plagaSeleccionada.nombre
             usarFallback(reporteJsonFallback)
+        }
+    }
+
+    /**
+     * Elimina el reporte por su ID.
+     */
+    fun eliminarReporte(reporteId: Int, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            val currentState = _state.value
+            if (currentState is VerReporteUiState.Exito) {
+                _state.value = currentState.copy(isEliminando = true, errorEliminacion = null)
+            }
+
+            try {
+                val res = withContext(Dispatchers.IO) {
+                    gddService.deleteReporte(reporteId)
+                }
+
+                if (res.isSuccessful) {
+                    val curr = _state.value
+                    if (curr is VerReporteUiState.Exito) {
+                        _state.value = curr.copy(isEliminando = false)
+                    }
+                    withContext(Dispatchers.Main) {
+                        onSuccess()
+                    }
+                } else {
+                    val curr = _state.value
+                    if (curr is VerReporteUiState.Exito) {
+                        _state.value = curr.copy(
+                            isEliminando = false,
+                            errorEliminacion = "Error al eliminar el reporte."
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("VER_REPORTE", "Error eliminando reporte $reporteId: ${e.message}")
+                val curr = _state.value
+                if (curr is VerReporteUiState.Exito) {
+                    _state.value = curr.copy(
+                        isEliminando = false,
+                        errorEliminacion = e.message ?: "Error de conexión al eliminar el reporte."
+                    )
+                }
+            }
         }
     }
 

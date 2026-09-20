@@ -150,6 +150,9 @@ interface GDDService {
     @GET("/reportes")
     suspend fun getReportes(): Response<List<ReporteDetalleResponse>>
 
+    @DELETE("/reportes/{id}")
+    suspend fun deleteReporte(@Path("id") reporteId: Int): Response<Unit>
+
     @GET("/api/v1/predicciones/{id}")
     suspend fun getPrediccion(@Path("id") id: Int): Response<PrediccionDetalleResponse>
 

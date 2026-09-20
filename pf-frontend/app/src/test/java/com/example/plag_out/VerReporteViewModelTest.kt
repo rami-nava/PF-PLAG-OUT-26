@@ -85,4 +85,46 @@ class VerReporteViewModelTest {
         val errorState = estado as VerReporteUiState.Error
         assertTrue(errorState.mensaje.isNotBlank())
     }
+
+    @Test
+    fun `eliminarReporte exitoso ejecuta callback onSuccess`() {
+        val detalleMock = Fixtures.reporteDetalle(id = 42, plagaNombre = "Gusano", esPropio = true)
+        gddService.getReporteResult = { Response.success(detalleMock) }
+        gddService.deleteReporteResult = { Response.success(Unit) }
+
+        viewModel.cargar(reporteId = 42, reporteJsonFallback = null)
+        esperarEstado(viewModel.state) { it is VerReporteUiState.Exito }
+
+        var onSuccessInvocado = false
+        viewModel.eliminarReporte(reporteId = 42) {
+            onSuccessInvocado = true
+        }
+
+        esperarEstado(viewModel.state) { onSuccessInvocado && (it as? VerReporteUiState.Exito)?.isEliminando == false }
+        assertTrue(onSuccessInvocado)
+        assertEquals(1, gddService.vecesLlamado("deleteReporte"))
+    }
+
+    @Test
+    fun `eliminarReporte con error de servidor actualiza errorEliminacion`() {
+        val detalleMock = Fixtures.reporteDetalle(id = 42, plagaNombre = "Gusano", esPropio = true)
+        gddService.getReporteResult = { Response.success(detalleMock) }
+        gddService.deleteReporteResult = { FakeGDDService.errorServidor(500) }
+
+        viewModel.cargar(reporteId = 42, reporteJsonFallback = null)
+        esperarEstado(viewModel.state) { it is VerReporteUiState.Exito }
+
+        var onSuccessInvocado = false
+        viewModel.eliminarReporte(reporteId = 42) {
+            onSuccessInvocado = true
+        }
+
+        val estadoFinal = esperarEstado(viewModel.state) {
+            (it as? VerReporteUiState.Exito)?.errorEliminacion != null
+        } as VerReporteUiState.Exito
+
+        assertTrue(!onSuccessInvocado)
+        assertTrue(estadoFinal.errorEliminacion != null)
+        assertEquals(1, gddService.vecesLlamado("deleteReporte"))
+    }
 }
