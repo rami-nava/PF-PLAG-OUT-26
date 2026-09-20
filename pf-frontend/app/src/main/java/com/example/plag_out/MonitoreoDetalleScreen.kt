@@ -6,6 +6,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -29,15 +31,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import com.example.plag_out.ui.theme.AnilloRiesgoGrande
 import com.example.plag_out.ui.theme.BotonInfoCampo
 import com.example.plag_out.ui.theme.CargandoCentrado
-import com.example.plag_out.ui.theme.EstadisticaCompacta
 import com.example.plag_out.ui.theme.EtiquetaInfo
 import com.example.plag_out.ui.theme.PlagOutColors
-import com.example.plag_out.ui.theme.SelloDeNivel
-import com.example.plag_out.ui.theme.SeparadorVertical
 import com.example.plag_out.ui.theme.estiloDeNivel
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -45,10 +44,6 @@ import java.util.Locale
 import java.math.BigDecimal
 import kotlin.math.ceil
 import kotlin.math.roundToInt
-
-/** Tamaño del anillo de riesgo en esta pantalla: entra junto con las tarjetas de datos sin
- *  obligar a scrollear en la mayoría de los teléfonos. */
-private val TAMANO_ANILLO = 132.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -82,6 +77,7 @@ fun MonitoreoDetalleScreen(
 
     Scaffold(
         containerColor = PlagOutColors.Cream,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
@@ -191,7 +187,7 @@ fun MonitoreoDetalleScreen(
 
 @Composable
 private fun EstadoErrorDetalle(mensaje: String, onBack: () -> Unit, onReintentar: () -> Unit) {
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
         IconButton(onClick = onBack, modifier = Modifier.padding(8.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextMain)
         }
@@ -214,6 +210,10 @@ private fun EstadoErrorDetalle(mensaje: String, onBack: () -> Unit, onReintentar
     }
 }
 
+private const val PAGINA_DETALLE = 0
+private const val PAGINA_CICLOS = 1
+
+@OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun ContenidoMonitoreoDetalle(
@@ -230,53 +230,130 @@ private fun ContenidoMonitoreoDetalle(
     onFinalizarClick: () -> Unit,
     onRefresh: () -> Unit
 ) {
-    val estilo = estiloDeNivel(monitoreo.nivel_alerta)
-    // El umbral solo se considera alcanzado por el estado real del monitoreo, no por si se pudo
-    // proyectar una fecha: `diasEstimadosAlUmbral` también devuelve null cuando falta ritmo diario
-    // para proyectar, y eso no significa que ya se haya llegado al objetivo.
-    val umbralAlcanzado = monitoreo.gdd_acumulado >= monitoreo.gdd_objetivo || monitoreo.progreso >= 100f
+    val scope = rememberCoroutineScope()
+    val pagerState = rememberPagerState(pageCount = { 2 })
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-        Row(
-            Modifier.fillMaxWidth().padding(top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack, modifier = Modifier.padding(end = 4.dp)) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextMain)
-            }
-            Column(Modifier.weight(1f)) {
-                Text(
-                    monitoreo.plaga_nombre,
-                    color = PlagOutColors.TextMain,
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+    Column(Modifier.fillMaxSize()) {
+        val formaHeader = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.verticalGradient(listOf(PlagOutColors.Forest, PlagOutColors.Leaf)),
+                    shape = formaHeader
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Grass, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(12.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(monitoreo.cultivo_nombre, color = PlagOutColors.TextSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Outlined.Landscape, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(12.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(monitoreo.terreno_nombre, color = PlagOutColors.TextSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                .clip(formaHeader)
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 18.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextOnDark)
+                }
+                Column {
+                    Text(
+                        "Monitoreo de plaga",
+                        color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        monitoreo.plaga_nombre,
+                        color = PlagOutColors.TextOnDark,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Grass, contentDescription = null, tint = PlagOutColors.TextOnDark.copy(alpha = 0.8f), modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            monitoreo.cultivo_nombre,
+                            color = PlagOutColors.TextOnDark.copy(alpha = 0.8f),
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Icon(Icons.Outlined.Landscape, contentDescription = null, tint = PlagOutColors.TextOnDark.copy(alpha = 0.8f), modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            monitoreo.terreno_nombre,
+                            color = PlagOutColors.TextOnDark.copy(alpha = 0.8f),
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
 
+        TabRow(
+            selectedTabIndex = pagerState.currentPage,
+            containerColor = PlagOutColors.Cream,
+            contentColor = PlagOutColors.Forest
+        ) {
+            Tab(
+                selected = pagerState.currentPage == PAGINA_DETALLE,
+                onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_DETALLE) } },
+                text = { Text("Detalle", fontWeight = FontWeight.SemiBold) },
+                modifier = Modifier.testTag("tabDetalle")
+            )
+            Tab(
+                selected = pagerState.currentPage == PAGINA_CICLOS,
+                onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_CICLOS) } },
+                text = { Text("Ciclos", fontWeight = FontWeight.SemiBold) },
+                modifier = Modifier.testTag("tabCiclos")
+            )
+        }
 
+        HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { pagina ->
+            when (pagina) {
+                PAGINA_DETALLE -> DetalleTab(
+                    monitoreo = monitoreo,
+                    datosDesactualizados = datosDesactualizados,
+                    onVerPlantacion = onVerPlantacion,
+                    onVerTerreno = onVerTerreno,
+                    onEditarUmbral = onEditarUmbral,
+                    onEditarUmbralMl = onEditarUmbralMl,
+                    onVerInfoUmbral = onVerInfoUmbral,
+                    finalizando = finalizando,
+                    onFinalizarClick = onFinalizarClick
+                )
+                else -> CiclosTab(
+                    monitoreo = monitoreo,
+                    onRefresh = onRefresh,
+                    onVerInfoNivel = onVerInfoNivel
+                )
+            }
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+private fun DetalleTab(
+    monitoreo: MonitoreoResponse,
+    datosDesactualizados: Boolean,
+    onVerPlantacion: (Int) -> Unit,
+    onVerTerreno: (Int) -> Unit,
+    onEditarUmbral: () -> Unit,
+    onEditarUmbralMl: () -> Unit,
+    onVerInfoUmbral: () -> Unit,
+    finalizando: Boolean,
+    onFinalizarClick: () -> Unit
+) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Column(
             Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(8.dp))
-
-            BiofixManual(monitoreo, onRefresh)
-
             if (datosDesactualizados) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
                 EtiquetaInfo(
                     Icons.Filled.ErrorOutline,
                     "Mostrando datos guardados · sin conexión",
@@ -438,26 +515,6 @@ private fun ContenidoMonitoreoDetalle(
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
-
-            TarjetaCampo(
-                titulo = "Nivel de alerta",
-                onInfo = onVerInfoNivel,
-                descripcionInfo = "Qué es el nivel de alerta",
-                tagInfo = "btnInfoNivelAlerta",
-                tintInfo = estilo.color
-            ) {
-                Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
-                    SelloDeNivel(estilo, pulsante = false)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        estilo.descripcion,
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp,
-                        color = PlagOutColors.TextSecondary
-                    )
-                }
-            }
             Spacer(Modifier.height(12.dp))
         }
 
@@ -496,6 +553,36 @@ private fun ContenidoMonitoreoDetalle(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+private fun CiclosTab(
+    monitoreo: MonitoreoResponse,
+    onRefresh: () -> Unit,
+    onVerInfoNivel: () -> Unit
+) {
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Ciclos GDD",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = PlagOutColors.TextMain,
+                modifier = Modifier.weight(1f)
+            )
+            BotonInfoCampo(
+                onClick = onVerInfoNivel,
+                contentDescription = "Qué es el nivel de alerta",
+                tint = estiloDeNivel(nivelAlertaDeCiclos(monitoreo) ?: -1).color,
+                modifier = Modifier.testTag("btnInfoNivelAlerta")
+            )
+        }
+
+        BiofixManual(monitoreo, onRefresh, Modifier.weight(1f))
+    }
+}
 
 @Composable
 private fun TarjetaCampo(
