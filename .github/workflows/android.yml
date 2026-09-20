@@ -24,7 +24,8 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: android-actions/setup-android@v3
-      - run: sdkmanager "platforms;android-36"
+        with:
+          packages: 'platform-tools platforms;android-36'
       - uses: gradle/actions/setup-gradle@v4
       - name: Configure Firebase for CI
         run: |
