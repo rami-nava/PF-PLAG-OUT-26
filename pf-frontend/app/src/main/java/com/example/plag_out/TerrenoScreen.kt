@@ -3,6 +3,7 @@ package com.example.plag_out
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -12,12 +13,17 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -100,6 +106,20 @@ fun TerrenoScreen(
     var filtro by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
     var filtrosExpandidos by rememberSaveable { mutableStateOf(false) }
 
+    var panelFiltroVisible by remember { mutableStateOf(true) }
+    val scrollConnection = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+            ): androidx.compose.ui.geometry.Offset {
+                if (available.y < -15f) panelFiltroVisible = false
+                else if (available.y > 15f) panelFiltroVisible = true
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
+
     // Solo los monitoreos en curso definen el estado del terreno: uno finalizado conserva
     // congelado su último nivel de alerta y lo pintaría en rojo para siempre.
     fun nivelMaxDe(terreno: TerrenoResponse): Int =
@@ -155,7 +175,7 @@ fun TerrenoScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().nestedScroll(scrollConnection)) {
             PanelDeCampoTerrenos(terrenos = state.terrenos, monitoreos = monitoreosState.monitoreos.filter { it.activo })
 
             val opciones = remember(state.terrenos, monitoreosState.monitoreos) {
@@ -169,25 +189,31 @@ fun TerrenoScreen(
                 )
             }
             val hayFiltroActivo = filtro != FILTRO_TODOS
-            PanelFiltrosPlegable(
-                expandido = filtrosExpandidos,
-                onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
-                hayFiltroActivo = hayFiltroActivo,
-                etiquetaAbrir = "Filtrar terrenos",
-                resumen = if (hayFiltroActivo) {
-                    "Mostrando ${filtrados.size} de ${state.terrenos.size} (Filtros activos)"
-                } else {
-                    "Mostrando ${state.terrenos.size} ${if (state.terrenos.size == 1) "terreno" else "terrenos"}"
-                },
-                onLimpiar = { filtro = FILTRO_TODOS }
+            AnimatedVisibility(
+                visible = panelFiltroVisible,
+                enter = slideInVertically(animationSpec = tween(250, easing = LinearOutSlowInEasing)) { -it } + fadeIn(tween(250)),
+                exit = slideOutVertically(animationSpec = tween(180, easing = FastOutLinearInEasing)) { -it } + fadeOut(tween(150))
             ) {
-                EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE ALERTA MÁS ALTO")
-                FiltroChipsRow(
-                    opciones = opciones,
-                    seleccionado = filtro,
-                    onSeleccion = { filtro = it },
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
+                PanelFiltrosPlegable(
+                    expandido = filtrosExpandidos,
+                    onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
+                    hayFiltroActivo = hayFiltroActivo,
+                    etiquetaAbrir = "Filtrar terrenos",
+                    resumen = if (hayFiltroActivo) {
+                        "Mostrando ${filtrados.size} de ${state.terrenos.size} (Filtros activos)"
+                    } else {
+                        "Mostrando ${state.terrenos.size} ${if (state.terrenos.size == 1) "terreno" else "terrenos"}"
+                    },
+                    onLimpiar = { filtro = FILTRO_TODOS }
+                ) {
+                    EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE ALERTA MÁS ALTO")
+                    FiltroChipsRow(
+                        opciones = opciones,
+                        seleccionado = filtro,
+                        onSeleccion = { filtro = it },
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
             }
 
             Box(modifier = Modifier.weight(1f)) {
@@ -297,7 +323,7 @@ private fun PanelDeCampoTerrenos(terrenos: List<TerrenoResponse>, monitoreos: Li
                 .background(PlagOutColors.TextOnDark.copy(alpha = 0.05f), CircleShape)
         )
 
-        Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 10.dp, bottom = 20.dp)) {
+        Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 10.dp, bottom = 16.dp)) {
             Text(
                 "Gestión de Campo",
                 color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
@@ -305,9 +331,9 @@ private fun PanelDeCampoTerrenos(terrenos: List<TerrenoResponse>, monitoreos: Li
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 0.4.sp
             )
-            Text("Mis Terrenos", color = PlagOutColors.TextOnDark, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Mis Terrenos", color = PlagOutColors.TextOnDark, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(10.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val totalAnimado = contadorAnimado(total)
@@ -331,8 +357,8 @@ private fun PanelDeCampoTerrenos(terrenos: List<TerrenoResponse>, monitoreos: Li
                         )
                     }
                 }
-                Spacer(Modifier.width(24.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Spacer(Modifier.width(20.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     LeyendaEstadoTerreno(estiloDeNivel(0), sanos)
                     LeyendaEstadoTerreno(estiloDeNivel(1), atencion)
                     LeyendaEstadoTerreno(estiloDeNivel(2), criticos)
@@ -340,19 +366,19 @@ private fun PanelDeCampoTerrenos(terrenos: List<TerrenoResponse>, monitoreos: Li
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
 
             Row(
                 Modifier
-                    .background(PlagOutColors.TextOnDark.copy(alpha = 0.14f), RoundedCornerShape(14.dp))
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .background(PlagOutColors.TextOnDark.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(Icons.Default.SquareFoot, contentDescription = null, tint = PlagOutColors.TextOnDark, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Área total", color = PlagOutColors.TextOnDark.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.weight(1f))
-                Text("$areaTotal ha", color = PlagOutColors.TextOnDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("$areaTotal ha", color = PlagOutColors.TextOnDark, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -369,8 +395,9 @@ private fun LeyendaEstadoTerreno(estilo: NivelEstilo, cantidad: Int) {
             color = PlagOutColors.TextOnDark.copy(alpha = 0.85f),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(72.dp)
+            modifier = Modifier.width(90.dp)
         )
+        Spacer(Modifier.width(12.dp))
         Text("$valor", color = PlagOutColors.TextOnDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }
