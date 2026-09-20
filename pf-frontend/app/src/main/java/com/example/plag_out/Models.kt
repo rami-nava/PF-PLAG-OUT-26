@@ -113,7 +113,11 @@ data class MonitoreoResponse(
     @SerializedName("horizonte_alerta_ml_dias")
     val horizonte_alerta_ml_dias: Int? = null,
     val estado_seguimiento: String? = null,
-    val ciclos: List<GddCicloResponse>? = null
+    val ciclos: List<GddCicloResponse>? = null,
+    @SerializedName("observaciones")
+    val observaciones: String? = null,
+    @SerializedName("fecha_eclosion")
+    val fecha_eclosion: LocalDate? = null
 )
 
 @Entity(tableName = "terrenos")
@@ -264,7 +268,10 @@ data class UpdateMonitoreoRequest(
     @SerializedName("umbral_riesgo")
     val umbral_riesgo: Int? = null,
     @SerializedName("activo")
-    val activo: Boolean? = null
+    val activo: Boolean? = null,
+    // para borrar la nota se manda "" (cadena vacía), no null.
+    @SerializedName("observaciones")
+    val observaciones: String? = null
 )
 
 @Serializable

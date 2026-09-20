@@ -19,7 +19,7 @@ import java.util.Date
 
 @Database(
     entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class, UsuarioResponse::class, FeedbackPrediccionPendiente::class, BiofixPendiente::class],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 
@@ -45,7 +45,7 @@ abstract class AppDatabase : RoomDatabase() {
                     appContext,
                     AppDatabase::class.java,
                     "gdd_database"
-                ).addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                ).addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     // Si una versión futura cae en la migración destructiva, también se invalidan
                     // las marcas que describían el caché eliminado.
@@ -99,6 +99,20 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `umbral_alerta_ml_efectivo` REAL")
                 db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `modelo_alerta_ml_id` TEXT")
                 db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `horizonte_alerta_ml_dias` INTEGER")
+            }
+        }
+
+        /**
+         * Notas de campaña y fecha de eclosión. Venían de `RamaDetalleMonitoreo` como 12→13 y
+         * 13→14, pero esos números ya los había usado main para los ciclos y el biofix, así que
+         * acá se unifican en un solo salto 14→15.
+         *
+         * Sin default: las filas viejas quedan en null, que es justo lo que significa "sin registrar".
+         */
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `observaciones` TEXT")
+                db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `fecha_eclosion` TEXT")
             }
         }
     }

@@ -73,7 +73,9 @@ object Fixtures {
         umbralAlertaMlEfectivo: Float? = null,
         modeloAlertaMlId: String? = null,
         horizonteAlertaMlDias: Int? = null,
-        ciclos: List<GddCicloResponse>? = null
+        ciclos: List<GddCicloResponse>? = null,
+        observaciones: String? = null,
+        fechaEclosion: LocalDate? = null
     ) = MonitoreoResponse(
         monitoreo_id = id,
         plantacion_id = plantacionId,
@@ -96,7 +98,9 @@ object Fixtures {
         umbral_alerta_ml_efectivo = umbralAlertaMlEfectivo,
         modelo_alerta_ml_id = modeloAlertaMlId,
         horizonte_alerta_ml_dias = horizonteAlertaMlDias,
-        ciclos = ciclos
+        ciclos = ciclos,
+        observaciones = observaciones,
+        fecha_eclosion = fechaEclosion
     )
 
     fun ciclo(
