@@ -102,17 +102,10 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        /**
-         * Notas de campaña y fecha de eclosión. Venían de `RamaDetalleMonitoreo` como 12→13 y
-         * 13→14, pero esos números ya los había usado main para los ciclos y el biofix, así que
-         * acá se unifican en un solo salto 14→15.
-         *
-         * Sin default: las filas viejas quedan en null, que es justo lo que significa "sin registrar".
-         */
+
         val MIGRATION_14_15 = object : Migration(14, 15) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `observaciones` TEXT")
-                db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `fecha_eclosion` TEXT")
             }
         }
     }

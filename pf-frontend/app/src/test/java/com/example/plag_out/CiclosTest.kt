@@ -2,6 +2,8 @@ package com.example.plag_out
 
 import com.example.plag_out.fakes.Fixtures
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -134,5 +136,42 @@ class CiclosTest {
         )
 
         assertEquals(listOf(1, 2, 3), ordenarCiclosPorProgreso(ciclos).map { it.id })
+    }
+
+    // ── Eclosión ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `un ciclo con fecha de eclosion ya eclosiono`() {
+        val ciclo = Fixtures.ciclo(progreso = 100f, fechaEclosion = "2026-03-14")
+
+        assertTrue(cicloEclosiono(ciclo))
+    }
+
+    @Test
+    fun `al cien por ciento eclosiono aunque todavia no haya fecha`() {
+        val ciclo = Fixtures.ciclo(progreso = 100f, fechaEclosion = null)
+
+        assertTrue(cicloEclosiono(ciclo))
+    }
+
+    @Test
+    fun `sin llegar al objetivo y sin fecha no eclosiono`() {
+        val ciclo = Fixtures.ciclo(progreso = 99f, fechaEclosion = null)
+
+        assertFalse(cicloEclosiono(ciclo))
+    }
+
+    @Test
+    fun `con fecha eclosiono aunque el progreso no llegue`() {
+        val ciclo = Fixtures.ciclo(progreso = 62f, fechaEclosion = "2026-03-14")
+
+        assertTrue(cicloEclosiono(ciclo))
+    }
+
+    @Test
+    fun `un ciclo que eclosiono no proyecta dias al objetivo`() {
+        val ciclo = Fixtures.ciclo(gddAcumulado = 400f, gddEclosion = 400f, progreso = 100f)
+
+        assertNull(diasEstimadosDelCiclo(ciclo, objetivoMonitoreo = null))
     }
 }

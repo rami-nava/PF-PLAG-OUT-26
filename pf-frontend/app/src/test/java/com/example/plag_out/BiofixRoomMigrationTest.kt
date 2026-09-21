@@ -45,7 +45,7 @@ class BiofixRoomMigrationTest {
             sqlite.execSQL("ALTER TABLE `${table}_old` RENAME TO `$table`")
         }
         recreateWithout("feedback_prediccion_pendiente", setOf("biofix_json"))
-        recreateWithout("monitoreos", setOf("ciclos", "estado_seguimiento", "observaciones", "fecha_eclosion"))
+        recreateWithout("monitoreos", setOf("ciclos", "estado_seguimiento", "observaciones"))
         sqlite.execSQL("DROP TABLE biofix_pendiente")
         sqlite.version = 12
         sqlite.close()

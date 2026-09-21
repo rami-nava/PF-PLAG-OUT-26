@@ -390,56 +390,6 @@ private fun DetalleTab(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            val eclosionAlcanzada =
-                monitoreo.gdd_acumulado >= monitoreo.gdd_objetivo || monitoreo.progreso >= 100f
-            val fechaEclosion = monitoreo.fecha_eclosion
-            if (eclosionAlcanzada || !monitoreo.activo || fechaEclosion != null) {
-                Spacer(Modifier.height(10.dp))
-                val huboEclosion = eclosionAlcanzada || fechaEclosion != null
-                Surface(
-                    color = PlagOutColors.Surface,
-                    shape = RoundedCornerShape(20.dp),
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            if (huboEclosion) Icons.Outlined.CalendarMonth else Icons.Outlined.EventBusy,
-                            contentDescription = null,
-                            tint = if (huboEclosion) PlagOutColors.Forest else PlagOutColors.TextSecondary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                if (huboEclosion) "Eclosión alcanzada" else "Eclosión no alcanzada",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PlagOutColors.TextMain,
-                                modifier = Modifier.testTag("txtEstadoEclosion")
-                            )
-                            Text(
-                                when {
-                                    fechaEclosion != null -> fechaEclosion.format(
-                                        DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.forLanguageTag("es"))
-                                    )
-                                    huboEclosion -> "Fecha no registrada"
-                                    else -> "El monitoreo se finalizó antes de llegar al objetivo"
-                                },
-                                fontSize = 12.sp,
-                                color = PlagOutColors.TextSecondary,
-                                modifier = Modifier.testTag("txtFechaEclosion")
-                            )
-                        }
-                    }
-                }
-            }
-
             if (datosDesactualizados) {
                 Spacer(Modifier.height(10.dp))
                 EtiquetaInfo(

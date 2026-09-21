@@ -95,7 +95,6 @@ class PresenceRetryTest {
         sqlite.execSQL(
             esquemaMonitoreos
                 .replace(", `observaciones` TEXT", "")
-                .replace(", `fecha_eclosion` TEXT", "")
         )
         sqlite.version = 13
         sqlite.close()
