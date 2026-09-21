@@ -73,7 +73,8 @@ object Fixtures {
         umbralAlertaMlEfectivo: Float? = null,
         modeloAlertaMlId: String? = null,
         horizonteAlertaMlDias: Int? = null,
-        ciclos: List<GddCicloResponse>? = null
+        ciclos: List<GddCicloResponse>? = null,
+        observaciones: String? = null
     ) = MonitoreoResponse(
         monitoreo_id = id,
         plantacion_id = plantacionId,
@@ -96,7 +97,8 @@ object Fixtures {
         umbral_alerta_ml_efectivo = umbralAlertaMlEfectivo,
         modelo_alerta_ml_id = modeloAlertaMlId,
         horizonte_alerta_ml_dias = horizonteAlertaMlDias,
-        ciclos = ciclos
+        ciclos = ciclos,
+        observaciones = observaciones
     )
 
     fun ciclo(
@@ -112,7 +114,8 @@ object Fixtures {
         progreso: Float = 50f,
         estadioBiologico: String = "Huevo",
         nivelAlerta: Int = 0,
-        diasPendientes: Int = 0
+        diasPendientes: Int = 0,
+        fechaEclosion: String? = null
     ) = GddCicloResponse(
         id = id,
         monitoreo_id = monitoreoId,
@@ -126,7 +129,8 @@ object Fixtures {
         progreso = progreso,
         estadio_biologico = estadioBiologico,
         nivel_alerta = nivelAlerta,
-        dias_pendientes = diasPendientes
+        dias_pendientes = diasPendientes,
+        fecha_eclosion = fechaEclosion
     )
 
     fun cultivo(

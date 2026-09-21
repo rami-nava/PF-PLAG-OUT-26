@@ -85,10 +85,21 @@ class PresenceRetryTest {
         sqlite.execSQL("INSERT INTO biofix_old SELECT owner_id,monitoreo_id,payload FROM biofix_pendiente")
         sqlite.execSQL("DROP TABLE biofix_pendiente")
         sqlite.execSQL("ALTER TABLE biofix_old RENAME TO biofix_pendiente")
+        // La base nace con el esquema actual: hay que sacarle a `monitoreos` las columnas que
+        // agrega 14->15 para que esa migracion pueda correr al reabrir. Se recrea la tabla porque
+        // el SQLite de Robolectric no soporta DROP COLUMN. Va vacia, asi que no hay filas que copiar.
+        val esquemaMonitoreos = sqlite.rawQuery("SELECT sql FROM sqlite_master WHERE name = 'monitoreos'", null).use {
+            it.moveToFirst(); it.getString(0)
+        }
+        sqlite.execSQL("DROP TABLE `monitoreos`")
+        sqlite.execSQL(
+            esquemaMonitoreos
+                .replace(", `observaciones` TEXT", "")
+        )
         sqlite.version = 13
         sqlite.close()
         val migrated = Room.databaseBuilder(context,AppDatabase::class.java,name)
-            .addMigrations(AppDatabase.MIGRATION_13_14).allowMainThreadQueries().build()
+            .addMigrations(AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15).allowMainThreadQueries().build()
         val row = migrated.biofixDao().get("A",41)!!
         assertEquals("original-uuid-and-payload",row.payload)
         assertEquals("pendiente",row.estado)

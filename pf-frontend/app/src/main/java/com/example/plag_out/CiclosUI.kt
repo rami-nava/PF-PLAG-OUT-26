@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.outlined.Egg
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Button
@@ -107,6 +108,10 @@ fun diasEstimadosDelCiclo(ciclo: GddCicloResponse, objetivoMonitoreo: Float?): I
     return if (ritmo > 0f) ceil(restante / ritmo).toInt() else null
 }
 
+
+fun cicloEclosiono(ciclo: GddCicloResponse): Boolean =
+    ciclo.fecha_eclosion != null || ciclo.progreso >= 100f
+
 fun numerosDeCiclo(ciclos: List<GddCicloResponse>): Map<Int, Int> =
     ciclos.sortedWith(compareBy({ it.fecha_biofix }, { it.id }))
         .withIndex()
@@ -137,6 +142,8 @@ fun CicloCard(
     val enAlerta = activo && cicloEnAlerta(ciclo, umbralRiesgo)
     val objetivo = objetivoDelCiclo(ciclo, objetivoMonitoreo)
     val dias = diasEstimadosDelCiclo(ciclo, objetivoMonitoreo)
+    val eclosiono = cicloEclosiono(ciclo)
+    val fechaEclosion = ciclo.fecha_eclosion
 
     val interactionSource = remember { MutableInteractionSource() }
     val escala = rememberPressScale(interactionSource)
@@ -190,21 +197,32 @@ fun CicloCard(
                         Modifier.weight(1f)
                     )
                     SeparadorVertical()
-                    EstadisticaCompacta(
-                        "Al objetivo",
-                        when {
-                            ciclo.progreso >= 100f -> "Alcanzado"
-                            dias != null -> "≈ $dias d"
-                            else -> "—"
-                        },
-                        Modifier.weight(1f)
-                    )
+                    // Una vez que eclosionó no hay nada que proyectar: lo que importa es cuándo pasó.
+                    if (eclosiono) {
+                        EstadisticaCompacta(
+                            "Fecha eclosión",
+                            fechaEclosion?.let { formatearFechaCiclo(it) } ?: "Sin registrar",
+                            Modifier.weight(1f),
+                            colorValor = PlagOutColors.Forest
+                        )
+                    } else {
+                        EstadisticaCompacta(
+                            "Al objetivo",
+                            dias?.let { "≈ $it d" } ?: "—",
+                            Modifier.weight(1f)
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(10.dp))
 
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     when {
+                        eclosiono -> EtiquetaInfo(
+                            Icons.Outlined.Egg,
+                            fechaEclosion?.let { "Eclosionó el ${formatearFechaCiclo(it)}" } ?: "Eclosionó",
+                            PlagOutColors.Forest
+                        )
                         enAlerta -> EtiquetaInfo(Icons.Filled.Flag, "Superó el umbral", PlagOutColors.RiskDanger)
                         ciclo.dias_pendientes > 0 -> EtiquetaInfo(
                             Icons.Outlined.HourglassEmpty,
