@@ -487,13 +487,15 @@ fun MonitoreoCard(
                         .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    EstadisticaCompacta("Ciclos activos", "${activos.size}", Modifier.weight(1f))
-                    SeparadorVertical()
                     EstadisticaCompacta(
-                        "Umbral",
-                        monitoreo.umbral_riesgo?.let { "$it%" } ?: "—",
+                        "Fecha inicio",
+                        monitoreo.fecha_inicio?.format(
+                            DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))
+                        ) ?: "—",
                         Modifier.weight(1f)
                     )
+                    SeparadorVertical()
+                    EstadisticaCompacta("Ciclos activos", "${activos.size}", Modifier.weight(1f))
                     SeparadorVertical()
                     EstadisticaCompacta(
                         "En alerta",
@@ -515,12 +517,6 @@ fun MonitoreoCard(
                         diasEstimados != null -> EtiquetaInfo(Icons.Outlined.Schedule, "≈ $diasEstimados días al objetivo", PlagOutColors.Forest)
                     }
                     Spacer(Modifier.weight(1f))
-                    Text(
-                        monitoreo.fecha_actualizacion.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))),
-                        fontSize = 11.sp,
-                        color = PlagOutColors.TextSecondary
-                    )
-                    Spacer(Modifier.width(2.dp))
                     Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(16.dp))
                 }
             }
