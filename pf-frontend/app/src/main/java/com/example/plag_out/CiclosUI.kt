@@ -28,7 +28,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.outlined.Egg
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Button
@@ -86,6 +85,11 @@ fun objetivoDelCiclo(ciclo: GddCicloResponse, objetivoMonitoreo: Float?): Float?
     objetivoMonitoreo != null && objetivoMonitoreo > 0f -> objetivoMonitoreo
     else -> null
 }
+
+
+fun acumuladoVisibleDelCiclo(ciclo: GddCicloResponse, objetivo: Float?): Float =
+    if (objetivo != null && ciclo.progreso >= 100f) ciclo.gdd_acumulado.coerceAtMost(objetivo)
+    else ciclo.gdd_acumulado
 
 @RequiresApi(Build.VERSION_CODES.O)
 fun fechaDeCiclo(valor: String?): LocalDate? =
@@ -189,7 +193,11 @@ fun CicloCard(
                         .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    EstadisticaCompacta("GDD actuales", "${ciclo.gdd_acumulado.toInt()}", Modifier.weight(1f))
+                    EstadisticaCompacta(
+                        "GDD actuales",
+                        "${acumuladoVisibleDelCiclo(ciclo, objetivo).toInt()}",
+                        Modifier.weight(1f)
+                    )
                     SeparadorVertical()
                     EstadisticaCompacta(
                         "Objetivo",
@@ -218,11 +226,7 @@ fun CicloCard(
 
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     when {
-                        eclosiono -> EtiquetaInfo(
-                            Icons.Outlined.Egg,
-                            fechaEclosion?.let { "Eclosionó el ${formatearFechaCiclo(it)}" } ?: "Eclosionó",
-                            PlagOutColors.Forest
-                        )
+                        eclosiono -> Unit
                         enAlerta -> EtiquetaInfo(Icons.Filled.Flag, "Superó el umbral", PlagOutColors.RiskDanger)
                         ciclo.dias_pendientes > 0 -> EtiquetaInfo(
                             Icons.Outlined.HourglassEmpty,
