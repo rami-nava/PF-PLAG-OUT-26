@@ -421,9 +421,14 @@ fun SeparadorVertical(altura: Dp = 26.dp) {
 }
 
 @Composable
-fun EstadisticaCompacta(etiqueta: String, valor: String, modifier: Modifier = Modifier) {
+fun EstadisticaCompacta(
+    etiqueta: String,
+    valor: String,
+    modifier: Modifier = Modifier,
+    colorValor: Color = PlagOutColors.TextMain
+) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(valor, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+        Text(valor, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = colorValor)
         Text(
             etiqueta,
             fontSize = 10.sp,

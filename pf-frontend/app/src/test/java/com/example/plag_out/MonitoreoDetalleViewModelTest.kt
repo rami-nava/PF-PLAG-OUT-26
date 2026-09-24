@@ -280,6 +280,94 @@ class MonitoreoDetalleViewModelTest {
         return buffer.readUtf8()
     }
 
+    // ---------- guardarObservaciones ----------
+
+    @Test
+    fun `la nota se recorta al maximo de caracteres`() {
+        val (vm, _) = viewModelCon(cache = listOf(Fixtures.monitoreo(id = 1)))
+        vm.cargar(1)
+        esperarEstado(vm.state) { it.monitoreo != null }
+
+        vm.abrirEditorObservaciones()
+        vm.actualizarObservacionesEditadas("a".repeat(MAX_CARACTERES_OBSERVACIONES + 120))
+
+        assertEquals(MAX_CARACTERES_OBSERVACIONES, vm.state.value.observacionesEditadas?.length)
+    }
+
+    @Test
+    fun `guardarObservaciones no dispara PATCH si el texto no cambio`() {
+        val monitoreo = Fixtures.monitoreo(id = 1, observaciones = "No apareció la plaga")
+        val (vm, _) = viewModelCon(cache = listOf(monitoreo))
+        vm.cargar(1)
+        esperarEstado(vm.state) { it.monitoreo != null }
+
+        vm.abrirEditorObservaciones()
+        vm.actualizarObservacionesEditadas("  No apareció la plaga  ")
+
+        var llamado = false
+        vm.guardarObservaciones { llamado = true }
+
+        assertTrue(llamado)
+        assertEquals(0, gddService.vecesLlamado("actualizarMonitoreo"))
+    }
+
+    @Test
+    fun `guardarObservaciones persiste en Room e invalida el cache del listado`() {
+        val monitoreo = Fixtures.monitoreo(id = 1)
+        val (vm, dao) = viewModelCon(cache = listOf(monitoreo))
+        vm.cargar(1)
+        esperarEstado(vm.state) { it.monitoreo != null }
+        CacheTracker.marcarConsultado(context, CacheTracker.MONITOREOS)
+
+        val nota = "Apliqué cipermetrina el 12/2 y funcionó"
+        gddService.actualizarMonitoreoResult = { Response.success(monitoreo.copy(observaciones = nota)) }
+
+        vm.abrirEditorObservaciones()
+        vm.actualizarObservacionesEditadas("$nota  ")
+        vm.guardarObservaciones {}
+
+        esperarEstado(vm.state) { !it.guardandoObservaciones && it.observacionesEditadas == null }
+        assertEquals(nota, gddService.ultimoActualizarMonitoreo?.observaciones)
+        assertEquals(nota, vm.state.value.monitoreo?.observaciones)
+        val persistido = runBlocking { dao.getAll() }.find { it.monitoreo_id == 1 }
+        assertEquals(nota, persistido?.observaciones)
+        assertFalse(CacheTracker.yaConsultado(context, CacheTracker.MONITOREOS))
+    }
+
+    @Test
+    fun `guardarObservaciones funciona con el monitoreo finalizado`() {
+        val monitoreo = Fixtures.monitoreo(id = 1, activo = false, observaciones = "Sin novedades")
+        val (vm, _) = viewModelCon(cache = listOf(monitoreo))
+        vm.cargar(1)
+        esperarEstado(vm.state) { it.monitoreo != null }
+
+        val nota = "Rebrotó en marzo, el tratamiento no alcanzó"
+        gddService.actualizarMonitoreoResult = { Response.success(monitoreo.copy(observaciones = nota)) }
+
+        vm.abrirEditorObservaciones()
+        vm.actualizarObservacionesEditadas(nota)
+        vm.guardarObservaciones {}
+
+        esperarEstado(vm.state) { !it.guardandoObservaciones }
+        assertEquals(nota, vm.state.value.monitoreo?.observaciones)
+    }
+
+    @Test
+    fun `guardarObservaciones con error mantiene el editor abierto`() {
+        val monitoreo = Fixtures.monitoreo(id = 1)
+        val (vm, _) = viewModelCon(cache = listOf(monitoreo))
+        vm.cargar(1)
+        esperarEstado(vm.state) { it.monitoreo != null }
+        gddService.actualizarMonitoreoResult = { FakeGDDService.errorServidor(500) }
+
+        vm.abrirEditorObservaciones()
+        vm.actualizarObservacionesEditadas("Algo que no se quiere perder")
+        vm.guardarObservaciones {}
+
+        esperarEstado(vm.state) { it.error != null }
+        assertEquals("Algo que no se quiere perder", vm.state.value.observacionesEditadas)
+    }
+
     // ---------- finalizarMonitoreo ----------
 
     @Test
@@ -299,5 +387,40 @@ class MonitoreoDetalleViewModelTest {
         assertTrue(llamado)
         val persistido = runBlocking { dao.getAll() }.find { it.monitoreo_id == 1 }
         assertFalse(persistido!!.activo)
+    }
+
+    @Test
+    fun `finalizarMonitoreo manda la nota en el mismo PATCH`() {
+        val monitoreo = Fixtures.monitoreo(id = 1, activo = true)
+        val (vm, dao) = viewModelCon(cache = listOf(monitoreo))
+        vm.cargar(1)
+        esperarEstado(vm.state) { it.monitoreo != null }
+
+        val nota = "La plaga no apareció en toda la campaña"
+        gddService.actualizarMonitoreoResult = {
+            Response.success(monitoreo.copy(activo = false, observaciones = nota))
+        }
+
+        vm.finalizarMonitoreo(observaciones = "$nota ") {}
+
+        esperarEstado(vm.state) { it.finalizado }
+        assertEquals(false, gddService.ultimoActualizarMonitoreo?.activo)
+        assertEquals(nota, gddService.ultimoActualizarMonitoreo?.observaciones)
+        val persistido = runBlocking { dao.getAll() }.find { it.monitoreo_id == 1 }
+        assertEquals(nota, persistido?.observaciones)
+    }
+
+    @Test
+    fun `finalizarMonitoreo sin tocar la nota no la manda`() {
+        val monitoreo = Fixtures.monitoreo(id = 1, activo = true, observaciones = "Nota previa")
+        val (vm, _) = viewModelCon(cache = listOf(monitoreo))
+        vm.cargar(1)
+        esperarEstado(vm.state) { it.monitoreo != null }
+        gddService.actualizarMonitoreoResult = { Response.success(monitoreo.copy(activo = false)) }
+
+        vm.finalizarMonitoreo(observaciones = "Nota previa") {}
+
+        esperarEstado(vm.state) { it.finalizado }
+        assertEquals(null, gddService.ultimoActualizarMonitoreo?.observaciones)
     }
 }

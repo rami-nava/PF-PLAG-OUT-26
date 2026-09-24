@@ -2,6 +2,7 @@ package com.example.plag_out.fakes
 
 import com.example.plag_out.CargoResponse
 import com.example.plag_out.CultivoResponse
+import com.example.plag_out.GddCicloResponse
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.NotificacionResponse
 import com.example.plag_out.PlagaResponse
@@ -71,7 +72,9 @@ object Fixtures {
         umbralAlertaMlRecomendado: Float? = null,
         umbralAlertaMlEfectivo: Float? = null,
         modeloAlertaMlId: String? = null,
-        horizonteAlertaMlDias: Int? = null
+        horizonteAlertaMlDias: Int? = null,
+        ciclos: List<GddCicloResponse>? = null,
+        observaciones: String? = null
     ) = MonitoreoResponse(
         monitoreo_id = id,
         plantacion_id = plantacionId,
@@ -93,7 +96,41 @@ object Fixtures {
         umbral_alerta_ml_recomendado = umbralAlertaMlRecomendado,
         umbral_alerta_ml_efectivo = umbralAlertaMlEfectivo,
         modelo_alerta_ml_id = modeloAlertaMlId,
-        horizonte_alerta_ml_dias = horizonteAlertaMlDias
+        horizonte_alerta_ml_dias = horizonteAlertaMlDias,
+        ciclos = ciclos,
+        observaciones = observaciones
+    )
+
+    fun ciclo(
+        id: Int = 1,
+        monitoreoId: Int = 1,
+        fechaBiofix: String = "2026-01-01",
+        estado: String = "activo",
+        fechaActualizacion: String = "2026-01-11",
+        gddAcumulado: Float = 200f,
+        gddDiario: Float = 10f,
+        gddEclosion: Float = 400f,
+        gddGeneracion: Float = 800f,
+        progreso: Float = 50f,
+        estadioBiologico: String = "Huevo",
+        nivelAlerta: Int = 0,
+        diasPendientes: Int = 0,
+        fechaEclosion: String? = null
+    ) = GddCicloResponse(
+        id = id,
+        monitoreo_id = monitoreoId,
+        fecha_biofix = fechaBiofix,
+        estado = estado,
+        fecha_actualizacion = fechaActualizacion,
+        gdd_acumulado = gddAcumulado,
+        gdd_diario = gddDiario,
+        gdd_eclosion = gddEclosion,
+        gdd_generacion = gddGeneracion,
+        progreso = progreso,
+        estadio_biologico = estadioBiologico,
+        nivel_alerta = nivelAlerta,
+        dias_pendientes = diasPendientes,
+        fecha_eclosion = fechaEclosion
     )
 
     fun cultivo(

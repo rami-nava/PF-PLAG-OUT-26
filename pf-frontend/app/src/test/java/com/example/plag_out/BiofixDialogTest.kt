@@ -36,7 +36,7 @@ class BiofixDialogTest {
         compose.setContent { BiofixDialog(1, {}, {result=it},service) }
         compose.waitForIdle()
         compose.onNodeWithText("Confirmar presencia").assertIsNotEnabled()
-        compose.onAllNodes(isSelectable())[0].performClick()
+        compose.onAllNodes(isSelectable())[0].performScrollTo().performClick()
         compose.onNodeWithText("Confirmar presencia").assertIsEnabled().performClick()
         assertEquals("asociar_ciclo",result?.accion)
         assertEquals(73,result?.ciclo_id)
@@ -47,7 +47,7 @@ class BiofixDialogTest {
         val service = FakeGDDService().apply { getMonitoreoResult = { Response.success(Fixtures.monitoreo().copy(ciclos=listOf(cycle))) } }
         compose.setContent { BiofixDialog(1, {}, {result=it},service) }
         compose.waitForIdle()
-        compose.onAllNodes(isSelectable())[1].performClick()
+        compose.onAllNodes(isSelectable())[1].performScrollTo().performClick()
         compose.onNodeWithText("Confirmar presencia").performClick()
         assertEquals("iniciar_ciclo",result?.accion)
         assertEquals(true,result?.confirmar_ciclo_adicional)

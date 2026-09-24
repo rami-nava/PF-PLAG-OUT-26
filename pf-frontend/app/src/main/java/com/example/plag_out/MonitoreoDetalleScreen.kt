@@ -6,6 +6,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -16,6 +18,9 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material3.*
@@ -29,15 +34,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import com.example.plag_out.ui.theme.AnilloRiesgoGrande
 import com.example.plag_out.ui.theme.BotonInfoCampo
 import com.example.plag_out.ui.theme.CargandoCentrado
-import com.example.plag_out.ui.theme.EstadisticaCompacta
 import com.example.plag_out.ui.theme.EtiquetaInfo
 import com.example.plag_out.ui.theme.PlagOutColors
-import com.example.plag_out.ui.theme.SelloDeNivel
-import com.example.plag_out.ui.theme.SeparadorVertical
 import com.example.plag_out.ui.theme.estiloDeNivel
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -45,10 +47,6 @@ import java.util.Locale
 import java.math.BigDecimal
 import kotlin.math.ceil
 import kotlin.math.roundToInt
-
-/** Tamaño del anillo de riesgo en esta pantalla: entra junto con las tarjetas de datos sin
- *  obligar a scrollear en la mayoría de los teléfonos. */
-private val TAMANO_ANILLO = 132.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -65,6 +63,7 @@ fun MonitoreoDetalleScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
+    var notaAlFinalizar by remember { mutableStateOf("") }
     var mostrarInfoNivel by remember { mutableStateOf(false) }
     var mostrarInfoUmbral by remember { mutableStateOf(false) }
 
@@ -80,8 +79,13 @@ fun MonitoreoDetalleScreen(
 
     val monitoreo = state.monitoreo
 
+    LaunchedEffect(mostrarDialogoFinalizar) {
+        if (mostrarDialogoFinalizar) notaAlFinalizar = monitoreo?.observaciones.orEmpty()
+    }
+
     Scaffold(
         containerColor = PlagOutColors.Cream,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
@@ -100,6 +104,7 @@ fun MonitoreoDetalleScreen(
                     onVerTerreno = onVerTerreno,
                     onEditarUmbral = { viewModel.abrirEditorUmbral() },
                     onEditarUmbralMl = { viewModel.abrirEditorUmbralMl() },
+                    onEditarObservaciones = { viewModel.abrirEditorObservaciones() },
                     onVerInfoNivel = { mostrarInfoNivel = true },
                     onVerInfoUmbral = { mostrarInfoUmbral = true },
                     finalizando = state.finalizando,
@@ -160,22 +165,48 @@ fun MonitoreoDetalleScreen(
         )
     }
 
+    if (state.observacionesEditadas != null && monitoreo != null) {
+        SheetEditarObservaciones(
+            texto = state.observacionesEditadas ?: "",
+            textoOriginal = monitoreo.observaciones.orEmpty(),
+            guardando = state.guardandoObservaciones,
+            onTextoChange = viewModel::actualizarObservacionesEditadas,
+            onCancelar = viewModel::cancelarEdicionObservaciones,
+            onGuardar = {
+                viewModel.guardarObservaciones {
+                    scope.launch { snackbarHostState.showSnackbar("Nota guardada") }
+                }
+            }
+        )
+    }
+
     if (mostrarDialogoFinalizar && monitoreo != null) {
         AlertDialog(
             onDismissRequest = { mostrarDialogoFinalizar = false },
             modifier = Modifier.testTag("dialogFinalizar"),
             title = { Text("¿Finalizar monitoreo?") },
             text = {
-                Text(
-                    "¿Finalizar el monitoreo de ${monitoreo.plaga_nombre} en ${monitoreo.cultivo_nombre}? " +
-                        "Vas a dejar de recibir alertas de esta plaga en este cultivo."
-                )
+                Column {
+                    Text(
+                        "¿Finalizar el monitoreo de ${monitoreo.plaga_nombre} en ${monitoreo.cultivo_nombre}? " +
+                            "Vas a dejar de recibir alertas de esta plaga en este cultivo."
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    // El cierre de campaña es el momento en que el dato está fresco: se ofrece
+                    // escribir la nota acá mismo, sin obligar (el campo puede quedar vacío).
+                    CampoDeNota(
+                        texto = notaAlFinalizar,
+                        onTextoChange = { notaAlFinalizar = it.take(MAX_CARACTERES_OBSERVACIONES) },
+                        etiqueta = "Nota para la próxima campaña (opcional)",
+                        tag = "txtNotaFinalizar"
+                    )
+                }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         mostrarDialogoFinalizar = false
-                        viewModel.finalizarMonitoreo {}
+                        viewModel.finalizarMonitoreo(observaciones = notaAlFinalizar) {}
                     },
                     modifier = Modifier.testTag("btnConfirmarFinalizar")
                 ) {
@@ -191,7 +222,7 @@ fun MonitoreoDetalleScreen(
 
 @Composable
 private fun EstadoErrorDetalle(mensaje: String, onBack: () -> Unit, onReintentar: () -> Unit) {
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
         IconButton(onClick = onBack, modifier = Modifier.padding(8.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextMain)
         }
@@ -214,6 +245,10 @@ private fun EstadoErrorDetalle(mensaje: String, onBack: () -> Unit, onReintentar
     }
 }
 
+private const val PAGINA_DETALLE = 0
+private const val PAGINA_CICLOS = 1
+
+@OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun ContenidoMonitoreoDetalle(
@@ -224,59 +259,139 @@ private fun ContenidoMonitoreoDetalle(
     onVerTerreno: (Int) -> Unit,
     onEditarUmbral: () -> Unit,
     onEditarUmbralMl: () -> Unit,
+    onEditarObservaciones: () -> Unit,
     onVerInfoNivel: () -> Unit,
     onVerInfoUmbral: () -> Unit,
     finalizando: Boolean,
     onFinalizarClick: () -> Unit,
     onRefresh: () -> Unit
 ) {
-    val estilo = estiloDeNivel(monitoreo.nivel_alerta)
-    // El umbral solo se considera alcanzado por el estado real del monitoreo, no por si se pudo
-    // proyectar una fecha: `diasEstimadosAlUmbral` también devuelve null cuando falta ritmo diario
-    // para proyectar, y eso no significa que ya se haya llegado al objetivo.
-    val umbralAlcanzado = monitoreo.gdd_acumulado >= monitoreo.gdd_objetivo || monitoreo.progreso >= 100f
+    val scope = rememberCoroutineScope()
+    val pagerState = rememberPagerState(pageCount = { 2 })
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-        Row(
-            Modifier.fillMaxWidth().padding(top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack, modifier = Modifier.padding(end = 4.dp)) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextMain)
-            }
-            Column(Modifier.weight(1f)) {
-                Text(
-                    monitoreo.plaga_nombre,
-                    color = PlagOutColors.TextMain,
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+    Column(Modifier.fillMaxSize()) {
+        val formaHeader = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.verticalGradient(listOf(PlagOutColors.Forest, PlagOutColors.Leaf)),
+                    shape = formaHeader
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Grass, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(12.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(monitoreo.cultivo_nombre, color = PlagOutColors.TextSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Outlined.Landscape, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(12.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(monitoreo.terreno_nombre, color = PlagOutColors.TextSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                .clip(formaHeader)
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 18.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextOnDark)
+                }
+                Column {
+                    Text(
+                        "Monitoreo de plaga",
+                        color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        monitoreo.plaga_nombre,
+                        color = PlagOutColors.TextOnDark,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Grass, contentDescription = null, tint = PlagOutColors.TextOnDark.copy(alpha = 0.8f), modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            monitoreo.cultivo_nombre,
+                            color = PlagOutColors.TextOnDark.copy(alpha = 0.8f),
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Icon(Icons.Outlined.Landscape, contentDescription = null, tint = PlagOutColors.TextOnDark.copy(alpha = 0.8f), modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            monitoreo.terreno_nombre,
+                            color = PlagOutColors.TextOnDark.copy(alpha = 0.8f),
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
 
+        TabRow(
+            selectedTabIndex = pagerState.currentPage,
+            containerColor = PlagOutColors.Cream,
+            contentColor = PlagOutColors.Forest
+        ) {
+            Tab(
+                selected = pagerState.currentPage == PAGINA_DETALLE,
+                onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_DETALLE) } },
+                text = { Text("Detalle", fontWeight = FontWeight.SemiBold) },
+                modifier = Modifier.testTag("tabDetalle")
+            )
+            Tab(
+                selected = pagerState.currentPage == PAGINA_CICLOS,
+                onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_CICLOS) } },
+                text = { Text("Ciclos", fontWeight = FontWeight.SemiBold) },
+                modifier = Modifier.testTag("tabCiclos")
+            )
+        }
 
+        HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { pagina ->
+            when (pagina) {
+                PAGINA_DETALLE -> DetalleTab(
+                    monitoreo = monitoreo,
+                    datosDesactualizados = datosDesactualizados,
+                    onVerPlantacion = onVerPlantacion,
+                    onVerTerreno = onVerTerreno,
+                    onEditarUmbral = onEditarUmbral,
+                    onEditarUmbralMl = onEditarUmbralMl,
+                    onVerInfoUmbral = onVerInfoUmbral,
+                    onEditarObservaciones = onEditarObservaciones,
+                    finalizando = finalizando,
+                    onFinalizarClick = onFinalizarClick
+                )
+                else -> CiclosTab(
+                    monitoreo = monitoreo,
+                    onRefresh = onRefresh,
+                    onVerInfoNivel = onVerInfoNivel
+                )
+            }
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+private fun DetalleTab(
+    monitoreo: MonitoreoResponse,
+    datosDesactualizados: Boolean,
+    onVerPlantacion: (Int) -> Unit,
+    onVerTerreno: (Int) -> Unit,
+    onEditarUmbral: () -> Unit,
+    onEditarUmbralMl: () -> Unit,
+    onVerInfoUmbral: () -> Unit,
+    onEditarObservaciones: () -> Unit,
+    finalizando: Boolean,
+    onFinalizarClick: () -> Unit
+) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Column(
             Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(Modifier.height(8.dp))
-
-            BiofixManual(monitoreo, onRefresh)
-
             if (datosDesactualizados) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
                 EtiquetaInfo(
                     Icons.Filled.ErrorOutline,
                     "Mostrando datos guardados · sin conexión",
@@ -441,23 +556,55 @@ private fun ContenidoMonitoreoDetalle(
             Spacer(Modifier.height(10.dp))
 
             TarjetaCampo(
-                titulo = "Nivel de alerta",
-                onInfo = onVerInfoNivel,
-                descripcionInfo = "Qué es el nivel de alerta",
-                tagInfo = "btnInfoNivelAlerta",
-                tintInfo = estilo.color
+                titulo = "Notas de campaña",
+                onInfo = null,
+                descripcionInfo = "Para qué sirven las notas",
+                tagInfo = "btnInfoNotas"
             ) {
-                Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
-                    SelloDeNivel(estilo, pulsante = false)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        estilo.descripcion,
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp,
-                        color = PlagOutColors.TextSecondary
+                val nota = monitoreo.observaciones?.takeIf { it.isNotBlank() }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClick = onEditarObservaciones)
+                        .testTag("btnEditarObservaciones")
+                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Outlined.EditNote,
+                        contentDescription = null,
+                        tint = PlagOutColors.Forest,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            nota ?: "Todavía no escribiste nada",
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp,
+                            color = if (nota != null) PlagOutColors.TextMain else PlagOutColors.TextSecondary,
+                            maxLines = 4,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.testTag("txtObservaciones")
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            if (nota != null) "Tocá para editar"
+                            else "Anotá si la plaga apareció, qué aplicaste y si sirvió",
+                            fontSize = 11.sp,
+                            color = PlagOutColors.TextSecondary
+                        )
+                    }
+                    Icon(
+                        Icons.Filled.ChevronRight,
+                        contentDescription = null,
+                        tint = PlagOutColors.TextSecondary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
+
             Spacer(Modifier.height(12.dp))
         }
 
@@ -496,6 +643,36 @@ private fun ContenidoMonitoreoDetalle(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
+@Composable
+private fun CiclosTab(
+    monitoreo: MonitoreoResponse,
+    onRefresh: () -> Unit,
+    onVerInfoNivel: () -> Unit
+) {
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Ciclos GDD",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = PlagOutColors.TextMain,
+                modifier = Modifier.weight(1f)
+            )
+            BotonInfoCampo(
+                onClick = onVerInfoNivel,
+                contentDescription = "Qué es el nivel de alerta",
+                tint = estiloDeNivel(nivelAlertaDeCiclos(monitoreo) ?: -1).color,
+                modifier = Modifier.testTag("btnInfoNivelAlerta")
+            )
+        }
+
+        BiofixManual(monitoreo, onRefresh, Modifier.weight(1f))
+    }
+}
 
 @Composable
 private fun TarjetaCampo(
@@ -674,6 +851,100 @@ private fun SheetEditarUmbralMl(
                     enabled = !guardando,
                     colors = ButtonDefaults.buttonColors(containerColor = PlagOutColors.Forest),
                     modifier = Modifier.weight(1f).testTag("btnGuardarUmbralMl")
+                ) {
+                    if (guardando) CircularProgressIndicator(Modifier.size(18.dp), color = PlagOutColors.TextOnDark)
+                    else Text("Guardar")
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun CampoDeNota(
+    texto: String,
+    onTextoChange: (String) -> Unit,
+    etiqueta: String,
+    tag: String,
+    habilitado: Boolean = true
+) {
+    Column(Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = texto,
+            onValueChange = onTextoChange,
+            enabled = habilitado,
+            label = { Text(etiqueta) },
+            placeholder = { Text("Ej.: no apareció la plaga; apliqué X el 12/2 y funcionó") },
+            minLines = 3,
+            maxLines = 6,
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PlagOutColors.Forest,
+                cursorColor = PlagOutColors.Forest,
+                focusedLabelColor = PlagOutColors.Forest
+            ),
+            modifier = Modifier.fillMaxWidth().testTag(tag)
+        )
+        Text(
+            "${texto.length}/$MAX_CARACTERES_OBSERVACIONES",
+            fontSize = 11.sp,
+            color = if (texto.length >= MAX_CARACTERES_OBSERVACIONES) PlagOutColors.RiskWarn
+            else PlagOutColors.TextSecondary,
+            modifier = Modifier.align(Alignment.End).padding(top = 4.dp, end = 4.dp)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SheetEditarObservaciones(
+    texto: String,
+    textoOriginal: String,
+    guardando: Boolean,
+    onTextoChange: (String) -> Unit,
+    onCancelar: () -> Unit,
+    onGuardar: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onCancelar,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = PlagOutColors.Surface,
+        modifier = Modifier.testTag("sheetObservaciones")
+    ) {
+        Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+            Text("Notas de campaña", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Lo que escribas acá te va a servir el año que viene: si la plaga apareció, qué " +
+                    "tratamiento hiciste y si dio resultado.",
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                color = PlagOutColors.TextSecondary
+            )
+            Spacer(Modifier.height(16.dp))
+            CampoDeNota(
+                texto = texto,
+                onTextoChange = onTextoChange,
+                etiqueta = "Tu nota",
+                tag = "txtEditarObservaciones",
+                habilitado = !guardando
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = onCancelar, enabled = !guardando, modifier = Modifier.weight(1f)) {
+                    Text("Cancelar")
+                }
+                Button(
+                    onClick = onGuardar,
+                    enabled = !guardando && texto.trim() != textoOriginal,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PlagOutColors.Forest,
+                        contentColor = PlagOutColors.TextOnDark,
+                        disabledContainerColor = PlagOutColors.Forest.copy(alpha = 0.4f),
+                        disabledContentColor = PlagOutColors.TextOnDark.copy(alpha = 0.6f)
+                    ),
+                    modifier = Modifier.weight(1f).testTag("btnGuardarObservaciones")
                 ) {
                     if (guardando) CircularProgressIndicator(Modifier.size(18.dp), color = PlagOutColors.TextOnDark)
                     else Text("Guardar")
