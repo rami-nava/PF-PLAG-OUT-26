@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.WarningAmber
@@ -40,14 +42,18 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -134,6 +140,9 @@ fun VerReporteScreen(
                 is VerReporteUiState.Exito -> ContenidoVerReporte(
                     detalle = s.detalle,
                     terrenoReferencia = s.terrenoReferencia,
+                    isEliminando = s.isEliminando,
+                    errorEliminacion = s.errorEliminacion,
+                    viewModel = viewModel,
                     onBack = onBack
                 )
             }
@@ -147,24 +156,55 @@ fun VerReporteScreen(
 private fun ContenidoVerReporte(
     detalle: ReporteDetalleResponse,
     terrenoReferencia: TerrenoResponse?,
+    isEliminando: Boolean,
+    errorEliminacion: String?,
+    viewModel: VerReporteViewModel,
     onBack: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    var mostrarDialogoConfirmacion by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(PlagOutColors.Cream)
-    ) {
-        HeaderVerReporte(onBack = onBack)
-
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .background(PlagOutColors.Cream)
         ) {
+            HeaderVerReporte(onBack = onBack)
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (errorEliminacion != null) {
+                    Surface(
+                        color = PlagOutColors.RiskDanger.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.ErrorOutline,
+                                contentDescription = null,
+                                tint = PlagOutColors.RiskDanger,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = errorEliminacion,
+                                color = PlagOutColors.RiskDanger,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
 
             // ── Card de Resumen ────────────────────────────────────────────────
             Surface(
@@ -510,9 +550,91 @@ private fun ContenidoVerReporte(
                 }
             }
 
+            if (detalle.es_propio) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { mostrarDialogoConfirmacion = true },
+                    enabled = !isEliminando,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskDanger),
+                    border = BorderStroke(1.dp, PlagOutColors.RiskDanger),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("btnEliminarReporte")
+                ) {
+                    if (isEliminando) {
+                        CircularProgressIndicator(color = PlagOutColors.RiskDanger, modifier = Modifier.size(20.dp))
+                    } else {
+                        Text("Eliminar reporte", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+
             Spacer(Modifier.height(8.dp))
         }
     }
+
+    // Modal de confirmación para eliminar reporte propio
+    if (detalle.es_propio && mostrarDialogoConfirmacion) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoConfirmacion = false },
+            modifier = Modifier.testTag("dialogEliminarReporte"),
+            title = { Text("¿Eliminar reporte?") },
+            text = {
+                Text(
+                    "¿Estás seguro de que deseas eliminar este reporte? Esta acción no se puede deshacer y si eliminas este reporte, dejará de ser visible para los productores de tu zona."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        mostrarDialogoConfirmacion = false
+                        viewModel.eliminarReporte(detalle.id) { onBack() }
+                    },
+                    modifier = Modifier.testTag("btnConfirmarEliminarReporte")
+                ) {
+                    Text("Eliminar", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { mostrarDialogoConfirmacion = false },
+                    modifier = Modifier.testTag("btnCancelarEliminarReporte")
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Overlay de estado cargando mientras elimina
+    if (isEliminando) {
+        Dialog(
+            onDismissRequest = {},
+            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = PlagOutColors.Surface,
+                shadowElevation = 6.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator(color = PlagOutColors.Forest, modifier = Modifier.size(28.dp))
+                    Text(
+                        text = "Eliminando reporte...",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = PlagOutColors.TextMain
+                    )
+                }
+            }
+        }
+    }
+}
 }
 
 private fun formatearDistancia(km: Float): String {
@@ -634,7 +756,9 @@ private fun HeaderVerReporte(onBack: () -> Unit) {
         )
 
         Row(
-            modifier = Modifier.padding(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 22.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 22.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
@@ -647,7 +771,7 @@ private fun HeaderVerReporte(onBack: () -> Unit) {
                     tint = PlagOutColors.TextOnDark
                 )
             }
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     "Reportes colaborativos",
                     color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),

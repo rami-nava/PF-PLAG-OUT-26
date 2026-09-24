@@ -82,6 +82,7 @@ class FakeGDDService : GDDService {
     var createReporteResult: () -> Response<ReporteResponse> = { noDeclarado("createReporte") }
     var getReporteResult: () -> Response<ReporteDetalleResponse> = { noDeclarado("getReporte") }
     var getReportesResult: () -> Response<List<ReporteDetalleResponse>> = { noDeclarado("getReportes") }
+    var deleteReporteResult: () -> Response<Unit> = { Response.success(Unit) }
     var getPrediccionResult: () -> Response<PrediccionDetalleResponse> = { noDeclarado("getPrediccion") }
     var confirmarPrediccionResult: () -> Response<PrediccionConfirmacionResponse> = { noDeclarado("confirmarPrediccion") }
     var healthResult: () -> Response<Unit> = { noDeclarado("health") }
@@ -206,6 +207,11 @@ class FakeGDDService : GDDService {
 
     override suspend fun getReportes(): Response<List<ReporteDetalleResponse>> {
         llamadas += "getReportes"; return getReportesResult()
+    }
+
+    override suspend fun deleteReporte(reporteId: Int): Response<Unit> {
+        llamadas += "deleteReporte"
+        return deleteReporteResult()
     }
 
     override suspend fun getPrediccion(id: Int): Response<PrediccionDetalleResponse> {
