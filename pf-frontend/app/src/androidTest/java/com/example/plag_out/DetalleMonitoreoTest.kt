@@ -27,6 +27,7 @@ class DetalleMonitoreoTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    private lateinit var context: Context
     private lateinit var db: AppDatabase
     private lateinit var monitoreoRepository: MonitoreoRepository
     private lateinit var gddService: FakeGDDService
@@ -36,14 +37,12 @@ class DetalleMonitoreoTest {
 
     @Before
     fun setup() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        context = ApplicationProvider.getApplicationContext()
 
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
             .build()
         monitoreoRepository = MonitoreoRepository(db.monitoreoDao())
-
-        runBlocking { monitoreoRepository.guardarMonitoreo(monitoreo) }
 
         // El caché de Room ya sirve el monitoreo al instante. El GET se declara con un 404
         // a propósito, para simular que el endpoint todavía no existe en el backend: la
@@ -52,6 +51,10 @@ class DetalleMonitoreoTest {
         // y por lo tanto escapa del catch del ViewModel)
         gddService = FakeGDDService()
         gddService.getMonitoreoResult = { FakeGDDService.errorServidor(404) }
+    }
+    
+    private fun mostrarDetalle(monitoreo: MonitoreoResponse = this.monitoreo) {
+        runBlocking { monitoreoRepository.guardarMonitoreo(monitoreo) }
 
         viewModel = MonitoreoDetalleViewModelFactory(context, monitoreoRepository, gddService)
             .create(MonitoreoDetalleViewModel::class.java)
@@ -69,8 +72,14 @@ class DetalleMonitoreoTest {
     }
 
     @Test
-    fun muestra_el_porcentaje_de_riesgo_del_monitoreo() {
-        composeRule.onNodeWithTag("anilloRiesgo").assertExists()
+    fun la_pestana_de_ciclos_muestra_el_avance_de_cada_ciclo() {
+        mostrarDetalle(monitoreo.copy(ciclos = listOf(Fixtures.ciclo(id = 1, progreso = 78f))))
+
+        composeRule.onNodeWithTag("tabCiclos").performClick()
+        composeRule.waitForIdle()
+
+        // El porcentaje vive en el anillo chico de la tarjeta del ciclo, no en el monitoreo.
+        composeRule.onNodeWithTag("cicloCard_1").assertExists()
         composeRule.onNodeWithText("78%").assertExists()
     }
 
@@ -78,6 +87,7 @@ class DetalleMonitoreoTest {
     fun editar_umbral_abre_la_hoja_mueve_el_slider_y_guarda() {
         val actualizado = monitoreo.copy(umbral_riesgo = 60)
         gddService.actualizarMonitoreoResult = { Response.success(actualizado) }
+        mostrarDetalle()
 
         composeRule.onNodeWithTag("btnEditarUmbral").performClick()
         composeRule.onNodeWithTag("sheetUmbral").assertExists()
@@ -91,6 +101,8 @@ class DetalleMonitoreoTest {
 
     @Test
     fun la_i_del_umbral_abre_su_explicacion_sin_abrir_el_editor() {
+        mostrarDetalle()
+
         composeRule.onNodeWithTag("btnInfoUmbral").performClick()
 
         composeRule.onNodeWithTag("hojaUmbralRiesgo").assertExists()
@@ -100,6 +112,8 @@ class DetalleMonitoreoTest {
 
     @Test
     fun la_i_del_nivel_de_alerta_abre_su_explicacion() {
+        mostrarDetalle()
+
         composeRule.onNodeWithTag("tabCiclos").performClick()
         composeRule.waitForIdle()
 
@@ -110,6 +124,8 @@ class DetalleMonitoreoTest {
 
     @Test
     fun la_pestana_de_ciclos_avisa_que_espera_el_biofix_cuando_no_hay_ninguno() {
+        mostrarDetalle()
+
         composeRule.onNodeWithTag("tabCiclos").performClick()
         composeRule.waitForIdle()
 
@@ -119,6 +135,8 @@ class DetalleMonitoreoTest {
 
     @Test
     fun finalizar_muestra_dialogo_y_cancelar_no_finaliza() {
+        mostrarDetalle()
+
         composeRule.onNodeWithTag("btnFinalizarMonitoreo").performClick()
         composeRule.onNodeWithTag("dialogFinalizar").assertExists()
 
@@ -134,6 +152,7 @@ class DetalleMonitoreoTest {
     fun escribir_una_nota_de_campania_abre_la_hoja_y_guarda() {
         val nota = "No apareció la plaga; igual apliqué preventivo"
         gddService.actualizarMonitoreoResult = { Response.success(monitoreo.copy(observaciones = nota)) }
+        mostrarDetalle()
 
         composeRule.onNodeWithTag("btnEditarObservaciones").performClick()
         composeRule.onNodeWithTag("sheetObservaciones").assertExists()
@@ -152,6 +171,7 @@ class DetalleMonitoreoTest {
         gddService.actualizarMonitoreoResult = {
             Response.success(monitoreo.copy(activo = false, observaciones = nota))
         }
+        mostrarDetalle()
 
         composeRule.onNodeWithTag("btnFinalizarMonitoreo").performClick()
         composeRule.onNodeWithTag("txtNotaFinalizar").performTextInput(nota)

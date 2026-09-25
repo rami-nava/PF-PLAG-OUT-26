@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Landscape
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Shield
@@ -224,7 +225,8 @@ fun MisReportesScreen(
                     tabSeleccionado = tabSeleccionado,
                     onTabChange = { tabSeleccionado = it },
                     reportesPropios = reportesPropios,
-                    reportesComunidad = reportesComunidad
+                    reportesComunidad = reportesComunidad,
+                    onVerMapa = { navController.navigate("mapa_reportes") }
                 )
                 val totalOriginal = reportesAmbito.size
                 val totalFiltrados = reportesFiltrados.size
@@ -492,7 +494,8 @@ private fun PanelHeaderReportes(
     tabSeleccionado: Int,
     onTabChange: (Int) -> Unit,
     reportesPropios: List<ReporteDetalleResponse>,
-    reportesComunidad: List<ReporteDetalleResponse>
+    reportesComunidad: List<ReporteDetalleResponse>,
+    onVerMapa: () -> Unit
 ) {
     val respiracion = rememberInfiniteTransition(label = "respiracionHeaderReportes")
     val escalaDecorativa by respiracion.animateFloat(
@@ -536,19 +539,43 @@ private fun PanelHeaderReportes(
         )
 
         Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 22.dp)) {
-            Text(
-                "Gestión de Alertas",
-                color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.4.sp
-            )
-            Text(
-                "Reportes",
-                color = PlagOutColors.TextOnDark,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Gestión de Alertas",
+                        color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.4.sp
+                    )
+                    Text(
+                        "Reportes",
+                        color = PlagOutColors.TextOnDark,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+                Surface(
+                    onClick = onVerMapa,
+                    shape = CircleShape,
+                    color = PlagOutColors.TextOnDark.copy(alpha = 0.16f),
+                    modifier = Modifier.testTag("btnVerMapaReportes")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Outlined.Map,
+                            contentDescription = "Ver reportes en el mapa",
+                            tint = PlagOutColors.TextOnDark,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Mapa", color = PlagOutColors.TextOnDark, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
 
             Spacer(Modifier.height(14.dp))
 
