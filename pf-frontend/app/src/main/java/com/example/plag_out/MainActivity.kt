@@ -334,6 +334,7 @@ fun AppNavigation(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && sessionStatus is SessionStatus.Authenticated) {
                 notificacionesViewModel.cargar()
+                actionScope.launch { FcmTokenRegistrar.registrar() }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
