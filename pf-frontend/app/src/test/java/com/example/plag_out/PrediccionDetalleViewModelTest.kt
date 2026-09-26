@@ -99,6 +99,27 @@ class PrediccionDetalleViewModelTest {
     }
 
     @Test
+    fun `respuesta tardia de otra sesion conserva el feedback pendiente`() {
+        val currentOwner = java.util.concurrent.atomic.AtomicReference(owner)
+        val dao = FakeFeedbackPrediccionDao()
+        val service = FakeGDDService().apply {
+            getPrediccionResult = { Response.success(Fixtures.prediccion()) }
+            confirmarPrediccionResult = {
+                currentOwner.set("otra-cuenta")
+                Response.error(404, okhttp3.ResponseBody.create(null, ""))
+            }
+        }
+        val vm = PrediccionDetalleViewModel(FeedbackPrediccionRepository(dao), service,
+            ownerIdProvider = { currentOwner.get() })
+        vm.cargar(41)
+        esperarEstado(vm.state) { it.prediccion != null }
+        vm.responder("no_observada")
+        esperarEstado(vm.state) { it.prediccion == null && !it.enviando }
+        assertEquals("no_observada", runBlocking { dao.get(owner, 41) }?.respuesta)
+        assertNull(vm.state.value.biofixResultado)
+    }
+
+    @Test
     fun `feedback de otro usuario no aparece ni se elimina`() {
         val ajeno = FeedbackPrediccionPendiente(
             owner_id = "22222222-2222-2222-2222-222222222222",
