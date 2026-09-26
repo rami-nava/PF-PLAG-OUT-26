@@ -71,6 +71,11 @@ class DetalleMonitoreoTest {
         }
     }
 
+    private fun irADetalle() {
+        composeRule.onNodeWithTag("tabDetalle").performClick()
+        composeRule.waitForIdle()
+    }
+
     @Test
     fun la_pestana_de_ciclos_muestra_el_avance_de_cada_ciclo() {
         mostrarDetalle(monitoreo.copy(ciclos = listOf(Fixtures.ciclo(id = 1, progreso = 78f))))
@@ -88,6 +93,7 @@ class DetalleMonitoreoTest {
         val actualizado = monitoreo.copy(umbral_riesgo = 60)
         gddService.actualizarMonitoreoResult = { Response.success(actualizado) }
         mostrarDetalle()
+        irADetalle()
 
         composeRule.onNodeWithTag("btnEditarUmbral").performClick()
         composeRule.onNodeWithTag("sheetUmbral").assertExists()
@@ -102,6 +108,7 @@ class DetalleMonitoreoTest {
     @Test
     fun la_i_del_umbral_abre_su_explicacion_sin_abrir_el_editor() {
         mostrarDetalle()
+        irADetalle()
 
         composeRule.onNodeWithTag("btnInfoUmbral").performClick()
 
@@ -136,6 +143,7 @@ class DetalleMonitoreoTest {
     @Test
     fun finalizar_muestra_dialogo_y_cancelar_no_finaliza() {
         mostrarDetalle()
+        irADetalle()
 
         composeRule.onNodeWithTag("btnFinalizarMonitoreo").performClick()
         composeRule.onNodeWithTag("dialogFinalizar").assertExists()
@@ -153,6 +161,7 @@ class DetalleMonitoreoTest {
         val nota = "No apareció la plaga; igual apliqué preventivo"
         gddService.actualizarMonitoreoResult = { Response.success(monitoreo.copy(observaciones = nota)) }
         mostrarDetalle()
+        irADetalle()
 
         composeRule.onNodeWithTag("btnEditarObservaciones").performClick()
         composeRule.onNodeWithTag("sheetObservaciones").assertExists()
@@ -172,6 +181,7 @@ class DetalleMonitoreoTest {
             Response.success(monitoreo.copy(activo = false, observaciones = nota))
         }
         mostrarDetalle()
+        irADetalle()
 
         composeRule.onNodeWithTag("btnFinalizarMonitoreo").performClick()
         composeRule.onNodeWithTag("txtNotaFinalizar").performTextInput(nota)

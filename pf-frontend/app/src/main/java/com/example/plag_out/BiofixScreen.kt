@@ -335,7 +335,8 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
                 }
                 pendiente = exacto
                 if (SupabaseProvider.client.auth.currentUserOrNull()?.id != owner) return@launch
-                val response = RetrofitClient.gddService.registrarBiofix(monitoreo.monitoreo_id, exacto)
+                val response = RetrofitClient.forPresenceRetry(owner).registrarBiofix(monitoreo.monitoreo_id, exacto)
+                if (SupabaseProvider.client.auth.currentUserOrNull()?.id != owner) return@launch
                 if (response.isSuccessful) {
                     resultado = response.body()
                     dao.delete(owner, monitoreo.monitoreo_id); pendiente = null

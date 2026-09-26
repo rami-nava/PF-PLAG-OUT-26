@@ -245,8 +245,8 @@ private fun EstadoErrorDetalle(mensaje: String, onBack: () -> Unit, onReintentar
     }
 }
 
-private const val PAGINA_DETALLE = 0
-private const val PAGINA_CICLOS = 1
+private const val PAGINA_CICLOS = 0
+private const val PAGINA_DETALLE = 1
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -333,16 +333,16 @@ private fun ContenidoMonitoreoDetalle(
             contentColor = PlagOutColors.Forest
         ) {
             Tab(
-                selected = pagerState.currentPage == PAGINA_DETALLE,
-                onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_DETALLE) } },
-                text = { Text("Detalle", fontWeight = FontWeight.SemiBold) },
-                modifier = Modifier.testTag("tabDetalle")
-            )
-            Tab(
                 selected = pagerState.currentPage == PAGINA_CICLOS,
                 onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_CICLOS) } },
                 text = { Text("Ciclos", fontWeight = FontWeight.SemiBold) },
                 modifier = Modifier.testTag("tabCiclos")
+            )
+            Tab(
+                selected = pagerState.currentPage == PAGINA_DETALLE,
+                onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_DETALLE) } },
+                text = { Text("Detalle", fontWeight = FontWeight.SemiBold) },
+                modifier = Modifier.testTag("tabDetalle")
             )
         }
 

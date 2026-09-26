@@ -1,6 +1,13 @@
 package com.example.plag_out
 
 import android.app.Application
+import android.net.ConnectivityManager
+import android.net.Network
+import com.example.plag_out.Service.FcmTokenRegistrar
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import com.example.plag_out.Service.PlagOutMessagingService
 
 /**
@@ -10,9 +17,18 @@ import com.example.plag_out.Service.PlagOutMessagingService
  * `fcm_fallback_notification_channel` y la alerta pierde la importancia alta.
  */
 class PlagOutApplication : Application() {
+    private val notificationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     override fun onCreate() {
         super.onCreate()
+        com.example.plag_out.Service.FcmTokenRegistrar.configurar(this)
         PlagOutMessagingService.crearCanal(this)
         PresenceRetryScheduler.start(this)
+        getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(
+            object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    notificationScope.launch { FcmTokenRegistrar.registrar() }
+                }
+            }
+        )
     }
 }

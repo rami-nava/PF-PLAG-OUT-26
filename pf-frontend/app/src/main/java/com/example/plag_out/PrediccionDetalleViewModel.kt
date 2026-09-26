@@ -28,7 +28,7 @@ data class PrediccionDetalleUIState(
 
 class PrediccionDetalleViewModel(
     private val feedbackRepository: FeedbackPrediccionRepository,
-    private val gddService: GDDService = RetrofitClient.gddService,
+    private val gddService: GDDService? = null,
     private val ownerIdProvider: () -> String? = {
         SupabaseProvider.client.auth.currentUserOrNull()?.id
     }
@@ -62,7 +62,11 @@ class PrediccionDetalleViewModel(
             }
             try {
                 val response = withContext(Dispatchers.IO) {
-                    gddService.getPrediccion(prediccionId)
+                    (gddService ?: RetrofitClient.forPresenceRetry(ownerId)).getPrediccion(prediccionId)
+                }
+                if (ownerIdProvider() != ownerId) {
+                    _state.value = PrediccionDetalleUIState()
+                    return@launch
                 }
                 val prediccion = response.body()
                 if (response.isSuccessful && prediccion != null) {
@@ -142,6 +146,7 @@ class PrediccionDetalleViewModel(
     }
 
     private suspend fun enviar(feedback: FeedbackPrediccionPendiente) {
+        if (ownerIdProvider() != feedback.owner_id) return
         if (feedback.respuesta == "presente" && (feedback.biofix_json == null || feedback.estado == "requiere_revision")) {
             _state.value = _state.value.copy(error = "Revisá la fecha y el ciclo antes de confirmar presencia.")
             return
@@ -149,7 +154,7 @@ class PrediccionDetalleViewModel(
         _state.value = _state.value.copy(enviando = true, error = null)
         try {
             val response = withContext(Dispatchers.IO) {
-                gddService.confirmarPrediccion(
+                (gddService ?: RetrofitClient.forPresenceRetry(feedback.owner_id)).confirmarPrediccion(
                     feedback.prediccion_id,
                     PrediccionConfirmacionRequest(
                         biofix = feedback.biofix_json?.let { com.google.gson.Gson().fromJson(it, BiofixRequest::class.java) },
@@ -157,6 +162,10 @@ class PrediccionDetalleViewModel(
                         idempotency_key = feedback.idempotency_key
                     )
                 )
+            }
+            if (ownerIdProvider() != feedback.owner_id) {
+                _state.value = PrediccionDetalleUIState()
+                return
             }
             when {
                 response.isSuccessful -> {

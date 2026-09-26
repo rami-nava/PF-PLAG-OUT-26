@@ -69,6 +69,9 @@ private const val ESTADO_CICLO_ACTIVO = "activo"
 fun ciclosActivos(monitoreo: MonitoreoResponse): List<GddCicloResponse> =
     monitoreo.ciclos.orEmpty().filter { it.estado == ESTADO_CICLO_ACTIVO }
 
+fun esperandoBiofix(monitoreo: MonitoreoResponse): Boolean =
+    monitoreo.activo && ciclosActivos(monitoreo).isEmpty()
+
 fun nivelAlertaDeCiclos(monitoreo: MonitoreoResponse): Int? =
     ciclosActivos(monitoreo).maxOfOrNull { it.nivel_alerta }
 
@@ -94,6 +97,13 @@ fun acumuladoVisibleDelCiclo(ciclo: GddCicloResponse, objetivo: Float?): Float =
 @RequiresApi(Build.VERSION_CODES.O)
 fun fechaDeCiclo(valor: String?): LocalDate? =
     valor?.take(10)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+@RequiresApi(Build.VERSION_CODES.O)
+fun actualizacionVisibleDelCiclo(ciclo: GddCicloResponse): String {
+    val eclosion = fechaDeCiclo(ciclo.fecha_eclosion) ?: return ciclo.fecha_actualizacion
+    val actualizacion = fechaDeCiclo(ciclo.fecha_actualizacion) ?: return ciclo.fecha_actualizacion
+    return if (actualizacion.isAfter(eclosion)) eclosion.toString() else ciclo.fecha_actualizacion
+}
 
 @RequiresApi(Build.VERSION_CODES.O)
 private fun ritmoDiarioDelCiclo(ciclo: GddCicloResponse): Float {
@@ -238,7 +248,7 @@ fun CicloCard(
                     }
                     Spacer(Modifier.weight(1f))
                     Text(
-                        "Act. ${formatearFechaCiclo(ciclo.fecha_actualizacion)}",
+                        "Act. ${formatearFechaCiclo(actualizacionVisibleDelCiclo(ciclo))}",
                         fontSize = 11.sp,
                         color = PlagOutColors.TextSecondary
                     )

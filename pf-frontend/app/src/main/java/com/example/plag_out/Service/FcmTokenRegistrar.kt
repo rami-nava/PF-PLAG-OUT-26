@@ -1,9 +1,14 @@
 package com.example.plag_out.Service
 
 import android.os.Build
+import android.content.Context
 import android.util.Log
 import androidx.annotation.RequiresApi
 import com.example.plag_out.DispositivoRequest
+import com.example.plag_out.SupabaseProvider
+import com.example.plag_out.AlmacenamientoLocal.PreferenciasUsuario
+import io.github.jan.supabase.auth.auth
+import kotlinx.coroutines.CancellationException
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -26,63 +31,50 @@ object FcmTokenRegistrar {
     private val gddService: GDDService @RequiresApi(Build.VERSION_CODES.O)
     get() = RetrofitClient.gddService
 
-    /** Obtiene el token FCM actual y lo registra (upsert) en el backend. */
+    private var context: Context? = null
+    fun configurar(context: Context) { this.context = context.applicationContext }
+
+    private val coordinator by lazy {
+        TokenRegistrationCoordinator(
+            owner = { SupabaseProvider.client.auth.currentUserOrNull()?.id },
+            enabled = { context?.let { PreferenciasUsuario.notificacionesActivadas(it) } == true },
+            token = { obtenerTokenConReintentos() },
+            rotate = { eliminarTokenLocal() },
+            register = { token ->
+                val response = gddService.registrarDispositivo(DispositivoRequest(token, PLATAFORMA))
+                if (response.code() == 409 && response.errorBody()?.string()?.contains("device_token_conflict") != true) 500
+                else response.code()
+            },
+            unregister = { token -> gddService.eliminarDispositivo(token); Unit },
+        )
+    }
+
+    fun iniciarSesion() = coordinator.beginSession()
+    fun invalidarSesion() = coordinator.invalidateSession()
+
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun registrar() = withContext(Dispatchers.IO) {
-        try {
-            val token = obtenerTokenConReintentos()
-            val response = gddService.registrarDispositivo(
-                DispositivoRequest(fcm_token = token, plataforma = PLATAFORMA)
-            )
-            if (response.isSuccessful) {
-                Log.d(TAG, "Dispositivo registrado: id=${response.body()?.id}")
-            } else {
-                Log.e(
-                    TAG,
-                    "Error al registrar dispositivo: ${response.code()} ${response.errorBody()?.string()}"
-                )
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Excepción al registrar el token FCM", e)
-        }
+        try { coordinator.register() }
+        catch (e: CancellationException) { throw e }
+        catch (_: Exception) { Log.w(TAG, "Registro FCM pendiente; se reintentará con la sesión vigente") }
     }
 
-    /**
-     * Registra un token puntual (usado desde onNewToken, donde FCM ya nos entrega
-     * el token nuevo y no hace falta volver a pedirlo).
-     */
+    // Read the current token instead of replaying a potentially stale onNewToken callback.
     @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun registrar(token: String) = withContext(Dispatchers.IO) {
-        try {
-            val response = gddService.registrarDispositivo(
-                DispositivoRequest(fcm_token = token, plataforma = PLATAFORMA)
-            )
-            if (!response.isSuccessful) {
-                Log.e(
-                    TAG,
-                    "Error al registrar token nuevo: ${response.code()}"
-                )
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Excepción al registrar token puntual", e)
-        }
+    @Suppress("UNUSED_PARAMETER")
+    suspend fun registrar(token: String) = registrar()
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    suspend fun desregistrar(remote: Boolean = true) {
+        try { coordinator.unregister(remote) }
+        catch (e: CancellationException) { throw e }
+        catch (_: Exception) { Log.w(TAG, "Retiro FCM pendiente") }
     }
 
-    /**
-     * Elimina el token del dispositivo en el backend (logout). Best-effort: si
-     * falla, el backend termina limpiando los tokens muertos al fallar el envío.
-     */
-    @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun desregistrar() {
-        try {
-            val token = obtenerToken()
-            val response = gddService.eliminarDispositivo(token)
-            if (!response.isSuccessful) {
-                Log.w(TAG, "No se pudo eliminar el dispositivo: ${response.code()}")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Excepción al eliminar el token FCM", e)
-        }
+    private suspend fun eliminarTokenLocal(): Unit = suspendCancellableCoroutine { cont ->
+        FirebaseMessaging.getInstance().deleteToken()
+            .addOnSuccessListener { if (cont.isActive) cont.resume(Unit) }
+            .addOnFailureListener { if (cont.isActive) cont.resumeWithException(it) }
     }
 
     /**
@@ -110,7 +102,7 @@ object FcmTokenRegistrar {
     private suspend fun obtenerToken(): String =
         suspendCancellableCoroutine { cont ->
             FirebaseMessaging.getInstance().token
-                .addOnSuccessListener { token -> cont.resume(token) }
-                .addOnFailureListener { e -> cont.resumeWithException(e) }
+                .addOnSuccessListener { token -> if (cont.isActive) cont.resume(token) }
+                .addOnFailureListener { e -> if (cont.isActive) cont.resumeWithException(e) }
         }
 }
