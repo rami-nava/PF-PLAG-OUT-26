@@ -68,6 +68,11 @@ class DetalleMonitoreoTest {
         }
     }
 
+    private fun irADetalle() {
+        composeRule.onNodeWithTag("tabDetalle").performClick()
+        composeRule.waitForIdle()
+    }
+
     @Test
     fun muestra_el_porcentaje_de_riesgo_del_monitoreo() {
         composeRule.onNodeWithTag("anilloRiesgo").assertExists()
@@ -78,6 +83,7 @@ class DetalleMonitoreoTest {
     fun editar_umbral_abre_la_hoja_mueve_el_slider_y_guarda() {
         val actualizado = monitoreo.copy(umbral_riesgo = 60)
         gddService.actualizarMonitoreoResult = { Response.success(actualizado) }
+        irADetalle()
 
         composeRule.onNodeWithTag("btnEditarUmbral").performClick()
         composeRule.onNodeWithTag("sheetUmbral").assertExists()
@@ -91,6 +97,8 @@ class DetalleMonitoreoTest {
 
     @Test
     fun la_i_del_umbral_abre_su_explicacion_sin_abrir_el_editor() {
+        irADetalle()
+
         composeRule.onNodeWithTag("btnInfoUmbral").performClick()
 
         composeRule.onNodeWithTag("hojaUmbralRiesgo").assertExists()
@@ -119,6 +127,8 @@ class DetalleMonitoreoTest {
 
     @Test
     fun finalizar_muestra_dialogo_y_cancelar_no_finaliza() {
+        irADetalle()
+
         composeRule.onNodeWithTag("btnFinalizarMonitoreo").performClick()
         composeRule.onNodeWithTag("dialogFinalizar").assertExists()
 
@@ -134,6 +144,7 @@ class DetalleMonitoreoTest {
     fun escribir_una_nota_de_campania_abre_la_hoja_y_guarda() {
         val nota = "No apareció la plaga; igual apliqué preventivo"
         gddService.actualizarMonitoreoResult = { Response.success(monitoreo.copy(observaciones = nota)) }
+        irADetalle()
 
         composeRule.onNodeWithTag("btnEditarObservaciones").performClick()
         composeRule.onNodeWithTag("sheetObservaciones").assertExists()
@@ -152,6 +163,7 @@ class DetalleMonitoreoTest {
         gddService.actualizarMonitoreoResult = {
             Response.success(monitoreo.copy(activo = false, observaciones = nota))
         }
+        irADetalle()
 
         composeRule.onNodeWithTag("btnFinalizarMonitoreo").performClick()
         composeRule.onNodeWithTag("txtNotaFinalizar").performTextInput(nota)
