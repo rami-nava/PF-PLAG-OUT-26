@@ -174,4 +174,33 @@ class CiclosTest {
 
         assertNull(diasEstimadosDelCiclo(ciclo, objetivoMonitoreo = null))
     }
+
+    @Test
+    fun `despues de eclosionar la actualizacion visible queda en la fecha de eclosion`() {
+        val ciclo = Fixtures.ciclo(fechaActualizacion = "2026-02-20", fechaEclosion = "2026-02-10")
+
+        assertEquals("2026-02-10", actualizacionVisibleDelCiclo(ciclo))
+    }
+
+    @Test
+    fun `si la actualizacion no paso la eclosion se muestra tal cual`() {
+        val sinEclosion = Fixtures.ciclo(fechaActualizacion = "2026-02-20", fechaEclosion = null)
+        val mismoDia = Fixtures.ciclo(fechaActualizacion = "2026-02-10", fechaEclosion = "2026-02-10")
+
+        assertEquals("2026-02-20", actualizacionVisibleDelCiclo(sinEclosion))
+        assertEquals("2026-02-10", actualizacionVisibleDelCiclo(mismoDia))
+    }
+
+    @Test
+    fun `espera el biofix el monitoreo activo sin ciclos en curso`() {
+        val sinCiclos = Fixtures.monitoreo(ciclos = null)
+        val soloCerrados = Fixtures.monitoreo(ciclos = listOf(Fixtures.ciclo(estado = "finalizado")))
+        val conCiclo = Fixtures.monitoreo(ciclos = listOf(Fixtures.ciclo(estado = "activo")))
+        val finalizado = Fixtures.monitoreo(ciclos = null).copy(activo = false)
+
+        assertTrue(esperandoBiofix(sinCiclos))
+        assertTrue(esperandoBiofix(soloCerrados))
+        assertFalse(esperandoBiofix(conCiclo))
+        assertFalse(esperandoBiofix(finalizado))
+    }
 }
