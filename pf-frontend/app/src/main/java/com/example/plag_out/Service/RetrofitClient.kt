@@ -99,14 +99,20 @@ object RetrofitClient {
 
     /** Pin each retry to one immutable session; never send A's queued payload as B. */
     fun forPresenceRetry(owner: String): GDDService {
-        val retryClient = OkHttpClient.Builder().addInterceptor { chain ->
+        val retryClient = OkHttpClient.Builder().addInterceptor(presenceSessionInterceptor(owner) {
             val session = SupabaseProvider.client.auth.currentSessionOrNull()
-            if (session?.user?.id != owner) throw java.io.IOException("presence_session_changed")
-            chain.proceed(chain.request().newBuilder()
-                .header("Authorization", "Bearer ${session.accessToken}").build())
-        }.build()
+            session?.user?.id?.let { it to session.accessToken }
+        }).build()
         return retrofit.newBuilder().client(retryClient).build().create(GDDService::class.java)
     }
 
     val gddService: GDDService = retrofit.create(GDDService::class.java)
 }
+
+internal fun presenceSessionInterceptor(owner: String, session: () -> Pair<String, String>?) =
+    okhttp3.Interceptor { chain ->
+        val current = session()
+        if (current == null || current.first != owner) throw java.io.IOException("presence_session_changed")
+        chain.proceed(chain.request().newBuilder()
+            .header("Authorization", "Bearer ${current.second}").build())
+    }
