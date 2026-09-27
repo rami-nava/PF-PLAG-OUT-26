@@ -20,14 +20,13 @@ data class MisReportesUiState(
     val reportes: List<ReporteDetalleResponse> = emptyList(),
     val error: String? = null,
     val fechaDesde: LocalDate = LocalDate.now().minusMonths(1),
-    val fechaHasta: LocalDate = LocalDate.now()
+    val fechaHasta: LocalDate = LocalDate.now(),
     /**
      * Catálogo completo de plagas del backend. El mapa filtra contra esto y no solo contra las
      * plagas que aparecen en los reportes: "no hay reportes de esta plaga en mi zona" también es
      * una respuesta, y sin el catálogo esa pregunta no se puede ni formular.
      */
-    val catalogoPlagas: List<String> = emptyList(),
-    val error: String? = null
+    val catalogoPlagas: List<String> = emptyList()
 )
 
 class MisReportesViewModel(
