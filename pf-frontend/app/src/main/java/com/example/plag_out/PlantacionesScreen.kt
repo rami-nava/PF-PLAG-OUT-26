@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,6 +72,7 @@ import com.example.plag_out.ui.theme.SeparadorVertical
 import com.example.plag_out.ui.theme.StaggeredAppear
 import com.example.plag_out.ui.theme.contadorAnimado
 import com.example.plag_out.ui.theme.estiloDeNivel
+import com.example.plag_out.ui.theme.estiloEsperandoBiofix
 import com.example.plag_out.ui.theme.estiloFinalizado
 import com.example.plag_out.ui.theme.rememberPressScale
 import kotlinx.coroutines.launch
@@ -122,7 +124,7 @@ fun PlantacionesPorTerreno(
         plantacionesDelTerreno.sortedWith(
             compareByDescending<PlantacionesResponse> { it.activa }
                 .thenByDescending { p ->
-                    monitoreosState.monitoreos.filter { it.plantacion_id == p.plantacion_id && it.activo }.maxOfOrNull { it.nivel_alerta } ?: -1
+                    monitoreosState.monitoreos.filter { it.plantacion_id == p.plantacion_id && it.activo }.maxOfOrNull { nivelAlertaEfectivo(it) } ?: -1
                 }
         )
     }
@@ -153,7 +155,7 @@ fun PlantacionesPorTerreno(
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Nueva Cultivo", fontWeight = FontWeight.SemiBold)
+                    Text("Nuevo Cultivo", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -267,9 +269,10 @@ private fun InformacionTerrenoTab(
     // el terreno con un estado que ya no existe.
     val monitoreosActivos = monitoreosDelTerreno.filter { it.activo }
     val finalizados = monitoreosDelTerreno.size - monitoreosActivos.size
-    val sanos = monitoreosActivos.count { it.nivel_alerta == 0 }
-    val atencion = monitoreosActivos.count { it.nivel_alerta == 1 }
-    val criticos = monitoreosActivos.count { it.nivel_alerta >= 2 }
+    val sanos = monitoreosActivos.count { nivelAlertaEfectivo(it) == 0 }
+    val atencion = monitoreosActivos.count { nivelAlertaEfectivo(it) == 1 }
+    val criticos = monitoreosActivos.count { nivelAlertaEfectivo(it) >= 2 }
+    val esperando = monitoreosActivos.count { esperandoBiofix(it) }
     val activas = plantacionesDelTerreno.count { it.activa }
     val activosAnimado = contadorAnimado(monitoreosActivos.size)
 
@@ -284,7 +287,8 @@ private fun InformacionTerrenoTab(
                 segmentos = listOf(
                     sanos to estiloDeNivel(0).color,
                     atencion to estiloDeNivel(1).color,
-                    criticos to estiloDeNivel(2).color
+                    criticos to estiloDeNivel(2).color,
+                    esperando to estiloEsperandoBiofix().color.copy(alpha = 0.45f)
                 ),
                 total = monitoreosActivos.size,
                 modifier = Modifier.size(104.dp)
@@ -292,8 +296,10 @@ private fun InformacionTerrenoTab(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("$activosAnimado", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
                     Text(
-                        if (monitoreosActivos.size == 1) "activo" else "activos",
+                        if (monitoreosActivos.size == 1) "monitoreo\nactivo" else "monitoreos\nactivos",
                         fontSize = 10.sp,
+                        lineHeight = 11.sp,
+                        textAlign = TextAlign.Center,
                         color = PlagOutColors.TextSecondary,
                         fontWeight = FontWeight.Medium
                     )
@@ -304,6 +310,7 @@ private fun InformacionTerrenoTab(
                 LeyendaEstadoTerreno(estiloDeNivel(0), sanos)
                 LeyendaEstadoTerreno(estiloDeNivel(1), atencion)
                 LeyendaEstadoTerreno(estiloDeNivel(2), criticos)
+                LeyendaEstadoTerreno(estiloEsperandoBiofix(), esperando)
                 // Fuera del anillo a propósito: son historial, no estado actual.
                 if (finalizados > 0) {
                     HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.width(150.dp))
@@ -325,7 +332,7 @@ private fun InformacionTerrenoTab(
                 SeparadorVertical()
                 EstadisticaCompacta("Cultivos", "${plantacionesDelTerreno.size}", Modifier.weight(1f))
                 SeparadorVertical()
-                EstadisticaCompacta("Activos", "$activas", Modifier.weight(1f))
+                EstadisticaCompacta("Cultivos activos", "$activas", Modifier.weight(1f))
             }
         }
 
@@ -567,7 +574,8 @@ private fun LeyendaEstadoTerreno(estilo: NivelEstilo, cantidad: Int) {
             color = PlagOutColors.TextSecondary,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(90.dp)
+            maxLines = 1,
+            modifier = Modifier.width(104.dp)
         )
         Text("$valor", color = PlagOutColors.TextMain, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
@@ -608,7 +616,7 @@ private fun PlantacionesTab(
         Column(modifier = Modifier.fillMaxSize()) {
             val opciones = remember(plantacionesDelTerreno) {
                 listOf(
-                    OpcionFiltro(FILTRO_TODAS, "Todas", plantacionesDelTerreno.size),
+                    OpcionFiltro(FILTRO_TODAS, "Todos", plantacionesDelTerreno.size),
                     OpcionFiltro(FILTRO_ACTIVAS, "Activos", plantacionesDelTerreno.count { it.activa }, colorIcono = PlagOutColors.Leaf),
                     OpcionFiltro(FILTRO_PAUSADAS, "Pausados", plantacionesDelTerreno.count { !it.activa }, colorIcono = PlagOutColors.Bark)
                 )
@@ -675,7 +683,7 @@ fun PlantacionCard(
     onClick: () -> Unit = {}
 ) {
     // Solo los monitoreos en curso definen el estado: uno finalizado no puede seguir tiñendo la card.
-    val nivelMax = monitoreos.filter { it.activo }.maxOfOrNull { it.nivel_alerta } ?: -1
+    val nivelMax = monitoreos.filter { it.activo }.maxOfOrNull { nivelAlertaEfectivo(it) } ?: -1
     val estadoColor = if (plantacion.activa) estiloDeNivel(nivelMax).color else PlagOutColors.RiskUnknown
 
     val interactionSource = remember { MutableInteractionSource() }
@@ -707,7 +715,7 @@ fun PlantacionCard(
                             shape = CircleShape
                         ) {
                             Text(
-                                if (plantacion.activa) "ACTIVO" else "PAUSADO",
+                                if (plantacion.activa) "CULTIVO ACTIVO" else "CULTIVO PAUSADO",
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
@@ -733,10 +741,11 @@ fun PlantacionCard(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    if (monitoreos.isNotEmpty()) {
+                    val progresoMax = monitoreos.flatMap { ciclosActivos(it) }.maxOfOrNull { it.progreso }
+                    if (progresoMax != null) {
                         Spacer(Modifier.width(14.dp))
                         AnilloProgreso(
-                            progreso = monitoreos.maxOf { it.progreso },
+                            progreso = progresoMax,
                             color = estiloDeNivel(nivelMax).color,
                             tamano = 58.dp,
                             grosor = 6.dp
@@ -775,7 +784,7 @@ fun PlantacionCard(
                     EtiquetaInfo(Icons.Outlined.Grass, "Sin plagas bajo seguimiento", PlagOutColors.RiskUnknown)
                 } else {
                     Text(
-                        "Monitoreos (${monitoreos.size})",
+                        "Monitoreos activos (${monitoreos.size})",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = PlagOutColors.TextMain
@@ -794,7 +803,8 @@ fun PlantacionCard(
 
 @Composable
 private fun PlagaMiniFila(monitoreo: MonitoreoResponse) {
-    val estilo = estiloDeNivel(monitoreo.nivel_alerta)
+    val esperando = esperandoBiofix(monitoreo)
+    val estilo = if (esperando) estiloEsperandoBiofix() else estiloDeNivel(nivelAlertaEfectivo(monitoreo))
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -805,13 +815,17 @@ private fun PlagaMiniFila(monitoreo: MonitoreoResponse) {
         Column(Modifier.weight(1f)) {
             Text(monitoreo.plaga_nombre, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
             Text(
-                "${monitoreo.gdd_acumulado.toInt()} / ${monitoreo.gdd_objetivo.toInt()} GDD",
+                when (val ciclos = ciclosActivos(monitoreo).size) {
+                    0 -> "Sin ciclos activos"
+                    1 -> "1 ciclo activo"
+                    else -> "$ciclos ciclos activos"
+                },
                 fontSize = 11.sp,
                 color = PlagOutColors.TextSecondary,
                 fontWeight = FontWeight.Medium
             )
         }
         Spacer(Modifier.width(8.dp))
-        SelloDeNivel(estilo, pulsante = monitoreo.nivel_alerta >= 2)
+        SelloDeNivel(estilo, pulsante = !esperando && nivelAlertaEfectivo(monitoreo) >= 2)
     }
 }

@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.Tune
@@ -134,6 +135,15 @@ fun estiloFinalizado(): NivelEstilo =
         "Finalizado",
         Icons.Filled.Flag,
         "El monitoreo se cerró: ya no se calcula el IRA ni se envían alertas."
+    )
+
+fun estiloEsperandoBiofix(): NivelEstilo =
+    NivelEstilo(
+        PlagOutColors.TextSecondary,
+        Color(0xFFCFC5AC),
+        "Esperando biofix",
+        Icons.Outlined.HourglassEmpty,
+        "El monitoreo está activo pero todavía no arrancó ningún ciclo: el conteo empieza con el biofix."
     )
 
 /** Chip de estado: ícono + etiqueta; el ícono pulsa cuando `pulsante` es true. */
