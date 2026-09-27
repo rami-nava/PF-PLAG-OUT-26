@@ -12,12 +12,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
 
 data class MisReportesUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val reportes: List<ReporteDetalleResponse> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
+    val fechaDesde: LocalDate = LocalDate.now().minusMonths(1),
+    val fechaHasta: LocalDate = LocalDate.now()
 )
 
 class MisReportesViewModel(
@@ -38,11 +41,14 @@ class MisReportesViewModel(
             }
 
             try {
+                val desdeStr = "${_state.value.fechaDesde}T00:00:00Z"
+                val hastaStr = "${_state.value.fechaHasta}T23:59:59Z"
+                
                 val response = withContext(Dispatchers.IO) {
-                    gddService.getReportes()
+                    gddService.getReportes(fechaDesde = desdeStr, fechaHasta = hastaStr)
                 }
                 if (response.isSuccessful && response.body() != null) {
-                    _state.value = MisReportesUiState(
+                    _state.value = _state.value.copy(
                         isLoading = false,
                         isRefreshing = false,
                         reportes = response.body()!!,
@@ -73,6 +79,11 @@ class MisReportesViewModel(
 
     fun limpiar() {
         _state.value = MisReportesUiState()
+    }
+    
+    fun actualizarFechas(desde: LocalDate, hasta: LocalDate) {
+        _state.value = _state.value.copy(fechaDesde = desde, fechaHasta = hasta)
+        cargarReportes(forzar = true)
     }
 }
 
