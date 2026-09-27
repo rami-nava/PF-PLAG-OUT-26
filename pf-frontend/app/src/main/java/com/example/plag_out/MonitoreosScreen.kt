@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -91,6 +90,9 @@ import java.util.Locale
 /** Valor de `filtro` que muestra los monitoreos finalizados (`activo == false`) en vez de los activos. */
 private const val FILTRO_FINALIZADOS = 3
 
+/** Valor de `filtro` que muestra los monitoreos activos que todavía no tienen ningún ciclo. */
+private const val FILTRO_ESPERANDO_BIOFIX = 4
+
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -108,23 +110,11 @@ fun MonitoreosScreen(
         terrenosViewModel.getTerrenos()
     }
 
-    // -1 = activos; 0/1/2 = nivel de alerta (activos); FILTRO_FINALIZADOS = finalizados
+    // -1 = activos; 0/1/2 = nivel de alerta (activos); FILTRO_ESPERANDO_BIOFIX = activos sin ciclos;
+    // FILTRO_FINALIZADOS = finalizados
     var filtro by rememberSaveable { mutableStateOf(-1) }
     var filtrosExpandidos by rememberSaveable { mutableStateOf(false) }
 
-    var panelFiltroVisible by remember { mutableStateOf(true) }
-    val scrollConnection = remember {
-        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-            override fun onPreScroll(
-                available: androidx.compose.ui.geometry.Offset,
-                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
-            ): androidx.compose.ui.geometry.Offset {
-                if (available.y < -15f) panelFiltroVisible = false
-                else if (available.y > 15f) panelFiltroVisible = true
-                return androidx.compose.ui.geometry.Offset.Zero
-            }
-        }
-    }
     // El % de eclosión más alto arriba: lo más cerca de eclosionar, primero.
     val ordenados = remember(state.monitoreos) {
         ordenarMonitoreos(state.monitoreos)
@@ -132,6 +122,7 @@ fun MonitoreosScreen(
     val filtrados = remember(ordenados, filtro) {
         when (filtro) {
             FILTRO_FINALIZADOS -> ordenados.filter { !it.activo }
+            FILTRO_ESPERANDO_BIOFIX -> ordenados.filter { esperandoBiofix(it) }
             in 0..2 -> ordenados.filter { it.activo && nivelAlertaEfectivo(it).coerceAtMost(2) == filtro }
             else -> ordenados.filter { it.activo }
         }
@@ -172,7 +163,7 @@ fun MonitoreosScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-        Column(modifier = Modifier.fillMaxSize().nestedScroll(scrollConnection)) {
+        Column(modifier = Modifier.fillMaxSize()) {
             PanelDeCampo(monitoreos = activos)
 
             val opciones = remember(state.monitoreos, activos) {
@@ -181,37 +172,32 @@ fun MonitoreosScreen(
                     OpcionFiltro(0, estiloDeNivel(0).etiqueta, activos.count { nivelAlertaEfectivo(it) == 0 }, estiloDeNivel(0).icono, estiloDeNivel(0).color),
                     OpcionFiltro(1, estiloDeNivel(1).etiqueta, activos.count { nivelAlertaEfectivo(it) == 1 }, estiloDeNivel(1).icono, estiloDeNivel(1).color),
                     OpcionFiltro(2, estiloDeNivel(2).etiqueta, activos.count { nivelAlertaEfectivo(it) >= 2 }, estiloDeNivel(2).icono, estiloDeNivel(2).color),
+                    OpcionFiltro(FILTRO_ESPERANDO_BIOFIX, "Esperando biofix", activos.count { esperandoBiofix(it) }, Icons.Outlined.HourglassEmpty, PlagOutColors.TextSecondary),
                     OpcionFiltro(FILTRO_FINALIZADOS, "Finalizados", state.monitoreos.count { !it.activo }, Icons.Filled.Flag, PlagOutColors.TextSecondary)
                 )
             }
             val hayFiltroActivo = filtro != -1
             // Con "Finalizados" el universo es todo el histórico, no solo los activos
             val totalBase = if (filtro == FILTRO_FINALIZADOS) state.monitoreos.size else activos.size
-            AnimatedVisibility(
-                visible = panelFiltroVisible,
-                enter = slideInVertically(animationSpec = tween(250, easing = LinearOutSlowInEasing)) { -it } + fadeIn(tween(250)),
-                exit = slideOutVertically(animationSpec = tween(180, easing = FastOutLinearInEasing)) { -it } + fadeOut(tween(150))
+            PanelFiltrosPlegable(
+                expandido = filtrosExpandidos,
+                onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
+                hayFiltroActivo = hayFiltroActivo,
+                etiquetaAbrir = "Filtrar monitoreos",
+                resumen = if (hayFiltroActivo) {
+                    "Mostrando ${filtrados.size} de $totalBase"
+                } else {
+                    "Mostrando ${activos.size} ${if (activos.size == 1) "monitoreo" else "monitoreos"}"
+                },
+                onLimpiar = { filtro = -1 }
             ) {
-                PanelFiltrosPlegable(
-                    expandido = filtrosExpandidos,
-                    onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
-                    hayFiltroActivo = hayFiltroActivo,
-                    etiquetaAbrir = "Filtrar monitoreos",
-                    resumen = if (hayFiltroActivo) {
-                        "Mostrando ${filtrados.size} de $totalBase"
-                    } else {
-                        "Mostrando ${activos.size} ${if (activos.size == 1) "monitoreo" else "monitoreos"}"
-                    },
-                    onLimpiar = { filtro = -1 }
-                ) {
-                    EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE ALERTA")
-                    FiltroChipsRow(
-                        opciones = opciones,
-                        seleccionado = filtro,
-                        onSeleccion = { filtro = it },
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
+                EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE ALERTA")
+                FiltroChipsRow(
+                    opciones = opciones,
+                    seleccionado = filtro,
+                    onSeleccion = { filtro = it },
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
             }
 
             Box(modifier = Modifier.weight(1f)) {

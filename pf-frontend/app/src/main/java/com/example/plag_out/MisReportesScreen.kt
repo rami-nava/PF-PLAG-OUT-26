@@ -27,7 +27,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -114,20 +113,6 @@ fun MisReportesScreen(
 
     var tabSeleccionado by rememberSaveable { mutableIntStateOf(TAB_PROPIOS) }
     var filtrosExpandidos by rememberSaveable { mutableStateOf(false) }
-
-    var panelFiltroVisible by remember { mutableStateOf(true) }
-    val scrollConnection = remember {
-        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-            override fun onPreScroll(
-                available: androidx.compose.ui.geometry.Offset,
-                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
-            ): androidx.compose.ui.geometry.Offset {
-                if (available.y < -15f) panelFiltroVisible = false
-                else if (available.y > 15f) panelFiltroVisible = true
-                return androidx.compose.ui.geometry.Offset.Zero
-            }
-        }
-    }
 
     // Filtros separados por ámbito: si se compartieran, cambiar de pestaña dejaría
     // aplicado un filtro que ahí no significa nada y la lista aparecería vacía.
@@ -224,7 +209,7 @@ fun MisReportesScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            Column(modifier = Modifier.fillMaxSize().nestedScroll(scrollConnection)) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 PanelHeaderReportes(
                     tabSeleccionado = tabSeleccionado,
                     onTabChange = { tabSeleccionado = it },
@@ -234,7 +219,7 @@ fun MisReportesScreen(
                 val totalOriginal = reportesAmbito.size
                 val totalFiltrados = reportesFiltrados.size
                 AnimatedVisibility(
-                    visible = panelFiltroVisible,
+                    visible = true,
                     enter = slideInVertically(animationSpec = tween(250, easing = LinearOutSlowInEasing)) { -it } + fadeIn(tween(250)),
                     exit = slideOutVertically(animationSpec = tween(180, easing = FastOutLinearInEasing)) { -it } + fadeOut(tween(150))
                 ) {

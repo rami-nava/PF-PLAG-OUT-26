@@ -133,6 +133,7 @@ class AuthViewModel(
                     )
                 }
 
+                FcmTokenRegistrar.iniciarSesion()
                 // Registrar el token FCM del dispositivo para poder recibir alertas, salvo que el
                 // usuario haya apagado las notificaciones desde su perfil.
                 if (PreferenciasUsuario.notificacionesActivadas(context)) {
@@ -182,9 +183,10 @@ class AuthViewModel(
      */
     @RequiresApi(Build.VERSION_CODES.O)
     fun cerrarSesion(desregistrarDispositivo: Boolean = true, onComplete: () -> Unit) {
+        FcmTokenRegistrar.invalidarSesion()
         viewModelScope.launch {
             // Desregistrar el token FCM antes del signOut, mientras el JWT sigue válido
-            if (desregistrarDispositivo) FcmTokenRegistrar.desregistrar()
+            FcmTokenRegistrar.desregistrar(desregistrarDispositivo)
             try {
                 supabaseClient.auth.signOut()
             } catch (e: Exception) {
