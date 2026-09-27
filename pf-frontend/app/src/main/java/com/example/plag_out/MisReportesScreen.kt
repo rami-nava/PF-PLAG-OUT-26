@@ -27,6 +27,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -82,6 +84,9 @@ import com.google.gson.Gson
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 private const val FILTRO_TODOS = "Todos"
 
@@ -216,7 +221,7 @@ fun MisReportesScreen(
                 val totalOriginal = reportesAmbito.size
                 val totalFiltrados = reportesFiltrados.size
                 AnimatedVisibility(
-                    visible = reportesAmbito.isNotEmpty(),
+                    visible = true,
                     enter = slideInVertically(animationSpec = tween(250, easing = LinearOutSlowInEasing)) { -it } + fadeIn(tween(250)),
                     exit = slideOutVertically(animationSpec = tween(180, easing = FastOutLinearInEasing)) { -it } + fadeOut(tween(150))
                 ) {
@@ -232,6 +237,13 @@ fun MisReportesScreen(
                             },
                             onLimpiar = limpiarFiltrosDelAmbito
                         ) {
+                            EncabezadoGrupoFiltro(Icons.Outlined.AccessTime, "RANGO DE FECHAS")
+                            FiltroFechas(
+                                desde = state.fechaDesde,
+                                hasta = state.fechaHasta,
+                                onFechasChange = { d, h -> viewModel.actualizarFechas(d, h) }
+                            )
+
                             // --- Categoría común: Nivel de Severidad ---
                             GrupoFiltroSeveridad(
                                 reportes = reportesAmbito,
@@ -881,6 +893,113 @@ fun TarjetaReporteItem(
                     }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FiltroFechas(
+    desde: LocalDate,
+    hasta: LocalDate,
+    onFechasChange: (LocalDate, LocalDate) -> Unit
+) {
+    var mostrarDesde by remember { mutableStateOf(false) }
+    var mostrarHasta by remember { mutableStateOf(false) }
+
+    val todayMillis = remember { java.time.LocalDate.now().atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli() }
+    val minDateMillis = remember { java.time.LocalDate.of(2026, 1, 1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli() }
+    val pastSelectableDates = remember { object : androidx.compose.material3.SelectableDates { override fun isSelectableDate(utcTimeMillis: Long): Boolean { return utcTimeMillis in minDateMillis..todayMillis } } }
+    val yearRangeToToday = remember { 2026..java.time.LocalDate.now().year }
+
+    val formatoCorto = DateTimeFormatter.ofPattern("dd/MM/yy")
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Surface(
+            onClick = { mostrarDesde = true },
+            shape = CircleShape,
+            color = PlagOutColors.Surface,
+            border = BorderStroke(1.dp, PlagOutColors.Divider),
+            shadowElevation = 0.dp
+        ) {
+            Row(
+                Modifier.padding(horizontal = 36.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Desde: ${desde.format(formatoCorto)}", color = PlagOutColors.TextMain, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        
+        Surface(
+            onClick = { mostrarHasta = true },
+            shape = CircleShape,
+            color = PlagOutColors.Surface,
+            border = BorderStroke(1.dp, PlagOutColors.Divider),
+            shadowElevation = 0.dp
+        ) {
+            Row(
+                Modifier.padding(horizontal = 36.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Hasta: ${hasta.format(formatoCorto)}", color = PlagOutColors.TextMain, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+
+    if (mostrarDesde) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = desde.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            selectableDates = pastSelectableDates,
+            yearRange = yearRangeToToday
+        )
+        DatePickerDialog(
+            onDismissRequest = { mostrarDesde = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val nuevaFecha = java.time.Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                        if (nuevaFecha.isAfter(hasta)) {
+                            onFechasChange(nuevaFecha, nuevaFecha)
+                        } else {
+                            onFechasChange(nuevaFecha, hasta)
+                        }
+                    }
+                    mostrarDesde = false
+                }) { Text("Aceptar") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (mostrarHasta) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = hasta.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            selectableDates = pastSelectableDates,
+            yearRange = yearRangeToToday
+        )
+        DatePickerDialog(
+            onDismissRequest = { mostrarHasta = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val nuevaFecha = java.time.Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                        if (nuevaFecha.isBefore(desde)) {
+                            onFechasChange(nuevaFecha, nuevaFecha)
+                        } else {
+                            onFechasChange(desde, nuevaFecha)
+                        }
+                    }
+                    mostrarHasta = false
+                }) { Text("Aceptar") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }

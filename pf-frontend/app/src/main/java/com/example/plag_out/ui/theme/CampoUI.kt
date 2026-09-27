@@ -418,7 +418,14 @@ fun FiltroChipsRow(
                         )
                         Spacer(Modifier.width(6.dp))
                     }
-                    Text(opcion.etiqueta, color = tinta, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = opcion.etiqueta,
+                        color = tinta,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                     if (opcion.cantidad != null) {
                         Spacer(Modifier.width(6.dp))
                         Text(

@@ -148,7 +148,10 @@ interface GDDService {
     suspend fun getReporte(@Path("id") id: Int): Response<ReporteDetalleResponse>
 
     @GET("/reportes")
-    suspend fun getReportes(): Response<List<ReporteDetalleResponse>>
+    suspend fun getReportes(
+        @retrofit2.http.Query("fecha_desde") fechaDesde: String? = null,
+        @retrofit2.http.Query("fecha_hasta") fechaHasta: String? = null
+    ): Response<List<ReporteDetalleResponse>>
 
     @DELETE("/reportes/{id}")
     suspend fun deleteReporte(@Path("id") reporteId: Int): Response<Unit>
