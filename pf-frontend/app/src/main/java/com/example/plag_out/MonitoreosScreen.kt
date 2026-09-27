@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -79,6 +80,7 @@ import com.example.plag_out.ui.theme.SkeletonCargando
 import com.example.plag_out.ui.theme.StaggeredAppear
 import com.example.plag_out.ui.theme.contadorAnimado
 import com.example.plag_out.ui.theme.estiloDeNivel
+import com.example.plag_out.ui.theme.estiloEsperandoBiofix
 import com.example.plag_out.ui.theme.estiloFinalizado
 import com.example.plag_out.ui.theme.rememberPressScale
 import kotlinx.coroutines.launch
@@ -260,6 +262,7 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
     val bajo = monitoreos.count { nivelAlertaEfectivo(it) == 0 }
     val moderado = monitoreos.count { nivelAlertaEfectivo(it) == 1 }
     val alto = monitoreos.count { nivelAlertaEfectivo(it) >= 2 }
+    val esperando = monitoreos.count { esperandoBiofix(it) }
 
     val respiracion = rememberInfiniteTransition(label = "respiracionHeader")
     val escalaDecorativa by respiracion.animateFloat(
@@ -323,7 +326,8 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
                     segmentos = listOf(
                         bajo to estiloDeNivel(0).colorSobreOscuro,
                         moderado to estiloDeNivel(1).colorSobreOscuro,
-                        alto to estiloDeNivel(2).colorSobreOscuro
+                        alto to estiloDeNivel(2).colorSobreOscuro,
+                        esperando to estiloEsperandoBiofix().colorSobreOscuro.copy(alpha = 0.55f)
                     ),
                     total = total,
                     modifier = Modifier.size(110.dp)
@@ -331,15 +335,17 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("$totalAnimado", color = PlagOutColors.TextOnDark, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
                         Text(
-                            if (total == 1) "activo" else "activos",
+                            if (total == 1) "monitoreo\nactivo" else "monitoreos\nactivos",
                             color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                             fontSize = 11.sp,
+                            lineHeight = 12.sp,
+                            textAlign = TextAlign.Center,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
                 Spacer(Modifier.width(24.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(15.dp)) { //canged from 10 to 15
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         "NIVEL DE ALERTA",
                         color = PlagOutColors.TextOnDark.copy(alpha = 0.6f),
@@ -350,6 +356,7 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
                     LeyendaEstado(estiloDeNivel(0), bajo)
                     LeyendaEstado(estiloDeNivel(1), moderado)
                     LeyendaEstado(estiloDeNivel(2), alto)
+                    LeyendaEstado(estiloEsperandoBiofix(), esperando)
                 }
             }
         }
@@ -367,7 +374,8 @@ private fun LeyendaEstado(estilo: NivelEstilo, cantidad: Int) {
             color = PlagOutColors.TextOnDark.copy(alpha = 0.85f),
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(80.dp)
+            maxLines = 1,
+            modifier = Modifier.width(112.dp)
         )
         Spacer(Modifier.width(12.dp))
         Text("$valor", color = PlagOutColors.TextOnDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -675,6 +683,7 @@ private fun InformacionPlantacionTab(
     val sanos = activos.count { nivelAlertaEfectivo(it) == 0 }
     val atencion = activos.count { nivelAlertaEfectivo(it) == 1 }
     val criticos = activos.count { nivelAlertaEfectivo(it) >= 2 }
+    val esperando = activos.count { esperandoBiofix(it) }
     val total = monitoreosDeLaPlantacion.size
     val activosAnimado = contadorAnimado(activos.size)
     val diasDesdeSiembra = plantacion?.let { ChronoUnit.DAYS.between(it.fecha_siembra, LocalDate.now()).toInt() }
@@ -690,7 +699,7 @@ private fun InformacionPlantacionTab(
             shape = RoundedCornerShape(50)
         ) {
             Text(
-                if (plantacion?.activa != false) "ACTIVO" else "PAUSADO",
+                if (plantacion?.activa != false) "CULTIVO ACTIVO" else "CULTIVO PAUSADO",
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
@@ -715,7 +724,8 @@ private fun InformacionPlantacionTab(
                 segmentos = listOf(
                     sanos to estiloDeNivel(0).color,
                     atencion to estiloDeNivel(1).color,
-                    criticos to estiloDeNivel(2).color
+                    criticos to estiloDeNivel(2).color,
+                    esperando to estiloEsperandoBiofix().color.copy(alpha = 0.45f)
                 ),
                 total = activos.size,
                 modifier = Modifier.size(104.dp)
@@ -723,8 +733,10 @@ private fun InformacionPlantacionTab(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("$activosAnimado", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
                     Text(
-                        if (activos.size == 1) "activo" else "activos",
+                        if (activos.size == 1) "monitoreo\nactivo" else "monitoreos\nactivos",
                         fontSize = 10.sp,
+                        lineHeight = 11.sp,
+                        textAlign = TextAlign.Center,
                         color = PlagOutColors.TextSecondary,
                         fontWeight = FontWeight.Medium
                     )
@@ -735,6 +747,7 @@ private fun InformacionPlantacionTab(
                 LeyendaEstadoTerrenoClaro(estiloDeNivel(0), sanos)
                 LeyendaEstadoTerrenoClaro(estiloDeNivel(1), atencion)
                 LeyendaEstadoTerrenoClaro(estiloDeNivel(2), criticos)
+                LeyendaEstadoTerrenoClaro(estiloEsperandoBiofix(), esperando)
                 // Fuera del anillo a propósito: son historial, no estado actual.
                 if (finalizados > 0) {
                     HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.width(140.dp))
@@ -894,7 +907,8 @@ private fun LeyendaEstadoTerrenoClaro(estilo: NivelEstilo, cantidad: Int) {
             color = PlagOutColors.TextSecondary,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(90.dp)
+            maxLines = 1,
+            modifier = Modifier.width(104.dp)
         )
         Spacer(Modifier.width(12.dp))
         Text("$valor", color = PlagOutColors.TextMain, fontSize = 14.sp, fontWeight = FontWeight.Bold)

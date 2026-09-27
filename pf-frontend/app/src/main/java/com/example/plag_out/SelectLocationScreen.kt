@@ -82,7 +82,6 @@ import android.util.Log
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.CustomZoomButtonsController
@@ -106,16 +105,6 @@ import org.osmdroid.api.IMapController
 import java.util.Locale
 import kotlin.math.sqrt
 import kotlin.math.PI
-
-private val OsmTileSource = XYTileSource(
-    "OSM_FR",
-    0, 19, 256, ".png",
-    arrayOf(
-        "https://a.tile.openstreetmap.fr/osmfr/",
-        "https://b.tile.openstreetmap.fr/osmfr/",
-        "https://c.tile.openstreetmap.fr/osmfr/"
-    )
-)
 
 @SuppressLint("MissingPermission")
 @RequiresApi(Build.VERSION_CODES.O)
