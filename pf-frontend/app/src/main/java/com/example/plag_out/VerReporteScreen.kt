@@ -83,7 +83,6 @@ import com.example.plag_out.ui.theme.NivelEstilo
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.SelloDeNivel
 import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.views.MapView
@@ -95,16 +94,6 @@ import android.graphics.Color as AndroidColor
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-private val OsmTileSource = XYTileSource(
-    "OSM_FR",
-    0, 19, 256, ".png",
-    arrayOf(
-        "https://a.tile.openstreetmap.fr/osmfr/",
-        "https://b.tile.openstreetmap.fr/osmfr/",
-        "https://c.tile.openstreetmap.fr/osmfr/"
-    )
-)
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable

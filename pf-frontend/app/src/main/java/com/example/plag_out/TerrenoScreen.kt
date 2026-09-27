@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.SquareFoot
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Terrain
@@ -48,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,6 +71,7 @@ import com.example.plag_out.ui.theme.SkeletonCargando
 import com.example.plag_out.ui.theme.StaggeredAppear
 import com.example.plag_out.ui.theme.contadorAnimado
 import com.example.plag_out.ui.theme.estiloDeNivel
+import com.example.plag_out.ui.theme.estiloEsperandoBiofix
 import com.example.plag_out.ui.theme.rememberPressScale
 
 /** ids del filtro por estado — distintos de los niveles 0/1/2 para poder incluir "Todos" y "Sin datos". */
@@ -110,7 +113,7 @@ fun TerrenoScreen(
     fun nivelMaxDe(terreno: TerrenoResponse): Int =
         monitoreosState.monitoreos
             .filter { it.terreno_id == terreno.terreno_id && it.activo }
-            .maxOfOrNull { it.nivel_alerta } ?: -1
+            .maxOfOrNull { nivelAlertaEfectivo(it) } ?: -1
 
     val ordenados = remember(state.terrenos, monitoreosState.monitoreos) {
         state.terrenos.sortedByDescending { nivelMaxDe(it) }
@@ -260,7 +263,7 @@ fun TerrenoScreen(
 private fun PanelDeCampoTerrenos(terrenos: List<TerrenoResponse>, monitoreos: List<MonitoreoResponse>) {
     val total = terrenos.size
     val nivelesMax = terrenos.map { t ->
-        monitoreos.filter { it.terreno_id == t.terreno_id && it.activo }.maxOfOrNull { it.nivel_alerta } ?: -1
+        monitoreos.filter { it.terreno_id == t.terreno_id && it.activo }.maxOfOrNull { nivelAlertaEfectivo(it) } ?: -1
     }
     val sanos = nivelesMax.count { it == 0 }
     val atencion = nivelesMax.count { it == 1 }
@@ -391,14 +394,15 @@ fun TerrenoCard(
     onClick: () -> Unit
 ) {
     val activos = monitoreos.filter { it.activo }
-    val nivelMax = activos.maxOfOrNull { it.nivel_alerta } ?: -1
+    val nivelMax = activos.maxOfOrNull { nivelAlertaEfectivo(it) } ?: -1
     val estilo = estiloDeNivel(nivelMax)
     val interactionSource = remember { MutableInteractionSource() }
     val escala = rememberPressScale(interactionSource)
 
-    val sanos = activos.count { it.nivel_alerta == 0 }
-    val atencion = activos.count { it.nivel_alerta == 1 }
-    val criticos = activos.count { it.nivel_alerta >= 2 }
+    val sanos = activos.count { nivelAlertaEfectivo(it) == 0 }
+    val atencion = activos.count { nivelAlertaEfectivo(it) == 1 }
+    val criticos = activos.count { nivelAlertaEfectivo(it) >= 2 }
+    val esperando = activos.count { esperandoBiofix(it) }
     val finalizados = monitoreos.size - activos.size
 
     Surface(
@@ -450,7 +454,8 @@ fun TerrenoCard(
                         segmentos = listOf(
                             sanos to estiloDeNivel(0).color,
                             atencion to estiloDeNivel(1).color,
-                            criticos to estiloDeNivel(2).color
+                            criticos to estiloDeNivel(2).color,
+                            esperando to estiloEsperandoBiofix().color.copy(alpha = 0.45f)
                         ),
                         total = activos.size,
                         modifier = Modifier.size(66.dp),
@@ -459,7 +464,13 @@ fun TerrenoCard(
                         // El total (con finalizados) queda abajo, en la fila de estadísticas.
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("${activos.size}", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
-                            Text("activos", fontSize = 9.sp, color = PlagOutColors.TextSecondary)
+                            Text(
+                                if (activos.size == 1) "monitoreo\nactivo" else "monitoreos\nactivos",
+                                fontSize = 8.sp,
+                                lineHeight = 9.sp,
+                                textAlign = TextAlign.Center,
+                                color = PlagOutColors.TextSecondary
+                            )
                         }
                     }
                 }
@@ -493,6 +504,11 @@ fun TerrenoCard(
                         atencion > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$atencion en atención", PlagOutColors.RiskWarn)
                         monitoreos.isEmpty() -> EtiquetaInfo(Icons.AutoMirrored.Outlined.HelpOutline, "Sin monitoreos", PlagOutColors.RiskUnknown)
                         activos.isEmpty() -> EtiquetaInfo(Icons.Filled.Flag, "Todos finalizados", PlagOutColors.Bark)
+                        esperando > 0 -> EtiquetaInfo(
+                            Icons.Outlined.HourglassEmpty,
+                            "$esperando esperando biofix",
+                            PlagOutColors.TextSecondary
+                        )
                         else -> EtiquetaInfo(Icons.Default.CheckCircle, "Todo en orden", PlagOutColors.RiskOk)
                     }
                     Spacer(Modifier.weight(1f))
