@@ -222,10 +222,28 @@ class PrediccionDetalleViewModelTest {
     }
 
     @Test
-    fun `push de ciclos no abre monitoreo ni prediccion`() {
-        assertEquals("ciclo/73", destinoDePush("ALERTA_GDD_CICLO", monitoreoId="41", cicloId="73"))
-        assertEquals("ciclo/73", destinoDePush("BIOFIX_CICLO", entidadId="73"))
-        assertNull(destinoDePush("ALERTA_GDD_CICLO", monitoreoId="41"))
+    fun `push de ciclo abre el monitoreo de monitoreo_id, no el ciclo`() {
+        for (tipo in listOf("ALERTA_GDD_CICLO", "BIOFIX_CICLO")) {
+            assertEquals("monitoreo/41", destinoDePush(tipo, monitoreoId = "41", cicloId = "73"))
+            // Sin monitoreo no hay a dónde ir: el ciclo_id no alcanza para abrir el monitoreo.
+            assertNull(destinoDePush(tipo, cicloId = "73"))
+            assertNull(destinoDePush(tipo, monitoreoId = "abc"))
+        }
+    }
+
+    @Test
+    fun `aviso de ciclo en la campana abre el monitoreo de entidad_id`() {
+        for (tipo in listOf("ALERTA_GDD_CICLO", "BIOFIX_CICLO")) {
+            assertEquals("monitoreo/41", destinoDe(Fixtures.notificacion(tipo = tipo, entidadId = 41)))
+            assertNull(destinoDe(Fixtures.notificacion(tipo = tipo, entidadId = null)))
+        }
+    }
+
+    @Test
+    fun `tipos viejos siguen abriendo su entidad`() {
+        assertEquals("monitoreo/41", destinoDe(Fixtures.notificacion(tipo = "ALERTA_GDD", entidadId = 41)))
+        assertEquals("plantacion/7", destinoDe(Fixtures.notificacion(tipo = "BIOFIX", entidadId = 7)))
+        assertEquals("ver_reporte/9", destinoDe(Fixtures.notificacion(tipo = "REPORTE_CERCANO", entidadId = 9)))
     }
 
 }
