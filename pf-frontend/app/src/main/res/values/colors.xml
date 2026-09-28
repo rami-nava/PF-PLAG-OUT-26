@@ -7,4 +7,7 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="ic_launcher_background">#FFF6F1E4</color>
+    <!-- Leaf de PlagOutColors: tiñe el ícono y el nombre de la app en las notificaciones -->
+    <color name="notificacion_acento">#FF4C7A3D</color>
 </resources>

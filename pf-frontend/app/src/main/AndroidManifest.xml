@@ -39,6 +39,13 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="alertas_gdd" />
+        <!-- Ícono y color de los push que FCM muestra solo cuando la app está en background -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notificacion" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notificacion_acento" />
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />
