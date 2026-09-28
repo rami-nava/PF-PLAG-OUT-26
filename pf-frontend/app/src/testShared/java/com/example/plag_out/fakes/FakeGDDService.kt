@@ -205,8 +205,14 @@ class FakeGDDService : GDDService {
         llamadas += "getReporte"; return getReporteResult()
     }
 
-    override suspend fun getReportes(): Response<List<ReporteDetalleResponse>> {
-        llamadas += "getReportes"; return getReportesResult()
+    override suspend fun getReportes(
+        fechaDesde: String?,
+        fechaHasta: String?
+    ): Response<List<ReporteDetalleResponse>> {
+        llamadas += "getReportes"
+        ultimoFechaDesdeReportes = fechaDesde
+        ultimoFechaHastaReportes = fechaHasta
+        return getReportesResult()
     }
 
     override suspend fun deleteReporte(reporteId: Int): Response<Unit> {
@@ -253,6 +259,10 @@ class FakeGDDService : GDDService {
     var ultimoActualizarPlantacion: UpdatePlantacionRequest? = null
         private set
     var ultimoCreateReporte: CreateReporteRequest? = null
+        private set
+    var ultimoFechaDesdeReportes: String? = null
+        private set
+    var ultimoFechaHastaReportes: String? = null
         private set
     var ultimoEliminarDispositivo: String? = null
         private set
