@@ -404,7 +404,7 @@ fun destinoDe(notificacion: NotificacionResponse): String? {
     val id = notificacion.entidad_id
     val tipo = notificacion.tipo.uppercase()
     return when {
-        tipo in setOf("ALERTA_GDD_CICLO", "BIOFIX_CICLO") -> id?.let { "ciclo/$it" }
+        tipo in setOf("ALERTA_GDD_CICLO", "BIOFIX_CICLO") -> id?.let { "monitoreo/$it" }
         tipo == "ALERTA_ML_RIESGO" -> {
             if (id != null) "prediccion/$id" else null
         }
@@ -431,7 +431,7 @@ fun destinoDePush(
     cicloId: String? = null
 ): String? {
     if (tipo in setOf("ALERTA_GDD_CICLO", "BIOFIX_CICLO")) {
-        return (cicloId ?: entidadId)?.toIntOrNull()?.let { "ciclo/$it" }
+        return (monitoreoId ?: entidadId)?.toIntOrNull()?.let { "monitoreo/$it" }
     }
     prediccionId?.toIntOrNull()?.let { return "prediccion/$it" }
     monitoreoId?.toIntOrNull()?.let { return "monitoreo/$it" }
