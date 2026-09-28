@@ -1,11 +1,18 @@
 package com.example.plag_out
 
 import android.Manifest
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -43,6 +50,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
@@ -51,17 +59,20 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -142,6 +153,23 @@ fun PerfilScreen(
         monitoreosViewModel.getMonitoreos()
     }
 
+    val context = LocalContext.current
+    val estadoActual by rememberUpdatedState(state)
+    DisposableEffect(Unit) {
+        val connectivity = context.getSystemService(ConnectivityManager::class.java)
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                // El callback llega en un hilo del sistema: se vuelve al hilo principal
+                scope.launch {
+                    if (estadoActual.sinConexion) userViewModel.refrescar()
+                    if (estadoActual.consentimientoModelo == null) userViewModel.cargarConsentimientoModelo()
+                }
+            }
+        }
+        runCatching { connectivity.registerDefaultNetworkCallback(callback) }
+        onDispose { runCatching { connectivity.unregisterNetworkCallback(callback) } }
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -166,6 +194,7 @@ fun PerfilScreen(
         ) {
             HeaderPerfil(
                 usuario = state.usuario,
+                cargando = state.isLoading,
                 onAbrirAjustes = { scope.launch { drawerState.open() } },
                 onEditar = onEditarPerfil
             )
@@ -196,12 +225,24 @@ fun PerfilScreen(
                         state.usuario == null -> {
                             ErrorPerfil(
                                 mensaje = state.error ?: "No se pudo cargar tu perfil.",
+                                sinConexion = state.sinConexion,
                                 onReintentar = { userViewModel.refrescar() }
                             )
                         }
 
                         else -> {
                             val usuario = state.usuario!!
+
+                            AnimatedVisibility(
+                                visible = state.sinConexion,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                            ) {
+                                AvisoSinConexion(
+                                    reintentando = state.isRefreshing,
+                                    onReintentar = { userViewModel.refrescar() }
+                                )
+                            }
 
                             StaggeredAppear(0) {
                                 TarjetaInformacionPersonal(usuario, onEditar = onEditarPerfil)
@@ -270,7 +311,12 @@ fun PerfilScreen(
 }
 
 @Composable
-private fun HeaderPerfil(usuario: UsuarioResponse?, onAbrirAjustes: () -> Unit, onEditar: () -> Unit) {
+private fun HeaderPerfil(
+    usuario: UsuarioResponse?,
+    cargando: Boolean,
+    onAbrirAjustes: () -> Unit,
+    onEditar: () -> Unit
+) {
     val respiracion = rememberInfiniteTransition(label = "respiracionHeaderPerfil")
     val escalaDecorativa by respiracion.animateFloat(
         initialValue = 1f,
@@ -353,20 +399,30 @@ private fun HeaderPerfil(usuario: UsuarioResponse?, onAbrirAjustes: () -> Unit, 
                         .background(PlagOutColors.TextOnDark.copy(alpha = 0.15f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        iniciales,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = PlagOutColors.TextOnDark,
-                        modifier = Modifier.testTag("txtInicialesPerfil")
-                    )
+                    if (usuario == null && !cargando) {
+                        Icon(
+                            Icons.Outlined.Person,
+                            contentDescription = null,
+                            tint = PlagOutColors.TextOnDark,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    } else {
+                        Text(
+                            iniciales,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = PlagOutColors.TextOnDark,
+                            modifier = Modifier.testTag("txtInicialesPerfil")
+                        )
+                    }
                 }
 
                 Spacer(Modifier.width(16.dp))
 
                 Column(Modifier.weight(1f)) {
                     Text(
-                        usuario?.let { "${it.nombre} ${it.apellido}".trim() } ?: "Cargando perfil…",
+                        usuario?.let { "${it.nombre} ${it.apellido}".trim() }
+                            ?: if (cargando) "Cargando perfil…" else "Mi perfil",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = PlagOutColors.TextOnDark,
@@ -1328,25 +1384,46 @@ private fun DivisorFila() {
 }
 
 @Composable
-private fun ErrorPerfil(mensaje: String, onReintentar: () -> Unit) {
+private fun ErrorPerfil(mensaje: String, sinConexion: Boolean, onReintentar: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 40.dp),
+            .padding(top = 40.dp)
+            .testTag(if (sinConexion) "estadoPerfilSinConexion" else "estadoPerfilError"),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            Icons.Filled.ErrorOutline,
-            contentDescription = null,
-            tint = PlagOutColors.RiskDanger,
-            modifier = Modifier.size(44.dp)
-        )
-        Spacer(Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .size(84.dp)
+                .background(
+                    (if (sinConexion) PlagOutColors.RiskWarn else PlagOutColors.RiskDanger).copy(alpha = 0.12f),
+                    CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                if (sinConexion) Icons.Outlined.CloudOff else Icons.Filled.ErrorOutline,
+                contentDescription = null,
+                tint = if (sinConexion) PlagOutColors.RiskWarn else PlagOutColors.RiskDanger,
+                modifier = Modifier.size(42.dp)
+            )
+        }
+        Spacer(Modifier.height(16.dp))
         Text(
-            mensaje,
+            if (sinConexion) "Sin conexión" else "Algo salió mal",
+            color = PlagOutColors.TextMain,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            if (sinConexion) {
+                "No hay conexión a internet. Al recuperar la señal, se va a cargar el perfil."
+            } else mensaje,
             color = PlagOutColors.TextSecondary,
             fontSize = 14.sp,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 12.dp)
         )
         Spacer(Modifier.height(18.dp))
         Button(
@@ -1359,6 +1436,61 @@ private fun ErrorPerfil(mensaje: String, onReintentar: () -> Unit) {
             modifier = Modifier.testTag("btnReintentarPerfil")
         ) {
             Text("Reintentar", fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun AvisoSinConexion(reintentando: Boolean, onReintentar: () -> Unit) {
+    Surface(
+        color = PlagOutColors.RiskWarn.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, PlagOutColors.RiskWarn.copy(alpha = 0.35f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+            .testTag("avisoPerfilSinConexion")
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Outlined.CloudOff,
+                contentDescription = null,
+                tint = PlagOutColors.RiskWarn,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Sin conexión",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    color = PlagOutColors.TextMain
+                )
+                Text(
+                    "Mostrando los datos guardados en tu dispositivo",
+                    fontSize = 12.sp,
+                    color = PlagOutColors.TextSecondary
+                )
+            }
+            if (reintentando) {
+                CircularProgressIndicator(
+                    color = PlagOutColors.RiskWarn,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier
+                        .padding(horizontal = 14.dp)
+                        .size(18.dp)
+                )
+            } else {
+                TextButton(
+                    onClick = onReintentar,
+                    modifier = Modifier.testTag("btnReintentarAvisoPerfil")
+                ) {
+                    Text("Reintentar", color = PlagOutColors.Forest, fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }

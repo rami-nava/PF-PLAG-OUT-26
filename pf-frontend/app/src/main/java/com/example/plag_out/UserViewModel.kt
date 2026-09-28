@@ -9,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.plag_out.AlmacenamientoLocal.UsuarioRepository
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
+import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +23,7 @@ data class UserUIState(
     val isRefreshing: Boolean = false,
     val usuario: UsuarioResponse? = null,
     val error: String? = null,
+    val sinConexion: Boolean = false,
     val consentimientoModelo: ConsentimientoModeloResponse? = null,
     val cargandoConsentimiento: Boolean = false,
     val guardandoConsentimiento: Boolean = false,
@@ -75,23 +78,35 @@ class UserViewModel(
                         usuario = usuario,
                         isLoading = false,
                         isRefreshing = false,
-                        error = null
+                        error = null,
+                        sinConexion = false
                     )
                     withContext(Dispatchers.IO) { usuarioRepository.guardarUsuario(usuario) }
                 } else {
                     _state.value = _state.value.copy(
                         isLoading = false,
                         isRefreshing = false,
-                        error = if (hayPerfil) null else "No se pudo cargar tu perfil."
+                        error = if (hayPerfil) null else "No se pudo cargar tu perfil.",
+                        sinConexion = false
                     )
                     Log.e("USUARIO", "Error: ${response.code()}")
                 }
-            } catch (e: Exception) {
-                // Sin conexión: se queda con el caché ya mostrado (si lo hay)
+            } catch (e: IOException) {
                 _state.value = _state.value.copy(
                     isLoading = false,
                     isRefreshing = false,
-                    error = if (hayPerfil) null else "No se pudo cargar tu perfil. Revisá tu conexión."
+                    error = if (hayPerfil) null else "No hay conexión a internet.",
+                    sinConexion = true
+                )
+                Log.e("USUARIO", "Sin conexión: ${e.message}")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    isRefreshing = false,
+                    error = if (hayPerfil) null else "No se pudo cargar tu perfil.",
+                    sinConexion = false
                 )
                 Log.e("USUARIO", "Error: ${e.message}")
             }

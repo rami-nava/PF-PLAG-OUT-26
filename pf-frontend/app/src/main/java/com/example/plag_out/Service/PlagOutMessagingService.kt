@@ -84,7 +84,8 @@ class PlagOutMessagingService : FirebaseMessagingService() {
         )
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.logo_plagout)
+            .setSmallIcon(R.drawable.ic_notificacion)
+            .setColor(getColor(R.color.notificacion_acento))
             .setContentTitle(titulo)
             .setContentText(cuerpo)
             .setStyle(NotificationCompat.BigTextStyle().bigText(cuerpo))
