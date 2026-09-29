@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.*
@@ -30,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.plag_out.ui.theme.CargandoCentrado
 import com.example.plag_out.ui.theme.EtiquetaInfo
+import com.example.plag_out.ui.theme.FiltroChipsRow
+import com.example.plag_out.ui.theme.OpcionFiltro
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.AlmacenamientoLocal.AppDatabase
 import com.example.plag_out.AlmacenamientoLocal.BiofixPendiente
@@ -82,7 +85,7 @@ fun BiofixDialog(monitoreoId: Int, onDismiss: () -> Unit, onConfirm: (BiofixRequ
         } catch (_: Exception) { error = "No se pudo cargar. Revisá tu conexión y volvé a abrir." }
     }
 
-    val activos = monitor?.ciclos.orEmpty().filter { it.estado == "activo" }
+    val activos = monitor?.let { ciclosActivos(it) }.orEmpty()
     val numeros = numerosDeCiclo(monitor?.ciclos.orEmpty())
     val inicio = monitor?.fecha_inicio
     val valido = inicio != null && !fecha.isBefore(inicio) && !fecha.isAfter(hoy)
@@ -356,6 +359,24 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
         ordenarCiclosPorProgreso(monitoreo.ciclos.orEmpty() + listOfNotNull(recien))
     }
     val numeros = remember(ciclos) { numerosDeCiclo(ciclos) }
+    val activos = remember(ciclos) { ciclosActivos(ciclos) }
+    val finalizados = remember(ciclos) { ciclosFinalizados(ciclos) }
+    var filtro by remember(monitoreo.monitoreo_id) { mutableStateOf(FILTRO_CICLOS_ACTIVOS) }
+    val visibles = if (filtro == FILTRO_CICLOS_ACTIVOS) activos else finalizados
+    var aFinalizar by remember { mutableStateOf<GddCicloResponse?>(null) }
+    var finalizandoId by remember { mutableStateOf<Int?>(null) }
+
+    fun finalizar(ciclo: GddCicloResponse) {
+        if (finalizandoId != null) return
+        finalizandoId = ciclo.id
+        scope.launch {
+            try {
+                val finalizado = finalizarCiclo(RetrofitClient.gddService, ciclo.id)
+                mensaje = finalizado.mensaje
+                if (finalizado.recargar) onRefresh()
+            } finally { finalizandoId = null }
+        }
+    }
 
     Column(modifier.fillMaxSize()) {
         if (ciclos.isEmpty()) {
@@ -372,6 +393,15 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
                 }
             }
         } else {
+            FiltroChipsRow(
+                opciones = listOf(
+                    OpcionFiltro(FILTRO_CICLOS_ACTIVOS, "Activos", activos.size, Icons.Outlined.Schedule, PlagOutColors.Forest),
+                    OpcionFiltro(FILTRO_CICLOS_FINALIZADOS, "Finalizados", finalizados.size, Icons.Filled.Flag, PlagOutColors.TextSecondary)
+                ),
+                seleccionado = filtro,
+                onSeleccion = { filtro = it },
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
             Column(
                 Modifier
                     .weight(1f)
@@ -379,16 +409,31 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
                     .padding(horizontal = 20.dp)
             ) {
                 mensaje?.let {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(4.dp))
                     EtiquetaInfo(Icons.Filled.ErrorOutline, it, PlagOutColors.RiskWarn)
                 }
-                Spacer(Modifier.height(14.dp))
-                ciclos.forEach { ciclo ->
+                Spacer(Modifier.height(10.dp))
+                if (visibles.isEmpty()) {
+                    Text(
+                        if (filtro == FILTRO_CICLOS_ACTIVOS) "No hay ciclos activos. Registrá un biofix para iniciar uno."
+                        else "Todavía no hay ciclos finalizados.",
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        textAlign = TextAlign.Center,
+                        color = PlagOutColors.TextSecondary,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp)
+                    )
+                }
+                visibles.forEach { ciclo ->
                     CicloCard(
                         ciclo = ciclo,
                         numero = numeros[ciclo.id],
                         objetivoMonitoreo = monitoreo.gdd_objetivo,
-                        umbralRiesgo = monitoreo.umbral_riesgo
+                        umbralRiesgo = monitoreo.umbral_riesgo,
+                        onFinalizar = if (puedeFinalizarCiclo(ciclo, monitoreo)) {
+                            { aFinalizar = ciclo }
+                        } else null,
+                        finalizando = finalizandoId == ciclo.id
                     )
                     Spacer(Modifier.height(12.dp))
                 }
@@ -417,7 +462,42 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
     if (mostrar) BiofixDialog(monitoreo.monitoreo_id, { mostrar = false }, {
         mostrar = false; enviar(it)
     })
+    aFinalizar?.let { ciclo ->
+        AlertDialog(
+            onDismissRequest = { aFinalizar = null },
+            containerColor = PlagOutColors.Surface,
+            shape = RoundedCornerShape(26.dp),
+            title = {
+                Text(
+                    numeros[ciclo.id]?.let { "¿Finalizar el ciclo $it?" } ?: "¿Finalizar el ciclo?",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = PlagOutColors.TextMain
+                )
+            },
+            text = {
+                Text(
+                    "Esta acción no se puede deshacer.",
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    color = PlagOutColors.TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { aFinalizar = null; finalizar(ciclo) },
+                    modifier = Modifier.testTag("btnConfirmarFinalizarCiclo")
+                ) { Text("Finalizar", color = PlagOutColors.Forest, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { aFinalizar = null }) { Text("Cancelar", color = PlagOutColors.TextSecondary) }
+            }
+        )
+    }
 }
+
+private const val FILTRO_CICLOS_ACTIVOS = 0
+private const val FILTRO_CICLOS_FINALIZADOS = 1
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable

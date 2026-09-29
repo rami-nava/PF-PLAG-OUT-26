@@ -150,6 +150,7 @@ class AuthViewModel(
                     error = mapearErrorLogin(e)
                 )
             } catch (e: Exception) {
+                Log.e("AuthViewModel", "Error inesperado al iniciar sesión", e)
                 _loginState.value = _loginState.value.copy(
                     cargando = false,
                     error = "Ocurrió un error inesperado. Intentá de nuevo."
