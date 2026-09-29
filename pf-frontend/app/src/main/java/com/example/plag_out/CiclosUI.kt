@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.plag_out.Service.GDDService
 import com.example.plag_out.ui.theme.AnilloProgreso
 import com.example.plag_out.ui.theme.EstadisticaCompacta
 import com.example.plag_out.ui.theme.EtiquetaInfo
@@ -60,14 +61,47 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.ceil
+
 
 private const val ESTADO_CICLO_ACTIVO = "activo"
 
 // ── Dominio ─────────────────────────────────────────────────────────────────
 
-fun ciclosActivos(monitoreo: MonitoreoResponse): List<GddCicloResponse> =
-    monitoreo.ciclos.orEmpty().filter { it.estado == ESTADO_CICLO_ACTIVO }
+fun cicloActivo(ciclo: GddCicloResponse): Boolean = ciclo.estado == ESTADO_CICLO_ACTIVO
+
+fun ciclosActivos(ciclos: List<GddCicloResponse>): List<GddCicloResponse> = ciclos.filter(::cicloActivo)
+
+fun ciclosActivos(monitoreo: MonitoreoResponse): List<GddCicloResponse> = ciclosActivos(monitoreo.ciclos.orEmpty())
+
+fun ciclosFinalizados(ciclos: List<GddCicloResponse>): List<GddCicloResponse> = ciclos.filterNot(::cicloActivo)
+
+fun puedeFinalizarCiclo(ciclo: GddCicloResponse, monitoreo: MonitoreoResponse): Boolean =
+    monitoreo.activo && cicloActivo(ciclo) && cicloEnAlerta(ciclo, monitoreo.umbral_riesgo)
+
+data class ResultadoFinalizarCiclo(val mensaje: String?, val recargar: Boolean)
+
+suspend fun finalizarCiclo(service: GDDService, cicloId: Int): ResultadoFinalizarCiclo = try {
+    val response = service.archivarCiclo(cicloId)
+    when {
+        response.isSuccessful -> ResultadoFinalizarCiclo(null, recargar = true)
+        // Ya no está activo o todavía no superó el umbral: se recarga para mostrar el estado real.
+        response.code() == 409 -> ResultadoFinalizarCiclo(
+            "Este ciclo ya no se puede finalizar. Actualizamos su estado.", recargar = true
+        )
+        response.code() == 404 -> ResultadoFinalizarCiclo(
+            "No se pudo finalizar el ciclo: no está disponible.", recargar = true
+        )
+        else -> ResultadoFinalizarCiclo(
+            "No se pudo finalizar el ciclo (${response.code()}). Intentá de nuevo.", recargar = false
+        )
+    }
+} catch (e: CancellationException) {
+    throw e
+} catch (_: Exception) {
+    ResultadoFinalizarCiclo("Sin conexión. Intentá finalizar el ciclo de nuevo.", recargar = false)
+}
 
 fun esperandoBiofix(monitoreo: MonitoreoResponse): Boolean =
     monitoreo.activo && ciclosActivos(monitoreo).isEmpty()
@@ -149,9 +183,11 @@ fun CicloCard(
     numero: Int? = null,
     objetivoMonitoreo: Float? = null,
     umbralRiesgo: Int? = null,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    onFinalizar: (() -> Unit)? = null,
+    finalizando: Boolean = false
 ) {
-    val activo = ciclo.estado == ESTADO_CICLO_ACTIVO
+    val activo = cicloActivo(ciclo)
     val estilo = estiloDeNivel(if (activo) ciclo.nivel_alerta else -1)
     val enAlerta = activo && cicloEnAlerta(ciclo, umbralRiesgo)
     val objetivo = objetivoDelCiclo(ciclo, objetivoMonitoreo)
@@ -236,6 +272,7 @@ fun CicloCard(
 
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     when {
+                        !activo -> EtiquetaInfo(Icons.Filled.Flag, "Finalizado", PlagOutColors.RiskUnknown)
                         eclosiono -> Unit
                         enAlerta -> EtiquetaInfo(Icons.Filled.Flag, "Superó el umbral", PlagOutColors.RiskDanger)
                         ciclo.dias_pendientes > 0 -> EtiquetaInfo(
@@ -243,7 +280,6 @@ fun CicloCard(
                             "Cálculo pendiente · ${ciclo.dias_pendientes} d",
                             PlagOutColors.RiskWarn
                         )
-                        !activo -> EtiquetaInfo(Icons.Filled.Flag, ciclo.estado, PlagOutColors.RiskUnknown)
                         else -> EtiquetaInfo(Icons.Outlined.Schedule, "En seguimiento", PlagOutColors.Forest)
                     }
                     Spacer(Modifier.weight(1f))
@@ -252,6 +288,33 @@ fun CicloCard(
                         fontSize = 11.sp,
                         color = PlagOutColors.TextSecondary
                     )
+                }
+
+                if (onFinalizar != null) {
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = onFinalizar,
+                        enabled = !finalizando,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PlagOutColors.Forest,
+                            contentColor = PlagOutColors.TextOnDark,
+                            disabledContainerColor = PlagOutColors.Forest.copy(alpha = 0.4f),
+                            disabledContentColor = PlagOutColors.TextOnDark.copy(alpha = 0.6f)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(42.dp)
+                            .testTag("btnFinalizarCiclo_${ciclo.id}")
+                    ) {
+                        if (finalizando) {
+                            CircularProgressIndicator(color = PlagOutColors.TextOnDark, modifier = Modifier.size(18.dp))
+                        } else {
+                            Icon(Icons.Filled.Flag, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Finalizar ciclo", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 }
             }
         }

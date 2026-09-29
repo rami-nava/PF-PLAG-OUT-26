@@ -5,7 +5,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
+import com.example.plag_out.fakes.FakeGDDService
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
+import retrofit2.Response
 
 class CiclosTest {
 
@@ -28,7 +31,7 @@ class CiclosTest {
         val monitoreo = Fixtures.monitoreo(
             ciclos = listOf(
                 Fixtures.ciclo(id = 1, estado = "activo", nivelAlerta = 0),
-                Fixtures.ciclo(id = 2, estado = "finalizado", nivelAlerta = 2)
+                Fixtures.ciclo(id = 2, estado = "archivado", nivelAlerta = 2)
             )
         )
 
@@ -51,7 +54,7 @@ class CiclosTest {
                 Fixtures.ciclo(id = 1, progreso = 95f),
                 Fixtures.ciclo(id = 2, progreso = 80f),
                 Fixtures.ciclo(id = 3, progreso = 79f),
-                Fixtures.ciclo(id = 4, progreso = 99f, estado = "finalizado")
+                Fixtures.ciclo(id = 4, progreso = 99f, estado = "archivado")
             )
         )
 
@@ -194,7 +197,7 @@ class CiclosTest {
     @Test
     fun `espera el biofix el monitoreo activo sin ciclos en curso`() {
         val sinCiclos = Fixtures.monitoreo(ciclos = null)
-        val soloCerrados = Fixtures.monitoreo(ciclos = listOf(Fixtures.ciclo(estado = "finalizado")))
+        val soloCerrados = Fixtures.monitoreo(ciclos = listOf(Fixtures.ciclo(estado = "completado")))
         val conCiclo = Fixtures.monitoreo(ciclos = listOf(Fixtures.ciclo(estado = "activo")))
         val finalizado = Fixtures.monitoreo(ciclos = null).copy(activo = false)
 
@@ -202,5 +205,45 @@ class CiclosTest {
         assertTrue(esperandoBiofix(soloCerrados))
         assertFalse(esperandoBiofix(conCiclo))
         assertFalse(esperandoBiofix(finalizado))
+    }
+
+    @Test
+    fun `archivados y completados se muestran juntos como finalizados`() {
+        val ciclos = listOf(
+            Fixtures.ciclo(id = 1, estado = "activo"),
+            Fixtures.ciclo(id = 2, estado = "archivado"),
+            Fixtures.ciclo(id = 3, estado = "completado")
+        )
+
+        assertEquals(listOf(1), ciclosActivos(ciclos).map { it.id })
+        assertEquals(listOf(2, 3), ciclosFinalizados(ciclos).map { it.id })
+    }
+
+    @Test
+    fun `solo se puede finalizar un ciclo activo que supero el umbral de un monitoreo en curso`() {
+        val monitoreo = Fixtures.monitoreo(umbralRiesgo = 80)
+
+        assertTrue(puedeFinalizarCiclo(Fixtures.ciclo(progreso = 80f), monitoreo))
+        assertFalse(puedeFinalizarCiclo(Fixtures.ciclo(progreso = 79f), monitoreo))
+        assertFalse(puedeFinalizarCiclo(Fixtures.ciclo(progreso = 95f, estado = "archivado"), monitoreo))
+        assertFalse(puedeFinalizarCiclo(Fixtures.ciclo(progreso = 95f), monitoreo.copy(activo = false)))
+    }
+
+    @Test
+    fun `finalizar recarga si el servidor acepto o rechazo por estado, y no si no hubo conexion`() {
+        val service = FakeGDDService()
+
+        service.archivarCicloResult = { Response.success(Fixtures.ciclo(estado = "archivado")) }
+        assertTrue(runBlocking { finalizarCiclo(service, 1) }.recargar)
+
+        service.archivarCicloResult = { FakeGDDService.errorServidor(409) }
+        assertTrue(runBlocking { finalizarCiclo(service, 1) }.recargar)
+
+        service.archivarCicloResult = { FakeGDDService.errorServidor(500) }
+        assertFalse(runBlocking { finalizarCiclo(service, 1) }.recargar)
+
+        service.archivarCicloResult = { FakeGDDService.sinConexion() }
+        assertFalse(runBlocking { finalizarCiclo(service, 1) }.recargar)
+        assertEquals(4, service.vecesLlamado("archivarCiclo"))
     }
 }

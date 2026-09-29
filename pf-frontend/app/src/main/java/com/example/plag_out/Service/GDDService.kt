@@ -171,6 +171,9 @@ interface GDDService {
     @GET("/ciclos/{id}")
     suspend fun getCiclo(@Path("id") id: Int): Response<com.example.plag_out.GddCicloResponse>
 
+    @POST("/ciclos/{id}/archivar")
+    suspend fun archivarCiclo(@Path("id") id: Int): Response<com.example.plag_out.GddCicloResponse>
+
     @GET("api/gdd/health")
     suspend fun health(): Response<Unit>
 }
