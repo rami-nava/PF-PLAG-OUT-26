@@ -143,7 +143,7 @@ object Fixtures {
         id: Int = 1,
         nombre: String = "Chicharrita",
         nombreCientifico: String = "Dalbulus maidis",
-        cultivosAfectados: List<Int>? = null
+        cultivosAfectados: List<Int>? = listOf(1)
     ) = PlagaResponse(
         id = id,
         nombre = nombre,
