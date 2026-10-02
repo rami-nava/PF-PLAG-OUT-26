@@ -157,14 +157,16 @@ object Fixtures {
         nombre: String = "Juan",
         apellido: String = "Perez",
         cargo: String = "Ingeniero agrónomo",
-        fechaCreacion: LocalDate = LocalDate.of(2026, 1, 1)
+        fechaCreacion: LocalDate = LocalDate.of(2026, 1, 1),
+        radio_notificacion_km: Double = 20.0
     ) = UsuarioResponse(
         usuario_id = id,
         email = email,
         nombre = nombre,
         apellido = apellido,
         cargo = cargo,
-        fecha_creacion = fechaCreacion
+        fecha_creacion = fechaCreacion,
+        radio_notificacion_km = radio_notificacion_km
     )
 
     fun cargo(id: Int = 1, tipo: String = "Ingeniero agrónomo") =
