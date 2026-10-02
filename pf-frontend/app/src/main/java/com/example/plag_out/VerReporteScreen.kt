@@ -568,10 +568,10 @@ private fun ContenidoVerReporte(
         AlertDialog(
             onDismissRequest = { mostrarDialogoConfirmacion = false },
             modifier = Modifier.testTag("dialogEliminarReporte"),
-            title = { Text("¿Eliminar reporte?") },
+            title = { Text("¿Estás seguro de que deseas eliminar este reporte?") },
             text = {
                 Text(
-                    "¿Estás seguro de que deseas eliminar este reporte? Esta acción no se puede deshacer y si eliminas este reporte, dejará de ser visible para los productores de tu zona."
+                    "Esta acción no se puede deshacer y si eliminas este reporte, dejará de ser visible para los productores de tu zona."
                 )
             },
             confirmButton = {
