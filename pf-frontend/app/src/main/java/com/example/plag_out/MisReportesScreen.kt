@@ -48,8 +48,10 @@ import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Radar
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.*
+import kotlin.math.roundToInt
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -216,6 +218,8 @@ fun MisReportesScreen(
                     onTabChange = { tabSeleccionado = it },
                     reportesPropios = reportesPropios,
                     reportesComunidad = reportesComunidad,
+                    radioNotificacionKm = state.radioNotificacionKm,
+                    onAbrirConfiguracionRadio = { viewModel.abrirConfiguracionRadio() },
                     onVerMapa = { navController.navigate("mapa_reportes") }
                 )
                 val totalOriginal = reportesAmbito.size
@@ -427,6 +431,16 @@ fun MisReportesScreen(
             }
         }
     }
+
+    if (state.mostrarDialogoRadio) {
+        DialogoConfiguracionRadio(
+            radioKm = state.radioTemporalKm,
+            guardando = state.guardandoRadio,
+            onRadioChange = { viewModel.onRadioTemporalChange(it) },
+            onConfirmar = { viewModel.guardarRadioNotificacion() },
+            onDismiss = { viewModel.cerrarConfiguracionRadio() }
+        )
+    }
 }
 
 
@@ -492,6 +506,8 @@ private fun PanelHeaderReportes(
     onTabChange: (Int) -> Unit,
     reportesPropios: List<ReporteDetalleResponse>,
     reportesComunidad: List<ReporteDetalleResponse>,
+    radioNotificacionKm: Double,
+    onAbrirConfiguracionRadio: () -> Unit,
     onVerMapa: () -> Unit
 ) {
     val respiracion = rememberInfiniteTransition(label = "respiracionHeaderReportes")
@@ -552,24 +568,55 @@ private fun PanelHeaderReportes(
                         fontWeight = FontWeight.ExtraBold
                     )
                 }
-                Surface(
-                    onClick = onVerMapa,
-                    shape = CircleShape,
-                    color = PlagOutColors.TextOnDark.copy(alpha = 0.16f),
-                    modifier = Modifier.testTag("btnVerMapaReportes")
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Surface(
+                        onClick = onAbrirConfiguracionRadio,
+                        shape = CircleShape,
+                        color = PlagOutColors.TextOnDark.copy(alpha = 0.16f),
+                        modifier = Modifier.testTag("btnConfigurarRadioReportes")
                     ) {
-                        Icon(
-                            Icons.Outlined.Map,
-                            contentDescription = "Ver reportes en el mapa",
-                            tint = PlagOutColors.TextOnDark,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text("Mapa", color = PlagOutColors.TextOnDark, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Outlined.Radar,
+                                contentDescription = "Configurar rango de alerta",
+                                tint = PlagOutColors.TextOnDark,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "${radioNotificacionKm.roundToInt()} km",
+                                color = PlagOutColors.TextOnDark,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Surface(
+                        onClick = onVerMapa,
+                        shape = CircleShape,
+                        color = PlagOutColors.TextOnDark.copy(alpha = 0.16f),
+                        modifier = Modifier.testTag("btnVerMapaReportes")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Outlined.Map,
+                                contentDescription = "Ver reportes en el mapa",
+                                tint = PlagOutColors.TextOnDark,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("Mapa", color = PlagOutColors.TextOnDark, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

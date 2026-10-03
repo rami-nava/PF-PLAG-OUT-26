@@ -297,7 +297,9 @@ data class UpdateUserRequest(
     @SerializedName("apellido")
     val apellido: String? = null,
     @SerializedName("cargo_id")
-    val cargo_id: Int? = null
+    val cargo_id: Int? = null,
+    @SerializedName("radio_notificacion_km")
+    val radio_notificacion_km: Double? = null
 )
 
 @Serializable
@@ -507,7 +509,9 @@ data class UsuarioResponse(
     @SerializedName("cargo")
     val cargo: String,
     @SerializedName("fecha_creacion")
-    val fecha_creacion: LocalDate
+    val fecha_creacion: LocalDate,
+    @SerializedName("radio_notificacion_km")
+    val radio_notificacion_km: Double = 20.0
 )
 
 @Serializable

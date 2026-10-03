@@ -88,4 +88,51 @@ class MisReportesViewModelTest {
         assertEquals(2, estadoRefrescado.reportes.size)
         assertEquals(2, gddService.vecesLlamado("getReportes"))
     }
+
+    @Test
+    fun `abrirConfiguracionRadio y onRadioTemporalChange actualizan el estado del dialogo`() {
+        viewModel.abrirConfiguracionRadio()
+        var estado = viewModel.state.value
+        assertEquals(true, estado.mostrarDialogoRadio)
+        assertEquals(20f, estado.radioTemporalKm)
+
+        viewModel.onRadioTemporalChange(50f)
+        estado = viewModel.state.value
+        assertEquals(50f, estado.radioTemporalKm)
+
+        viewModel.cerrarConfiguracionRadio()
+        estado = viewModel.state.value
+        assertEquals(false, estado.mostrarDialogoRadio)
+    }
+
+    @Test
+    fun `guardarRadioNotificacion actualiza radio en backend y estado`() {
+        val userActualizado = Fixtures.usuario().copy(radio_notificacion_km = 45.0)
+        gddService.actualizarUsuarioResult = { Response.success(userActualizado) }
+
+        viewModel.abrirConfiguracionRadio()
+        viewModel.onRadioTemporalChange(45f)
+        viewModel.guardarRadioNotificacion()
+
+        val estado = esperarEstado(viewModel.state) { !it.guardandoRadio && !it.mostrarDialogoRadio }
+        assertEquals(45.0, estado.radioNotificacionKm, 0.001)
+        assertEquals(45f, estado.radioTemporalKm)
+        assertEquals(false, estado.mostrarDialogoRadio)
+        assertEquals(1, gddService.vecesLlamado("actualizarUsuario"))
+        assertEquals(45.0, gddService.ultimoActualizarUsuario?.radio_notificacion_km)
+    }
+
+    @Test
+    fun `guardarRadioNotificacion maneja error de backend`() {
+        gddService.actualizarUsuarioResult = { FakeGDDService.errorServidor(500) }
+
+        viewModel.abrirConfiguracionRadio()
+        viewModel.onRadioTemporalChange(35f)
+        viewModel.guardarRadioNotificacion()
+
+        val estado = esperarEstado(viewModel.state) { !it.guardandoRadio }
+        assertNotNull(estado.error)
+        assertEquals(false, estado.guardandoRadio)
+    }
 }
+
