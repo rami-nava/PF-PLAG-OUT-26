@@ -82,6 +82,9 @@ class FakeGDDService : GDDService {
     var createReporteResult: () -> Response<ReporteResponse> = { noDeclarado("createReporte") }
     var getReporteResult: () -> Response<ReporteDetalleResponse> = { noDeclarado("getReporte") }
     var getReportesResult: () -> Response<List<ReporteDetalleResponse>> = { noDeclarado("getReportes") }
+    var getReportesPaginaResult: (suspend (String?, String?, Int, Int) -> Response<List<ReporteDetalleResponse>>)? = null
+    data class ConsultaReportes(val desde: String?, val hasta: String?, val limit: Int, val offset: Int)
+    val consultasReportes = mutableListOf<ConsultaReportes>()
     var deleteReporteResult: () -> Response<Unit> = { Response.success(Unit) }
     var getPrediccionResult: () -> Response<PrediccionDetalleResponse> = { noDeclarado("getPrediccion") }
     var confirmarPrediccionResult: () -> Response<PrediccionConfirmacionResponse> = { noDeclarado("confirmarPrediccion") }
@@ -207,12 +210,15 @@ class FakeGDDService : GDDService {
 
     override suspend fun getReportes(
         fechaDesde: String?,
-        fechaHasta: String?
+        fechaHasta: String?,
+        limit: Int,
+        offset: Int
     ): Response<List<ReporteDetalleResponse>> {
         llamadas += "getReportes"
         ultimoFechaDesdeReportes = fechaDesde
         ultimoFechaHastaReportes = fechaHasta
-        return getReportesResult()
+        consultasReportes += ConsultaReportes(fechaDesde, fechaHasta, limit, offset)
+        return getReportesPaginaResult?.invoke(fechaDesde, fechaHasta, limit, offset) ?: getReportesResult()
     }
 
     override suspend fun deleteReporte(reporteId: Int): Response<Unit> {

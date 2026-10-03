@@ -310,15 +310,25 @@ fun MapaReportesScreen(
 
         val aviso = when {
             state.isLoading -> "Cargando reportes…"
+            state.isRefreshing -> "Actualizando reportes…"
             ubicados.isEmpty() -> "Todavía no hay reportes con ubicación"
             filtrados.isEmpty() -> "Ningún reporte entra en los filtros"
             sinUbicacion > 0 -> "$sinUbicacion ${if (sinUbicacion == 1) "reporte" else "reportes"} sin ubicación"
             else -> null
         }
-        if (aviso != null) {
+        if (state.error != null) {
+            ErrorCargaReportes(
+                mensaje = state.error!!,
+                onReintentar = viewModel::refrescar,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(top = 74.dp, start = 16.dp, end = 16.dp)
+            )
+        } else if (aviso != null) {
             AvisoFlotante(
                 texto = aviso,
-                cargando = state.isLoading,
+                cargando = state.isLoading || state.isRefreshing,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .windowInsetsPadding(WindowInsets.statusBars)

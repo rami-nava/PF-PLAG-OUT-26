@@ -7,13 +7,20 @@ import androidx.lifecycle.viewModelScope
 import com.example.plag_out.AlmacenamientoLocal.UsuarioRepository
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.time.LocalDate
+import retrofit2.HttpException
+
+private const val REPORTES_PAGE_SIZE = 100
 
 data class MisReportesUiState(
     val isLoading: Boolean = true,
@@ -36,11 +43,13 @@ data class MisReportesUiState(
 
 class MisReportesViewModel(
     private val gddService: GDDService = RetrofitClient.gddService,
-    private val usuarioRepository: UsuarioRepository? = null
+    private val usuarioRepository: UsuarioRepository? = null,
+    private val reportesDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MisReportesUiState())
     val state: StateFlow<MisReportesUiState> = _state.asStateFlow()
+    private var cargaReportes: Job? = null
 
     init {
         cargarRadioNotificacion()
@@ -136,43 +145,57 @@ class MisReportesViewModel(
     }
 
     fun cargarReportes(forzar: Boolean = false) {
-        viewModelScope.launch {
-            if (_state.value.reportes.isEmpty() || forzar) {
-                if (forzar && _state.value.reportes.isNotEmpty()) {
-                    _state.value = _state.value.copy(isRefreshing = true, error = null)
-                } else {
-                    _state.value = _state.value.copy(isLoading = true, error = null)
-                }
-            }
-
+        if (!forzar && cargaReportes?.isActive == true) return
+        cargaReportes?.cancel()
+        // Todos los requests de una carga usan el mismo rango, incluso si el usuario lo cambia.
+        val desdeStr = "${_state.value.fechaDesde}T00:00:00Z"
+        val hastaStr = "${_state.value.fechaHasta}T23:59:59Z"
+        val hayResultadosAnteriores = _state.value.reportes.isNotEmpty()
+        _state.value = _state.value.copy(
+            isLoading = !hayResultadosAnteriores,
+            isRefreshing = hayResultadosAnteriores,
+            error = null
+        )
+        cargaReportes = viewModelScope.launch {
             try {
-                val desdeStr = "${_state.value.fechaDesde}T00:00:00Z"
-                val hastaStr = "${_state.value.fechaHasta}T23:59:59Z"
-                
-                val response = withContext(Dispatchers.IO) {
-                    gddService.getReportes(fechaDesde = desdeStr, fechaHasta = hastaStr)
+                val reportes = withContext(reportesDispatcher) {
+                    val completos = linkedMapOf<Int, ReporteDetalleResponse>()
+                    var offset = 0
+                    while (true) {
+                        val response = gddService.getReportes(
+                            fechaDesde = desdeStr,
+                            fechaHasta = hastaStr,
+                            limit = REPORTES_PAGE_SIZE,
+                            offset = offset
+                        )
+                        if (!response.isSuccessful) throw HttpException(response)
+                        val pagina = response.body() ?: throw IOException("Report response has no body")
+                        if (pagina.size > REPORTES_PAGE_SIZE ||
+                            (pagina.isNotEmpty() && pagina.none { it.id !in completos })) {
+                            throw IOException("Report pagination did not advance")
+                        }
+                        pagina.forEach { completos[it.id] = it }
+                        if (pagina.size < REPORTES_PAGE_SIZE) break
+                        // Avanzar por filas recibidas, no por IDs únicos: pueden repetirse entre páginas.
+                        offset = Math.addExact(offset, pagina.size)
+                    }
+                    completos.values.toList()
                 }
-                if (response.isSuccessful && response.body() != null) {
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        reportes = response.body()!!,
-                        error = null
-                    )
-                } else {
-                    Log.w("MIS_REPORTES", "Error al obtener reportes: ${response.code()}")
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = "No se pudieron obtener los reportes del servidor."
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e("MIS_REPORTES", "Excepción cargando reportes: ${e.message}", e)
+                // Publicar únicamente una carga completa; nunca reemplazarla con una página parcial.
                 _state.value = _state.value.copy(
                     isLoading = false,
                     isRefreshing = false,
-                    error = "Error de conexión al cargar reportes."
+                    reportes = reportes,
+                    error = null
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("MIS_REPORTES", "No se pudo completar la carga de reportes", e)
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    isRefreshing = false,
+                    error = "No se pudieron cargar todos los reportes. Reintentá."
                 )
             }
         }
@@ -208,11 +231,17 @@ class MisReportesViewModel(
     }
 
     fun limpiar() {
+        cargaReportes?.cancel()
+        cargaReportes = null
         _state.value = MisReportesUiState()
     }
     
     fun actualizarFechas(desde: LocalDate, hasta: LocalDate) {
-        _state.value = _state.value.copy(fechaDesde = desde, fechaHasta = hasta)
+        _state.value = _state.value.copy(
+            fechaDesde = desde,
+            fechaHasta = hasta,
+            reportes = emptyList()
+        )
         cargarReportes(forzar = true)
     }
 }
