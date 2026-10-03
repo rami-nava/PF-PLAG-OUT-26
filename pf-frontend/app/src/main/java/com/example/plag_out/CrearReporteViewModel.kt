@@ -106,25 +106,9 @@ class CrearReporteViewModel(
         cultivoId: Int?,
         cultivoNombre: String?
     ): List<PlagaResponse> {
-        if (cultivoId == null && cultivoNombre.isNullOrBlank()) return plagas
+        if (cultivoId == null) return emptyList()
         return plagas.filter { plaga ->
-            // 1) Si especifica la lista cultivos_afectados
-            val coincideId = if (!plaga.cultivos_afectados.isNullOrEmpty() && cultivoId != null) {
-                plaga.cultivos_afectados.contains(cultivoId)
-            } else true
-
-            // 2) Nombre explícito de cultivo en la plaga (e.g. "Chicharrita del Maíz" vs "Trigo")
-            val coincideNombre = if (!cultivoNombre.isNullOrBlank()) {
-                val cNorm = cultivoNombre.lowercase()
-                val pNorm = plaga.nombre.lowercase()
-                if (pNorm.contains("del maíz") || pNorm.contains("del maiz")) {
-                    cNorm.contains("maíz") || cNorm.contains("maiz")
-                } else if (pNorm.contains("del trigo")) {
-                    cNorm.contains("trigo")
-                } else true
-            } else true
-
-            coincideId && coincideNombre
+            plaga.cultivos_afectados.orEmpty().contains(cultivoId)
         }
     }
 
