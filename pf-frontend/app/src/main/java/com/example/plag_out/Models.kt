@@ -561,6 +561,22 @@ data class ReporteDetalleResponse(
 )
 
 
+data class ReportesMapaResponse(
+    @SerializedName("nivel")     val nivel: String? = null,
+    @SerializedName("grupos")    val grupos: List<GrupoReportesMapa>? = null,
+    @SerializedName("reportes")  val reportes: List<ReporteDetalleResponse>? = null,
+    @SerializedName("total")     val total: Int? = null,
+    @SerializedName("cultivos")  val cultivos: List<String>? = null
+)
+
+data class GrupoReportesMapa(
+    @SerializedName("latitud")        val latitud: Double,
+    @SerializedName("longitud")       val longitud: Double,
+    @SerializedName("cantidad")       val cantidad: Int,
+    @SerializedName("severidad_max")  val severidad_max: String? = null
+)
+
+
 @Serializable
 data class ReporteNavPayload(
     val id: Int,

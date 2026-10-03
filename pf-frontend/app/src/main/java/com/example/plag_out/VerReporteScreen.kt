@@ -82,7 +82,6 @@ import com.example.plag_out.ui.theme.CargandoCentrado
 import com.example.plag_out.ui.theme.NivelEstilo
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.SelloDeNivel
-import org.osmdroid.config.Configuration
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.views.MapView
@@ -366,16 +365,6 @@ private fun ContenidoVerReporte(
                                     .fillMaxSize()
                                     .testTag("mapaReporte"),
                                 factory = { ctx ->
-                                    Configuration.getInstance().userAgentValue =
-                                        "com.example.plag_out/1.0.1 (Android; App Agro; contacto@plagout.app)"
-                                    Configuration.getInstance().load(
-                                        ctx,
-                                        ctx.getSharedPreferences("plag_out_prefs", android.content.Context.MODE_PRIVATE)
-                                    )
-
-                                    Configuration.getInstance().cacheMapTileCount = 12
-                                    Configuration.getInstance().cacheMapTileOvershoot = 2
-
                                     MapView(ctx).apply {
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                                             clipToOutline = true
@@ -392,6 +381,7 @@ private fun ContenidoVerReporte(
                                         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                                         marker.icon = MapMarkerUtils.getMarkerIcon(ctx, isGreen = false)
                                         overlays.add(marker)
+                                        agregarAtribucionOsm()
 
                                         onResume()
                                     }
@@ -406,7 +396,8 @@ private fun ContenidoVerReporte(
                                     marker.icon = MapMarkerUtils.getMarkerIcon(map.context, isGreen = false)
                                     map.overlays.add(marker)
                                     map.invalidate()
-                                }
+                                },
+                                onRelease = { it.onDetach() }
                             )
 
                             // Capa transparente para atrapar los toques y abrir el modal
@@ -454,10 +445,6 @@ private fun ContenidoVerReporte(
                                             AndroidView(
                                                 modifier = Modifier.fillMaxSize(),
                                                 factory = { ctx ->
-                                                    Configuration.getInstance().userAgentValue = "com.example.plag_out/1.0.1 (Android; App Agro; contacto@plagout.app)"
-                                                    Configuration.getInstance().cacheMapTileCount = 12
-                                                    Configuration.getInstance().cacheMapTileOvershoot = 2
-
                                                     MapView(ctx).apply {
                                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                                                             clipToOutline = true
@@ -465,7 +452,8 @@ private fun ContenidoVerReporte(
                                                         setMultiTouchControls(true)
                                                         zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
                                                         setTileSource(OsmTileSource)
-                                                        
+                                                        agregarAtribucionOsm()
+
                                                         val marker = Marker(this)
                                                         marker.position = geoPoint
                                                         marker.title = "${detalle.plaga_nombre} - Severidad: ${detalle.nivel_severidad}"
@@ -489,17 +477,23 @@ private fun ContenidoVerReporte(
                                                             polyline.outlinePaint.color = AndroidColor.BLUE
                                                             polyline.outlinePaint.strokeWidth = 5f
                                                             overlays.add(polyline)
-                                                            
-                                                            post {
-                                                                val box = BoundingBox.fromGeoPoints(listOf(geoPoint, terrenoGeoPoint))
-                                                                this@apply.zoomToBoundingBox(box.increaseByScale(1.2f), true)
+
+                                                            if (geoPoint.distanceToAsDouble(terrenoGeoPoint) < 50.0) {
+                                                                controller.setZoom(16.0)
+                                                                controller.setCenter(geoPoint)
+                                                            } else {
+                                                                post {
+                                                                    val box = BoundingBox.fromGeoPoints(listOf(geoPoint, terrenoGeoPoint))
+                                                                    this@apply.zoomToBoundingBox(box.increaseByScale(1.2f), true)
+                                                                }
                                                             }
                                                         } else {
                                                             controller.setZoom(14.0)
                                                             controller.setCenter(geoPoint)
                                                         }
                                                     }
-                                                }
+                                                },
+                                                onRelease = { it.onDetach() }
                                             )
                                             
                                             // Card Flotante

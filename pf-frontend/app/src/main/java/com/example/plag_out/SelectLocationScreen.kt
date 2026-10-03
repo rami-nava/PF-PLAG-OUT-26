@@ -79,7 +79,6 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import android.util.Log
-import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -255,21 +254,13 @@ fun SelectLocationScreen(
                             AndroidView(
                                 modifier = Modifier.fillMaxSize(),
                                 factory = { ctx ->
-                                    Configuration.getInstance().userAgentValue = "com.example.plag_out/1.0.1 (Android; App Agro; contacto@plagout.app)"
-                                    Configuration.getInstance().load(
-                                        ctx,
-                                        ctx.getSharedPreferences("plag_out_prefs", android.content.Context.MODE_PRIVATE)
-                                    )
-                                    Log.d("OSM_DEBUG", "User-Agent en MapView: ${Configuration.getInstance().userAgentValue}")
-
-                                    Configuration.getInstance().cacheMapTileCount = 12
-                                    Configuration.getInstance().cacheMapTileOvershoot = 2
-
                                     MapView(ctx).apply {
                                         setMultiTouchControls(true)
                                         zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
                                         setTileSource(OsmTileSource)
-                                        controller.setZoom(5.0)
+                                        // Con una ubicación ya elegida (edición de terreno) se arranca sobre
+                                        // el lote; si no, con el país completo para buscar.
+                                        controller.setZoom(if (selectedLocation != null) 16.0 else 5.0)
                                         controller.setCenter(selectedLocation ?: GeoPoint(-34.6037, -58.3816))
                                         
                                         mapController = this.controller
@@ -297,6 +288,7 @@ fun SelectLocationScreen(
                                     val receiver = map.overlays.firstOrNull { it is MapEventsOverlay }
                                     map.overlays.clear()
                                     receiver?.let { map.overlays.add(it) }
+                                    map.agregarAtribucionOsm()
 
                                     selectedLocation?.let { point ->
                                         // Dibujar polígono representativo si hay hectáreas
@@ -321,7 +313,8 @@ fun SelectLocationScreen(
                                     }
 
                                     map.invalidate()
-                                }
+                                },
+                                onRelease = { it.onDetach() }
                             )
 
                             // Buscador de Localidades Asíncrono

@@ -37,7 +37,11 @@ import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.AlmacenamientoLocal.AppDatabase
 import com.example.plag_out.AlmacenamientoLocal.BiofixPendiente
 import com.example.plag_out.Service.RetrofitClient
+import android.util.Log
 import com.google.gson.Gson
+import com.google.gson.JsonArray
+import com.google.gson.JsonParser
+import com.google.gson.JsonPrimitive
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -61,6 +65,14 @@ internal fun fechasDeBiofixValidas(inicioMonitoreo: LocalDate?, hoy: LocalDate):
         override fun isSelectableYear(year: Int): Boolean =
             year <= hoy.year && (inicioMonitoreo == null || year >= inicioMonitoreo.year)
     }
+
+internal fun detalleDeError(cuerpo: String?): String? = runCatching {
+    when (val detail = JsonParser.parseString(cuerpo).asJsonObject.get("detail")) {
+        is JsonPrimitive -> detail.asString
+        is JsonArray -> detail.mapNotNull { it.asJsonObject.get("msg")?.asString }.joinToString("; ")
+        else -> null
+    }
+}.getOrNull()?.takeIf { it.isNotBlank() }
 
 @RequiresApi(Build.VERSION_CODES.O)
 private fun formatearFechaLarga(fecha: LocalDate): String =
@@ -345,8 +357,11 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
                     dao.delete(owner, monitoreo.monitoreo_id); pendiente = null
                     mensaje = "Presencia registrada"; onRefresh()
                 } else if (response.code() in setOf(404, 409, 410, 422)) {
+                    val cuerpo = response.errorBody()?.string()
+                    Log.w("BIOFIX", "Monitoreo ${monitoreo.monitoreo_id}: ${response.code()} $cuerpo")
                     dao.delete(owner, monitoreo.monitoreo_id); pendiente = null
-                    mensaje = "No se registró: ${response.code()}. Actualizá y revisá fecha y ciclo antes de confirmar de nuevo."
+                    mensaje = "No se registró (${response.code()}): " +
+                        (detalleDeError(cuerpo) ?: "actualizá y revisá fecha y ciclo antes de confirmar de nuevo.")
                     onRefresh()
                 } else mensaje = "Envío pendiente. Se reintentará automáticamente; también podés reintentar ahora."
             } catch (_: Exception) { mensaje = "Envío pendiente. Se reintentará automáticamente con conexión; también podés reintentar ahora." }
