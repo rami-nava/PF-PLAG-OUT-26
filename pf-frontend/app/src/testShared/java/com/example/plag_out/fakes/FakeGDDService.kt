@@ -26,6 +26,7 @@ import com.example.plag_out.UsuarioResponse
 import com.example.plag_out.CreateReporteRequest
 import com.example.plag_out.ReporteResponse
 import com.example.plag_out.ReporteDetalleResponse
+import com.example.plag_out.ReportesMapaResponse
 import com.example.plag_out.PrediccionConfirmacionRequest
 import com.example.plag_out.PrediccionConfirmacionResponse
 import com.example.plag_out.PrediccionDetalleResponse
@@ -82,6 +83,7 @@ class FakeGDDService : GDDService {
     var createReporteResult: () -> Response<ReporteResponse> = { noDeclarado("createReporte") }
     var getReporteResult: () -> Response<ReporteDetalleResponse> = { noDeclarado("getReporte") }
     var getReportesResult: () -> Response<List<ReporteDetalleResponse>> = { noDeclarado("getReportes") }
+    var getReportesMapaResult: () -> Response<ReportesMapaResponse> = { noDeclarado("getReportesMapa") }
     var deleteReporteResult: () -> Response<Unit> = { Response.success(Unit) }
     var getPrediccionResult: () -> Response<PrediccionDetalleResponse> = { noDeclarado("getPrediccion") }
     var confirmarPrediccionResult: () -> Response<PrediccionConfirmacionResponse> = { noDeclarado("confirmarPrediccion") }
@@ -213,6 +215,24 @@ class FakeGDDService : GDDService {
         ultimoFechaDesdeReportes = fechaDesde
         ultimoFechaHastaReportes = fechaHasta
         return getReportesResult()
+    }
+
+    val consultasMapa = mutableListOf<Map<String, Any?>>()
+
+    override suspend fun getReportesMapa(
+        sur: Double, oeste: Double, norte: Double, este: Double,
+        zoom: Int, nivel: String, celdaGrados: Double?, limite: Int?,
+        ambito: String?, radioKm: Int?, dias: Int?,
+        severidad: String?, plaga: String?, cultivo: String?
+    ): Response<ReportesMapaResponse> {
+        llamadas += "getReportesMapa"
+        consultasMapa += mapOf(
+            "sur" to sur, "oeste" to oeste, "norte" to norte, "este" to este,
+            "zoom" to zoom, "nivel" to nivel, "celda_grados" to celdaGrados, "limite" to limite,
+            "ambito" to ambito, "radio_km" to radioKm, "dias" to dias,
+            "severidad" to severidad, "plaga" to plaga, "cultivo" to cultivo
+        )
+        return getReportesMapaResult()
     }
 
     override suspend fun deleteReporte(reporteId: Int): Response<Unit> {
