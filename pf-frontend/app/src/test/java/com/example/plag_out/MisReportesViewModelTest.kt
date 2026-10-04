@@ -16,6 +16,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,6 +24,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import retrofit2.Response
 import java.time.LocalDate
+import java.util.TimeZone
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -35,8 +37,17 @@ class MisReportesViewModelTest {
     private lateinit var gddService: FakeGDDService
     private lateinit var viewModel: MisReportesViewModel
 
+    private lateinit var zonaOriginal: TimeZone
+
+    @After
+    fun restaurarZonaHoraria() {
+        TimeZone.setDefault(zonaOriginal)
+    }
+
     @Before
     fun setup() {
+        zonaOriginal = TimeZone.getDefault()
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
         gddService = FakeGDDService()
         gddService.getUsuarioActualResult = { Response.success(Fixtures.usuario()) }
         viewModel = MisReportesViewModel(gddService, reportesDispatcher = mainDispatcherRule.testDispatcher)
@@ -155,6 +166,35 @@ class MisReportesViewModelTest {
         assertTrue(gddService.consultasReportes.all { it.limit == 100 })
         assertEquals(1, gddService.consultasReportes.map { it.desde to it.hasta }.distinct().size)
         assertNull(estado.error)
+    }
+
+    @Test
+    fun `todas las paginas incluyen el dia local completo en Argentina`() {
+        TimeZone.setDefault(TimeZone.getTimeZone("America/Argentina/Buenos_Aires"))
+        val reportes = (1..120).map { Fixtures.reporteDetalle(id = it) }
+        gddService.getReportesPaginaResult = { _, _, limit, offset ->
+            Response.success(reportes.drop(offset).take(limit))
+        }
+        viewModel.actualizarFechas(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 10))
+        val estado = esperarEstado(viewModel.state) { !it.isLoading }
+        assertEquals(reportes, estado.reportes)
+        assertEquals(2, gddService.consultasReportes.size)
+        gddService.consultasReportes.forEach {
+            assertEquals("2026-09-01T03:00:00Z", it.desde)
+            assertEquals("2026-09-11T02:59:59Z", it.hasta)
+        }
+    }
+
+    @Test
+    fun `rango local respeta un dia de 23 horas al cambiar horario de verano`() {
+        TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"))
+        gddService.getReportesResult = { Response.success(emptyList()) }
+        val dia = LocalDate.of(2026, 3, 8)
+        viewModel.actualizarFechas(dia, dia)
+        esperarEstado(viewModel.state) { !it.isLoading }
+        val consulta = gddService.consultasReportes.single()
+        assertEquals("2026-03-08T05:00:00Z", consulta.desde)
+        assertEquals("2026-03-09T03:59:59Z", consulta.hasta)
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionRepository
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
 import io.github.jan.supabase.auth.auth
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -57,10 +58,9 @@ class PrediccionDetalleViewModel(
 
         _state.value = _state.value.copy(isLoading = true, error = null, noDisponible = false)
         viewModelScope.launch {
-            val pendiente = withContext(Dispatchers.IO) {
-                feedbackRepository.obtener(ownerId, prediccionId)
-            }
+            var pendiente = _state.value.feedbackPendiente?.takeIf { it.owner_id == ownerId }
             try {
+                pendiente = withContext(Dispatchers.IO) { feedbackRepository.obtener(ownerId, prediccionId) }
                 val response = withContext(Dispatchers.IO) {
                     (gddService ?: RetrofitClient.forPresenceRetry(ownerId)).getPrediccion(prediccionId)
                 }
@@ -92,6 +92,8 @@ class PrediccionDetalleViewModel(
                         error = mensajeCarga(response.code())
                     )
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
@@ -114,8 +116,13 @@ class PrediccionDetalleViewModel(
 
         _state.value = _state.value.copy(enviando = true)
         viewModelScope.launch {
-            val existente = withContext(Dispatchers.IO) {
-                feedbackRepository.obtener(ownerId, prediccion.id)
+            val existente = try {
+                withContext(Dispatchers.IO) { feedbackRepository.obtener(ownerId, prediccion.id) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(enviando = false, error = "No pudimos leer la respuesta pendiente en este dispositivo. Intentá nuevamente.")
+                return@launch
             }
             if (existente != null && existente.estado != "requiere_revision" && existente.respuesta != respuesta) {
                 _state.value = _state.value.copy(
@@ -125,28 +132,48 @@ class PrediccionDetalleViewModel(
                 )
                 return@launch
             }
-            if (existente?.estado == "requiere_revision") borrarPendiente(ownerId, prediccion.id)
             val feedback = existente?.takeUnless { it.estado == "requiere_revision" } ?: FeedbackPrediccionPendiente(
                 owner_id = ownerId,
                 prediccion_id = prediccion.id,
                 respuesta = respuesta,
                 biofix_json = biofix?.let { com.google.gson.Gson().toJson(it) },
                 idempotency_key = biofix?.idempotency_key ?: UUID.randomUUID().toString()
-            ).also { withContext(Dispatchers.IO) { feedbackRepository.guardar(it) } }
+            )
 
-            _state.value = _state.value.copy(feedbackPendiente = feedback)
-            enviar(feedback)
+            guardarYEnviar(feedback)
         }
     }
 
     fun reintentar() {
         val feedback = _state.value.feedbackPendiente ?: return
         if (feedback.owner_id != ownerIdProvider() || _state.value.enviando) return
-        viewModelScope.launch { enviar(feedback) }
+        _state.value = _state.value.copy(enviando = true, error = null)
+        viewModelScope.launch { guardarYEnviar(feedback) }
+    }
+
+    private suspend fun guardarYEnviar(feedback: FeedbackPrediccionPendiente) {
+        if (ownerIdProvider() != feedback.owner_id) {
+            _state.value = PrediccionDetalleUIState()
+            return
+        }
+        _state.value = _state.value.copy(feedbackPendiente = feedback)
+        try {
+            withContext(Dispatchers.IO) { feedbackRepository.guardar(feedback) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            _state.value = _state.value.copy(enviando = false,
+                error = "No pudimos guardar la respuesta en este dispositivo. Conservamos tu selección en esta pantalla; podés reintentar.")
+            return
+        }
+        enviar(feedback)
     }
 
     private suspend fun enviar(feedback: FeedbackPrediccionPendiente) {
-        if (ownerIdProvider() != feedback.owner_id) return
+        if (ownerIdProvider() != feedback.owner_id) {
+            _state.value = PrediccionDetalleUIState()
+            return
+        }
         if (feedback.respuesta == "presente" && (feedback.biofix_json == null || feedback.estado == "requiere_revision")) {
             _state.value = _state.value.copy(error = "Revisá la fecha y el ciclo antes de confirmar presencia.")
             return
@@ -168,7 +195,7 @@ class PrediccionDetalleViewModel(
                 return
             }
             when {
-                response.isSuccessful -> {
+                response.isSuccessful && confirmacionGuardada(response.body(), feedback.prediccion_id, feedback.respuesta) -> {
                     borrarPendiente(feedback.owner_id, feedback.prediccion_id)
                     val actual = _state.value.prediccion
                     _state.value = _state.value.copy(
@@ -218,18 +245,16 @@ class PrediccionDetalleViewModel(
                     error = if (response.code() in setOf(401, 403)) {
                         "Tu sesión expiró. Volvé a iniciar sesión."
                     } else {
-                        if (feedback.respuesta == "presente")
-                            "Envío pendiente. Se reintentará automáticamente con conexión; también podés reintentar ahora."
-                        else "No se pudo enviar la respuesta. Podés reintentar sin duplicarla."
+                        "No pudimos confirmar el guardado. Conservamos tu respuesta; podés reintentar sin duplicarla."
                     }
                 )
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
             _state.value = _state.value.copy(
                 enviando = false,
-                error = if (feedback.respuesta == "presente")
-                            "Envío pendiente. Se reintentará automáticamente con conexión; también podés reintentar ahora."
-                        else "No se pudo enviar la respuesta. Podés reintentar sin duplicarla."
+                error = "No pudimos confirmar el guardado. Conservamos tu respuesta; podés reintentar sin duplicarla."
             )
         }
     }

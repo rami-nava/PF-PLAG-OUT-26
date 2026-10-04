@@ -88,7 +88,6 @@ import com.example.plag_out.ui.theme.EncabezadoGrupoFiltro
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.estiloDeNivel
 import com.google.gson.Gson
-import org.osmdroid.config.Configuration
 import org.osmdroid.events.DelayedMapListener
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
@@ -115,17 +114,8 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 
-private const val TODOS = "Todos"
-private const val SIN_LIMITE = -1
-
 private val RADIOS_MAPA_KM = listOf(25, 50, 100)
 private val VENTANAS_DIAS = listOf(7, 30, 90)
-
-private const val AMBITO_TODOS = 0
-private const val AMBITO_PROPIOS = 1
-private const val AMBITO_COMUNIDAD = 2
-
-private const val MS_POR_DIA = 24L * 60L * 60L * 1000L
 
 private const val CELDA_CLUSTER_PX = 78.0
 private const val CELDA_NUBE_PX = 120.0
@@ -148,7 +138,7 @@ enum class ModoMapa { PINES, NUBES }
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MapaReportesScreen(
-    viewModel: MisReportesViewModel,
+    viewModel: MapaReportesViewModel,
     terrenosViewModel: TerrenosViewModel,
     navController: NavController,
     onBack: () -> Unit
@@ -156,8 +146,8 @@ fun MapaReportesScreen(
     val state by viewModel.state.collectAsState()
     val terrenosState by terrenosViewModel.state.collectAsState()
 
+    // Los reportes no se piden acá: los pide el ViewModel cuando el mapa informa qué zona se ve.
     LaunchedEffect(Unit) {
-        viewModel.cargarReportes()
         viewModel.cargarCatalogoPlagas()
         terrenosViewModel.getTerrenos()
     }
@@ -167,70 +157,27 @@ fun MapaReportesScreen(
     var modo by rememberSaveable { mutableStateOf(ModoMapa.PINES) }
     var mostrarFiltros by rememberSaveable { mutableStateOf(false) }
 
-    var ambito by rememberSaveable { mutableIntStateOf(AMBITO_TODOS) }
-    var radioKm by rememberSaveable { mutableIntStateOf(SIN_LIMITE) }
-    var dias by rememberSaveable { mutableIntStateOf(SIN_LIMITE) }
-    var severidad by rememberSaveable { mutableStateOf(TODOS) }
-    var plaga by rememberSaveable { mutableStateOf(TODOS) }
-    var cultivo by rememberSaveable { mutableStateOf(TODOS) }
+    val filtros = state.filtros
 
-    // Un reporte sin coordenadas no puede dibujarse; se cuenta aparte para poder avisarlo.
-    val ubicados = remember(state.reportes) {
-        state.reportes.filter { it.latitud != null && it.longitud != null }
-    }
-    val sinUbicacion = state.reportes.size - ubicados.size
-
-    // El backend solo manda distancia_km en los reportes ajenos. Para que el filtro de cercanía
-    // valga también sobre los propios, se completa con la distancia al lote más cercano.
-    val distancias = remember(ubicados, terrenos) {
-        ubicados.associate { it.id to distanciaAlLoteMasCercano(it, terrenos) }
+    val distancias = remember(state.reportes, terrenos) {
+        state.reportes.associate { it.id to distanciaAlLoteMasCercano(it, terrenos) }
     }
 
-    val ahora = remember(state.reportes) { System.currentTimeMillis() }
-
-    val plagasDisponibles = remember(ubicados, state.catalogoPlagas) {
-        val enReportes = ubicados.map { it.plaga_nombre }.filter { it.isNotBlank() }.toSet()
+    // Catálogo + lo que aparezca en los reportes, por si el backend todavía no conoce alguna plaga
+    // que sí llegó en un reporte.
+    val plagasDisponibles = remember(state.plagasVistas, state.catalogoPlagas) {
+        val enReportes = state.plagasVistas.toSet()
         (state.catalogoPlagas + enReportes)
             .filter { it.isNotBlank() }
             .distinct()
+            // Primero las que efectivamente aparecen en el mapa: son las que se van a tocar.
             .sortedWith(compareByDescending<String> { it in enReportes }.thenBy { it.lowercase() })
     }
-    val cultivosDisponibles = remember(ubicados) {
-        ubicados.mapNotNull { it.cultivo_nombre }.filter { it.isNotBlank() }.distinct().sorted()
-    }
 
-    val filtrados = remember(ubicados, distancias, ambito, radioKm, dias, severidad, plaga, cultivo) {
-        ubicados.filter { r ->
-            val okAmbito = when (ambito) {
-                AMBITO_PROPIOS -> r.es_propio
-                AMBITO_COMUNIDAD -> !r.es_propio
-                else -> true
-            }
-            val okRadio = radioKm == SIN_LIMITE || (distancias[r.id]?.let { it <= radioKm } ?: false)
-            val okFecha = dias == SIN_LIMITE || (ahora - r.timestamp_ms) <= dias * MS_POR_DIA
-            val okSeveridad = severidad == TODOS || r.nivel_severidad.equals(severidad, ignoreCase = true)
-            val okPlaga = plaga == TODOS || r.plaga_nombre.equals(plaga, ignoreCase = true)
-            val okCultivo = cultivo == TODOS || (r.cultivo_nombre ?: "").equals(cultivo, ignoreCase = true)
-            okAmbito && okRadio && okFecha && okSeveridad && okPlaga && okCultivo
-        }
-    }
-
-    val filtrosActivos = listOf(
-        ambito != AMBITO_TODOS,
-        radioKm != SIN_LIMITE,
-        dias != SIN_LIMITE,
-        severidad != TODOS,
-        plaga != TODOS,
-        cultivo != TODOS
-    ).count { it }
-
-    val limpiarFiltros = {
-        ambito = AMBITO_TODOS
-        radioKm = SIN_LIMITE
-        dias = SIN_LIMITE
-        severidad = TODOS
-        plaga = TODOS
-        cultivo = TODOS
+    // De lejos llegan grupos (solo cantidad) y de cerca reportes sueltos; los dos se dibujan igual.
+    val puntos = remember(state.grupos, state.reportes) {
+        state.grupos.map { PuntoMapa(it.latitud, it.longitud, it.cantidad, it.severidad_max ?: "Bajo", null) } +
+            state.reportes.map { PuntoMapa(it.latitud!!, it.longitud!!, 1, it.nivel_severidad, it) }
     }
 
     // El zoom lo publica el propio mapa: la agrupación tiene que rehacerse cada vez que cambia,
@@ -239,9 +186,9 @@ fun MapaReportesScreen(
     var seleccion by remember { mutableStateOf<ClusterReportes?>(null) }
     val mapaRef = remember { mutableStateOf<MapView?>(null) }
 
-    val clusters = remember(filtrados, zoom, modo) {
+    val clusters = remember(puntos, zoom, modo) {
         agruparReportes(
-            filtrados,
+            puntos,
             zoom,
             if (modo == ModoMapa.NUBES) CELDA_NUBE_PX else CELDA_CLUSTER_PX
         )
@@ -262,9 +209,10 @@ fun MapaReportesScreen(
             clusters = clusters,
             terrenos = terrenos,
             modo = modo,
-            radioKm = radioKm,
+            radioKm = filtros.radioKm,
             seleccionId = seleccion?.id,
             onZoom = { zoom = it },
+            onVista = viewModel::actualizarVista,
             onSeleccion = { seleccion = it },
             onMapaListo = { mapaRef.value = it },
             zoom = zoom,
@@ -288,7 +236,7 @@ fun MapaReportesScreen(
                 "btnVolverMapaReportes"
             )
             BotonFiltrar(
-                cantidadActiva = filtrosActivos,
+                cantidadActiva = filtros.activos,
                 onClick = { mostrarFiltros = true }
             )
         }
@@ -309,11 +257,11 @@ fun MapaReportesScreen(
         )
 
         val aviso = when {
-            state.isLoading -> "Cargando reportes…"
-            state.isRefreshing -> "Actualizando reportes…"
-            ubicados.isEmpty() -> "Todavía no hay reportes con ubicación"
-            filtrados.isEmpty() -> "Ningún reporte entra en los filtros"
-            sinUbicacion > 0 -> "$sinUbicacion ${if (sinUbicacion == 1) "reporte" else "reportes"} sin ubicación"
+            state.cargando -> "Cargando reportes…"
+            state.error != null -> state.error
+            state.total == 0 && filtros.activos > 0 -> "Ningún reporte entra en los filtros"
+            state.total == 0 -> "No hay reportes en esta zona"
+            state.actualizando -> "Actualizando la zona…"
             else -> null
         }
         if (state.error != null) {
@@ -328,7 +276,7 @@ fun MapaReportesScreen(
         } else if (aviso != null) {
             AvisoFlotante(
                 texto = aviso,
-                cargando = state.isLoading || state.isRefreshing,
+                cargando = state.cargando || state.actualizando,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .windowInsetsPadding(WindowInsets.statusBars)
@@ -384,24 +332,13 @@ fun MapaReportesScreen(
     if (mostrarFiltros) {
         HojaFiltrosMapa(
             onCerrar = { mostrarFiltros = false },
-            totalVisible = filtrados.size,
-            hayFiltroActivo = filtrosActivos > 0,
-            onLimpiar = limpiarFiltros,
+            totalVisible = state.total,
+            actualizando = state.actualizando,
             plagasDisponibles = plagasDisponibles,
-            cultivosDisponibles = cultivosDisponibles,
+            cultivosDisponibles = state.cultivos,
             sinTerrenos = terrenos.isEmpty(),
-            ambito = ambito,
-            onAmbito = { ambito = if (ambito == it) AMBITO_TODOS else it },
-            radioKm = radioKm,
-            onRadio = { radioKm = if (radioKm == it) SIN_LIMITE else it },
-            dias = dias,
-            onDias = { dias = if (dias == it) SIN_LIMITE else it },
-            severidad = severidad,
-            onSeveridad = { severidad = if (severidad.equals(it, true)) TODOS else it },
-            plaga = plaga,
-            onPlaga = { plaga = if (plaga == it) TODOS else it },
-            cultivo = cultivo,
-            onCultivo = { cultivo = if (cultivo == it) TODOS else it }
+            filtros = filtros,
+            onFiltros = viewModel::actualizarFiltros
         )
     }
 }
@@ -414,24 +351,16 @@ fun MapaReportesScreen(
 private fun HojaFiltrosMapa(
     onCerrar: () -> Unit,
     totalVisible: Int,
-    hayFiltroActivo: Boolean,
-    onLimpiar: () -> Unit,
+    actualizando: Boolean,
     plagasDisponibles: List<String>,
     cultivosDisponibles: List<String>,
     sinTerrenos: Boolean,
-    ambito: Int,
-    onAmbito: (Int) -> Unit,
-    radioKm: Int,
-    onRadio: (Int) -> Unit,
-    dias: Int,
-    onDias: (Int) -> Unit,
-    severidad: String,
-    onSeveridad: (String) -> Unit,
-    plaga: String,
-    onPlaga: (String) -> Unit,
-    cultivo: String,
-    onCultivo: (String) -> Unit
+    filtros: FiltrosMapa,
+    onFiltros: (FiltrosMapa) -> Unit
 ) {
+    // Tocar una celda ya elegida la destilda: cada grupo funciona como un selector opcional.
+    fun <T> alternar(actual: T?, elegido: T): T? = if (actual == elegido) null else elegido
+
     val estadoHoja = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
@@ -461,9 +390,9 @@ private fun HojaFiltrosMapa(
                         color = PlagOutColors.TextSecondary
                     )
                 }
-                if (hayFiltroActivo) {
+                if (filtros.activos > 0) {
                     Surface(
-                        onClick = onLimpiar,
+                        onClick = { onFiltros(FiltrosMapa()) },
                         shape = CircleShape,
                         color = PlagOutColors.RiskDanger.copy(alpha = 0.1f),
                         modifier = Modifier.testTag("btnLimpiarFiltrosMapa")
@@ -487,15 +416,19 @@ private fun HojaFiltrosMapa(
                         etiqueta = "Míos",
                         icono = Icons.Outlined.Person,
                         color = PlagOutColors.Forest,
-                        activa = ambito == AMBITO_PROPIOS,
-                        onClick = { onAmbito(AMBITO_PROPIOS) }
+                        activa = filtros.ambito == AmbitoMapa.PROPIOS,
+                        onClick = {
+                            onFiltros(filtros.copy(ambito = alternar(filtros.ambito, AmbitoMapa.PROPIOS) ?: AmbitoMapa.TODOS))
+                        }
                     ),
                     CeldaFiltro(
                         etiqueta = "Comunidad",
                         icono = Icons.Filled.Group,
                         color = AzulMapa,
-                        activa = ambito == AMBITO_COMUNIDAD,
-                        onClick = { onAmbito(AMBITO_COMUNIDAD) }
+                        activa = filtros.ambito == AmbitoMapa.COMUNIDAD,
+                        onClick = {
+                            onFiltros(filtros.copy(ambito = alternar(filtros.ambito, AmbitoMapa.COMUNIDAD) ?: AmbitoMapa.TODOS))
+                        }
                     )
                 )
             )
@@ -507,8 +440,8 @@ private fun HojaFiltrosMapa(
                         etiqueta = "A menos de\n$km km",
                         icono = Icons.Outlined.NearMe,
                         color = AzulMapa,
-                        activa = radioKm == km,
-                        onClick = { onRadio(km) }
+                        activa = filtros.radioKm == km,
+                        onClick = { onFiltros(filtros.copy(radioKm = alternar(filtros.radioKm, km))) }
                     )
                 }
             )
@@ -525,8 +458,8 @@ private fun HojaFiltrosMapa(
                         etiqueta = "Últimos\n$d días",
                         icono = Icons.Outlined.AccessTime,
                         color = PlagOutColors.Bark,
-                        activa = dias == d,
-                        onClick = { onDias(d) }
+                        activa = filtros.dias == d,
+                        onClick = { onFiltros(filtros.copy(dias = alternar(filtros.dias, d))) }
                     )
                 }
             )
@@ -542,8 +475,8 @@ private fun HojaFiltrosMapa(
                         etiqueta = nivel,
                         icono = icono,
                         color = color,
-                        activa = severidad.equals(nivel, true),
-                        onClick = { onSeveridad(nivel) }
+                        activa = filtros.severidad.equals(nivel, true),
+                        onClick = { onFiltros(filtros.copy(severidad = alternar(filtros.severidad, nivel))) }
                     )
                 }
             )
@@ -556,8 +489,8 @@ private fun HojaFiltrosMapa(
                             etiqueta = nombre,
                             icono = Icons.Outlined.BugReport,
                             color = PlagOutColors.Forest,
-                            activa = plaga == nombre,
-                            onClick = { onPlaga(nombre) }
+                            activa = filtros.plaga == nombre,
+                            onClick = { onFiltros(filtros.copy(plaga = alternar(filtros.plaga, nombre))) }
                         )
                     }
                 )
@@ -571,8 +504,8 @@ private fun HojaFiltrosMapa(
                             etiqueta = nombre,
                             icono = Icons.Outlined.Grass,
                             color = PlagOutColors.Leaf,
-                            activa = cultivo == nombre,
-                            onClick = { onCultivo(nombre) }
+                            activa = filtros.cultivo == nombre,
+                            onClick = { onFiltros(filtros.copy(cultivo = alternar(filtros.cultivo, nombre))) }
                         )
                     }
                 )
@@ -592,7 +525,7 @@ private fun HojaFiltrosMapa(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        when (totalVisible) {
+                        if (actualizando) "Actualizando…" else when (totalVisible) {
                             0 -> "Ningún reporte coincide"
                             1 -> "Ver 1 reporte en el mapa"
                             else -> "Ver $totalVisible reportes en el mapa"
@@ -742,9 +675,10 @@ private fun LienzoMapa(
     clusters: List<ClusterReportes>,
     terrenos: List<TerrenoResponse>,
     modo: ModoMapa,
-    radioKm: Int,
+    radioKm: Int?,
     seleccionId: String?,
     onZoom: (Double) -> Unit,
+    onVista: (VistaMapa) -> Unit,
     onSeleccion: (ClusterReportes) -> Unit,
     onMapaListo: (MapView) -> Unit,
     zoom: Double,
@@ -755,12 +689,6 @@ private fun LienzoMapa(
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
-            Configuration.getInstance().userAgentValue =
-                "com.example.plag_out/1.0.1 (Android; App Agro; contacto@plagout.app)"
-            Configuration.getInstance().load(
-                ctx,
-                ctx.getSharedPreferences("plag_out_prefs", Context.MODE_PRIVATE)
-            )
             MapView(ctx).apply {
                 setTileSource(OsmTileSource)
                 setMultiTouchControls(true)
@@ -769,12 +697,24 @@ private fun LienzoMapa(
                 minZoomLevel = 3.0
                 controller.setZoom(ZOOM_PAIS)
                 controller.setCenter(CENTRO_PAIS)
+                val informarVista = {
+                    val caja = boundingBox
+                    onVista(VistaMapa(caja.latSouth, caja.lonWest, caja.latNorth, caja.lonEast, zoomLevelDouble))
+                }
+                // Hasta el primer layout el mapa no tiene tamaño y su caja es un punto.
+                addOnFirstLayoutListener { _, _, _, _, _ -> informarVista() }
+                // El retardo agrupa todo un gesto en un solo aviso: sin él, cada cuadro del arrastre
+                // sería un pedido al servidor.
                 addMapListener(
                     DelayedMapListener(
                         object : MapListener {
-                            override fun onScroll(event: ScrollEvent?): Boolean = false
+                            override fun onScroll(event: ScrollEvent?): Boolean {
+                                informarVista()
+                                return false
+                            }
                             override fun onZoom(event: ZoomEvent?): Boolean {
                                 onZoom(zoomLevelDouble)
+                                informarVista()
                                 return false
                             }
                         },
@@ -787,10 +727,11 @@ private fun LienzoMapa(
         },
         update = { map ->
             map.overlays.clear()
+            map.agregarAtribucionOsm()
             val nombreVisible = zoom >= ZOOM_NOMBRE_LOTE
             terrenos.forEach { terreno ->
                 val centro = GeoPoint(terreno.terreno_latitud.toDouble(), terreno.terreno_longitud.toDouble())
-                if (radioKm != SIN_LIMITE) {
+                if (radioKm != null) {
                     val anillo = Polygon(map).apply {
                         points = Polygon.pointsAsCircle(centro, radioKm * 1000.0)
                         fillPaint.color = 0x14264A2B
@@ -835,7 +776,7 @@ private fun LienzoMapa(
                         val marcador = Marker(map).apply {
                             position = GeoPoint(cluster.latitud, cluster.longitud)
                             setInfoWindow(null)
-                            if (cluster.cantidad > 1) {
+                            if (cluster.cantidad > 1 || cluster.reportes.isEmpty()) {
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                                 icon = iconoCluster(
                                     map.context,
@@ -868,9 +809,15 @@ private fun LienzoMapa(
 
 private fun encuadrar(map: MapView, clusters: List<ClusterReportes>, terrenos: List<TerrenoResponse>) {
     val puntos = mutableListOf<GeoPoint>()
-    clusters.forEach { c -> c.reportes.forEach { r ->
-        if (r.latitud != null && r.longitud != null) puntos.add(GeoPoint(r.latitud, r.longitud))
-    } }
+    clusters.forEach { c ->
+        if (c.reportes.isEmpty()) {
+            puntos.add(GeoPoint(c.latitud, c.longitud))
+        } else {
+            c.reportes.forEach { r ->
+                if (r.latitud != null && r.longitud != null) puntos.add(GeoPoint(r.latitud, r.longitud))
+            }
+        }
+    }
     terrenos.forEach { puntos.add(GeoPoint(it.terreno_latitud.toDouble(), it.terreno_longitud.toDouble())) }
 
     when {
@@ -894,22 +841,22 @@ private fun encuadrar(map: MapView, clusters: List<ClusterReportes>, terrenos: L
 
 // ── Agrupación ────────────────────────────────────────────────────────────────
 
+private data class PuntoMapa(
+    val latitud: Double,
+    val longitud: Double,
+    val cantidad: Int,
+    val severidad: String,
+    val reporte: ReporteDetalleResponse?
+)
+
 private data class ClusterReportes(
     val id: String,
     val latitud: Double,
     val longitud: Double,
+    val cantidad: Int,
+    val severidadDominante: String,
     val reportes: List<ReporteDetalleResponse>
 ) {
-    val cantidad: Int get() = reportes.size
-
-    /** El peor nivel presente: en un grupo, lo que define el riesgo es el reporte más grave. */
-    val severidadDominante: String
-        get() = when {
-            reportes.any { it.nivel_severidad.equals("Alto", true) } -> "Alto"
-            reportes.any { it.nivel_severidad.equals("Medio", true) } -> "Medio"
-            else -> "Bajo"
-        }
-
     fun aNube(densidad: Float): NubeReportes {
         val fraccion = fraccionDensidad(cantidad)
         val radio = ((34f + 17f * sqrt(cantidad.toFloat())) * densidad).coerceAtMost(150f * densidad)
@@ -918,31 +865,41 @@ private data class ClusterReportes(
     }
 }
 
+private fun rangoSeveridad(nivel: String): Int = when (nivel.lowercase(Locale.ROOT)) {
+    "alto" -> 2
+    "medio" -> 1
+    else -> 0
+}
+
 
 private fun agruparReportes(
-    reportes: List<ReporteDetalleResponse>,
+    puntos: List<PuntoMapa>,
     zoom: Double,
     ladoPx: Double
 ): List<ClusterReportes> {
-    if (reportes.isEmpty()) return emptyList()
+    if (puntos.isEmpty()) return emptyList()
 
     val gradosPorPixel = 360.0 / (256.0 * 2.0.pow(zoom))
     val celdaLon = (gradosPorPixel * ladoPx).coerceAtLeast(1e-7)
-    val latReferencia = reportes.mapNotNull { it.latitud }.average()
+    val latReferencia = puntos.map { it.latitud }.average()
     val celdaLat = (celdaLon * cos(Math.toRadians(latReferencia)).coerceAtLeast(0.05)).coerceAtLeast(1e-7)
 
-    return reportes
-        .groupBy { r ->
-            val fila = floor((r.latitud ?: 0.0) / celdaLat).toLong()
-            val columna = floor((r.longitud ?: 0.0) / celdaLon).toLong()
+    return puntos
+        .groupBy { p ->
+            val fila = floor(p.latitud / celdaLat).toLong()
+            val columna = floor(p.longitud / celdaLon).toLong()
             fila to columna
         }
         .map { (clave, lista) ->
+            val cantidad = lista.sumOf { it.cantidad }
             ClusterReportes(
                 id = "${clave.first}:${clave.second}",
-                latitud = lista.mapNotNull { it.latitud }.average(),
-                longitud = lista.mapNotNull { it.longitud }.average(),
-                reportes = lista.sortedByDescending { it.timestamp_ms }
+                // Centro ponderado: un grupo de 40 pesa más que un reporte suelto al lado.
+                latitud = lista.sumOf { it.latitud * it.cantidad } / cantidad,
+                longitud = lista.sumOf { it.longitud * it.cantidad } / cantidad,
+                cantidad = cantidad,
+                severidadDominante = lista.maxBy { rangoSeveridad(it.severidad) }.severidad,
+                reportes = lista.mapNotNull { it.reporte }.sortedByDescending { it.timestamp_ms }
             )
         }
 }
@@ -1178,28 +1135,6 @@ private fun radioLotePorArea(hectareas: Float): Double {
 }
 
 // ── Distancias ────────────────────────────────────────────────────────────────
-
-private fun distanciaAlLoteMasCercano(
-    reporte: ReporteDetalleResponse,
-    terrenos: List<TerrenoResponse>
-): Float? {
-    reporte.distancia_km?.let { return it }
-    val lat = reporte.latitud ?: return null
-    val lon = reporte.longitud ?: return null
-    if (terrenos.isEmpty()) return null
-    return terrenos.minOf { t ->
-        distanciaKm(lat, lon, t.terreno_latitud.toDouble(), t.terreno_longitud.toDouble())
-    }
-}
-
-private fun distanciaKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
-    val radioTierra = 6371.0
-    val dLat = Math.toRadians(lat2 - lat1)
-    val dLon = Math.toRadians(lon2 - lon1)
-    val a = sin(dLat / 2).pow(2) +
-            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
-    return (2 * radioTierra * atan2(sqrt(a), sqrt(1 - a))).toFloat()
-}
 
 private fun formatearDistanciaMapa(km: Float): String = when {
     km < 1f -> "${(km * 1000).toInt()} m"
@@ -1479,13 +1414,17 @@ private fun TarjetaSeleccionMapa(
                 Box(Modifier.size(10.dp).background(estilo.color, CircleShape))
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    if (cluster.cantidad == 1) "Reporte" else "${cluster.cantidad} reportes en la zona",
+                    when {
+                        cluster.reportes.isEmpty() && cluster.cantidad == 1 -> "1 reporte en la zona"
+                        cluster.cantidad == 1 -> "Reporte"
+                        else -> "${cluster.cantidad} reportes en la zona"
+                    },
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = PlagOutColors.TextMain,
                     modifier = Modifier.weight(1f)
                 )
-                if (cluster.cantidad > 1) {
+                if (cluster.cantidad > 1 || cluster.reportes.isEmpty()) {
                     Surface(
                         onClick = onAcercar,
                         shape = CircleShape,
@@ -1505,9 +1444,20 @@ private fun TarjetaSeleccionMapa(
                 }
             }
 
-            if (cluster.cantidad > FILAS_VISIBLES_SELECCION) {
+            if (cluster.reportes.isEmpty()) {
+                // Grupo armado por el servidor: de lejos solo se sabe cuántos hay.
                 Text(
-                    "Deslizá para ver los ${cluster.cantidad}",
+                    "Acercá el mapa para ver cada reporte de esta zona.",
+                    fontSize = 13.sp,
+                    color = PlagOutColors.TextSecondary,
+                    modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp)
+                )
+                return@Column
+            }
+
+            if (cluster.reportes.size > FILAS_VISIBLES_SELECCION) {
+                Text(
+                    "Deslizá para ver los ${cluster.reportes.size}",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = PlagOutColors.TextSecondary,

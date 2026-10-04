@@ -107,7 +107,10 @@ class PresenceRetryWorker(context: Context, params: WorkerParameters) : Coroutin
                 dao.feedbackState(owner, id, key, "requiere_revision"); return Result.success()
             }
             val payload = PrediccionConfirmacionRequest(respuesta = row.respuesta, idempotency_key = key, biofix = biofix)
-            send = { service.confirmarPrediccion(id, payload).let { result = it.body()?.biofix; if (it.isSuccessful && result == null) 503 else it.code() } }
+            send = { service.confirmarPrediccion(id, payload).let {
+                result = it.body()?.biofix
+                if (it.isSuccessful && !confirmacionGuardada(it.body(), id, row.respuesta)) 503 else it.code()
+            } }
             success = { dao.deleteFeedback(owner, id, key) }
             review = { dao.feedbackState(owner, id, key, "requiere_revision") }
         } else return Result.failure()

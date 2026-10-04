@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.time.LocalDate
+import java.time.ZoneId
 import retrofit2.HttpException
 
 private const val REPORTES_PAGE_SIZE = 100
@@ -29,12 +30,6 @@ data class MisReportesUiState(
     val error: String? = null,
     val fechaDesde: LocalDate = LocalDate.now().minusMonths(1),
     val fechaHasta: LocalDate = LocalDate.now(),
-    /**
-     * Catálogo completo de plagas del backend. El mapa filtra contra esto y no solo contra las
-     * plagas que aparecen en los reportes: "no hay reportes de esta plaga en mi zona" también es
-     * una respuesta, y sin el catálogo esa pregunta no se puede ni formular.
-     */
-    val catalogoPlagas: List<String> = emptyList(),
     val radioNotificacionKm: Double = 20.0,
     val mostrarDialogoRadio: Boolean = false,
     val radioTemporalKm: Float = 20f,
@@ -148,8 +143,10 @@ class MisReportesViewModel(
         if (!forzar && cargaReportes?.isActive == true) return
         cargaReportes?.cancel()
         // Todos los requests de una carga usan el mismo rango, incluso si el usuario lo cambia.
-        val desdeStr = "${_state.value.fechaDesde}T00:00:00Z"
-        val hastaStr = "${_state.value.fechaHasta}T23:59:59Z"
+        val zona = ZoneId.systemDefault()
+        val desdeStr = _state.value.fechaDesde.atStartOfDay(zona).toInstant().toString()
+        val hastaStr = _state.value.fechaHasta.plusDays(1).atStartOfDay(zona)
+            .toInstant().minusSeconds(1).toString()
         val hayResultadosAnteriores = _state.value.reportes.isNotEmpty()
         _state.value = _state.value.copy(
             isLoading = !hayResultadosAnteriores,
@@ -203,31 +200,6 @@ class MisReportesViewModel(
 
     fun refrescar() {
         cargarReportes(forzar = true)
-    }
-
-    /**
-     * Se pide una sola vez y se degrada en silencio: si el backend no responde, el mapa igual
-     * puede filtrar por las plagas que ya aparecen en los reportes.
-     */
-    fun cargarCatalogoPlagas() {
-        if (_state.value.catalogoPlagas.isNotEmpty()) return
-        viewModelScope.launch {
-            try {
-                val response = withContext(Dispatchers.IO) { gddService.getPlagas() }
-                val nombres = response.body()
-                    ?.map { it.nombre }
-                    ?.filter { it.isNotBlank() }
-                    ?.distinct()
-                    ?: emptyList()
-                if (response.isSuccessful && nombres.isNotEmpty()) {
-                    _state.value = _state.value.copy(catalogoPlagas = nombres)
-                } else {
-                    Log.w("MIS_REPORTES", "Catálogo de plagas no disponible: ${response.code()}")
-                }
-            } catch (e: Exception) {
-                Log.w("MIS_REPORTES", "No se pudo cargar el catálogo de plagas: ${e.message}")
-            }
-        }
     }
 
     fun limpiar() {

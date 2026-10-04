@@ -74,7 +74,6 @@ import io.github.jan.supabase.auth.status.SessionStatus
 import kotlin.collections.contains
 
 import android.preference.PreferenceManager
-import org.osmdroid.config.Configuration
 
 class MainActivity : ComponentActivity() {
 
@@ -89,12 +88,7 @@ class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val osmConfig = Configuration.getInstance()
-        osmConfig.userAgentValue = "com.example.plag_out/1.0.1 (Android; App Agro; contacto@plagout.app)"
-        osmConfig.osmdroidBasePath = java.io.File(cacheDir, "osmdroid")
-        osmConfig.osmdroidTileCache = java.io.File(cacheDir, "osmdroid/tiles")
-        osmConfig.load(applicationContext, applicationContext.getSharedPreferences("plag_out_prefs", android.content.Context.MODE_PRIVATE))
-        android.util.Log.d("OSM_DEBUG", "User-Agent en MainActivity: ${osmConfig.userAgentValue}")
+        configurarOsmdroid(applicationContext)
         
         leerDeepLink(intent)
         setContent {
@@ -188,6 +182,9 @@ fun AppNavigation(
     )
     val misReportesViewModel: MisReportesViewModel = viewModel(
         factory = MisReportesViewModelFactory()
+    )
+    val mapaReportesViewModel: MapaReportesViewModel = viewModel(
+        factory = MapaReportesViewModelFactory()
     )
 
     val authViewModel: AuthViewModel = viewModel(
@@ -633,7 +630,8 @@ fun AppNavigation(
                     reporteId = reporteId,
                     reporteJsonFallback = null,
                     viewModel = verReporteViewModel,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onVerTerreno = { tId -> navController.navigate("terreno/$tId") }
                 )
             }
             composable("ver_reporte/{reporte_id}/{reporte_json}") { backStackEntry ->
@@ -646,7 +644,8 @@ fun AppNavigation(
                     reporteId = reporteId,
                     reporteJsonFallback = reporteJson,
                     viewModel = verReporteViewModel,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onVerTerreno = { tId -> navController.navigate("terreno/$tId") }
                 )
             }
             composable("reportes") {
@@ -654,7 +653,7 @@ fun AppNavigation(
             }
             composable("mapa_reportes") {
                 MapaReportesScreen(
-                    viewModel = misReportesViewModel,
+                    viewModel = mapaReportesViewModel,
                     terrenosViewModel = terrenosViewModel,
                     navController = navController,
                     onBack = { navController.popBackStack() }

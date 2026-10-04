@@ -26,6 +26,7 @@ import com.example.plag_out.NotificacionResponse
 import com.example.plag_out.CreateReporteRequest
 import com.example.plag_out.ReporteResponse
 import com.example.plag_out.ReporteDetalleResponse
+import com.example.plag_out.ReportesMapaResponse
 import com.example.plag_out.PrediccionConfirmacionRequest
 import com.example.plag_out.PrediccionConfirmacionResponse
 import com.example.plag_out.PrediccionDetalleResponse
@@ -39,6 +40,7 @@ import retrofit2.http.PATCH
 import retrofit2.http.DELETE
 import retrofit2.http.Body
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface GDDService {
     /*@POST("api/gdd/simulate-day")
@@ -154,6 +156,24 @@ interface GDDService {
         @retrofit2.http.Query("limit") limit: Int = 100,
         @retrofit2.http.Query("offset") offset: Int = 0
     ): Response<List<ReporteDetalleResponse>>
+
+    @GET("/mapa/reportes")
+    suspend fun getReportesMapa(
+        @Query("sur") sur: Double,
+        @Query("oeste") oeste: Double,
+        @Query("norte") norte: Double,
+        @Query("este") este: Double,
+        @Query("zoom") zoom: Int,
+        @Query("nivel") nivel: String,
+        @Query("celda_grados") celdaGrados: Double? = null,
+        @Query("limite") limite: Int? = null,
+        @Query("ambito") ambito: String? = null,
+        @Query("radio_km") radioKm: Int? = null,
+        @Query("dias") dias: Int? = null,
+        @Query("severidad") severidad: String? = null,
+        @Query("plaga") plaga: String? = null,
+        @Query("cultivo") cultivo: String? = null
+    ): Response<ReportesMapaResponse>
 
     @DELETE("/reportes/{id}")
     suspend fun deleteReporte(@Path("id") reporteId: Int): Response<Unit>

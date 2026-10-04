@@ -83,7 +83,7 @@ import java.util.Locale
 
 private const val FILTRO_TODAS = -1
 private const val FILTRO_ACTIVAS = 1
-private const val FILTRO_PAUSADAS = 0
+private const val FILTRO_FINALIZADAS = 0
 
 private const val PAGINA_INFORMACION = 0
 private const val PAGINA_PLANTACIONES = 1
@@ -131,7 +131,7 @@ fun PlantacionesPorTerreno(
     val filtradas = remember(ordenadas, filtro) {
         when (filtro) {
             FILTRO_ACTIVAS -> ordenadas.filter { it.activa }
-            FILTRO_PAUSADAS -> ordenadas.filter { !it.activa }
+            FILTRO_FINALIZADAS -> ordenadas.filter { !it.activa }
             else -> ordenadas
         }
     }
@@ -618,7 +618,7 @@ private fun PlantacionesTab(
                 listOf(
                     OpcionFiltro(FILTRO_TODAS, "Todos", plantacionesDelTerreno.size),
                     OpcionFiltro(FILTRO_ACTIVAS, "Activos", plantacionesDelTerreno.count { it.activa }, colorIcono = PlagOutColors.Leaf),
-                    OpcionFiltro(FILTRO_PAUSADAS, "Pausados", plantacionesDelTerreno.count { !it.activa }, colorIcono = PlagOutColors.Bark)
+                    OpcionFiltro(FILTRO_FINALIZADAS, "Finalizados", plantacionesDelTerreno.count { !it.activa }, colorIcono = PlagOutColors.Bark)
                 )
             }
             FiltroChipsRow(opciones = opciones, seleccionado = filtro, onSeleccion = onFiltroChange)
@@ -715,7 +715,7 @@ fun PlantacionCard(
                             shape = CircleShape
                         ) {
                             Text(
-                                if (plantacion.activa) "CULTIVO ACTIVO" else "CULTIVO PAUSADO",
+                                if (plantacion.activa) "CULTIVO ACTIVO" else "CULTIVO FINALIZADO",
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
