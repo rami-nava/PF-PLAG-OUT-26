@@ -8,6 +8,7 @@ import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionRepository
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
 import io.github.jan.supabase.auth.auth
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -92,6 +93,8 @@ class PrediccionDetalleViewModel(
                         error = mensajeCarga(response.code())
                     )
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
@@ -142,6 +145,7 @@ class PrediccionDetalleViewModel(
     fun reintentar() {
         val feedback = _state.value.feedbackPendiente ?: return
         if (feedback.owner_id != ownerIdProvider() || _state.value.enviando) return
+        _state.value = _state.value.copy(enviando = true, error = null)
         viewModelScope.launch { enviar(feedback) }
     }
 
@@ -168,7 +172,7 @@ class PrediccionDetalleViewModel(
                 return
             }
             when {
-                response.isSuccessful -> {
+                response.isSuccessful && confirmacionGuardada(response.body(), feedback.prediccion_id, feedback.respuesta) -> {
                     borrarPendiente(feedback.owner_id, feedback.prediccion_id)
                     val actual = _state.value.prediccion
                     _state.value = _state.value.copy(
@@ -218,18 +222,16 @@ class PrediccionDetalleViewModel(
                     error = if (response.code() in setOf(401, 403)) {
                         "Tu sesión expiró. Volvé a iniciar sesión."
                     } else {
-                        if (feedback.respuesta == "presente")
-                            "Envío pendiente. Se reintentará automáticamente con conexión; también podés reintentar ahora."
-                        else "No se pudo enviar la respuesta. Podés reintentar sin duplicarla."
+                        "No pudimos confirmar el guardado. Conservamos tu respuesta; podés reintentar sin duplicarla."
                     }
                 )
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
             _state.value = _state.value.copy(
                 enviando = false,
-                error = if (feedback.respuesta == "presente")
-                            "Envío pendiente. Se reintentará automáticamente con conexión; también podés reintentar ahora."
-                        else "No se pudo enviar la respuesta. Podés reintentar sin duplicarla."
+                error = "No pudimos confirmar el guardado. Conservamos tu respuesta; podés reintentar sin duplicarla."
             )
         }
     }

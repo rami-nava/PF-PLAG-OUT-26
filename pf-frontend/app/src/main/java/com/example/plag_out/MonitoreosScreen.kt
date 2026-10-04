@@ -699,7 +699,7 @@ private fun InformacionPlantacionTab(
             shape = RoundedCornerShape(50)
         ) {
             Text(
-                if (plantacion?.activa != false) "CULTIVO ACTIVO" else "CULTIVO PAUSADO",
+                if (plantacion?.activa != false) "CULTIVO ACTIVO" else "CULTIVO FINALIZADO",
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
@@ -841,8 +841,8 @@ private fun InformacionPlantacionTab(
             title = { Text("¿Finalizar cultivo?") },
             text = {
                 Text(
-                    "Vas a marcar \"${plantacion.cultivo_nombre}\" como pausada. Vas a poder seguir viendo su " +
-                        "historial, pero no vas a poder cargar nuevos monitoreos mientras esté pausada."
+                    "Vas a finalizar \"${plantacion.cultivo_nombre}\" y sus monitoreos, y archivar sus ciclos activos. " +
+                        "Conservarás el historial. Este cierre es irreversible; podés cancelar antes de confirmar."
                 )
             },
             confirmButton = {

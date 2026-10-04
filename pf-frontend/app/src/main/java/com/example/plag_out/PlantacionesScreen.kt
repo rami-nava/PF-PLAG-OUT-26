@@ -618,7 +618,7 @@ private fun PlantacionesTab(
                 listOf(
                     OpcionFiltro(FILTRO_TODAS, "Todos", plantacionesDelTerreno.size),
                     OpcionFiltro(FILTRO_ACTIVAS, "Activos", plantacionesDelTerreno.count { it.activa }, colorIcono = PlagOutColors.Leaf),
-                    OpcionFiltro(FILTRO_PAUSADAS, "Pausados", plantacionesDelTerreno.count { !it.activa }, colorIcono = PlagOutColors.Bark)
+                    OpcionFiltro(FILTRO_PAUSADAS, "Finalizados", plantacionesDelTerreno.count { !it.activa }, colorIcono = PlagOutColors.Bark)
                 )
             }
             FiltroChipsRow(opciones = opciones, seleccionado = filtro, onSeleccion = onFiltroChange)
@@ -715,7 +715,7 @@ fun PlantacionCard(
                             shape = CircleShape
                         ) {
                             Text(
-                                if (plantacion.activa) "CULTIVO ACTIVO" else "CULTIVO PAUSADO",
+                                if (plantacion.activa) "CULTIVO ACTIVO" else "CULTIVO FINALIZADO",
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
