@@ -92,7 +92,8 @@ fun PrediccionDetalleScreen(
             state.prediccion == null -> EstadoPrediccion(
                 "No pudimos cargar la predicción.",
                 state.error ?: "Intentá nuevamente.",
-                onReintentar = { viewModel.cargar(prediccionId) }
+                onReintentar = { viewModel.cargar(prediccionId) },
+                textoReintentar = "Volver a cargar"
             )
             else -> ContenidoPrediccion(
                 state = state,
@@ -167,14 +168,14 @@ private fun ContenidoPrediccion(
                 )
             } else {
                 EstadoPrediccion(
-                    "Respuesta pendiente",
+                    if (state.enviando) "Enviando…" else "Respuesta pendiente",
                     etiquetaRespuesta(state.feedbackPendiente.respuesta),
                     onReintentar = onReintentar,
                     cargando = state.enviando
                 )
             }
             "respondida" -> EstadoPrediccion(
-                "Respuesta enviada",
+                "Respuesta guardada",
                 etiquetaRespuesta(prediccion.confirmacion.respuesta)
             )
             "vencida" -> EstadoPrediccion(
@@ -221,7 +222,8 @@ private fun EstadoPrediccion(
     titulo: String,
     detalle: String,
     onReintentar: (() -> Unit)? = null,
-    cargando: Boolean = false
+    cargando: Boolean = false,
+    textoReintentar: String = "Reintentar envío"
 ) {
     Column(
         Modifier.fillMaxWidth().padding(vertical = 28.dp),
@@ -238,7 +240,7 @@ private fun EstadoPrediccion(
                 modifier = Modifier.padding(top = 14.dp).testTag("btnReintentarPrediccion")
             ) {
                 if (cargando) CircularProgressIndicator(modifier = Modifier.height(18.dp), color = PlagOutColors.TextOnDark)
-                else Text("Reintentar", color = PlagOutColors.TextOnDark)
+                else Text(textoReintentar, color = PlagOutColors.TextOnDark)
             }
         }
     }
