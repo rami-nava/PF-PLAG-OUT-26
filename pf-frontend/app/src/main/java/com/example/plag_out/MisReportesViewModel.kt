@@ -140,9 +140,22 @@ class MisReportesViewModel(
             }
 
             try {
-                val desdeStr = "${_state.value.fechaDesde}T00:00:00Z"
-                val hastaStr = "${_state.value.fechaHasta}T23:59:59Z"
+                val sdfOut = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.getDefault())
+                sdfOut.timeZone = java.util.TimeZone.getTimeZone("UTC")
                 
+                val zoneId = java.time.ZoneId.systemDefault()
+                val desdeDate = java.util.Date.from(_state.value.fechaDesde.atStartOfDay(zoneId).toInstant())
+                val hastaDate = java.util.Date.from(_state.value.fechaHasta.atStartOfDay(zoneId).toInstant())
+                
+                val cal = java.util.Calendar.getInstance()
+                cal.time = hastaDate
+                cal.add(java.util.Calendar.HOUR_OF_DAY, 23)
+                cal.add(java.util.Calendar.MINUTE, 59)
+                cal.add(java.util.Calendar.SECOND, 59)
+                
+                val desdeStr = sdfOut.format(desdeDate)
+                val hastaStr = sdfOut.format(cal.time)
+
                 val response = withContext(Dispatchers.IO) {
                     gddService.getReportes(fechaDesde = desdeStr, fechaHasta = hastaStr)
                 }
