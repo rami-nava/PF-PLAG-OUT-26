@@ -115,7 +115,7 @@ class MonitoreosViewModel(
     }
 
     /**
-     * Al pausar un cultivo, el backend cascadea `activo = false` a sus monitoreos en el mismo
+     * Al finalizar un cultivo, el backend finaliza sus monitoreos y archiva sus ciclos activos en el mismo
      * PATCH `/plantaciones/{id}` — acá solo reflejamos localmente (Room + memoria) lo que el
      * servidor ya hizo, sin llamadas de red adicionales.
      */
@@ -123,8 +123,10 @@ class MonitoreosViewModel(
     fun finalizarPorPlantacion(plantacionId: Int) {
         viewModelScope.launch {
             val actualizados = _state.value.monitoreos
-                .filter { it.plantacion_id == plantacionId && it.activo }
-                .map { it.copy(activo = false) }
+                .filter { it.plantacion_id == plantacionId }
+                .map { it.copy(activo = false, ciclos = it.ciclos?.map { ciclo ->
+                    if (ciclo.estado == "activo") ciclo.copy(estado = "archivado") else ciclo
+                }) }
             if (actualizados.isEmpty()) return@launch
 
             withContext(Dispatchers.IO) {
