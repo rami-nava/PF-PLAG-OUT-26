@@ -152,7 +152,9 @@ interface GDDService {
     @GET("/reportes")
     suspend fun getReportes(
         @retrofit2.http.Query("fecha_desde") fechaDesde: String? = null,
-        @retrofit2.http.Query("fecha_hasta") fechaHasta: String? = null
+        @retrofit2.http.Query("fecha_hasta") fechaHasta: String? = null,
+        @retrofit2.http.Query("limit") limit: Int = 100,
+        @retrofit2.http.Query("offset") offset: Int = 0
     ): Response<List<ReporteDetalleResponse>>
 
     @GET("/mapa/reportes")
