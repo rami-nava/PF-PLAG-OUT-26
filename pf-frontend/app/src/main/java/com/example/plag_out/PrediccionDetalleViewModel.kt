@@ -58,10 +58,9 @@ class PrediccionDetalleViewModel(
 
         _state.value = _state.value.copy(isLoading = true, error = null, noDisponible = false)
         viewModelScope.launch {
-            val pendiente = withContext(Dispatchers.IO) {
-                feedbackRepository.obtener(ownerId, prediccionId)
-            }
+            var pendiente = _state.value.feedbackPendiente?.takeIf { it.owner_id == ownerId }
             try {
+                pendiente = withContext(Dispatchers.IO) { feedbackRepository.obtener(ownerId, prediccionId) }
                 val response = withContext(Dispatchers.IO) {
                     (gddService ?: RetrofitClient.forPresenceRetry(ownerId)).getPrediccion(prediccionId)
                 }
@@ -117,8 +116,13 @@ class PrediccionDetalleViewModel(
 
         _state.value = _state.value.copy(enviando = true)
         viewModelScope.launch {
-            val existente = withContext(Dispatchers.IO) {
-                feedbackRepository.obtener(ownerId, prediccion.id)
+            val existente = try {
+                withContext(Dispatchers.IO) { feedbackRepository.obtener(ownerId, prediccion.id) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(enviando = false, error = "No pudimos leer la respuesta pendiente en este dispositivo. Intentá nuevamente.")
+                return@launch
             }
             if (existente != null && existente.estado != "requiere_revision" && existente.respuesta != respuesta) {
                 _state.value = _state.value.copy(
@@ -128,17 +132,15 @@ class PrediccionDetalleViewModel(
                 )
                 return@launch
             }
-            if (existente?.estado == "requiere_revision") borrarPendiente(ownerId, prediccion.id)
             val feedback = existente?.takeUnless { it.estado == "requiere_revision" } ?: FeedbackPrediccionPendiente(
                 owner_id = ownerId,
                 prediccion_id = prediccion.id,
                 respuesta = respuesta,
                 biofix_json = biofix?.let { com.google.gson.Gson().toJson(it) },
                 idempotency_key = biofix?.idempotency_key ?: UUID.randomUUID().toString()
-            ).also { withContext(Dispatchers.IO) { feedbackRepository.guardar(it) } }
+            )
 
-            _state.value = _state.value.copy(feedbackPendiente = feedback)
-            enviar(feedback)
+            guardarYEnviar(feedback)
         }
     }
 
@@ -146,11 +148,32 @@ class PrediccionDetalleViewModel(
         val feedback = _state.value.feedbackPendiente ?: return
         if (feedback.owner_id != ownerIdProvider() || _state.value.enviando) return
         _state.value = _state.value.copy(enviando = true, error = null)
-        viewModelScope.launch { enviar(feedback) }
+        viewModelScope.launch { guardarYEnviar(feedback) }
+    }
+
+    private suspend fun guardarYEnviar(feedback: FeedbackPrediccionPendiente) {
+        if (ownerIdProvider() != feedback.owner_id) {
+            _state.value = PrediccionDetalleUIState()
+            return
+        }
+        _state.value = _state.value.copy(feedbackPendiente = feedback)
+        try {
+            withContext(Dispatchers.IO) { feedbackRepository.guardar(feedback) }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            _state.value = _state.value.copy(enviando = false,
+                error = "No pudimos guardar la respuesta en este dispositivo. Conservamos tu selección en esta pantalla; podés reintentar.")
+            return
+        }
+        enviar(feedback)
     }
 
     private suspend fun enviar(feedback: FeedbackPrediccionPendiente) {
-        if (ownerIdProvider() != feedback.owner_id) return
+        if (ownerIdProvider() != feedback.owner_id) {
+            _state.value = PrediccionDetalleUIState()
+            return
+        }
         if (feedback.respuesta == "presente" && (feedback.biofix_json == null || feedback.estado == "requiere_revision")) {
             _state.value = _state.value.copy(error = "Revisá la fecha y el ciclo antes de confirmar presencia.")
             return

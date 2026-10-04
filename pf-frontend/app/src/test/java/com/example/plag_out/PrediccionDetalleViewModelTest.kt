@@ -1,5 +1,6 @@
 package com.example.plag_out
 
+import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionDao
 import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionPendiente
 import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionRepository
 import com.example.plag_out.fakes.FakeFeedbackPrediccionDao
@@ -26,7 +27,7 @@ class PrediccionDetalleViewModelTest {
 
     private fun viewModel(
         service: FakeGDDService,
-        dao: FakeFeedbackPrediccionDao = FakeFeedbackPrediccionDao(),
+        dao: FeedbackPrediccionDao = FakeFeedbackPrediccionDao(),
         ownerId: String = owner
     ) = PrediccionDetalleViewModel(
         FeedbackPrediccionRepository(dao),
@@ -275,6 +276,37 @@ class PrediccionDetalleViewModelTest {
             assertEquals(pending.idempotency_key, service.ultimaConfirmacionPrediccion?.idempotency_key)
             assertNull(runBlocking { dao.get(owner, 41) })
         }
+    }
+
+    @Test
+    fun `fallo de almacenamiento local conserva seleccion y retry guarda antes de enviar`() {
+        val underlying = FakeFeedbackPrediccionDao()
+        var fail = true
+        val dao = object : FeedbackPrediccionDao by underlying {
+            override suspend fun insert(feedback: FeedbackPrediccionPendiente) {
+                if (fail) { fail = false; throw IllegalStateException("storage unavailable") }
+                underlying.insert(feedback)
+            }
+        }
+        val service = FakeGDDService().apply {
+            getPrediccionResult = { Response.success(Fixtures.prediccion()) }
+            confirmarPrediccionResult = {
+                assertEquals(ultimaConfirmacionPrediccion?.idempotency_key, runBlocking { underlying.get(owner, 41) }?.idempotency_key)
+                Response.success(PrediccionConfirmacionResponse(id = "confirmacion", prediccion_id = 41,
+                    respuesta = "no_verificada", respondido_en = "2026-09-01T10:00:00Z"))
+            }
+        }
+        val vm = viewModel(service, dao)
+        vm.cargar(41)
+        esperarEstado(vm.state) { it.prediccion != null }
+        vm.responder("no_verificada")
+        val pending = esperarEstado(vm.state) { !it.enviando && it.error != null }.feedbackPendiente!!
+        assertEquals(0, service.vecesLlamado("confirmarPrediccion"))
+        assertNull(runBlocking { underlying.get(owner, 41) })
+        vm.reintentar()
+        esperarEstado(vm.state) { it.prediccion?.confirmacion?.estado == "respondida" }
+        assertEquals(pending.idempotency_key, service.ultimaConfirmacionPrediccion?.idempotency_key)
+        assertNull(runBlocking { underlying.get(owner, 41) })
     }
 
 }
