@@ -1,12 +1,16 @@
 package com.example.plag_out
 
+import androidx.lifecycle.viewModelScope
 import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.fakes.Fixtures
 import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -40,8 +44,14 @@ class MisReportesViewModelTest {
     private lateinit var zonaOriginal: TimeZone
 
     @After
-    fun restaurarZonaHoraria() {
-        TimeZone.setDefault(zonaOriginal)
+    fun restaurarEstado() = runBlocking {
+        try {
+            withTimeout(5_000) {
+                viewModel.viewModelScope.coroutineContext[Job]!!.cancelAndJoin()
+            }
+        } finally {
+            TimeZone.setDefault(zonaOriginal)
+        }
     }
 
     @Before
@@ -51,6 +61,13 @@ class MisReportesViewModelTest {
         gddService = FakeGDDService()
         gddService.getUsuarioActualResult = { Response.success(Fixtures.usuario()) }
         viewModel = MisReportesViewModel(gddService, reportesDispatcher = mainDispatcherRule.testDispatcher)
+        // La precarga del perfil debe terminar antes de editar el radio; con Main
+        // unconfined sus respuestas pueden reanudarse en otro hilo de Dispatchers.IO.
+        runBlocking {
+            withTimeout(5_000) {
+                viewModel.viewModelScope.coroutineContext[Job]!!.children.toList().joinAll()
+            }
+        }
     }
 
     @Test
