@@ -140,20 +140,20 @@ class MisReportesViewModel(
             }
 
             try {
-                val sdfIn = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
                 val sdfOut = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.getDefault())
                 sdfOut.timeZone = java.util.TimeZone.getTimeZone("UTC")
                 
-                val desdeDate = sdfIn.parse(_state.value.fechaDesde)
-                val hastaDate = sdfIn.parse(_state.value.fechaHasta)
+                val zoneId = java.time.ZoneId.systemDefault()
+                val desdeDate = java.util.Date.from(_state.value.fechaDesde.atStartOfDay(zoneId).toInstant())
+                val hastaDate = java.util.Date.from(_state.value.fechaHasta.atStartOfDay(zoneId).toInstant())
                 
                 val cal = java.util.Calendar.getInstance()
-                cal.time = hastaDate!!
+                cal.time = hastaDate
                 cal.add(java.util.Calendar.HOUR_OF_DAY, 23)
                 cal.add(java.util.Calendar.MINUTE, 59)
                 cal.add(java.util.Calendar.SECOND, 59)
                 
-                val desdeStr = sdfOut.format(desdeDate!!)
+                val desdeStr = sdfOut.format(desdeDate)
                 val hastaStr = sdfOut.format(cal.time)
 
                 val response = withContext(Dispatchers.IO) {
