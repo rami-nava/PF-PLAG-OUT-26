@@ -633,7 +633,8 @@ fun AppNavigation(
                     reporteId = reporteId,
                     reporteJsonFallback = null,
                     viewModel = verReporteViewModel,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onVerTerreno = { tId -> navController.navigate("terreno/$tId") }
                 )
             }
             composable("ver_reporte/{reporte_id}/{reporte_json}") { backStackEntry ->
@@ -646,7 +647,8 @@ fun AppNavigation(
                     reporteId = reporteId,
                     reporteJsonFallback = reporteJson,
                     viewModel = verReporteViewModel,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onVerTerreno = { tId -> navController.navigate("terreno/$tId") }
                 )
             }
             composable("reportes") {

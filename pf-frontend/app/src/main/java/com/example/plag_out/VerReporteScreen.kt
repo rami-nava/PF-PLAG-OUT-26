@@ -33,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Group
@@ -101,7 +102,8 @@ fun VerReporteScreen(
     reporteId: Int,
     reporteJsonFallback: String?,
     viewModel: VerReporteViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onVerTerreno: (Int) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -129,10 +131,12 @@ fun VerReporteScreen(
                 is VerReporteUiState.Exito -> ContenidoVerReporte(
                     detalle = s.detalle,
                     terrenoReferencia = s.terrenoReferencia,
+                    terrenosAfectados = s.terrenosAfectados,
                     isEliminando = s.isEliminando,
                     errorEliminacion = s.errorEliminacion,
                     viewModel = viewModel,
-                    onBack = onBack
+                    onBack = onBack,
+                    onVerTerreno = onVerTerreno
                 )
             }
         }
@@ -145,10 +149,12 @@ fun VerReporteScreen(
 private fun ContenidoVerReporte(
     detalle: ReporteDetalleResponse,
     terrenoReferencia: TerrenoResponse?,
+    terrenosAfectados: List<TerrenoConDistancia>,
     isEliminando: Boolean,
     errorEliminacion: String?,
     viewModel: VerReporteViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onVerTerreno: (Int) -> Unit
 ) {
     val scrollState = rememberScrollState()
     var mostrarDialogoConfirmacion by remember { mutableStateOf(false) }
@@ -307,29 +313,74 @@ private fun ContenidoVerReporte(
                     val esPropio = detalle.es_propio
                     if (esPropio) {
                         val nom = detalle.terreno_nombre?.takeIf { it.isNotBlank() } ?: "Terreno no especificado"
-                        FilaDato(
-                            icono = Icons.Outlined.Landscape,
-                            etiqueta = "Terreno asignado",
-                            valor = nom
-                        )
-                    } else {
-                        val nom = detalle.terreno_nombre?.takeIf { it.isNotBlank() }
-                        val dist = detalle.distancia_km
-                        val cercaniaStr = if (nom != null && dist != null) {
-                            "Cercano a $nom, a ${formatearDistancia(dist)}"
-                        } else if (nom != null) {
-                            "Cercano a $nom"
-                        } else if (dist != null) {
-                            "A ${formatearDistancia(dist)} de tu terreno"
-                        } else {
-                            "Área cercana"
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Landscape,
+                                    contentDescription = null,
+                                    tint = PlagOutColors.Forest,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    "Terreno asignado",
+                                    fontSize = 14.sp,
+                                    color = PlagOutColors.TextSecondary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Box(modifier = Modifier.padding(start = 26.dp)) {
+                                val tid = detalle.terreno_mas_cercano_id
+                                FilaContextoNav(
+                                    titulo = nom,
+                                    onClick = if (tid != null) { { onVerTerreno(tid) } } else null
+                                )
+                            }
                         }
-                        FilaDato(
-                            icono = Icons.Filled.Group,
-                            etiqueta = "Terreno más cercano",
-                            valor = cercaniaStr,
-                            colorIcono = Color(0xFF1565C0)
-                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Landscape,
+                                    contentDescription = null,
+                                    tint = PlagOutColors.Forest,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    "Terrenos afectados",
+                                    fontSize = 14.sp,
+                                    color = PlagOutColors.TextSecondary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(start = 26.dp)) {
+                                if (terrenosAfectados.isEmpty()) {
+                                    Text("Sin terrenos cercanos", fontSize = 14.sp, color = PlagOutColors.TextMain)
+                                } else {
+                                    terrenosAfectados.forEachIndexed { index, ta ->
+                                        val textDist = if (ta.distanciaKm < 1f) {
+                                            "${(ta.distanciaKm * 1000).toInt()} m"
+                                        } else {
+                                            String.format(Locale.getDefault(), "%.1f km", ta.distanciaKm)
+                                        }
+                                        val titulo = if (index == 0) {
+                                            "${ta.terrenoNombre} · a $textDist (más cercano)"
+                                        } else {
+                                            "${ta.terrenoNombre} · a $textDist"
+                                        }
+                                        FilaContextoNav(
+                                            titulo = titulo,
+                                            onClick = { onVerTerreno(ta.terrenoId) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -633,6 +684,25 @@ private fun formatearDistancia(km: Float): String {
         String.format(Locale.getDefault(), "%.0f km", km)
     } else {
         String.format(Locale.getDefault(), "%.1f km", km)
+    }
+}
+
+@Composable
+private fun FilaContextoNav(
+    titulo: String,
+    onClick: (() -> Unit)?
+) {
+    val base = Modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(8.dp))
+        .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+        .padding(vertical = 8.dp)
+
+    Row(base, verticalAlignment = Alignment.CenterVertically) {
+        Text(titulo, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = PlagOutColors.TextMain, modifier = Modifier.weight(1f))
+        if (onClick != null) {
+            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(16.dp))
+        }
     }
 }
 
