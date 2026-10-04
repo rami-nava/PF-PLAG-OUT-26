@@ -1,9 +1,7 @@
 package com.example.plag_out.Service
 
-import android.os.Build
 import android.content.Context
 import android.util.Log
-import androidx.annotation.RequiresApi
 import com.example.plag_out.DispositivoRequest
 import com.example.plag_out.SupabaseProvider
 import com.example.plag_out.AlmacenamientoLocal.PreferenciasUsuario
@@ -28,8 +26,8 @@ object FcmTokenRegistrar {
     private const val MAX_INTENTOS = 4
     private const val ESPERA_INICIAL_MS = 1_000L
 
-    private val gddService: GDDService @RequiresApi(Build.VERSION_CODES.O)
-    get() = RetrofitClient.gddService
+    private val gddService: GDDService
+        get() = RetrofitClient.gddService
 
     private var context: Context? = null
     fun configurar(context: Context) { this.context = context.applicationContext }
@@ -52,7 +50,6 @@ object FcmTokenRegistrar {
     fun iniciarSesion() = coordinator.beginSession()
     fun invalidarSesion() = coordinator.invalidateSession()
 
-    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun registrar() = withContext(Dispatchers.IO) {
         try { coordinator.register() }
         catch (e: CancellationException) { throw e }
@@ -60,11 +57,9 @@ object FcmTokenRegistrar {
     }
 
     // Read the current token instead of replaying a potentially stale onNewToken callback.
-    @RequiresApi(Build.VERSION_CODES.O)
     @Suppress("UNUSED_PARAMETER")
     suspend fun registrar(token: String) = registrar()
 
-    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun desregistrar(remote: Boolean = true) {
         try { coordinator.unregister(remote) }
         catch (e: CancellationException) { throw e }

@@ -25,4 +25,4 @@ cd pf-frontend
 
 Las pruebas JVM incluyen Compose/Robolectric y servicios simulados. No equivalen a una prueba E2E contra servicios desplegados. Se verifican acuses incompletos/incompatibles, reintento con el mismo UUID, guardado local fallido, aislamiento por cuenta y los mensajes de pantalla.
 
-Lint tiene tres errores `NewApi` preexistentes en main: `FcmTokenRegistrar.kt` (líneas 44 y 48) y `PlagOutApplication.kt` (línea 29), por API 26 con `minSdk=24`. Los dos archivos coinciden con main. Los fallos se registran como deuda existente; no se agrega un baseline para ocultarlos.
+Se retiraron las restricciones API 26 incorrectas de `FcmTokenRegistrar`: Firebase/Retrofit funcionan con minSdk 24 y `java.time` usa el desugaring ya habilitado. No se sube minSdk ni se ocultan errores con un baseline. Ejecutar lint y tests antes de integrar.
