@@ -20,6 +20,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import retrofit2.Response
+import java.io.IOException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -32,6 +35,7 @@ class CrearReporteViewModelTest {
     private lateinit var context: Context
     private lateinit var gddService: FakeGDDService
     private lateinit var viewModel: CrearReporteViewModel
+    private var owner: String? = "fixture-owner"
 
     @Before
     fun setup() {
@@ -40,7 +44,7 @@ class CrearReporteViewModelTest {
         gddService.getTerrenosResult = { Response.success(listOf(Fixtures.terreno(id = 1, nombre = "Lote 1"))) }
         gddService.getPlantacionesResult = { Response.success(listOf(Fixtures.plantacion(id = 10, terrenoId = 1))) }
         gddService.getPlagasResult = { Response.success(listOf(Fixtures.plaga(id = 5, nombre = "Oruga"))) }
-        viewModel = CrearReporteViewModel(context, gddService)
+        viewModel = CrearReporteViewModel(context, gddService, currentOwner = { owner })
     }
 
     @Test
@@ -96,6 +100,9 @@ class CrearReporteViewModelTest {
         assertNotNull(estado.reporteNavPayload)
         assertEquals(99, estado.reporteNavPayload?.id)
         assertEquals("Oruga", estado.reporteNavPayload?.plaga_nombre)
+        assertEquals("Alto", estado.reporteNavPayload?.nivel_severidad)
+        assertEquals(1700000000000L, estado.reporteNavPayload?.timestamp_ms)
+        assertEquals(-34.6, estado.reporteNavPayload?.latitud)
         assertEquals(1, gddService.vecesLlamado("createReporte"))
         val jsonEnviado = com.google.gson.Gson().toJson(gddService.ultimoCreateReporte)
         assertFalse(jsonEnviado.contains("terreno_id"))
@@ -103,12 +110,87 @@ class CrearReporteViewModelTest {
         assertFalse(jsonEnviado.contains("longitud"))
     }
 
+    private fun prepararReporte() {
+        esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
+        viewModel.seleccionarTerreno(Fixtures.terreno(id = 1))
+        viewModel.seleccionarPlantacion(Fixtures.plantacion(id = 10, terrenoId = 1))
+        viewModel.seleccionarPlaga(Fixtures.plaga(id = 5, nombre = "Oruga"))
+    }
+
+    private fun reporteGuardado() = ReporteResponse(
+        id = 99, plantacion_id = 10, plaga_id = 5, nivel_severidad = "Bajo",
+        latitud = -34.6, longitud = -58.4, timestamp_ms = 1700000000000L,
+    )
+
+    @Test
+    fun `respuesta perdida conserva fecha y reintento acepta reporte reutilizado`() {
+        prepararReporte()
+        val original = viewModel.state.value.timestampMs
+        gddService.createReporteResult = { throw IOException("respuesta perdida tras guardar") }
+        viewModel.guardarReporte {}
+        esperarEstado(viewModel.state) { !it.isGuardando && it.error != null }
+        val primerEnvio = gddService.ultimoCreateReporte
+        viewModel.actualizarTimestamp()
+        assertEquals(original, viewModel.state.value.timestampMs)
+        gddService.createReporteResult = { Response.success(200, reporteGuardado()) }
+        viewModel.guardarReporte {}
+        val estado = esperarEstado(viewModel.state) { it.reporteNavPayload != null }
+        assertEquals(primerEnvio, gddService.ultimoCreateReporte)
+        assertEquals(original, gddService.ultimoCreateReporte?.timestamp_ms)
+        assertEquals(1700000000000L, estado.reporteNavPayload?.timestamp_ms)
+        assertEquals(99, estado.reporteNavPayload?.id)
+        assertEquals(2, gddService.vecesLlamado("createReporte"))
+    }
+
+    @Test
+    fun `doble toque no envia dos reportes`() {
+        prepararReporte()
+        val iniciado = CountDownLatch(1)
+        val liberar = CountDownLatch(1)
+        gddService.createReporteResult = {
+            iniciado.countDown()
+            check(liberar.await(5, TimeUnit.SECONDS))
+            Response.success(201, reporteGuardado())
+        }
+        try {
+            viewModel.guardarReporte {}
+            assertTrue(iniciado.await(5, TimeUnit.SECONDS))
+            viewModel.guardarReporte {}
+            assertEquals(1, gddService.vecesLlamado("createReporte"))
+        } finally { liberar.countDown() }
+        esperarEstado(viewModel.state) { it.reporteNavPayload != null }
+        viewModel.guardarReporte {}
+        assertEquals(1, gddService.vecesLlamado("createReporte"))
+    }
+
+    @Test
+    fun `otra cuenta no reenvia el reporte pendiente`() {
+        prepararReporte()
+        gddService.createReporteResult = { throw IOException("respuesta perdida") }
+        viewModel.guardarReporte {}
+        esperarEstado(viewModel.state) { !it.isGuardando && it.error != null }
+        owner = "otra-cuenta"
+        viewModel.guardarReporte {}
+        assertEquals(1, gddService.vecesLlamado("createReporte"))
+        assertTrue(viewModel.state.value.error.orEmpty().contains("sesión cambió"))
+        assertNull(viewModel.state.value.reporteNavPayload)
+    }
+
+    @Test
+    fun `acuse de otra plantacion no se presenta como guardado`() {
+        prepararReporte()
+        gddService.createReporteResult = { Response.success(reporteGuardado().copy(plantacion_id = 999)) }
+        viewModel.guardarReporte {}
+        val estado = esperarEstado(viewModel.state) { !it.isGuardando && it.error != null }
+        assertNull(estado.reporteNavPayload)
+    }
+
     @Test
     fun `seleccionarPlaga calcula las etapas biologicas correspondientes`() {
         val oruga = Fixtures.plaga(id = 1, nombre = "Oruga Cogollera", nombreCientifico = "Spodoptera frugiperda")
         val chicharrita = Fixtures.plaga(id = 2, nombre = "Chicharrita", nombreCientifico = "Dalbulus maidis")
         gddService.getPlagasResult = { Response.success(listOf(oruga, chicharrita)) }
-        viewModel = CrearReporteViewModel(context, gddService)
+        viewModel = CrearReporteViewModel(context, gddService, currentOwner = { "fixture-owner" })
         esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
 
         // Las plagas solo se pueden elegir con terreno y cultivo ya definidos
@@ -128,7 +210,7 @@ class CrearReporteViewModelTest {
     fun `filtrado de plagas por cultivo excluye plagas no aplicables`() {
         val plagaMaiz = Fixtures.plaga(id = 1, nombre = "Chicharrita del Maíz", cultivosAfectados = listOf(2))
         gddService.getPlagasResult = { Response.success(listOf(plagaMaiz)) }
-        viewModel = CrearReporteViewModel(context, gddService)
+        viewModel = CrearReporteViewModel(context, gddService, currentOwner = { "fixture-owner" })
         esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
 
         viewModel.seleccionarTerreno(Fixtures.terreno(id = 1))
@@ -160,7 +242,7 @@ class CrearReporteViewModelTest {
     fun `no se puede elegir una plaga de otro cultivo`() {
         val plagaMaiz = Fixtures.plaga(id = 7, nombre = "Gusano cogollero", cultivosAfectados = listOf(2))
         gddService.getPlagasResult = { Response.success(listOf(plagaMaiz)) }
-        viewModel = CrearReporteViewModel(context, gddService)
+        viewModel = CrearReporteViewModel(context, gddService, currentOwner = { "fixture-owner" })
         esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
 
         viewModel.seleccionarTerreno(Fixtures.terreno(id = 1))
@@ -175,7 +257,7 @@ class CrearReporteViewModelTest {
         gddService.getTerrenosResult = {
             Response.success(listOf(Fixtures.terreno(id = 1, nombre = "Lote 1"), Fixtures.terreno(id = 2, nombre = "Lote 2")))
         }
-        viewModel = CrearReporteViewModel(context, gddService)
+        viewModel = CrearReporteViewModel(context, gddService, currentOwner = { "fixture-owner" })
         esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
 
         viewModel.seleccionarTerreno(Fixtures.terreno(id = 1))
