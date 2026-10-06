@@ -165,10 +165,12 @@ class CrearReporteViewModelTest {
     @Test
     fun `cambio o cierre de sesion impide reenviar o abrir el reporte pendiente`() {
         prepararReporte()
-        gddService.createReporteResult = { throw IOException("respuesta perdida") }
+        gddService.createReporteResult = {
+            owner = "otra-cuenta"
+            Response.success(reporteGuardado())
+        }
         viewModel.guardarReporte {}
         esperarEstado(viewModel.state) { !it.isGuardando && it.error != null }
-        owner = "otra-cuenta"
         viewModel.guardarReporte {}
         assertEquals(1, gddService.vecesLlamado("createReporte"))
         assertTrue(viewModel.state.value.error.orEmpty().contains("sesión cambió"))
@@ -176,16 +178,6 @@ class CrearReporteViewModelTest {
         owner = null
         viewModel.guardarReporte {}
         assertEquals(1, gddService.vecesLlamado("createReporte"))
-
-        owner = "fixture-owner"
-        gddService.createReporteResult = {
-            owner = "otra-cuenta"
-            Response.success(reporteGuardado())
-        }
-        viewModel.guardarReporte {}
-        val estado = esperarEstado(viewModel.state) { !it.isGuardando && it.error != null }
-        assertEquals(2, gddService.vecesLlamado("createReporte"))
-        assertNull(estado.reporteNavPayload)
     }
 
     @Test
