@@ -113,7 +113,6 @@ class CrearReporteViewModelTest {
     private fun prepararReporte() {
         esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
         viewModel.seleccionarTerreno(Fixtures.terreno(id = 1))
-        viewModel.seleccionarPlantacion(Fixtures.plantacion(id = 10, terrenoId = 1))
         viewModel.seleccionarPlaga(Fixtures.plaga(id = 5, nombre = "Oruga"))
     }
 
@@ -164,7 +163,7 @@ class CrearReporteViewModelTest {
     }
 
     @Test
-    fun `otra cuenta no reenvia el reporte pendiente`() {
+    fun `cambio o cierre de sesion impide reenviar o abrir el reporte pendiente`() {
         prepararReporte()
         gddService.createReporteResult = { throw IOException("respuesta perdida") }
         viewModel.guardarReporte {}
@@ -174,6 +173,19 @@ class CrearReporteViewModelTest {
         assertEquals(1, gddService.vecesLlamado("createReporte"))
         assertTrue(viewModel.state.value.error.orEmpty().contains("sesión cambió"))
         assertNull(viewModel.state.value.reporteNavPayload)
+        owner = null
+        viewModel.guardarReporte {}
+        assertEquals(1, gddService.vecesLlamado("createReporte"))
+
+        owner = "fixture-owner"
+        gddService.createReporteResult = {
+            owner = "otra-cuenta"
+            Response.success(reporteGuardado())
+        }
+        viewModel.guardarReporte {}
+        val estado = esperarEstado(viewModel.state) { !it.isGuardando && it.error != null }
+        assertEquals(2, gddService.vecesLlamado("createReporte"))
+        assertNull(estado.reporteNavPayload)
     }
 
     @Test

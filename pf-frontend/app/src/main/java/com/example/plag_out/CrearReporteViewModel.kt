@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.async
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
@@ -16,7 +17,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import io.github.jan.supabase.auth.auth
 
 data class CrearReporteUIState(
     val terrenos: List<TerrenoResponse> = emptyList(),
@@ -42,7 +42,7 @@ data class CrearReporteUIState(
 
 class CrearReporteViewModel(
     private val context: Context,
-    private val gddService: GDDService = RetrofitClient.gddService,
+    private val gddService: GDDService? = null,
     private val currentOwner: () -> String? = { SupabaseProvider.client.auth.currentUserOrNull()?.id }
 ) : ViewModel() {
 
@@ -63,9 +63,10 @@ class CrearReporteViewModel(
             }
             try {
                 coroutineScope {
-                    val deferredTerrenos = async { gddService.getTerrenos() }
-                    val deferredPlantaciones = async { gddService.getPlantaciones() }
-                    val deferredPlagas = async { gddService.getPlagas() }
+                    val service = gddService ?: RetrofitClient.gddService
+                    val deferredTerrenos = async { service.getTerrenos() }
+                    val deferredPlantaciones = async { service.getPlantaciones() }
+                    val deferredPlagas = async { service.getPlagas() }
 
                     val resTerrenos = deferredTerrenos.await()
                     val resPlantaciones = deferredPlantaciones.await()
@@ -257,21 +258,17 @@ class CrearReporteViewModel(
 
         viewModelScope.launch {
             try {
-                val currentMs = currentState.timestampMs
                 val etapaStr = currentState.etapaBiologica.ifBlank { null }
                 val request = CreateReporteRequest(
                     plantacion_id = plantacion.plantacion_id,
                     plaga_id = plaga.id,
                     nivel_severidad = currentState.nivelSeveridad,
-                    timestamp_ms = currentMs,
+                    timestamp_ms = currentState.timestampMs,
                     etapa_biologica = etapaStr
                 )
 
                 val response = withContext(Dispatchers.IO) {
-                    // Reuse the existing owner-bound interceptor for production sends.
-                    val service = if (gddService === RetrofitClient.gddService)
-                        RetrofitClient.forPresenceRetry(owner) else gddService
-                    service.createReporte(request)
+                    (gddService ?: RetrofitClient.forPresenceRetry(owner)).createReporte(request)
                 }
                 if (currentOwner() != owner) {
                     _state.value = _state.value.copy(isGuardando = false,
@@ -342,7 +339,7 @@ class CrearReporteViewModel(
 
 class CrearReporteViewModelFactory(
     private val context: Context,
-    private val gddService: GDDService = RetrofitClient.gddService
+    private val gddService: GDDService? = null
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
