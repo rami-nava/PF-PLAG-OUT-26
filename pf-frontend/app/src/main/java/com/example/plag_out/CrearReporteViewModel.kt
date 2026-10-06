@@ -7,7 +7,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,13 +42,15 @@ data class CrearReporteUIState(
 
 class CrearReporteViewModel(
     private val context: Context,
-    private val gddService: GDDService = RetrofitClient.gddService
+    private val gddService: GDDService? = null,
+    private val currentOwner: () -> String? = { SupabaseProvider.client.auth.currentUserOrNull()?.id }
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CrearReporteUIState())
     val state: StateFlow<CrearReporteUIState> = _state.asStateFlow()
 
     private var todasLasPlantaciones: List<PlantacionesResponse> = emptyList()
+    private var reportOwner: String? = null
 
     init {
         cargarDatosIniciales()
@@ -59,9 +63,10 @@ class CrearReporteViewModel(
             }
             try {
                 coroutineScope {
-                    val deferredTerrenos = async { gddService.getTerrenos() }
-                    val deferredPlantaciones = async { gddService.getPlantaciones() }
-                    val deferredPlagas = async { gddService.getPlagas() }
+                    val service = gddService ?: RetrofitClient.gddService
+                    val deferredTerrenos = async { service.getTerrenos() }
+                    val deferredPlantaciones = async { service.getPlantaciones() }
+                    val deferredPlagas = async { service.getPlagas() }
 
                     val resTerrenos = deferredTerrenos.await()
                     val resPlantaciones = deferredPlantaciones.await()
@@ -208,6 +213,7 @@ class CrearReporteViewModel(
     }
 
     fun actualizarTimestamp() {
+        if (reportOwner != null) return
         _state.value = _state.value.copy(timestampMs = System.currentTimeMillis())
     }
 
@@ -216,11 +222,13 @@ class CrearReporteViewModel(
     }
 
     fun resetState() {
+        reportOwner = null
         _state.value = CrearReporteUIState(timestampMs = System.currentTimeMillis())
     }
 
     fun guardarReporte(onSuccess: () -> Unit) {
         val currentState = _state.value
+        if (currentState.isGuardando || currentState.reporteNavPayload != null) return
         val terreno = currentState.terrenoSeleccionado
         val plantacion = currentState.plantacionSeleccionada
         val plaga = currentState.plagaSeleccionada
@@ -240,27 +248,38 @@ class CrearReporteViewModel(
             return
         }
 
+        val owner = currentOwner()
+        if (owner == null || (reportOwner != null && reportOwner != owner)) {
+            _state.value = _state.value.copy(error = "La sesión cambió. Iniciá un nuevo reporte con tu cuenta actual.")
+            return
+        }
+        reportOwner = owner
         _state.value = _state.value.copy(isGuardando = true, error = null)
 
         viewModelScope.launch {
             try {
-                val currentMs = System.currentTimeMillis()
                 val etapaStr = currentState.etapaBiologica.ifBlank { null }
                 val request = CreateReporteRequest(
                     plantacion_id = plantacion.plantacion_id,
                     plaga_id = plaga.id,
                     nivel_severidad = currentState.nivelSeveridad,
-                    timestamp_ms = currentMs,
+                    timestamp_ms = currentState.timestampMs,
                     etapa_biologica = etapaStr
                 )
 
                 val response = withContext(Dispatchers.IO) {
-                    gddService.createReporte(request)
+                    (gddService ?: RetrofitClient.forPresenceRetry(owner)).createReporte(request)
+                }
+                if (currentOwner() != owner) {
+                    _state.value = _state.value.copy(isGuardando = false,
+                        error = "La sesión cambió. Iniciá un nuevo reporte con tu cuenta actual.")
+                    return@launch
                 }
 
                 if (response.isSuccessful) {
                     val body = response.body()
-                    if (body == null) {
+                    if (body == null || body.id <= 0 || body.plaga_id != plaga.id ||
+                        body.plantacion_id != plantacion.plantacion_id) {
                         _state.value = _state.value.copy(
                             isGuardando = false,
                             error = "El servidor no devolvió datos del reporte creado."
@@ -271,10 +290,10 @@ class CrearReporteViewModel(
                     val navPayload = ReporteNavPayload(
                         id              = body.id,
                         plaga_nombre    = plagaNombre,
-                        nivel_severidad = currentState.nivelSeveridad,
-                        latitud         = currentState.latitud,
-                        longitud        = currentState.longitud,
-                        timestamp_ms    = currentMs
+                        nivel_severidad = body.nivel_severidad,
+                        latitud         = body.latitud,
+                        longitud        = body.longitud,
+                        timestamp_ms    = body.timestamp_ms
                     )
                     _state.value = _state.value.copy(
                         isGuardando = false,
@@ -305,6 +324,8 @@ class CrearReporteViewModel(
                         error = userFriendlyError
                     )
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("CREAR_REPORTE", "Error al guardar reporte: ${e.message}")
                 _state.value = _state.value.copy(
@@ -318,7 +339,7 @@ class CrearReporteViewModel(
 
 class CrearReporteViewModelFactory(
     private val context: Context,
-    private val gddService: GDDService = RetrofitClient.gddService
+    private val gddService: GDDService? = null
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")

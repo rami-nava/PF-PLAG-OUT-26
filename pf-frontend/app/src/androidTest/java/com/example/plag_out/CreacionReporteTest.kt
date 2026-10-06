@@ -67,7 +67,7 @@ class CreacionReporteTest {
             getPlagasResult = { Response.success(listOf(plagaDelTrigo, plagaDelMaiz)) }
         }
 
-        crearReporteViewModel = CrearReporteViewModel(context, gddService)
+        crearReporteViewModel = CrearReporteViewModel(context, gddService, currentOwner = { "fixture-owner" })
 
         composeRule.setContent {
             CrearReporteScreen(
