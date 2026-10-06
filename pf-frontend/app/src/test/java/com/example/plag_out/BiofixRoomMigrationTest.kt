@@ -30,7 +30,9 @@ class BiofixRoomMigrationTest {
                 cursor.moveToFirst(); cursor.getString(0)
             }
             var schema = original.replace("`$table`", "`${table}_old`")
-            omitted.forEach { column -> schema = schema.replace(", `$column` TEXT", "") }
+            omitted.forEach { column ->
+                schema = schema.replace(", `$column` TEXT", "").replace(", `$column` INTEGER", "")
+            }
             val columns = mutableListOf<String>()
             sqlite.rawQuery("PRAGMA table_info(`$table`)", null).use { cursor ->
                 while (cursor.moveToNext()) {
@@ -46,11 +48,12 @@ class BiofixRoomMigrationTest {
         }
         recreateWithout("feedback_prediccion_pendiente", setOf("biofix_json"))
         recreateWithout("monitoreos", setOf("ciclos", "estado_seguimiento", "observaciones"))
+        recreateWithout("usuario", setOf("rol", "activo"))
         sqlite.execSQL("DROP TABLE biofix_pendiente")
         sqlite.version = 12
         sqlite.close()
         val migrated = Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .addMigrations(AppDatabase.MIGRATION_12_13, AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15).allowMainThreadQueries().build()
+            .addMigrations(AppDatabase.MIGRATION_12_13, AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16).allowMainThreadQueries().build()
         val pending = migrated.feedbackPrediccionDao().get("owner",41)!!
         assertEquals("same-uuid",pending.idempotency_key)
         assertEquals("requiere_revision",pending.estado)

@@ -201,6 +201,12 @@ fun AppNavigation(
     val notificacionesViewModel: NotificacionesViewModel = viewModel(
         factory = remember { NotificacionesViewModelFactory() }
     )
+    val adminPlagasViewModel: AdminPlagasViewModel = viewModel(
+        factory = remember { AdminPlagasViewModelFactory() }
+    )
+    val adminUsuariosViewModel: AdminUsuariosViewModel = viewModel(
+        factory = remember { AdminUsuariosViewModelFactory() }
+    )
 
     // Supabase restaura la sesión guardada al iniciar (y renueva el token si hace
     // falta). Mientras tanto el estado es Initializing: mostramos un splash y recién
@@ -225,8 +231,10 @@ fun AppNavigation(
         )
         return
     }
+    // El rol guardado en el último login decide de qué lado de la app se arranca: las cuentas
+    // admin solo ven el panel de administración.
     val startDestination = remember {
-        if (sessionStatus is SessionStatus.Authenticated) "monitoreos" else "logIn"
+        if (sessionStatus is SessionStatus.Authenticated) homePara(PreferenciasUsuario.rol(context)) else "logIn"
     }
 
     val navController = rememberNavController()
@@ -251,9 +259,10 @@ fun AppNavigation(
     // Registrar el token FCM también al restaurar una sesión guardada (usuario que
     // no pasó por el login en esta ejecución). Es idempotente con el registro del login.
     // Se respeta la preferencia del perfil: si no, cada arranque volvería a activar las
-    // notificaciones de quien las había apagado.
+    // notificaciones de quien las había apagado. Las cuentas admin no reciben alertas de campo.
     LaunchedEffect(sessionStatus) {
         if (sessionStatus is SessionStatus.Authenticated &&
+            !PreferenciasUsuario.esAdmin(context) &&
             PreferenciasUsuario.notificacionesActivadas(context)
         ) {
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -265,13 +274,31 @@ fun AppNavigation(
     // startDestination se fija una sola vez (arriba) leyendo sessionStatus en ese momento. Si
     // sessionStatus pasó primero por NotAuthenticated y recién después (al terminar de cargar la
     // sesión guardada) llegó a Authenticated, el NavHost ya arrancó en "logIn" y se queda ahí sin
-    // este empujón: si nos autenticamos estando parados en el login, saltamos a monitoreos.
+    // este empujón: si nos autenticamos estando parados en el login, saltamos al home.
+    // Durante un login en curso no se empuja: ese flujo todavía está leyendo el rol y navega solo.
     LaunchedEffect(sessionStatus) {
         val currentRoute = navBackStackEntry?.destination?.route
-        if (sessionStatus is SessionStatus.Authenticated && currentRoute == "logIn") {
-            navController.navigate("monitoreos") {
+        if (sessionStatus is SessionStatus.Authenticated && currentRoute == "logIn" &&
+            !authViewModel.loginState.value.cargando
+        ) {
+            navController.navigate(homePara(PreferenciasUsuario.rol(context))) {
                 popUpTo("logIn") { inclusive = true }
             }
+        }
+    }
+
+    // Cada vez que llega el usuario del backend se actualiza el rol guardado. Si el rol cambió
+    // con la sesión abierta (se asigna por SQL), se lleva al home del lado que corresponde.
+    val usuarioActual = userViewModel.state.collectAsState().value.usuario
+    LaunchedEffect(usuarioActual?.usuario_id, usuarioActual?.rol) {
+        val usuario = usuarioActual ?: return@LaunchedEffect
+        if (sessionStatus !is SessionStatus.Authenticated) return@LaunchedEffect
+        val rol = usuario.rol ?: ROL_USUARIO
+        PreferenciasUsuario.guardarRol(context, rol)
+        val ruta = navController.currentBackStackEntry?.destination?.route ?: return@LaunchedEffect
+        if (ruta == "logIn" || ruta == "crearCuenta") return@LaunchedEffect
+        if ((rol == ROL_ADMIN) != esRutaAdmin(ruta)) {
+            navController.navigate(homePara(rol)) { popUpTo(0) { inclusive = true } }
         }
     }
 
@@ -279,14 +306,14 @@ fun AppNavigation(
     // (monitoreo para las alertas de GDD, reporte para los reportes cercanos y cultivo
     // para el biofix).
     LaunchedEffect(deepLinkMonitoreoId, sessionStatus) {
-        if (deepLinkMonitoreoId != null && sessionStatus is SessionStatus.Authenticated) {
+        if (deepLinkMonitoreoId != null && sessionStatus is SessionStatus.Authenticated && !PreferenciasUsuario.esAdmin(context)) {
             navController.navigate("monitoreo/$deepLinkMonitoreoId")
             onDeepLinkMonitoreoConsumido()
         }
     }
 
     LaunchedEffect(deepLinkReporteId, sessionStatus) {
-        if (deepLinkReporteId != null && sessionStatus is SessionStatus.Authenticated) {
+        if (deepLinkReporteId != null && sessionStatus is SessionStatus.Authenticated && !PreferenciasUsuario.esAdmin(context)) {
             navController.navigate("ver_reporte/$deepLinkReporteId")
             onDeepLinkReporteConsumido()
         }
@@ -294,20 +321,20 @@ fun AppNavigation(
 
     // Aviso de biofix: la entidad es el cultivo que arrancó a acumular GDD.
     LaunchedEffect(deepLinkPlantacionId, sessionStatus) {
-        if (deepLinkPlantacionId != null && sessionStatus is SessionStatus.Authenticated) {
+        if (deepLinkPlantacionId != null && sessionStatus is SessionStatus.Authenticated && !PreferenciasUsuario.esAdmin(context)) {
             navController.navigate("plantacion/$deepLinkPlantacionId")
             onDeepLinkPlantacionConsumido()
         }
     }
 
     LaunchedEffect(deepLinkCicloId, sessionStatus) {
-        if (deepLinkCicloId != null && sessionStatus is SessionStatus.Authenticated) {
+        if (deepLinkCicloId != null && sessionStatus is SessionStatus.Authenticated && !PreferenciasUsuario.esAdmin(context)) {
             navController.navigate("ciclo/$deepLinkCicloId")
             onDeepLinkCicloConsumido()
         }
     }
     LaunchedEffect(deepLinkPrediccionId, sessionStatus) {
-        if (deepLinkPrediccionId != null && sessionStatus is SessionStatus.Authenticated) {
+        if (deepLinkPrediccionId != null && sessionStatus is SessionStatus.Authenticated && !PreferenciasUsuario.esAdmin(context)) {
             navController.navigate("prediccion/$deepLinkPrediccionId")
             onDeepLinkPrediccionConsumido()
         }
@@ -321,7 +348,9 @@ fun AppNavigation(
     // Recién autenticado (login o sesión restaurada): el ON_RESUME de abajo ya pasó con la app
     // en primer plano, así que sin esto el badge se quedaría en cero hasta minimizar y volver.
     LaunchedEffect(sessionStatus) {
-        if (sessionStatus is SessionStatus.Authenticated) notificacionesViewModel.cargar()
+        if (sessionStatus is SessionStatus.Authenticated && !PreferenciasUsuario.esAdmin(context)) {
+            notificacionesViewModel.cargar()
+        }
     }
 
     // Y cada vez que se vuelve del fondo: si llegó un push mientras la app estaba minimizada,
@@ -330,8 +359,13 @@ fun AppNavigation(
     DisposableEffect(lifecycleOwner, sessionStatus) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && sessionStatus is SessionStatus.Authenticated) {
-                notificacionesViewModel.cargar()
-                actionScope.launch { FcmTokenRegistrar.registrar() }
+                // Releer el usuario detecta un cambio de rol o una suspensión hechos mientras la
+                // app estaba en segundo plano.
+                userViewModel.refrescar()
+                if (!PreferenciasUsuario.esAdmin(context)) {
+                    notificacionesViewModel.cargar()
+                    actionScope.launch { FcmTokenRegistrar.registrar() }
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -342,7 +376,9 @@ fun AppNavigation(
     // a segundo plano, así que sin esto la campana se queda desactualizada hasta el próximo clic.
     LaunchedEffect(Unit) {
         NotificacionesEventBus.eventos.collect {
-            if (sessionStatus is SessionStatus.Authenticated) notificacionesViewModel.cargar()
+            if (sessionStatus is SessionStatus.Authenticated && !PreferenciasUsuario.esAdmin(context)) {
+                notificacionesViewModel.cargar()
+            }
         }
     }
 
@@ -352,7 +388,7 @@ fun AppNavigation(
     // Cerrar sesión: AuthViewModel borra el almacenamiento local (token, Room,
     // marcas de caché); acá se descarta además el estado en memoria de los
     // ViewModels y se vuelve al login vaciando el back stack
-    val limpiarSesion: (Boolean) -> Unit = { desregistrarDispositivo ->
+    val limpiarSesion: (Boolean, () -> Unit) -> Unit = { desregistrarDispositivo, despues ->
         authViewModel.cerrarSesion(desregistrarDispositivo) {
             userViewModel.limpiar()
             monitoreosViewModel.limpiar()
@@ -360,17 +396,45 @@ fun AppNavigation(
             plantacionesViewModel.limpiar()
             notificacionesViewModel.limpiar()
             misReportesViewModel.limpiar()
+            adminPlagasViewModel.limpiar()
+            adminUsuariosViewModel.limpiar()
             navController.navigate("logIn") {
                 popUpTo(0) { inclusive = true }
             }
+            despues()
         }
     }
-    val cerrarSesion: () -> Unit = { limpiarSesion(true) }
+    val cerrarSesion: () -> Unit = { limpiarSesion(true) {} }
+
+    // Cuenta suspendida por un admin con la sesión abierta: cualquier request devuelve 403
+    // cuenta_suspendida y se vuelve al login con el aviso. No se desregistra el token FCM porque
+    // el backend rechazaría también ese request. En el login no hace falta: ese flujo ya lo
+    // detecta y muestra el aviso él mismo.
+    var cerrandoPorSuspension by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        CuentaSuspendidaEventBus.eventos.collect {
+            val ruta = navController.currentBackStackEntry?.destination?.route
+            if (cerrandoPorSuspension || ruta == "logIn" || ruta == "crearCuenta") return@collect
+            cerrandoPorSuspension = true
+            limpiarSesion(false) {
+                authViewModel.avisarCuentaSuspendida()
+                cerrandoPorSuspension = false
+            }
+        }
+    }
+
+    // Si el backend dice que la cuenta ya no es admin, se relee el usuario: el efecto que
+    // observa el rol se encarga de llevarla al lado correcto.
+    val onSinPermisoAdmin: () -> Unit = { userViewModel.refrescar() }
+
+    val ladoAdmin = esRutaAdmin(rutaActual)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            if (shouldShowTopBar(navController)) {
+            if (ladoAdmin) {
+                if (rutaActual in rutasAdminConBarras) AdminTopBar()
+            } else if (shouldShowTopBar(navController)) {
                 TopBar(
                     noLeidas = notificacionesState.noLeidas,
                     onNotificacionesClick = {
@@ -382,7 +446,9 @@ fun AppNavigation(
             }
         },
         bottomBar = {
-            if (shouldShowBottomBar(navController)) {
+            if (ladoAdmin) {
+                if (rutaActual in rutasAdminConBarras) AdminBottomNavigationBar(navController)
+            } else if (shouldShowBottomBar(navController)) {
                 BottomNavigationBar(navController)
             }
         }
@@ -405,10 +471,10 @@ fun AppNavigation(
             composable("logIn") {
                 LoginScreen(
                     authViewModel,
-                    // Sacar el login del back stack: "atrás" desde home no debe volver al login
-                    {
-                        navController.navigate("monitoreos") {
-                            popUpTo("logIn") { inclusive = true }
+                    // Vaciar el back stack: "atrás" desde home no debe volver al login
+                    { rol ->
+                        navController.navigate(homePara(rol)) {
+                            popUpTo(0) { inclusive = true }
                         }
                     },
                     { navController.navigate("crearCuenta") }
@@ -437,13 +503,13 @@ fun AppNavigation(
                     onCuentaEliminada = {
                         val ownerId = SupabaseProvider.client.auth.currentUserOrNull()?.id
                         if (ownerId == null) {
-                            limpiarSesion(false)
+                            limpiarSesion(false) {}
                         } else {
                             actionScope.launch {
                                 withContext(Dispatchers.IO) {
                                     feedbackPrediccionRepository.eliminarPorUsuario(ownerId)
                                 }
-                                limpiarSesion(false)
+                                limpiarSesion(false) {}
                             }
                         }
                     }
@@ -649,6 +715,81 @@ fun AppNavigation(
             composable("reportes") {
                 MisReportesScreen(misReportesViewModel, navController)
             }
+
+            // ── Panel de administración ──
+            composable(RUTA_ADMIN_PLAGAS) {
+                SoloAdmin(navController) {
+                    AdminPlagasScreen(
+                        viewModel = adminPlagasViewModel,
+                        onNuevaPlaga = { navController.navigate(RUTA_ADMIN_PLAGA_NUEVA) },
+                        onEditarPlaga = { id -> navController.navigate("admin_plaga/$id") },
+                        onSinPermiso = onSinPermisoAdmin
+                    )
+                }
+            }
+            composable(RUTA_ADMIN_PLAGA_NUEVA) {
+                SoloAdmin(navController) {
+                    PlagaFormScreen(
+                        viewModel = adminPlagasViewModel,
+                        plagaId = null,
+                        onBack = { navController.popBackStack() },
+                        onGuardado = {
+                            navController.popBackStack()
+                            Toast.makeText(context, "Plaga creada.", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+            }
+            composable(RUTA_ADMIN_PLAGA) { backStackEntry ->
+                val plagaId = backStackEntry.arguments?.getString("plaga_id")?.toIntOrNull()
+                SoloAdmin(navController) {
+                    PlagaFormScreen(
+                        viewModel = adminPlagasViewModel,
+                        plagaId = plagaId ?: -1,
+                        onBack = { navController.popBackStack() },
+                        onGuardado = {
+                            navController.popBackStack()
+                            Toast.makeText(context, "Cambios guardados.", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+            }
+            composable(RUTA_ADMIN_USUARIOS) {
+                SoloAdmin(navController) {
+                    AdminUsuariosScreen(
+                        viewModel = adminUsuariosViewModel,
+                        onUsuarioClick = { id -> navController.navigate("admin_usuario/$id") },
+                        onSinPermiso = onSinPermisoAdmin
+                    )
+                }
+            }
+            composable(RUTA_ADMIN_USUARIO) { backStackEntry ->
+                val usuarioId = backStackEntry.arguments?.getString("usuario_id").orEmpty()
+                SoloAdmin(navController) {
+                    AdminUsuarioDetalleScreen(
+                        viewModel = adminUsuariosViewModel,
+                        usuarioId = usuarioId,
+                        onBack = { navController.popBackStack() },
+                        onEliminado = {
+                            navController.popBackStack()
+                            Toast.makeText(context, "Cuenta eliminada.", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+            }
+            composable(RUTA_ADMIN_METRICAS) {
+                SoloAdmin(navController) { AdminMetricasScreen() }
+            }
+            composable(RUTA_ADMIN_CUENTA) {
+                SoloAdmin(navController) {
+                    AdminCuentaScreen(
+                        userViewModel = userViewModel,
+                        authViewModel = authViewModel,
+                        onCerrarSesion = cerrarSesion
+                    )
+                }
+            }
+
             composable("mapa_reportes") {
                 MapaReportesScreen(
                     viewModel = mapaReportesViewModel,
@@ -688,6 +829,21 @@ fun AppNavigation(
 
     if (mostrarComoFunciona) {
         ComoFuncionaSheet(onDismiss = { mostrarComoFunciona = false })
+    }
+}
+
+private val rutasAdminConBarras = listOf(RUTA_ADMIN_PLAGAS, RUTA_ADMIN_USUARIOS, RUTA_ADMIN_METRICAS, RUTA_ADMIN_CUENTA)
+
+
+@Composable
+private fun SoloAdmin(navController: NavController, contenido: @Composable () -> Unit) {
+    val context = LocalContext.current
+    if (PreferenciasUsuario.esAdmin(context)) {
+        contenido()
+    } else {
+        LaunchedEffect(Unit) {
+            navController.navigate(RUTA_HOME_USUARIO) { popUpTo(0) { inclusive = true } }
+        }
     }
 }
 

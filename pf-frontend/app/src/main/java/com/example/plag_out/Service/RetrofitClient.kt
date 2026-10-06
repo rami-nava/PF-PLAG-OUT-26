@@ -17,6 +17,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.OffsetDateTime
+import com.example.plag_out.CuentaSuspendidaEventBus
 import com.example.plag_out.SupabaseProvider
 import io.github.jan.supabase.auth.auth
 
@@ -86,9 +87,19 @@ object RetrofitClient {
             if (token != null) {
                 builder.addHeader("Authorization", "Bearer $token")
             }
-            chain.proceed(builder.build())
+            val response = chain.proceed(builder.build())
+            if (response.code == 403 && esCuentaSuspendida(response)) {
+                CuentaSuspendidaEventBus.avisar()
+            }
+            response
         }
         .build()
+
+    // peekBody no consume el cuerpo: el código que hizo el request lo sigue pudiendo leer.
+    private fun esCuentaSuspendida(response: okhttp3.Response): Boolean =
+        runCatching { response.peekBody(2048).string() }
+            .getOrDefault("")
+            .contains(CuentaSuspendidaEventBus.DETALLE)
 
     internal val retrofit: Retrofit = Retrofit.Builder()
         .addConverterFactory(JsonObjectConNullsConverterFactory)

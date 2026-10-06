@@ -28,10 +28,14 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Science
@@ -82,12 +86,43 @@ private val INDICADOR_ALTO = 40.dp
 fun BottomNavigationBar(navController: NavController) {
     val currentDestination = navController.currentBackStackEntryAsState().value?.destination?.route
 
-    val items = listOf(
-        0 to BarItem("Monitoreos", "monitoreos", Icons.Default.Science),
-        1 to BarItem("Terrenos", "terrenos", Icons.Default.Terrain),
-        3 to BarItem("Reportes", "reportes", Icons.Outlined.BugReport),
-        4 to BarItem("Perfil", "perfil", Icons.Default.Person)
+    BarraFlotante(
+        navController = navController,
+        items = listOf(
+            0 to BarItem("Monitoreos", "monitoreos", Icons.Default.Science),
+            1 to BarItem("Terrenos", "terrenos", Icons.Default.Terrain),
+            3 to BarItem("Reportes", "reportes", Icons.Outlined.BugReport),
+            4 to BarItem("Perfil", "perfil", Icons.Default.Person)
+        ),
+        ranuras = 5,
+        ranuraCentral = 2,
+        contenidoCentral = { BotonNuevoReporte(navController, currentDestination) }
     )
+}
+
+@Composable
+fun AdminBottomNavigationBar(navController: NavController) {
+    BarraFlotante(
+        navController = navController,
+        items = listOf(
+            0 to BarItem("Plagas", RUTA_ADMIN_PLAGAS, Icons.Outlined.BugReport),
+            1 to BarItem("Usuarios", RUTA_ADMIN_USUARIOS, Icons.Default.Group),
+            2 to BarItem("Métricas", RUTA_ADMIN_METRICAS, Icons.Default.Insights),
+            3 to BarItem("Cuenta", RUTA_ADMIN_CUENTA, Icons.Default.Person)
+        ),
+        ranuras = 4
+    )
+}
+
+@Composable
+private fun BarraFlotante(
+    navController: NavController,
+    items: List<Pair<Int, BarItem>>,
+    ranuras: Int,
+    ranuraCentral: Int? = null,
+    contenidoCentral: (@Composable RowScope.() -> Unit)? = null
+) {
+    val currentDestination = navController.currentBackStackEntryAsState().value?.destination?.route
 
     val ranuraActiva = items.firstOrNull { it.second.ruta == currentDestination }?.first
 
@@ -111,7 +146,7 @@ fun BottomNavigationBar(navController: NavController) {
                 .height(ALTO_BARRA)
         ) {
             BoxWithConstraints(Modifier.padding(horizontal = 8.dp)) {
-                val anchoRanura = maxWidth / 5
+                val anchoRanura = maxWidth / ranuras
                 val destino = anchoRanura * ultimaRanura.value + (anchoRanura - INDICADOR_ANCHO) / 2
 
                 // Los dos bordes de la píldora viajan al mismo destino con resortes distintos: el
@@ -152,7 +187,9 @@ fun BottomNavigationBar(navController: NavController) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     items.forEach { (ranura, item) ->
-                        if (ranura == 3) BotonNuevoReporte(navController, currentDestination)
+                        if (contenidoCentral != null && ranuraCentral != null && ranura == ranuraCentral + 1) {
+                            contenidoCentral()
+                        }
                         ItemDeBarra(
                             item = item,
                             seleccionado = ranuraActiva == ranura,
@@ -308,6 +345,41 @@ fun TopBar(
                     },
                     tint = PlagOutColors.TextOnDark,
                     modifier = Modifier.size(26.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminTopBar() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(PlagOutColors.Forest)
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(vertical = 14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "PLAG-OUT",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PlagOutColors.TextOnDark,
+                letterSpacing = 3.sp
+            )
+            Spacer(Modifier.width(10.dp))
+            Surface(shape = CircleShape, color = PlagOutColors.Sun) {
+                Text(
+                    "ADMIN",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = PlagOutColors.ForestDark,
+                    letterSpacing = 1.5.sp,
+                    modifier = Modifier
+                        .padding(horizontal = 9.dp, vertical = 3.dp)
+                        .testTag("etiquetaAdmin")
                 )
             }
         }
