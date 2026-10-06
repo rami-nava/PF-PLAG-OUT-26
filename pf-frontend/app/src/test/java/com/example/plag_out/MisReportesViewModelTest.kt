@@ -171,18 +171,75 @@ class MisReportesViewModelTest {
         assertEquals(false, estado.guardandoRadio)
     }
     @Test
-    fun `120 reportes incluyen los de la segunda pagina en el estado compartido`() {
+    fun `50 km consulta todas las paginas sin cambiar notificaciones y permite volver al radio configurado`() {
         val reportes = (1..120).map { Fixtures.reporteDetalle(id = it) }
         gddService.getReportesPaginaResult = { _, _, limit, offset ->
             Response.success(reportes.drop(offset).take(limit))
         }
-        viewModel.cargarReportes()
+        viewModel.actualizarDistanciaListado(50)
         val estado = esperarEstado(viewModel.state) { !it.isLoading && !it.isRefreshing }
         assertEquals(reportes, estado.reportes)
         assertEquals(listOf(0, 100), gddService.consultasReportes.map { it.offset })
         assertTrue(gddService.consultasReportes.all { it.limit == 100 })
         assertEquals(1, gddService.consultasReportes.map { it.desde to it.hasta }.distinct().size)
         assertNull(estado.error)
+        assertTrue(gddService.consultasReportes.all { it.distanciaKm == 50 })
+        assertEquals(20.0, estado.radioNotificacionKm, 0.0)
+        gddService.consultasReportes.clear()
+        viewModel.actualizarDistanciaListado(null)
+        val configurado = esperarEstado(viewModel.state) { !it.isLoading }
+        assertEquals(reportes, configurado.reportes)
+        assertTrue(gddService.consultasReportes.all { it.distanciaKm == null })
+        assertEquals(0, gddService.vecesLlamado("actualizarUsuario"))
+    }
+
+    @Test
+    fun `cambiar distancia cancela respuesta antigua y retira resultados del radio anterior`() {
+        val iniciado = CompletableDeferred<Unit>()
+        val liberado = CompletableDeferred<Unit>()
+        gddService.getReportesResult = { Response.success(listOf(Fixtures.reporteDetalle(id = 1))) }
+        viewModel.cargarReportes()
+        esperarEstado(viewModel.state) { !it.isLoading }
+        gddService.getReportesPaginaResult = { _, _, _, _ ->
+            iniciado.complete(Unit)
+            withContext(NonCancellable) { liberado.await() }
+            Response.success(listOf(Fixtures.reporteDetalle(id = 444)))
+        }
+        viewModel.actualizarDistanciaListado(50)
+        runBlocking { withTimeout(3000) { iniciado.await() } }
+        assertTrue(viewModel.state.value.reportes.isEmpty())
+        gddService.getReportesPaginaResult = { _, _, _, _ -> Response.success(listOf(Fixtures.reporteDetalle(id = 888))) }
+        viewModel.actualizarDistanciaListado(5)
+        esperarEstado(viewModel.state) { !it.isLoading }
+        liberado.complete(Unit)
+        assertEquals(listOf(888), viewModel.state.value.reportes.map { it.id })
+        assertEquals(5, viewModel.state.value.distanciaListadoKm)
+        assertEquals(5, gddService.consultasReportes.last().distanciaKm)
+    }
+
+    @Test
+    fun `ultimo segundo incluye milisegundos y excluye la medianoche siguiente`() {
+        listOf(
+            "UTC" to LocalDate.of(2026, 9, 10),
+            "America/New_York" to LocalDate.of(2026, 3, 8),
+            "America/New_York" to LocalDate.of(2026, 11, 1)
+        ).forEach { (zonaId, dia) ->
+            TimeZone.setDefault(TimeZone.getTimeZone(zonaId))
+            val zona = java.time.ZoneId.of(zonaId)
+            val medianoche = dia.plusDays(1).atStartOfDay(zona).toInstant()
+            val reportes = listOf(medianoche.minusMillis(500), medianoche).mapIndexed { index, instant ->
+                Fixtures.reporteDetalle(id = index + 1, timestampMs = instant.toEpochMilli())
+            }
+            gddService.getReportesPaginaResult = { desde, hasta, _, _ ->
+                Response.success(reportes.filter {
+                    val observado = java.time.Instant.ofEpochMilli(it.timestamp_ms)
+                    observado >= java.time.Instant.parse(desde) && observado <= java.time.Instant.parse(hasta)
+                })
+            }
+            viewModel.actualizarFechas(dia, dia)
+            val estado = esperarEstado(viewModel.state) { !it.isLoading }
+            assertEquals("$zonaId $dia", listOf(1), estado.reportes.map { it.id })
+        }
     }
 
     @Test
@@ -198,7 +255,7 @@ class MisReportesViewModelTest {
         assertEquals(2, gddService.consultasReportes.size)
         gddService.consultasReportes.forEach {
             assertEquals("2026-09-01T03:00:00Z", it.desde)
-            assertEquals("2026-09-11T02:59:59Z", it.hasta)
+            assertEquals("2026-09-11T02:59:59.999999999Z", it.hasta)
         }
     }
 
@@ -211,7 +268,7 @@ class MisReportesViewModelTest {
         esperarEstado(viewModel.state) { !it.isLoading }
         val consulta = gddService.consultasReportes.single()
         assertEquals("2026-03-08T05:00:00Z", consulta.desde)
-        assertEquals("2026-03-09T03:59:59Z", consulta.hasta)
+        assertEquals("2026-03-09T03:59:59.999999999Z", consulta.hasta)
     }
 
     @Test
@@ -313,7 +370,7 @@ class MisReportesViewModelTest {
         liberarRespuestaVieja.complete(Unit)
         assertEquals(listOf(888), viewModel.state.value.reportes.map { it.id })
         assertEquals("2026-09-01T00:00:00Z", gddService.consultasReportes.last().desde)
-        assertEquals("2026-09-10T23:59:59Z", gddService.consultasReportes.last().hasta)
+        assertEquals("2026-09-10T23:59:59.999999999Z", gddService.consultasReportes.last().hasta)
         assertNull(viewModel.state.value.error)
     }
 

@@ -122,7 +122,7 @@ fun MisReportesScreen(
     var filtroSeveridadPropios by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
     var filtroTerreno by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
     var filtroSeveridadComunidad by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
-    var filtroDistancia by rememberSaveable { mutableIntStateOf(DISTANCIA_TODAS) }
+    val filtroDistancia = state.distanciaListadoKm ?: DISTANCIA_TODAS
     var filtroPlaga by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
 
     val reportesPropios = remember(state.reportes) { state.reportes.filter { it.es_propio } }
@@ -137,6 +137,17 @@ fun MisReportesScreen(
     }
     val plagasDisponibles = remember(reportesComunidad) {
         reportesComunidad.map { it.plaga_nombre }.filter { it.isNotBlank() }.distinct().sorted()
+    }
+
+    LaunchedEffect(state.reportes, state.isLoading, state.isRefreshing, state.error) {
+        if (!state.isLoading && !state.isRefreshing && state.error == null) {
+            if (filtroTerreno != FILTRO_TODOS && terrenosDisponibles.none { it.equals(filtroTerreno, ignoreCase = true) }) {
+                filtroTerreno = FILTRO_TODOS
+            }
+            if (filtroPlaga != FILTRO_TODOS && plagasDisponibles.none { it.equals(filtroPlaga, ignoreCase = true) }) {
+                filtroPlaga = FILTRO_TODOS
+            }
+        }
     }
 
     val reportesFiltrados = remember(
@@ -165,7 +176,7 @@ fun MisReportesScreen(
     val limpiarFiltrosDelAmbito = {
         if (esComunidad) {
             filtroSeveridadComunidad = FILTRO_TODOS
-            filtroDistancia = DISTANCIA_TODAS
+            viewModel.actualizarDistanciaListado(null)
             filtroPlaga = FILTRO_TODOS
         } else {
             filtroSeveridadPropios = FILTRO_TODOS
@@ -267,10 +278,10 @@ fun MisReportesScreen(
                             if (esComunidad) {
                                 EncabezadoGrupoFiltro(Icons.Outlined.Explore, "CERCANÍA")
 
-                                val opcionesDistancia = remember(reportesComunidad) {
+                                val opcionesDistancia = remember(reportesComunidad, state.radioNotificacionKm) {
                                     val list = mutableListOf(
                                         OpcionFiltro(
-                                            DISTANCIA_TODAS, "Distancia: Toda", reportesComunidad.size,
+                                            DISTANCIA_TODAS, "Radio configurado: ${state.radioNotificacionKm.roundToInt()} km", reportesComunidad.size,
                                             Icons.Outlined.Explore, AzulComunidad
                                         )
                                     )
@@ -285,7 +296,7 @@ fun MisReportesScreen(
                                 FiltroChipsRow(
                                     opciones = opcionesDistancia,
                                     seleccionado = filtroDistancia,
-                                    onSeleccion = { id -> filtroDistancia = id },
+                                    onSeleccion = { id -> viewModel.actualizarDistanciaListado(id.takeUnless { it == DISTANCIA_TODAS }) },
                                     modifier = Modifier.padding(vertical = 4.dp)
                                 )
 

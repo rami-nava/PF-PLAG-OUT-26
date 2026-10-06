@@ -7,6 +7,7 @@ import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -22,12 +23,15 @@ class ReportesPaginationRequestTest {
         }.build()
         val service = Retrofit.Builder().baseUrl("https://example.test/").client(client)
             .addConverterFactory(GsonConverterFactory.create()).build().create(GDDService::class.java)
-        service.getReportes("2026-09-01T00:00:00Z", "2026-09-30T23:59:59Z", limit = 100, offset = 100)
+        service.getReportes("2026-09-01T00:00:00Z", "2026-09-30T23:59:59.999999999Z", limit = 100, offset = 100, distanciaKm = 50)
         val sent = requireNotNull(request)
         assertEquals("/reportes", sent.url.encodedPath)
         assertEquals("100", sent.url.queryParameter("limit"))
         assertEquals("100", sent.url.queryParameter("offset"))
         assertEquals("2026-09-01T00:00:00Z", sent.url.queryParameter("fecha_desde"))
-        assertEquals("2026-09-30T23:59:59Z", sent.url.queryParameter("fecha_hasta"))
+        assertEquals("2026-09-30T23:59:59.999999999Z", sent.url.queryParameter("fecha_hasta"))
+        assertEquals("50", sent.url.queryParameter("distancia_km"))
+        service.getReportes()
+        assertNull(requireNotNull(request).url.queryParameter("distancia_km"))
     }
 }
