@@ -154,7 +154,8 @@ interface GDDService {
         @retrofit2.http.Query("fecha_desde") fechaDesde: String? = null,
         @retrofit2.http.Query("fecha_hasta") fechaHasta: String? = null,
         @retrofit2.http.Query("limit") limit: Int = 100,
-        @retrofit2.http.Query("offset") offset: Int = 0
+        @retrofit2.http.Query("offset") offset: Int = 0,
+        @retrofit2.http.Query("distancia_km") distanciaKm: Int? = null
     ): Response<List<ReporteDetalleResponse>>
 
     @GET("/mapa/reportes")

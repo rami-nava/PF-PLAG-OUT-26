@@ -30,6 +30,7 @@ data class MisReportesUiState(
     val error: String? = null,
     val fechaDesde: LocalDate = LocalDate.now().minusMonths(1),
     val fechaHasta: LocalDate = LocalDate.now(),
+    val distanciaListadoKm: Int? = null,
     val radioNotificacionKm: Double = 20.0,
     val mostrarDialogoRadio: Boolean = false,
     val radioTemporalKm: Float = 20f,
@@ -146,7 +147,8 @@ class MisReportesViewModel(
         val zona = ZoneId.systemDefault()
         val desdeStr = _state.value.fechaDesde.atStartOfDay(zona).toInstant().toString()
         val hastaStr = _state.value.fechaHasta.plusDays(1).atStartOfDay(zona)
-            .toInstant().minusSeconds(1).toString()
+            .toInstant().minusNanos(1).toString()
+        val distanciaKm = _state.value.distanciaListadoKm
         val hayResultadosAnteriores = _state.value.reportes.isNotEmpty()
         _state.value = _state.value.copy(
             isLoading = !hayResultadosAnteriores,
@@ -163,7 +165,8 @@ class MisReportesViewModel(
                             fechaDesde = desdeStr,
                             fechaHasta = hastaStr,
                             limit = REPORTES_PAGE_SIZE,
-                            offset = offset
+                            offset = offset,
+                            distanciaKm = distanciaKm
                         )
                         if (!response.isSuccessful) throw HttpException(response)
                         val pagina = response.body() ?: throw IOException("Report response has no body")
@@ -199,6 +202,12 @@ class MisReportesViewModel(
     }
 
     fun refrescar() {
+        cargarReportes(forzar = true)
+    }
+
+    fun actualizarDistanciaListado(distanciaKm: Int?) {
+        if (_state.value.distanciaListadoKm == distanciaKm) return
+        _state.value = _state.value.copy(distanciaListadoKm = distanciaKm, reportes = emptyList())
         cargarReportes(forzar = true)
     }
 

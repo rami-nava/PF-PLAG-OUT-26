@@ -84,7 +84,7 @@ class FakeGDDService : GDDService {
     var getReporteResult: () -> Response<ReporteDetalleResponse> = { noDeclarado("getReporte") }
     var getReportesResult: () -> Response<List<ReporteDetalleResponse>> = { noDeclarado("getReportes") }
     var getReportesPaginaResult: (suspend (String?, String?, Int, Int) -> Response<List<ReporteDetalleResponse>>)? = null
-    data class ConsultaReportes(val desde: String?, val hasta: String?, val limit: Int, val offset: Int)
+    data class ConsultaReportes(val desde: String?, val hasta: String?, val limit: Int, val offset: Int, val distanciaKm: Int?)
     val consultasReportes = mutableListOf<ConsultaReportes>()
     var getReportesMapaResult: () -> Response<ReportesMapaResponse> = { noDeclarado("getReportesMapa") }
     var deleteReporteResult: () -> Response<Unit> = { Response.success(Unit) }
@@ -214,12 +214,13 @@ class FakeGDDService : GDDService {
         fechaDesde: String?,
         fechaHasta: String?,
         limit: Int,
-        offset: Int
+        offset: Int,
+        distanciaKm: Int?
     ): Response<List<ReporteDetalleResponse>> {
         llamadas += "getReportes"
         ultimoFechaDesdeReportes = fechaDesde
         ultimoFechaHastaReportes = fechaHasta
-        consultasReportes += ConsultaReportes(fechaDesde, fechaHasta, limit, offset)
+        consultasReportes += ConsultaReportes(fechaDesde, fechaHasta, limit, offset, distanciaKm)
         return getReportesPaginaResult?.invoke(fechaDesde, fechaHasta, limit, offset) ?: getReportesResult()
     }
 
