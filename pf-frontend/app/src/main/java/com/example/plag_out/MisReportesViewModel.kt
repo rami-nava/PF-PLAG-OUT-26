@@ -124,9 +124,11 @@ class MisReportesViewModel(
                             }
                         }
                     }
-                    // El backend filtra los reportes de la comunidad de GET /reportes con este radio:
-                    // sin recargar, la lista seguiría mostrando los del radio anterior.
-                    if (radioFinal != radioAnterior) cargarReportes(forzar = true)
+                    // Sin distancia elegida en el listado, el backend filtra los reportes de la
+                    // comunidad con este radio: sin recargar, seguirían los del radio anterior.
+                    if (radioFinal != radioAnterior && _state.value.distanciaListadoKm == null) {
+                        cargarReportes(forzar = true)
+                    }
                     onSuccess?.invoke()
                 } else {
                     _state.value = _state.value.copy(

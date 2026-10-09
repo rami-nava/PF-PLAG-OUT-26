@@ -557,7 +557,7 @@ class MonitoreoDetalleViewModelTest {
 
     @Test
     fun `cargar con 404 no encontrado sin cache marca no disponible`() {
-        val (vm, _) = viewModelCon()
+        val (vm, _) = viewModelCon(cache = emptyList())
         gddService.getMonitoreoResult = { error404Monitoreo("Monitoreo no encontrado") }
 
         vm.cargar(99)
@@ -568,7 +568,7 @@ class MonitoreoDetalleViewModelTest {
 
     @Test
     fun `cargar sin cache con error del servidor no dice que fallo al guardar`() {
-        val (vm, _) = viewModelCon()
+        val (vm, _) = viewModelCon(cache = emptyList())
         gddService.getMonitoreoResult = { FakeGDDService.errorServidor() }
 
         vm.cargar(1)

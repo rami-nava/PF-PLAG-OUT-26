@@ -200,6 +200,22 @@ class MisReportesViewModelTest {
     }
 
     @Test
+    fun `guardarRadioNotificacion no recarga si el listado usa una distancia propia`() {
+        gddService.getReportesResult = { Response.success(listOf(Fixtures.reporteDetalle(id = 1))) }
+        viewModel.actualizarDistanciaListado(50)
+        esperarEstado(viewModel.state) { !it.isLoading && !it.isRefreshing }
+        gddService.consultasReportes.clear()
+        gddService.actualizarUsuarioResult = { Response.success(Fixtures.usuario().copy(radio_notificacion_km = 80.0)) }
+
+        viewModel.abrirConfiguracionRadio()
+        viewModel.onRadioTemporalChange(80f)
+        viewModel.guardarRadioNotificacion()
+
+        esperarEstado(viewModel.state) { !it.guardandoRadio && !it.mostrarDialogoRadio }
+        assertTrue(gddService.consultasReportes.isEmpty())
+    }
+
+    @Test
     fun `guardarRadioNotificacion con error no recarga los reportes`() {
         gddService.actualizarUsuarioResult = { FakeGDDService.errorServidor(500) }
 
@@ -209,6 +225,8 @@ class MisReportesViewModelTest {
 
         esperarEstado(viewModel.state) { !it.guardandoRadio && it.error != null }
         assertEquals(0, gddService.vecesLlamado("getReportes"))
+    }
+
     @Test
     fun `50 km consulta todas las paginas sin cambiar notificaciones y permite volver al radio configurado`() {
         val reportes = (1..120).map { Fixtures.reporteDetalle(id = it) }
