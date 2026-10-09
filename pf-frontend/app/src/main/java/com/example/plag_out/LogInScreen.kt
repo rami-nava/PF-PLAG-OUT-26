@@ -50,7 +50,7 @@ import com.example.plag_out.ui.theme.PlagOutColors
 @Composable
 fun LoginScreen(
     authViewModel: AuthViewModel,
-    onLoginSuccess: () -> Unit,
+    onLoginSuccess: (rol: String) -> Unit,
     onCrearCuenta: () -> Unit
 ) {
     val state by authViewModel.loginState.collectAsState()

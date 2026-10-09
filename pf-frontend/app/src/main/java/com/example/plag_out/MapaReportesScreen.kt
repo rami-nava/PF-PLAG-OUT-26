@@ -18,6 +18,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -49,6 +50,7 @@ import androidx.compose.material.icons.outlined.CenterFocusStrong
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Grass
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.LocationOn
@@ -81,6 +83,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
@@ -186,6 +191,15 @@ fun MapaReportesScreen(
     var seleccion by remember { mutableStateOf<ClusterReportes?>(null) }
     val mapaRef = remember { mutableStateOf<MapView?>(null) }
 
+    // La leyenda y el selector de modo suben por encima de la tarjeta de selección para no quedar
+    // tapados. Se guarda la última altura medida para que la bajada también sea animada.
+    var altoTarjetaPx by remember { mutableIntStateOf(0) }
+    val altoTarjeta = with(LocalDensity.current) { altoTarjetaPx.toDp() }
+    val elevacionControles by animateDpAsState(
+        targetValue = if (seleccion != null) altoTarjeta else 0.dp,
+        label = "elevacionControlesMapa"
+    )
+
     val clusters = remember(puntos, zoom, modo) {
         agruparReportes(
             puntos,
@@ -289,6 +303,7 @@ fun MapaReportesScreen(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .navigationBarsPadding()
+                .padding(bottom = elevacionControles)
                 .padding(12.dp)
         )
 
@@ -298,6 +313,7 @@ fun MapaReportesScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
+                .padding(bottom = elevacionControles)
                 .padding(12.dp)
         )
 
@@ -326,6 +342,7 @@ fun MapaReportesScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
+                .onSizeChanged { if (it.height > 0) altoTarjetaPx = it.height }
         )
     }
 
@@ -1040,14 +1057,32 @@ private fun iconoTerreno(context: Context, nombre: String, conNombre: Boolean): 
     pincel.color = 0xFFFFFFFF.toInt()
     lienzo.drawRoundRect(caja, 9f * d, 9f * d, pincel)
 
-    // Surcos: lo que hace que se lea como "campo" y no como un botón cualquiera.
-    pincel.strokeWidth = 2f * d
-    pincel.strokeCap = Paint.Cap.ROUND
-    val margen = 8f * d
-    listOf(0.35f, 0.5f, 0.65f).forEach { fraccion ->
-        val y = caja.top + lado * fraccion
-        lienzo.drawLine(caja.left + margen, y, caja.right - margen, y, pincel)
+    // Casa: marca el lote como "mío" y no se confunde con los pines de reportes.
+    val anchoTecho = 18f * d
+    val retiroParedes = 3f * d
+    val cumbrera = caja.top + 6.5f * d
+    val alero = caja.top + 14f * d
+    val piso = caja.bottom - 6.5f * d
+    val casa = android.graphics.Path().apply {
+        moveTo(cx, cumbrera)
+        lineTo(cx + anchoTecho / 2f, alero)
+        lineTo(cx + anchoTecho / 2f - retiroParedes, alero)
+        lineTo(cx + anchoTecho / 2f - retiroParedes, piso)
+        lineTo(cx - anchoTecho / 2f + retiroParedes, piso)
+        lineTo(cx - anchoTecho / 2f + retiroParedes, alero)
+        lineTo(cx - anchoTecho / 2f, alero)
+        close()
     }
+    pincel.style = Paint.Style.FILL
+    pincel.color = 0xFFFFFFFF.toInt()
+    lienzo.drawPath(casa, pincel)
+    // Puerta
+    pincel.color = 0xFF264A2B.toInt()
+    val anchoPuerta = 4f * d
+    lienzo.drawRoundRect(
+        RectF(cx - anchoPuerta / 2f, piso - 5.5f * d, cx + anchoPuerta / 2f, piso),
+        1f * d, 1f * d, pincel
+    )
 
     if (etiqueta != null) {
         pincel.style = Paint.Style.FILL
@@ -1343,15 +1378,24 @@ private fun LeyendaMapa(modo: ModoMapa, modifier: Modifier = Modifier) {
             Spacer(Modifier.height(6.dp))
             HorizontalDivider(color = PlagOutColors.Divider)
             Spacer(Modifier.height(6.dp))
-            ItemLeyenda(PlagOutColors.Leaf, "Mis lotes")
+            ItemLeyenda(PlagOutColors.Forest, "Mis lotes", icono = Icons.Filled.Home)
         }
     }
 }
 
 @Composable
-private fun ItemLeyenda(color: Color, etiqueta: String) {
+private fun ItemLeyenda(color: Color, etiqueta: String, icono: ImageVector? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
-        Box(Modifier.size(10.dp).background(color, CircleShape))
+        if (icono != null) {
+            Box(
+                Modifier.size(14.dp).background(color, RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icono, contentDescription = null, tint = Color.White, modifier = Modifier.size(10.dp))
+            }
+        } else {
+            Box(Modifier.size(10.dp).background(color, CircleShape))
+        }
         Spacer(Modifier.width(7.dp))
         Text(etiqueta, fontSize = 12.sp, color = PlagOutColors.TextMain, fontWeight = FontWeight.Medium)
     }

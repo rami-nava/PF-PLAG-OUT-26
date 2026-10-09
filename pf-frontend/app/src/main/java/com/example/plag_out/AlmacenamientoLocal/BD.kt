@@ -19,7 +19,7 @@ import java.util.Date
 
 @Database(
     entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class, UsuarioResponse::class, FeedbackPrediccionPendiente::class, BiofixPendiente::class],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 
@@ -45,7 +45,7 @@ abstract class AppDatabase : RoomDatabase() {
                     appContext,
                     AppDatabase::class.java,
                     "gdd_database"
-                ).addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+                ).addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     // Si una versión futura cae en la migración destructiva, también se invalidan
                     // las marcas que describían el caché eliminado.
@@ -108,6 +108,28 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `observaciones` TEXT")
             }
         }
+
+        // Rol y estado de la cuenta (usuario base / admin, suspendida)
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `usuario` ADD COLUMN `rol` TEXT")
+                db.execSQL("ALTER TABLE `usuario` ADD COLUMN `activo` INTEGER")
+                // radio_notificacion_km entró a la entidad sin migración propia: según cuándo se
+                // creó la base en la v15, la columna puede existir o no.
+                if (!tieneColumna(db, "usuario", "radio_notificacion_km")) {
+                    db.execSQL("ALTER TABLE `usuario` ADD COLUMN `radio_notificacion_km` REAL NOT NULL DEFAULT 20.0")
+                }
+            }
+        }
+
+        private fun tieneColumna(db: SupportSQLiteDatabase, tabla: String, columna: String): Boolean =
+            db.query("PRAGMA table_info(`$tabla`)").use { cursor ->
+                val nombreIdx = cursor.getColumnIndex("name")
+                while (cursor.moveToNext()) {
+                    if (cursor.getString(nombreIdx) == columna) return@use true
+                }
+                false
+            }
     }
 }
 

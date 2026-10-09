@@ -32,6 +32,10 @@ import com.example.plag_out.PrediccionConfirmacionResponse
 import com.example.plag_out.PrediccionDetalleResponse
 import com.example.plag_out.ConsentimientoModeloRequest
 import com.example.plag_out.ConsentimientoModeloResponse
+import com.example.plag_out.PaginaUsuarios
+import com.example.plag_out.PlagaAdmin
+import com.example.plag_out.PlagaAdminRequest
+import com.example.plag_out.UsuarioAdmin
 import com.example.plag_out.Service.GDDService
 import com.google.gson.JsonObject
 import okhttp3.MediaType.Companion.toMediaType
@@ -305,6 +309,64 @@ class FakeGDDService : GDDService {
     override suspend fun archivarCiclo(id: Int): Response<com.example.plag_out.GddCicloResponse> {
         llamadas += "archivarCiclo"
         return archivarCicloResult()
+    }
+
+    // ── Administración ──
+    var adminGetPlagasResult: () -> Response<List<PlagaAdmin>> = { noDeclarado("adminGetPlagas") }
+    var adminCrearPlagaResult: () -> Response<PlagaAdmin> = { noDeclarado("adminCrearPlaga") }
+    var adminActualizarPlagaResult: () -> Response<PlagaAdmin> = { noDeclarado("adminActualizarPlaga") }
+    var adminDesactivarPlagaResult: () -> Response<PlagaAdmin> = { noDeclarado("adminDesactivarPlaga") }
+    var adminGetUsuariosResult: () -> Response<PaginaUsuarios> = { noDeclarado("adminGetUsuarios") }
+    var adminSuspenderUsuarioResult: () -> Response<UsuarioAdmin> = { noDeclarado("adminSuspenderUsuario") }
+    var adminReactivarUsuarioResult: () -> Response<UsuarioAdmin> = { noDeclarado("adminReactivarUsuario") }
+    var adminEliminarUsuarioResult: () -> Response<AccountDeletionResponse> = { noDeclarado("adminEliminarUsuario") }
+
+    var ultimaPlagaEnviada: PlagaAdminRequest? = null
+        private set
+    var ultimaBusquedaUsuarios: Pair<String?, Int>? = null
+        private set
+
+    override suspend fun adminGetPlagas(incluirInactivas: Boolean): Response<List<PlagaAdmin>> {
+        llamadas += "adminGetPlagas"
+        return adminGetPlagasResult()
+    }
+
+    override suspend fun adminCrearPlaga(data: PlagaAdminRequest): Response<PlagaAdmin> {
+        llamadas += "adminCrearPlaga"
+        ultimaPlagaEnviada = data
+        return adminCrearPlagaResult()
+    }
+
+    override suspend fun adminActualizarPlaga(id: Int, data: PlagaAdminRequest): Response<PlagaAdmin> {
+        llamadas += "adminActualizarPlaga"
+        ultimaPlagaEnviada = data
+        return adminActualizarPlagaResult()
+    }
+
+    override suspend fun adminDesactivarPlaga(id: Int): Response<PlagaAdmin> {
+        llamadas += "adminDesactivarPlaga"
+        return adminDesactivarPlagaResult()
+    }
+
+    override suspend fun adminGetUsuarios(q: String?, activo: Boolean?, pagina: Int, tamanio: Int): Response<PaginaUsuarios> {
+        llamadas += "adminGetUsuarios"
+        ultimaBusquedaUsuarios = q to pagina
+        return adminGetUsuariosResult()
+    }
+
+    override suspend fun adminSuspenderUsuario(id: String): Response<UsuarioAdmin> {
+        llamadas += "adminSuspenderUsuario"
+        return adminSuspenderUsuarioResult()
+    }
+
+    override suspend fun adminReactivarUsuario(id: String): Response<UsuarioAdmin> {
+        llamadas += "adminReactivarUsuario"
+        return adminReactivarUsuarioResult()
+    }
+
+    override suspend fun adminEliminarUsuario(id: String): Response<AccountDeletionResponse> {
+        llamadas += "adminEliminarUsuario"
+        return adminEliminarUsuarioResult()
     }
 
     private fun <T> noDeclarado(endpoint: String): Response<T> =

@@ -20,6 +20,7 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.exceptions.RestException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -76,7 +77,7 @@ class AuthViewModel(
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun iniciarSesion(onSuccess: () -> Unit) {
+    fun iniciarSesion(onSuccess: (rol: String) -> Unit) {
         val email = _loginState.value.email
         val password = _loginState.value.password
 
@@ -133,17 +134,33 @@ class AuthViewModel(
                     )
                 }
 
+                // El rol decide a qué lado de la app se entra, así que se pide antes de navegar.
+                // Si el backend no responde se entra como usuario base: lo que el usuario no
+                // puede hacer igual lo rechaza el backend.
+                val rol = when (val resultado = obtenerRol()) {
+                    is ResultadoRol.Suspendida -> {
+                        runCatching { supabaseClient.auth.signOut() }
+                        _loginState.value = _loginState.value.copy(
+                            cargando = false,
+                            error = CuentaSuspendidaEventBus.MENSAJE
+                        )
+                        return@launch
+                    }
+                    is ResultadoRol.Ok -> resultado.rol
+                }
+                PreferenciasUsuario.guardarRol(context, rol)
+
                 FcmTokenRegistrar.iniciarSesion()
                 // Registrar el token FCM del dispositivo para poder recibir alertas, salvo que el
-                // usuario haya apagado las notificaciones desde su perfil.
-                if (PreferenciasUsuario.notificacionesActivadas(context)) {
+                // usuario haya apagado las notificaciones desde su perfil. Las cuentas admin no reciben alertas.
+                if (rol != ROL_ADMIN && PreferenciasUsuario.notificacionesActivadas(context)) {
                     viewModelScope.launch(Dispatchers.IO) {
                         FcmTokenRegistrar.registrar()
                     }
                 }
 
                 _loginState.value = _loginState.value.copy(cargando = false)
-                onSuccess()
+                onSuccess(rol)
             } catch (e: RestException) {
                 _loginState.value = _loginState.value.copy(
                     cargando = false,
@@ -159,8 +176,47 @@ class AuthViewModel(
         }
     }
 
+    private sealed interface ResultadoRol {
+        data class Ok(val rol: String) : ResultadoRol
+        data object Suspendida : ResultadoRol
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private suspend fun obtenerRol(): ResultadoRol {
+        return try {
+            val response = withContext(Dispatchers.IO) { gddService.getUsuarioActual() }
+            val usuario = response.body()
+            when {
+                response.isSuccessful && usuario != null -> {
+                    withContext(Dispatchers.IO) { usuarioRepository.guardarUsuario(usuario) }
+                    ResultadoRol.Ok(usuario.rol ?: ROL_USUARIO)
+                }
+                response.code() == 403 &&
+                    response.errorBody()?.string()?.contains(CuentaSuspendidaEventBus.DETALLE) == true ->
+                    ResultadoRol.Suspendida
+                else -> {
+                    Log.e("AuthViewModel", "No se pudo leer el rol: ${response.code()}")
+                    ResultadoRol.Ok(ROL_USUARIO)
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("AuthViewModel", "No se pudo leer el rol", e)
+            ResultadoRol.Ok(ROL_USUARIO)
+        }
+    }
+
+    fun avisarCuentaSuspendida() {
+        _loginState.value = _loginState.value.copy(error = CuentaSuspendidaEventBus.MENSAJE)
+    }
+
     private fun mapearErrorLogin(e: RestException): String {
         return when {
+            // Al suspender una cuenta el backend la banea en Supabase Auth
+            e.message?.contains("banned", ignoreCase = true) == true ->
+                CuentaSuspendidaEventBus.MENSAJE
+
             e.message?.contains("Invalid login credentials", ignoreCase = true) == true ->
                 "Correo o contraseña incorrectos"
 
@@ -201,6 +257,7 @@ class AuthViewModel(
                 usuarioRepository.borrarTodos()
             }
             CacheTracker.limpiarTodo(context)
+            PreferenciasUsuario.limpiarRol(context)
             _loginState.value = LoginState()
             _crearCuentaState.value = CrearCuentaState()
             onComplete()

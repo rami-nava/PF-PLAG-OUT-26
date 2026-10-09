@@ -511,7 +511,103 @@ data class UsuarioResponse(
     @SerializedName("fecha_creacion")
     val fecha_creacion: LocalDate,
     @SerializedName("radio_notificacion_km")
-    val radio_notificacion_km: Double = 20.0
+    val radio_notificacion_km: Double = 20.0,
+    @SerializedName("rol")
+    val rol: String? = null,
+    @SerializedName("activo")
+    val activo: Boolean? = null
+)
+
+const val ROL_ADMIN = "admin"
+const val ROL_USUARIO = "usuario"
+
+fun UsuarioResponse.esAdmin() = rol == ROL_ADMIN
+
+// ── Administración ──────────────────────────────────────────────────────────
+// No son @Entity: los datos del panel de admin siempre se leen de la red.
+
+data class PlagaAdmin(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("nombre")
+    val nombre: String,
+    @SerializedName("nombre_cientifico")
+    val nombre_cientifico: String,
+    @SerializedName("temp_base")
+    val temp_base: Double? = null,
+    @SerializedName("temp_max")
+    val temp_max: Double? = null,
+    @SerializedName("gdd_eclosion")
+    val gdd_eclosion: Double? = null,
+    @SerializedName("gdd_generacion")
+    val gdd_generacion: Double? = null,
+    @SerializedName("cultivos_afectados")
+    val cultivos_afectados: List<Int>? = null,
+    @SerializedName("activo")
+    val activo: Boolean? = null,
+    @SerializedName("monitoreos_activos")
+    val monitoreos_activos: Int? = null
+) {
+    val estaActiva: Boolean get() = activo != false
+}
+
+// En el PATCH solo se mandan los campos tocados: Gson omite los null.
+data class PlagaAdminRequest(
+    @SerializedName("nombre")
+    val nombre: String? = null,
+    @SerializedName("nombre_cientifico")
+    val nombre_cientifico: String? = null,
+    @SerializedName("temp_base")
+    val temp_base: Double? = null,
+    @SerializedName("temp_max")
+    val temp_max: Double? = null,
+    @SerializedName("gdd_eclosion")
+    val gdd_eclosion: Double? = null,
+    @SerializedName("gdd_generacion")
+    val gdd_generacion: Double? = null,
+    @SerializedName("cultivos_afectados")
+    val cultivos_afectados: List<Int>? = null,
+    @SerializedName("activo")
+    val activo: Boolean? = null
+)
+
+data class UsuarioAdmin(
+    @SerializedName("id")
+    val id: String,
+    @SerializedName("email")
+    val email: String,
+    @SerializedName("nombre")
+    val nombre: String? = null,
+    @SerializedName("apellido")
+    val apellido: String? = null,
+    @SerializedName("cargo")
+    val cargo: String? = null,
+    @SerializedName("rol")
+    val rol: String? = null,
+    @SerializedName("activo")
+    val activo: Boolean? = null,
+    @SerializedName("fecha_creacion")
+    val fecha_creacion: LocalDate? = null,
+    @SerializedName("ultimo_acceso")
+    val ultimo_acceso: String? = null
+) {
+    val estaActivo: Boolean get() = activo != false
+    val nombreCompleto: String
+        get() = listOfNotNull(nombre?.trim(), apellido?.trim())
+            .filter { it.isNotEmpty() }
+            .joinToString(" ")
+            .ifEmpty { email }
+}
+
+data class PaginaUsuarios(
+    @SerializedName("items")
+    val items: List<UsuarioAdmin>? = null,
+    @SerializedName("total")
+    val total: Int = 0,
+    @SerializedName("pagina")
+    val pagina: Int = 1,
+    @SerializedName("tamanio")
+    val tamanio: Int = 20
 )
 
 @Serializable

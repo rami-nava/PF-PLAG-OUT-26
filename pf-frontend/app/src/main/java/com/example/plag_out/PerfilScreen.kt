@@ -1091,7 +1091,7 @@ private const val PALABRA_CONFIRMACION = "ELIMINAR"
 
 /** Cambio de contraseña contra Supabase, con el molde visual de [DialogoCerrarSesion]. */
 @Composable
-private fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () -> Unit) {
+internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var nueva by remember { mutableStateOf("") }
     var repetir by remember { mutableStateOf("") }
@@ -1200,7 +1200,7 @@ private fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () -
 
 /** Tarjeta de sección: el recipe de tarjeta del repo (22.dp / elevación 2.dp / padding 20.dp). */
 @Composable
-private fun TarjetaPerfil(contenido: @Composable ColumnScope.() -> Unit) {
+internal fun TarjetaPerfil(contenido: @Composable ColumnScope.() -> Unit) {
     Surface(
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(22.dp),
@@ -1216,7 +1216,7 @@ private fun TarjetaPerfil(contenido: @Composable ColumnScope.() -> Unit) {
  * con acento (por ejemplo el rojo de cerrar sesión) pinta fondo e ícono con ese color.
  */
 @Composable
-private fun IconoFila(icono: ImageVector, acento: Color? = null) {
+internal fun IconoFila(icono: ImageVector, acento: Color? = null) {
     Box(
         modifier = Modifier
             .size(38.dp)
@@ -1282,7 +1282,7 @@ private fun FilaDato(
 
 /** Fila que navega o dispara una acción. */
 @Composable
-private fun FilaAccion(
+internal fun FilaAccion(
     icono: ImageVector,
     titulo: String,
     subtitulo: String?,
@@ -1374,7 +1374,7 @@ private fun FilaSwitch(
 }
 
 @Composable
-private fun DivisorFila() {
+internal fun DivisorFila() {
     Box(
         Modifier
             .fillMaxWidth()
@@ -1496,7 +1496,7 @@ private fun AvisoSinConexion(reintentando: Boolean, onReintentar: () -> Unit) {
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
-private fun formatearFecha(fecha: LocalDate): String {
+internal fun formatearFecha(fecha: LocalDate): String {
     val formato = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", Locale.forLanguageTag("es-AR"))
     return fecha.format(formato)
 }

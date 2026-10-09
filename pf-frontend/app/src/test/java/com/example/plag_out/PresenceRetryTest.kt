@@ -96,10 +96,20 @@ class PresenceRetryTest {
             esquemaMonitoreos
                 .replace(", `observaciones` TEXT", "")
         )
+        // Lo mismo con `usuario` y las columnas que agrega 15->16.
+        val esquemaUsuario = sqlite.rawQuery("SELECT sql FROM sqlite_master WHERE name = 'usuario'", null).use {
+            it.moveToFirst(); it.getString(0)
+        }
+        sqlite.execSQL("DROP TABLE `usuario`")
+        sqlite.execSQL(
+            esquemaUsuario
+                .replace(", `rol` TEXT", "")
+                .replace(", `activo` INTEGER", "")
+        )
         sqlite.version = 13
         sqlite.close()
         val migrated = Room.databaseBuilder(context,AppDatabase::class.java,name)
-            .addMigrations(AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15).allowMainThreadQueries().build()
+            .addMigrations(AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16).allowMainThreadQueries().build()
         val row = migrated.biofixDao().get("A",41)!!
         assertEquals("original-uuid-and-payload",row.payload)
         assertEquals("pendiente",row.estado)

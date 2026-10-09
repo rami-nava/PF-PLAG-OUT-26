@@ -32,6 +32,10 @@ import com.example.plag_out.PrediccionConfirmacionResponse
 import com.example.plag_out.PrediccionDetalleResponse
 import com.example.plag_out.ConsentimientoModeloRequest
 import com.example.plag_out.ConsentimientoModeloResponse
+import com.example.plag_out.PaginaUsuarios
+import com.example.plag_out.PlagaAdmin
+import com.example.plag_out.PlagaAdminRequest
+import com.example.plag_out.UsuarioAdmin
 import com.google.gson.JsonObject
 import retrofit2.Response
 import retrofit2.http.GET
@@ -199,4 +203,43 @@ interface GDDService {
 
     @GET("api/gdd/health")
     suspend fun health(): Response<Unit>
+
+    // ── Administración ──────────────────────────────────────────────────────
+    // El backend valida que el usuario del JWT sea admin: 403 {"detail": "requiere_admin"} si no.
+
+    @GET("/admin/plagas")
+    suspend fun adminGetPlagas(
+        @Query("incluir_inactivas") incluirInactivas: Boolean = true
+    ): Response<List<PlagaAdmin>>
+
+    @POST("/admin/plagas")
+    suspend fun adminCrearPlaga(@Body data: PlagaAdminRequest): Response<PlagaAdmin>
+
+    @PATCH("/admin/plagas/{id}")
+    suspend fun adminActualizarPlaga(
+        @Path("id") id: Int,
+        @Body data: PlagaAdminRequest
+    ): Response<PlagaAdmin>
+
+    // Baja lógica: la plaga queda con activo = false. Se reactiva con PATCH {"activo": true}.
+    @DELETE("/admin/plagas/{id}")
+    suspend fun adminDesactivarPlaga(@Path("id") id: Int): Response<PlagaAdmin>
+
+    // Solo lista usuarios base: los admins no se gestionan desde la app.
+    @GET("/admin/usuarios")
+    suspend fun adminGetUsuarios(
+        @Query("q") q: String? = null,
+        @Query("activo") activo: Boolean? = null,
+        @Query("pagina") pagina: Int = 1,
+        @Query("tamanio") tamanio: Int = 20
+    ): Response<PaginaUsuarios>
+
+    @POST("/admin/usuarios/{id}/suspender")
+    suspend fun adminSuspenderUsuario(@Path("id") id: String): Response<UsuarioAdmin>
+
+    @POST("/admin/usuarios/{id}/reactivar")
+    suspend fun adminReactivarUsuario(@Path("id") id: String): Response<UsuarioAdmin>
+
+    @DELETE("/admin/usuarios/{id}")
+    suspend fun adminEliminarUsuario(@Path("id") id: String): Response<AccountDeletionResponse>
 }
