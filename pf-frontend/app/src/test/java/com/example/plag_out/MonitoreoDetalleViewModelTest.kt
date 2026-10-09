@@ -2,6 +2,7 @@ package com.example.plag_out
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import androidx.lifecycle.viewModelScope
 import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.fakes.FakeGDDService
@@ -12,11 +13,16 @@ import com.example.plag_out.Service.RetrofitClient
 import com.example.plag_out.util.esperarEstado
 import com.google.gson.JsonObject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -40,17 +46,41 @@ class MonitoreoDetalleViewModelTest {
 
     private lateinit var context: Context
     private lateinit var gddService: FakeGDDService
+    private val viewModels = mutableListOf<MonitoreoDetalleViewModel>()
 
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
+        CacheTracker.limpiarTodo(context)
         gddService = FakeGDDService()
     }
 
-    private fun viewModelCon(cache: List<MonitoreoResponse> = emptyList()): Pair<MonitoreoDetalleViewModel, FakeMonitoreoDao> {
+    @After
+    fun teardown() = runBlocking {
+        withTimeout(5_000) {
+            viewModels.forEach { it.viewModelScope.coroutineContext[Job]!!.cancelAndJoin() }
+        }
+        CacheTracker.limpiarTodo(context)
+    }
+
+    private fun viewModelCon(cache: List<MonitoreoResponse>): Pair<MonitoreoDetalleViewModel, FakeMonitoreoDao> {
+        // La carga siempre consulta la red, incluso cuando hay caché.
+        gddService.getMonitoreoResult = { Response.success(cache.single()) }
         val dao = FakeMonitoreoDao(inicial = cache)
         val vm = MonitoreoDetalleViewModel(context, MonitoreoRepository(dao), gddService)
+        viewModels += vm
         return vm to dao
+    }
+
+    private fun cargarYEsperar(viewModel: MonitoreoDetalleViewModel, id: Int) {
+        viewModel.cargar(id)
+        // El estado del caché no significa que haya terminado el GET. Esperar la
+        // corrutina completa impide que su resultado compita con los PATCH del test.
+        runBlocking {
+            withTimeout(5_000) {
+                viewModel.viewModelScope.coroutineContext[Job]!!.children.toList().joinAll()
+            }
+        }
     }
 
     // ---------- cargar ----------
@@ -62,7 +92,7 @@ class MonitoreoDetalleViewModelTest {
         val deRed = Fixtures.monitoreo(id = 1, progreso = 55f)
         gddService.getMonitoreoResult = { Response.success(deRed) }
 
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
 
         esperarEstado(vm.state) { it.monitoreo?.progreso == 55f }
         assertFalse(vm.state.value.datosDesactualizados)
@@ -74,7 +104,7 @@ class MonitoreoDetalleViewModelTest {
         val (vm, _) = viewModelCon(cache = listOf(cache))
         gddService.getMonitoreoResult = { FakeGDDService.sinConexion() }
 
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
 
         // El caché ya deja isLoading=false antes de que la llamada de red termine de fallar:
         // hay que esperar la señal que realmente nos interesa, no isLoading, para no leer el
@@ -89,7 +119,7 @@ class MonitoreoDetalleViewModelTest {
     fun `guardarUmbral no dispara PATCH si el valor no cambio`() {
         val monitoreo = Fixtures.monitoreo(id = 1, umbralRiesgo = 80)
         val (vm, _) = viewModelCon(cache = listOf(monitoreo))
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
         esperarEstado(vm.state) { it.monitoreo != null }
 
         vm.abrirEditorUmbral()
@@ -106,7 +136,7 @@ class MonitoreoDetalleViewModelTest {
     fun `guardarUmbral con exito actualiza el state y persiste en Room`() {
         val monitoreo = Fixtures.monitoreo(id = 1, umbralRiesgo = 80)
         val (vm, dao) = viewModelCon(cache = listOf(monitoreo))
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
         esperarEstado(vm.state) { it.monitoreo != null }
 
         val actualizado = monitoreo.copy(umbral_riesgo = 60)
@@ -126,7 +156,7 @@ class MonitoreoDetalleViewModelTest {
     fun `guardarUmbral con 401 informa que la sesion expiro`() {
         val monitoreo = Fixtures.monitoreo(id = 1, umbralRiesgo = 80)
         val (vm, _) = viewModelCon(cache = listOf(monitoreo))
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
         esperarEstado(vm.state) { it.monitoreo != null }
 
         gddService.actualizarMonitoreoResult = { FakeGDDService.errorServidor(401) }
@@ -147,7 +177,7 @@ class MonitoreoDetalleViewModelTest {
             modeloAlertaMlId = "modelo-1"
         )
         val (vm, _) = viewModelCon(listOf(monitoreo))
-        vm.cargar(monitoreo.monitoreo_id)
+        cargarYEsperar(vm, monitoreo.monitoreo_id)
         esperarEstado(vm.state) { it.monitoreo != null }
         gddService.actualizarUmbralAlertaMlResult = {
             Response.success(monitoreo.copy(umbral_alerta_ml = 25f, umbral_alerta_ml_efectivo = 25f))
@@ -170,7 +200,7 @@ class MonitoreoDetalleViewModelTest {
             modeloAlertaMlId = "modelo-1"
         )
         val (vm, _) = viewModelCon(listOf(monitoreo))
-        vm.cargar(monitoreo.monitoreo_id)
+        cargarYEsperar(vm, monitoreo.monitoreo_id)
         esperarEstado(vm.state) { it.monitoreo != null }
         gddService.actualizarUmbralAlertaMlResult = {
             Response.success(monitoreo.copy(umbral_alerta_ml = null, umbral_alerta_ml_efectivo = 24.67f))
@@ -197,7 +227,7 @@ class MonitoreoDetalleViewModelTest {
             modeloAlertaMlId = "modelo-1"
         )
         val (vm, _) = viewModelCon(listOf(monitoreo))
-        vm.cargar(monitoreo.monitoreo_id)
+        cargarYEsperar(vm, monitoreo.monitoreo_id)
         esperarEstado(vm.state) { it.monitoreo != null }
         gddService.actualizarUmbralAlertaMlResult = {
             Response.success(monitoreo.copy(umbral_alerta_ml = null, umbral_alerta_ml_efectivo = 24.67f))
@@ -226,14 +256,14 @@ class MonitoreoDetalleViewModelTest {
         )
         val (vm, dao) = viewModelCon(cache = listOf(conOverride))
         gddService.getMonitoreoResult = { Response.success(conOverride) }
-        vm.cargar(41)
+        cargarYEsperar(vm, 41)
         esperarEstado(vm.state) { it.monitoreo != null }
 
         // El override se limpió del lado del servidor (por ejemplo, desde otro dispositivo).
         val sinOverride = conOverride.copy(umbral_alerta_ml = null, umbral_alerta_ml_efectivo = 24.67f)
         gddService.getMonitoreoResult = { Response.success(sinOverride) }
 
-        vm.cargar(41)
+        cargarYEsperar(vm, 41)
 
         esperarEstado(vm.state) { it.monitoreo?.umbral_alerta_ml == null }
         assertEquals(24.67f, vm.state.value.monitoreo?.umbral_alerta_ml_efectivo)
@@ -254,7 +284,7 @@ class MonitoreoDetalleViewModelTest {
             modeloAlertaMlId = "modelo-1"
         )
         val (vm, _) = viewModelCon(listOf(monitoreo))
-        vm.cargar(monitoreo.monitoreo_id)
+        cargarYEsperar(vm, monitoreo.monitoreo_id)
         esperarEstado(vm.state) { it.monitoreo != null }
         CacheTracker.marcarConsultado(context, CacheTracker.MONITOREOS)
         gddService.actualizarUmbralAlertaMlResult = {
@@ -287,7 +317,7 @@ class MonitoreoDetalleViewModelTest {
     @Test
     fun `la nota se recorta al maximo de caracteres`() {
         val (vm, _) = viewModelCon(cache = listOf(Fixtures.monitoreo(id = 1)))
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
         esperarEstado(vm.state) { it.monitoreo != null }
 
         vm.abrirEditorObservaciones()
@@ -300,7 +330,7 @@ class MonitoreoDetalleViewModelTest {
     fun `guardarObservaciones no dispara PATCH si el texto no cambio`() {
         val monitoreo = Fixtures.monitoreo(id = 1, observaciones = "No apareció la plaga")
         val (vm, _) = viewModelCon(cache = listOf(monitoreo))
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
         esperarEstado(vm.state) { it.monitoreo != null }
 
         vm.abrirEditorObservaciones()
@@ -317,7 +347,7 @@ class MonitoreoDetalleViewModelTest {
     fun `guardarObservaciones persiste en Room e invalida el cache del listado`() {
         val monitoreo = Fixtures.monitoreo(id = 1)
         val (vm, dao) = viewModelCon(cache = listOf(monitoreo))
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
         esperarEstado(vm.state) { it.monitoreo != null }
         CacheTracker.marcarConsultado(context, CacheTracker.MONITOREOS)
 
@@ -340,7 +370,7 @@ class MonitoreoDetalleViewModelTest {
     fun `guardarObservaciones funciona con el monitoreo finalizado`() {
         val monitoreo = Fixtures.monitoreo(id = 1, activo = false, observaciones = "Sin novedades")
         val (vm, _) = viewModelCon(cache = listOf(monitoreo))
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
         esperarEstado(vm.state) { it.monitoreo != null }
 
         val nota = "Rebrotó en marzo, el tratamiento no alcanzó"
@@ -358,7 +388,7 @@ class MonitoreoDetalleViewModelTest {
     fun `guardarObservaciones con error mantiene el editor abierto`() {
         val monitoreo = Fixtures.monitoreo(id = 1)
         val (vm, _) = viewModelCon(cache = listOf(monitoreo))
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
         esperarEstado(vm.state) { it.monitoreo != null }
         gddService.actualizarMonitoreoResult = { FakeGDDService.errorServidor(500) }
 
@@ -376,7 +406,7 @@ class MonitoreoDetalleViewModelTest {
     fun `finalizarMonitoreo con exito invoca el callback y actualiza Room`() {
         val monitoreo = Fixtures.monitoreo(id = 1, activo = true)
         val (vm, dao) = viewModelCon(cache = listOf(monitoreo))
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
         esperarEstado(vm.state) { it.monitoreo != null }
 
         val actualizado = monitoreo.copy(activo = false)
@@ -385,7 +415,7 @@ class MonitoreoDetalleViewModelTest {
         var llamado = false
         vm.finalizarMonitoreo { llamado = true }
 
-        esperarEstado(vm.state) { it.finalizado }
+        esperarEstado(vm.state) { it.finalizado && llamado }
         assertTrue(llamado)
         val persistido = runBlocking { dao.getAll() }.find { it.monitoreo_id == 1 }
         assertFalse(persistido!!.activo)
@@ -395,7 +425,7 @@ class MonitoreoDetalleViewModelTest {
     fun `finalizarMonitoreo manda la nota en el mismo PATCH`() {
         val monitoreo = Fixtures.monitoreo(id = 1, activo = true)
         val (vm, dao) = viewModelCon(cache = listOf(monitoreo))
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
         esperarEstado(vm.state) { it.monitoreo != null }
 
         val nota = "La plaga no apareció en toda la campaña"
@@ -416,7 +446,7 @@ class MonitoreoDetalleViewModelTest {
     fun `finalizarMonitoreo sin tocar la nota no la manda`() {
         val monitoreo = Fixtures.monitoreo(id = 1, activo = true, observaciones = "Nota previa")
         val (vm, _) = viewModelCon(cache = listOf(monitoreo))
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
         esperarEstado(vm.state) { it.monitoreo != null }
         gddService.actualizarMonitoreoResult = { Response.success(monitoreo.copy(activo = false)) }
 

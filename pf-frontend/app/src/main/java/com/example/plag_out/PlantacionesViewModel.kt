@@ -100,10 +100,12 @@ class PlantacionesViewModel(
         }
     }
 
-    /** Soft-close: marca `activa = false` para conservar el histórico en vez de borrar. */
+    /** Cierre irreversible de plantación, monitoreos y ciclos; conserva el historial. */
     @RequiresApi(Build.VERSION_CODES.O)
     fun finalizarPlantacion(plantacionId: Int, onSuccess: () -> Unit) {
+        if (_state.value.procesando) return
         val actual = _state.value.plantaciones.find { it.plantacion_id == plantacionId } ?: return
+        if (!actual.activa) return
 
         _state.value = _state.value.copy(procesando = true, error = null)
         viewModelScope.launch {
@@ -111,8 +113,8 @@ class PlantacionesViewModel(
                 val response = withContext(Dispatchers.IO) {
                     gddService.actualizarPlantacion(plantacionId, UpdatePlantacionRequest(activa = false))
                 }
-                if (response.isSuccessful) {
-                    val actualizada = response.body() ?: actual.copy(activa = false)
+                if (response.isSuccessful && response.body()?.plantacion_id == plantacionId && response.body()?.activa == false) {
+                    val actualizada = response.body()!!
                     withContext(Dispatchers.IO) { plantacionRepository.guardarPlantacion(actualizada) }
                     _state.value = _state.value.copy(
                         plantaciones = _state.value.plantaciones.map { if (it.plantacion_id == plantacionId) actualizada else it },

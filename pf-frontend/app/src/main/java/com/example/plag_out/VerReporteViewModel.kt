@@ -20,15 +20,28 @@ sealed class VerReporteUiState {
     data class Exito(
         val detalle: ReporteDetalleResponse,
         val terrenoReferencia: TerrenoResponse? = null,
+        val terrenosAfectados: List<TerrenoConDistancia> = emptyList(),
         val isEliminando: Boolean = false,
         val errorEliminacion: String? = null
     ) : VerReporteUiState()
     data class Error(val mensaje: String) : VerReporteUiState()
 }
 
+data class TerrenoConDistancia(
+    val terrenoId: Int,
+    val terrenoNombre: String,
+    val distanciaKm: Float
+)
+
 class VerReporteViewModel(
     private val gddService: GDDService = RetrofitClient.gddService
 ) : ViewModel() {
+
+    private fun calcularDistanciaKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
+        val results = FloatArray(1)
+        android.location.Location.distanceBetween(lat1, lon1, lat2, lon2, results)
+        return results[0] / 1000f
+    }
 
     private val _state = MutableStateFlow<VerReporteUiState>(VerReporteUiState.Cargando)
     val state: StateFlow<VerReporteUiState> = _state.asStateFlow()
@@ -52,19 +65,37 @@ class VerReporteViewModel(
                 if (res.isSuccessful && res.body() != null) {
                     val detalle = res.body()!!
                     var terrenoRef: TerrenoResponse? = null
-                    
-                    if (!detalle.es_propio && detalle.terreno_mas_cercano_id != null) {
+                    if (!detalle.es_propio) {
                         try {
                             val resTerrenos = withContext(Dispatchers.IO) { gddService.getTerrenos() }
                             if (resTerrenos.isSuccessful && resTerrenos.body() != null) {
-                                terrenoRef = resTerrenos.body()!!.find { it.terreno_id == detalle.terreno_mas_cercano_id }
+                                val terrenos = resTerrenos.body()!!
+                                val repLat = detalle.latitud
+                                val repLon = detalle.longitud
+                                var terrenosAfectados = emptyList<TerrenoConDistancia>()
+                                
+                                if (repLat != null && repLon != null) {
+                                    terrenosAfectados = terrenos.map { t ->
+                                        val distKm = calcularDistanciaKm(repLat, repLon, t.terreno_latitud.toDouble(), t.terreno_longitud.toDouble())
+                                        TerrenoConDistancia(t.terreno_id, t.terreno_nombre, distKm)
+                                    }.filter { it.distanciaKm < 150f }.sortedBy { it.distanciaKm }
+                                }
+                                
+                                if (terrenosAfectados.isNotEmpty()) {
+                                    terrenoRef = terrenos.find { it.terreno_id == terrenosAfectados.first().terrenoId }
+                                } else if (detalle.terreno_mas_cercano_id != null) {
+                                    terrenoRef = terrenos.find { it.terreno_id == detalle.terreno_mas_cercano_id }
+                                }
+                                
+                                _state.value = VerReporteUiState.Exito(detalle, terrenoRef, terrenosAfectados)
+                                return@launch
                             }
                         } catch (e: Exception) {
                             Log.w("VER_REPORTE", "Fallo al obtener terrenos para referencia: ${e.message}")
                         }
                     }
                     
-                    _state.value = VerReporteUiState.Exito(detalle, terrenoRef)
+                    _state.value = VerReporteUiState.Exito(detalle, terrenoReferencia = null, terrenosAfectados = emptyList())
                     return@launch
                 }
                 Log.w("VER_REPORTE", "GET /reportes/$reporteId -> ${res.code()}, usando fallback")

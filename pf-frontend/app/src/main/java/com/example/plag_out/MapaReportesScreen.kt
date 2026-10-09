@@ -278,7 +278,16 @@ fun MapaReportesScreen(
             state.actualizando -> "Actualizando la zona…"
             else -> null
         }
-        if (aviso != null) {
+        if (state.error != null) {
+            ErrorCargaReportes(
+                mensaje = state.error!!,
+                onReintentar = viewModel::refrescar,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(top = 74.dp, start = 16.dp, end = 16.dp)
+            )
+        } else if (aviso != null) {
             AvisoFlotante(
                 texto = aviso,
                 cargando = state.cargando || state.actualizando,

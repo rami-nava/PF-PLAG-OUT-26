@@ -70,10 +70,14 @@ class DetalleMonitoreoTest {
                 onVerTerreno = {}
             )
         }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            !viewModel.state.value.isLoading && viewModel.state.value.monitoreo != null
+        }
+        composeRule.waitForIdle()
     }
 
     private fun irADetalle() {
-        composeRule.onNodeWithTag("tabDetalle").performClick()
+        composeRule.onNodeWithTag("tabDetalle", useUnmergedTree = true).performClick()
         composeRule.waitForIdle()
     }
 
@@ -81,7 +85,7 @@ class DetalleMonitoreoTest {
     fun la_pestana_de_ciclos_muestra_el_avance_de_cada_ciclo() {
         mostrarDetalle(monitoreo.copy(ciclos = listOf(Fixtures.ciclo(id = 1, progreso = 78f))))
 
-        composeRule.onNodeWithTag("tabCiclos").performClick()
+        composeRule.onNodeWithTag("tabCiclos", useUnmergedTree = true).performClick()
         composeRule.waitForIdle()
 
         // El porcentaje vive en el anillo chico de la tarjeta del ciclo, no en el monitoreo.
@@ -122,7 +126,7 @@ class DetalleMonitoreoTest {
     fun la_i_del_nivel_de_alerta_abre_su_explicacion() {
         mostrarDetalle()
 
-        composeRule.onNodeWithTag("tabCiclos").performClick()
+        composeRule.onNodeWithTag("tabCiclos", useUnmergedTree = true).performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("btnInfoNivelAlerta").performClick()
@@ -134,7 +138,7 @@ class DetalleMonitoreoTest {
     fun la_pestana_de_ciclos_avisa_que_espera_el_biofix_cuando_no_hay_ninguno() {
         mostrarDetalle()
 
-        composeRule.onNodeWithTag("tabCiclos").performClick()
+        composeRule.onNodeWithTag("tabCiclos", useUnmergedTree = true).performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("txtEsperandoBiofix").assertExists()

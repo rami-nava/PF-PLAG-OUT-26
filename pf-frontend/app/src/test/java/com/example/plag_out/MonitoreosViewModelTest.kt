@@ -152,4 +152,31 @@ class MonitoreosViewModelTest {
         while (!condicion() && System.currentTimeMillis() < limite) Thread.sleep(10)
         assertTrue(condicion())
     }
+    @Test
+    fun `cierre confirmado archiva ciclos activos en memoria y cache conservando otros estados`() {
+        val first = Fixtures.monitoreo(id = 1, plantacionId = 11, ciclos = listOf(
+            Fixtures.ciclo(id = 71, estado = "activo"),
+            Fixtures.ciclo(id = 72, estado = "completado"),
+            Fixtures.ciclo(id = 73, estado = "archivado")
+        ))
+        val inactive = Fixtures.monitoreo(id = 2, plantacionId = 11, activo = false,
+            ciclos = listOf(Fixtures.ciclo(id = 74, estado = "activo")))
+        val other = Fixtures.monitoreo(id = 3, plantacionId = 22,
+            ciclos = listOf(Fixtures.ciclo(id = 75, estado = "activo")))
+        val dao = FakeMonitoreoDao(listOf(first, inactive, other))
+        val vm = MonitoreosViewModel(context, MonitoreoRepository(dao), gddService)
+        vm.agregarEnMemoria(listOf(first, inactive, other))
+        vm.finalizarPorPlantacion(11)
+        val state = esperarEstado(vm.state) { it.monitoreos.first().ciclos?.first()?.estado == "archivado" }
+        assertEquals(listOf("archivado", "completado", "archivado"), state.monitoreos.first().ciclos?.map { it.estado })
+        assertEquals(false, state.monitoreos.first().activo)
+        assertEquals("archivado", state.monitoreos[1].ciclos?.first()?.estado)
+        assertEquals(other, state.monitoreos[2])
+        val persisted = kotlinx.coroutines.runBlocking { dao.getAll() }.associateBy { it.monitoreo_id }
+        assertEquals(state.monitoreos.first(), persisted[1])
+        assertEquals(state.monitoreos[1], persisted[2])
+        assertEquals(other, persisted[3])
+        assertTrue(gddService.llamadas.isEmpty())
+    }
+
 }
