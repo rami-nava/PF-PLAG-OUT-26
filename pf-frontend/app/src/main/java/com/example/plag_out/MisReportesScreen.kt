@@ -464,7 +464,8 @@ fun MisReportesScreen(
             radioKm = state.radioTemporalKm,
             guardando = state.guardandoRadio,
             onRadioChange = { viewModel.onRadioTemporalChange(it) },
-            onConfirmar = { viewModel.guardarRadioNotificacion(onSuccess = viewModel::refrescar) },
+            // La recarga la decide el ViewModel: solo si el listado usa el radio configurado.
+            onConfirmar = { viewModel.guardarRadioNotificacion() },
             onDismiss = { viewModel.cerrarConfiguracionRadio() }
         )
     }
