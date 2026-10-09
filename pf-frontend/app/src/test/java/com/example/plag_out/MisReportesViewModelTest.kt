@@ -211,7 +211,10 @@ class MisReportesViewModelTest {
         viewModel.onRadioTemporalChange(80f)
         viewModel.guardarRadioNotificacion()
 
-        esperarEstado(viewModel.state) { !it.guardandoRadio && !it.mostrarDialogoRadio }
+        val estado = esperarEstado(viewModel.state) { !it.guardandoRadio && !it.mostrarDialogoRadio }
+        assertEquals(80.0, gddService.ultimoActualizarUsuario?.radio_notificacion_km)
+        assertEquals(80.0, estado.radioNotificacionKm, 0.001)
+        assertEquals(50, estado.distanciaListadoKm)
         assertTrue(gddService.consultasReportes.isEmpty())
     }
 
