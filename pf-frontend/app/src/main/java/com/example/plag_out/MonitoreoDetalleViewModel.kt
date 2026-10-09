@@ -38,6 +38,14 @@ data class MonitoreoDetalleUIState(
     val finalizando: Boolean = false,
     /** Dispara la navegación de vuelta cuando el PATCH de finalizar tuvo éxito. */
     val finalizado: Boolean = false,
+    val eliminando: Boolean = false,
+    /** Dispara el cierre de la pantalla cuando el DELETE tuvo éxito (el monitoreo ya no existe). */
+    val eliminado: Boolean = false,
+    /**
+     * El backend respondió 404 "no encontrado": el monitoreo se eliminó (p.ej. desde otro
+     * dispositivo) o es de otra cuenta. Se llega así al tocar una push vieja de la bandeja.
+     */
+    val noDisponible: Boolean = false,
     val error: String? = null,
     /** Se sirvió del caché porque el fetch a la red falló, no hay conexión, o el endpoint no existe. */
     val datosDesactualizados: Boolean = false
@@ -70,9 +78,9 @@ class MonitoreoDetalleViewModel(
         cargaEnCurso = viewModelScope.launch {
             val cache = withContext(Dispatchers.IO) { repository.obtenerMonitoreo(monitoreoId) }
             if (cache != null) {
-                _state.value = _state.value.copy(monitoreo = cache, isLoading = false)
+                _state.value = _state.value.copy(monitoreo = cache, isLoading = false, noDisponible = false)
             } else {
-                _state.value = _state.value.copy(isLoading = true)
+                _state.value = _state.value.copy(isLoading = true, noDisponible = false)
             }
 
             try {
@@ -90,11 +98,22 @@ class MonitoreoDetalleViewModel(
                     } else {
                         _state.value = _state.value.copy(isLoading = false, datosDesactualizados = cache != null)
                     }
+                } else if (esNoEncontrado(response.code(), leerCuerpoDeError(response))) {
+                    // El caché quedó huérfano: sin purgarlo, la pantalla seguiría mostrando un
+                    // monitoreo que ya no existe y cualquier edición fallaría con 404.
+                    withContext(Dispatchers.IO) { repository.borrarMonitoreo(monitoreoId) }
+                    _state.value = _state.value.copy(
+                        monitoreo = null,
+                        isLoading = false,
+                        noDisponible = true,
+                        datosDesactualizados = false,
+                        error = null
+                    )
                 } else {
                     _state.value = _state.value.copy(
                         isLoading = false,
                         datosDesactualizados = cache != null,
-                        error = if (cache == null) mensajeDeError(response.code()) else null
+                        error = if (cache == null) mensajeDeCarga(response.code()) else null
                     )
                     Log.e("MONITOREO_DETALLE", "Error al cargar: ${response.code()}")
                 }
@@ -363,6 +382,60 @@ class MonitoreoDetalleViewModel(
                 Log.e("MONITOREO_DETALLE", "Error al finalizar: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Borrado definitivo: el backend elimina en cascada ciclos, biofix, predicciones ML y las
+     * notificaciones del monitoreo. Un 404 con "no encontrado" significa que ya no existe (o es de
+     * otro usuario), así que se purga igual; un 404/405 sin ese detalle es que la ruta todavía no
+     * está en el servidor.
+     */
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun eliminarMonitoreo(onSuccess: (monitoreoId: Int) -> Unit) {
+        val monitoreo = _state.value.monitoreo ?: return
+
+        _state.value = _state.value.copy(eliminando = true, error = null)
+        viewModelScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) { gddService.eliminarMonitoreo(monitoreo.monitoreo_id) }
+                val yaNoExiste = !response.isSuccessful &&
+                    esNoEncontrado(response.code(), leerCuerpoDeError(response))
+
+                if (response.isSuccessful || yaNoExiste) {
+                    cargaEnCurso?.cancel()
+                    withContext(Dispatchers.IO) { repository.borrarMonitoreo(monitoreo.monitoreo_id) }
+                    _state.value = _state.value.copy(eliminando = false, eliminado = true)
+                    onSuccess(monitoreo.monitoreo_id)
+                } else {
+                    _state.value = _state.value.copy(
+                        eliminando = false,
+                        error = when (response.code()) {
+                            404, 405 -> "Eliminar monitoreos todavía no está disponible en el servidor."
+                            else -> mensajeDeError(response.code())
+                        }
+                    )
+                    Log.e("MONITOREO_DETALLE", "Error al eliminar: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    eliminando = false,
+                    error = "No se pudo eliminar el monitoreo. Revisá tu conexión."
+                )
+                Log.e("MONITOREO_DETALLE", "Error al eliminar: ${e.message}")
+            }
+        }
+    }
+
+    /** 404 del recurso ("Monitoreo no encontrado"), a diferencia del 404 "Not Found" de una ruta que no existe. */
+    private fun esNoEncontrado(codigo: Int, cuerpo: String): Boolean =
+        codigo == 404 && cuerpo.contains("no encontrado", ignoreCase = true)
+
+    private fun leerCuerpoDeError(response: retrofit2.Response<*>): String =
+        runCatching { response.errorBody()?.string() }.getOrNull().orEmpty()
+
+    private fun mensajeDeCarga(codigo: Int): String = when (codigo) {
+        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
+        else -> "No se pudo cargar el monitoreo. Intentá de nuevo."
     }
 
     private fun mensajeDeError(codigo: Int): String = when (codigo) {

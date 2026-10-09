@@ -109,6 +109,7 @@ class MisReportesViewModelTest {
     fun `guardarRadioNotificacion actualiza radio en backend y estado`() {
         val userActualizado = Fixtures.usuario().copy(radio_notificacion_km = 45.0)
         gddService.actualizarUsuarioResult = { Response.success(userActualizado) }
+        gddService.getReportesResult = { Response.success(emptyList()) }
 
         viewModel.abrirConfiguracionRadio()
         viewModel.onRadioTemporalChange(45f)
@@ -134,5 +135,43 @@ class MisReportesViewModelTest {
         assertNotNull(estado.error)
         assertEquals(false, estado.guardandoRadio)
     }
-}
 
+    @Test
+    fun `guardarRadioNotificacion recarga los reportes con el radio nuevo`() {
+        gddService.actualizarUsuarioResult = { Response.success(Fixtures.usuario().copy(radio_notificacion_km = 50.0)) }
+        gddService.getReportesResult = {
+            Response.success(listOf(Fixtures.reporteDetalle(id = 1), Fixtures.reporteDetalle(id = 2)))
+        }
+
+        viewModel.abrirConfiguracionRadio()
+        viewModel.onRadioTemporalChange(50f)
+        viewModel.guardarRadioNotificacion()
+
+        val estado = esperarEstado(viewModel.state) { it.reportes.size == 2 && !it.isLoading && !it.isRefreshing }
+        assertEquals(1, gddService.vecesLlamado("getReportes"))
+        assertEquals(listOf(1, 2), estado.reportes.map { it.id })
+    }
+
+    @Test
+    fun `guardarRadioNotificacion sin cambiar el radio no recarga los reportes`() {
+        gddService.actualizarUsuarioResult = { Response.success(Fixtures.usuario().copy(radio_notificacion_km = 20.0)) }
+
+        viewModel.abrirConfiguracionRadio()
+        viewModel.guardarRadioNotificacion()
+
+        esperarEstado(viewModel.state) { !it.guardandoRadio && !it.mostrarDialogoRadio }
+        assertEquals(0, gddService.vecesLlamado("getReportes"))
+    }
+
+    @Test
+    fun `guardarRadioNotificacion con error no recarga los reportes`() {
+        gddService.actualizarUsuarioResult = { FakeGDDService.errorServidor(500) }
+
+        viewModel.abrirConfiguracionRadio()
+        viewModel.onRadioTemporalChange(80f)
+        viewModel.guardarRadioNotificacion()
+
+        esperarEstado(viewModel.state) { !it.guardandoRadio && it.error != null }
+        assertEquals(0, gddService.vecesLlamado("getReportes"))
+    }
+}

@@ -73,6 +73,7 @@ class FakeGDDService : GDDService {
     var getMonitoreoResult: () -> Response<MonitoreoResponse> = { noDeclarado("getMonitoreo") }
     var actualizarMonitoreoResult: () -> Response<MonitoreoResponse> = { noDeclarado("actualizarMonitoreo") }
     var actualizarUmbralAlertaMlResult: () -> Response<MonitoreoResponse> = { noDeclarado("actualizarUmbralAlertaMl") }
+    var eliminarMonitoreoResult: () -> Response<Unit> = { noDeclarado("eliminarMonitoreo") }
     var createUserResult: () -> Response<CreateUserResponse> = { noDeclarado("createUser") }
     var getUsuarioActualResult: () -> Response<UsuarioResponse> = { noDeclarado("getUsuarioActual") }
     var actualizarUsuarioResult: () -> Response<UsuarioResponse> = { noDeclarado("actualizarUsuario") }
@@ -151,6 +152,10 @@ class FakeGDDService : GDDService {
 
     override suspend fun actualizarUmbralAlertaMl(id: Int, data: JsonObject): Response<MonitoreoResponse> {
         llamadas += "actualizarUmbralAlertaMl"; ultimoUmbralAlertaMl = data; return actualizarUmbralAlertaMlResult()
+    }
+
+    override suspend fun eliminarMonitoreo(id: Int): Response<Unit> {
+        llamadas += "eliminarMonitoreo"; return eliminarMonitoreoResult()
     }
 
     override suspend fun createUser(data: CreateUserRequest): Response<CreateUserResponse> {

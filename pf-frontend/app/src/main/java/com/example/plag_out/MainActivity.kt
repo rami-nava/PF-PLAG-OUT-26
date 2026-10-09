@@ -169,7 +169,9 @@ fun AppNavigation(
     val actionScope = rememberCoroutineScope()
 
     val monitoreosViewModel: MonitoreosViewModel = viewModel(
-        factory = remember(context, monitoreoRepository) { MonitoreosViewModelFactory(context, monitoreoRepository) }
+        factory = remember(context, monitoreoRepository) {
+            MonitoreosViewModelFactory(context, monitoreoRepository, biofixDao = db.biofixDao())
+        }
     )
     val terrenosViewModel: TerrenosViewModel = viewModel(
         factory = remember(context, terrenoRepository) { TerrenosViewModelFactory(context, terrenoRepository) }
@@ -569,6 +571,13 @@ fun AppNavigation(
                         monitoreosViewModel.refrescar()
                         navController.popBackStack()
                     },
+                    onEliminado = { id ->
+                        monitoreosViewModel.purgarMonitoreo(id)
+                        // Las alertas de ese monitoreo se borraron en cascada en el backend
+                        notificacionesViewModel.cargar()
+                        navController.popBackStack()
+                    },
+                    onNoDisponible = { id -> monitoreosViewModel.purgarMonitoreo(id) },
                     onVerPlantacion = { plantacionId -> navController.navigate("plantacion/$plantacionId") },
                     onVerTerreno = { terrenoId -> navController.navigate("terreno/$terrenoId") }
                 )

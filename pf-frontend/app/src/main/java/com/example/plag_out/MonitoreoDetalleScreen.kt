@@ -56,6 +56,9 @@ fun MonitoreoDetalleScreen(
     viewModel: MonitoreoDetalleViewModel,
     onBack: () -> Unit,
     onFinalizado: () -> Unit,
+    onEliminado: (monitoreoId: Int) -> Unit,
+    /** El monitoreo ya no existe en el backend: hay que sacarlo también del listado en memoria. */
+    onNoDisponible: (monitoreoId: Int) -> Unit = {},
     onVerPlantacion: (Int) -> Unit,
     onVerTerreno: (Int) -> Unit
 ) {
@@ -64,6 +67,7 @@ fun MonitoreoDetalleScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
     var notaAlFinalizar by remember { mutableStateOf("") }
+    var mostrarDialogoEliminar by remember { mutableStateOf(false) }
     var mostrarInfoNivel by remember { mutableStateOf(false) }
     var mostrarInfoUmbral by remember { mutableStateOf(false) }
 
@@ -71,6 +75,10 @@ fun MonitoreoDetalleScreen(
 
     LaunchedEffect(state.finalizado) {
         if (state.finalizado) onFinalizado()
+    }
+
+    LaunchedEffect(state.noDisponible) {
+        if (state.noDisponible) onNoDisponible(monitoreoId)
     }
 
     LaunchedEffect(state.error) {
@@ -91,6 +99,11 @@ fun MonitoreoDetalleScreen(
         Box(Modifier.padding(padding).fillMaxSize()) {
             when {
                 monitoreo == null && state.isLoading -> CargandoCentrado()
+                state.noDisponible -> EstadoErrorDetalle(
+                    mensaje = "Este monitoreo ya no existe. Puede haberse eliminado desde otro dispositivo.",
+                    onBack = onBack,
+                    tag = "estadoMonitoreoNoDisponible"
+                )
                 monitoreo == null -> EstadoErrorDetalle(
                     mensaje = state.error ?: "No se pudo cargar el monitoreo.",
                     onBack = onBack,
@@ -108,8 +121,10 @@ fun MonitoreoDetalleScreen(
                     onVerInfoNivel = { mostrarInfoNivel = true },
                     onVerInfoUmbral = { mostrarInfoUmbral = true },
                     finalizando = state.finalizando,
+                    eliminando = state.eliminando,
                     onRefresh = { viewModel.cargar(monitoreoId) },
-                    onFinalizarClick = { mostrarDialogoFinalizar = true }
+                    onFinalizarClick = { mostrarDialogoFinalizar = true },
+                    onEliminarClick = { mostrarDialogoEliminar = true }
                 )
             }
         }
@@ -218,11 +233,47 @@ fun MonitoreoDetalleScreen(
             }
         )
     }
+
+    if (mostrarDialogoEliminar && monitoreo != null) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoEliminar = false },
+            modifier = Modifier.testTag("dialogEliminarMonitoreo"),
+            title = { Text("¿Eliminar monitoreo?") },
+            text = {
+                Text(
+                    "Se va a eliminar el monitoreo de ${monitoreo.plaga_nombre} en ${monitoreo.cultivo_nombre} " +
+                        "de forma permanente, junto con sus ciclos, predicciones y alertas. " +
+                        "Esta acción no se puede deshacer.\n\nSi solo querés dejar de recibir alertas y " +
+                        "conservar el historial, usá Finalizar."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        mostrarDialogoEliminar = false
+                        viewModel.eliminarMonitoreo(onEliminado)
+                    },
+                    modifier = Modifier.testTag("btnConfirmarEliminarMonitoreo")
+                ) {
+                    Text("Eliminar", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoEliminar = false }) { Text("Cancelar") }
+            }
+        )
+    }
 }
 
+/** Sin [onReintentar] el botón cambia a "Volver": la entidad no existe, reintentar no sirve. */
 @Composable
-private fun EstadoErrorDetalle(mensaje: String, onBack: () -> Unit, onReintentar: () -> Unit) {
-    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
+private fun EstadoErrorDetalle(
+    mensaje: String,
+    onBack: () -> Unit,
+    onReintentar: (() -> Unit)? = null,
+    tag: String = "estadoErrorDetalle"
+) {
+    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).testTag(tag)) {
         IconButton(onClick = onBack, modifier = Modifier.padding(8.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextMain)
         }
@@ -236,10 +287,10 @@ private fun EstadoErrorDetalle(mensaje: String, onBack: () -> Unit, onReintentar
             Text(mensaje, color = PlagOutColors.TextSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             Spacer(Modifier.height(20.dp))
             Button(
-                onClick = onReintentar,
+                onClick = onReintentar ?: onBack,
                 colors = ButtonDefaults.buttonColors(containerColor = PlagOutColors.Forest, contentColor = PlagOutColors.TextOnDark)
             ) {
-                Text("Reintentar")
+                Text(if (onReintentar != null) "Reintentar" else "Volver")
             }
         }
     }
@@ -263,7 +314,9 @@ private fun ContenidoMonitoreoDetalle(
     onVerInfoNivel: () -> Unit,
     onVerInfoUmbral: () -> Unit,
     finalizando: Boolean,
+    eliminando: Boolean,
     onFinalizarClick: () -> Unit,
+    onEliminarClick: () -> Unit,
     onRefresh: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -358,7 +411,9 @@ private fun ContenidoMonitoreoDetalle(
                     onVerInfoUmbral = onVerInfoUmbral,
                     onEditarObservaciones = onEditarObservaciones,
                     finalizando = finalizando,
-                    onFinalizarClick = onFinalizarClick
+                    eliminando = eliminando,
+                    onFinalizarClick = onFinalizarClick,
+                    onEliminarClick = onEliminarClick
                 )
                 else -> CiclosTab(
                     monitoreo = monitoreo,
@@ -382,7 +437,9 @@ private fun DetalleTab(
     onVerInfoUmbral: () -> Unit,
     onEditarObservaciones: () -> Unit,
     finalizando: Boolean,
-    onFinalizarClick: () -> Unit
+    eliminando: Boolean,
+    onFinalizarClick: () -> Unit,
+    onEliminarClick: () -> Unit
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Column(
@@ -623,19 +680,39 @@ private fun DetalleTab(
         } else {
             OutlinedButton(
                 onClick = onFinalizarClick,
-                enabled = !finalizando,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskDanger),
-                border = BorderStroke(1.dp, PlagOutColors.RiskDanger),
+                enabled = !finalizando && !eliminando,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskWarn),
+                border = BorderStroke(1.dp, PlagOutColors.RiskWarn),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
                     .testTag("btnFinalizarMonitoreo")
             ) {
                 if (finalizando) {
-                    CircularProgressIndicator(color = PlagOutColors.RiskDanger, modifier = Modifier.size(20.dp))
+                    CircularProgressIndicator(color = PlagOutColors.RiskWarn, modifier = Modifier.size(20.dp))
                 } else {
                     Text("Finalizar monitoreo", fontWeight = FontWeight.SemiBold)
                 }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        // Finalizar conserva el historial; eliminar lo borra todo, así que se ofrece en ambos estados.
+        OutlinedButton(
+            onClick = onEliminarClick,
+            enabled = !finalizando && !eliminando,
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskDanger),
+            border = BorderStroke(1.dp, PlagOutColors.RiskDanger),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .testTag("btnEliminarMonitoreo")
+        ) {
+            if (eliminando) {
+                CircularProgressIndicator(color = PlagOutColors.RiskDanger, modifier = Modifier.size(20.dp))
+            } else {
+                Text("Eliminar monitoreo", fontWeight = FontWeight.SemiBold)
             }
         }
 

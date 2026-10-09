@@ -85,6 +85,7 @@ class MisReportesViewModel(
 
     fun guardarRadioNotificacion(onSuccess: (() -> Unit)? = null) {
         val nuevoRadio = _state.value.radioTemporalKm.toDouble()
+        val radioAnterior = _state.value.radioNotificacionKm
         _state.value = _state.value.copy(guardandoRadio = true)
         viewModelScope.launch {
             try {
@@ -112,6 +113,9 @@ class MisReportesViewModel(
                             }
                         }
                     }
+                    // El backend filtra los reportes de la comunidad de GET /reportes con este radio:
+                    // sin recargar, la lista seguiría mostrando los del radio anterior.
+                    if (radioFinal != radioAnterior) cargarReportes(forzar = true)
                     onSuccess?.invoke()
                 } else {
                     _state.value = _state.value.copy(
