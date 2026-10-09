@@ -13,4 +13,6 @@ interface BiofixDao {
     suspend fun insert(value: BiofixPendiente)
     @Query("DELETE FROM biofix_pendiente WHERE owner_id = :owner AND monitoreo_id = :monitor")
     suspend fun delete(owner: String, monitor: Int)
+    @Query("DELETE FROM biofix_pendiente WHERE monitoreo_id IN (:monitoreos)")
+    suspend fun deleteByMonitoreos(monitoreos: List<Int>)
 }

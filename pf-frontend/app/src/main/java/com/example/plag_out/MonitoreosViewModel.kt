@@ -7,6 +7,7 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.plag_out.AlmacenamientoLocal.BiofixDao
 import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.Service.GDDService
@@ -29,7 +30,8 @@ data class MonitoreoUIState(
 class MonitoreosViewModel(
     context: Context,
     repository: MonitoreoRepository,
-    private val gddService: GDDService = RetrofitClient.gddService
+    private val gddService: GDDService = RetrofitClient.gddService,
+    private val biofixDao: BiofixDao? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MonitoreoUIState())
@@ -155,7 +157,10 @@ class MonitoreosViewModel(
      */
     fun purgarPorTerreno(terrenoId: Int) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { monitoreosRepository.borrarPorTerreno(terrenoId) }
+            withContext(Dispatchers.IO) {
+                descartarBiofixPendientes(idsDe { it.terreno_id == terrenoId })
+                monitoreosRepository.borrarPorTerreno(terrenoId)
+            }
             _state.value = _state.value.copy(
                 monitoreos = _state.value.monitoreos.filter { it.terreno_id != terrenoId }
             )
@@ -169,11 +174,38 @@ class MonitoreosViewModel(
      */
     fun purgarPorPlantacion(plantacionId: Int) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { monitoreosRepository.borrarPorPlantacion(plantacionId) }
+            withContext(Dispatchers.IO) {
+                descartarBiofixPendientes(idsDe { it.plantacion_id == plantacionId })
+                monitoreosRepository.borrarPorPlantacion(plantacionId)
+            }
             _state.value = _state.value.copy(
                 monitoreos = _state.value.monitoreos.filter { it.plantacion_id != plantacionId }
             )
         }
+    }
+
+    /** Purga local (Room + memoria) de un monitoreo que ya se eliminó en el backend. */
+    fun purgarMonitoreo(monitoreoId: Int) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                descartarBiofixPendientes(listOf(monitoreoId))
+                monitoreosRepository.borrarMonitoreo(monitoreoId)
+            }
+            _state.value = _state.value.copy(
+                monitoreos = _state.value.monitoreos.filter { it.monitoreo_id != monitoreoId }
+            )
+        }
+    }
+
+    /** Ids de los monitoreos afectados según Room y la memoria (puede que uno solo esté en la otra). */
+    private suspend fun idsDe(filtro: (MonitoreoResponse) -> Boolean): List<Int> =
+        (monitoreosRepository.obtenerMonitoreos() + _state.value.monitoreos)
+            .filter(filtro)
+            .map { it.monitoreo_id }
+            .distinct()
+
+    private suspend fun descartarBiofixPendientes(monitoreoIds: List<Int>) {
+        if (monitoreoIds.isNotEmpty()) biofixDao?.deleteByMonitoreos(monitoreoIds)
     }
 
     fun renombrarTerreno(terrenoId: Int, nombre: String) {
@@ -191,11 +223,12 @@ class MonitoreosViewModel(
 class MonitoreosViewModelFactory(
     private val context: Context,
     private val repository: MonitoreoRepository,
-    private val gddService: GDDService = RetrofitClient.gddService
+    private val gddService: GDDService = RetrofitClient.gddService,
+    private val biofixDao: BiofixDao? = null
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return MonitoreosViewModel(context, repository, gddService) as T
+        return MonitoreosViewModel(context, repository, gddService, biofixDao) as T
     }
 }

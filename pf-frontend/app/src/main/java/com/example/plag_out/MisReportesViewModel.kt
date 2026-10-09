@@ -96,6 +96,7 @@ class MisReportesViewModel(
 
     fun guardarRadioNotificacion(onSuccess: (() -> Unit)? = null) {
         val nuevoRadio = _state.value.radioTemporalKm.toDouble()
+        val radioAnterior = _state.value.radioNotificacionKm
         _state.value = _state.value.copy(guardandoRadio = true)
         viewModelScope.launch {
             try {
@@ -122,6 +123,11 @@ class MisReportesViewModel(
                                 usuarioRepository?.guardarUsuario(local.copy(radio_notificacion_km = radioFinal))
                             }
                         }
+                    }
+                    // Sin distancia elegida en el listado, el backend filtra los reportes de la
+                    // comunidad con este radio: sin recargar, seguirían los del radio anterior.
+                    if (radioFinal != radioAnterior && _state.value.distanciaListadoKm == null) {
+                        cargarReportes(forzar = true)
                     }
                     onSuccess?.invoke()
                 } else {

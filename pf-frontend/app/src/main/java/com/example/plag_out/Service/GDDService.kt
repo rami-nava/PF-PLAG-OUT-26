@@ -107,6 +107,9 @@ interface GDDService {
         @Body data: JsonObject
     ): Response<MonitoreoResponse>
 
+    @DELETE("/monitoreos/{id}")
+    suspend fun eliminarMonitoreo(@Path("id") id: Int): Response<Unit>
+
     @POST("/usuarios")
     suspend fun createUser(@Body data: CreateUserRequest): Response<CreateUserResponse>
 

@@ -29,7 +29,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody
+import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Buffer
 import retrofit2.Converter
 import retrofit2.Response
@@ -452,5 +454,127 @@ class MonitoreoDetalleViewModelTest {
 
         esperarEstado(vm.state) { it.finalizado }
         assertEquals(null, gddService.ultimoActualizarMonitoreo?.observaciones)
+    }
+
+    // ---------- eliminarMonitoreo ----------
+
+    private fun error404(detalle: String): Response<Unit> =
+        Response.error(404, """{"detail": "$detalle"}""".toResponseBody("application/json".toMediaType()))
+
+    private fun cargado(): Pair<MonitoreoDetalleViewModel, FakeMonitoreoDao> {
+        val (vm, dao) = viewModelCon(cache = listOf(Fixtures.monitoreo(id = 1), Fixtures.monitoreo(id = 2)))
+        gddService.getMonitoreoResult = { Response.success(Fixtures.monitoreo(id = 1)) }
+        vm.cargar(1)
+        esperarEstado(vm.state) { it.monitoreo != null && !it.isLoading }
+        return vm to dao
+    }
+
+    @Test
+    fun `eliminarMonitoreo con exito lo borra de Room y avisa con su id`() {
+        val (vm, dao) = cargado()
+        gddService.eliminarMonitoreoResult = { Response.success(Unit) }
+
+        var eliminadoId: Int? = null
+        vm.eliminarMonitoreo { eliminadoId = it }
+
+        esperarEstado(vm.state) { it.eliminado }
+        assertEquals(1, eliminadoId)
+        assertFalse(vm.state.value.eliminando)
+        assertEquals(listOf(2), runBlocking { dao.getAll() }.map { it.monitoreo_id })
+    }
+
+    @Test
+    fun `eliminarMonitoreo con 404 no encontrado lo purga igual porque ya no existe`() {
+        val (vm, dao) = cargado()
+        gddService.eliminarMonitoreoResult = { error404("Monitoreo no encontrado") }
+
+        var llamado = false
+        vm.eliminarMonitoreo { llamado = true }
+
+        esperarEstado(vm.state) { it.eliminado }
+        assertTrue(llamado)
+        assertEquals(listOf(2), runBlocking { dao.getAll() }.map { it.monitoreo_id })
+    }
+
+    @Test
+    fun `eliminarMonitoreo sin la ruta en el servidor avisa y no borra nada`() {
+        val (vm, dao) = cargado()
+        gddService.eliminarMonitoreoResult = { error404("Not Found") }
+
+        var llamado = false
+        vm.eliminarMonitoreo { llamado = true }
+
+        val estado = esperarEstado(vm.state) { it.error != null }
+        assertFalse(llamado)
+        assertFalse(estado.eliminado)
+        assertTrue(estado.error!!.contains("todavía no está disponible"))
+        assertEquals(2, runBlocking { dao.getAll() }.size)
+    }
+
+    @Test
+    fun `eliminarMonitoreo con error del servidor no borra nada`() {
+        val (vm, dao) = cargado()
+        gddService.eliminarMonitoreoResult = { FakeGDDService.errorServidor() }
+
+        vm.eliminarMonitoreo {}
+
+        val estado = esperarEstado(vm.state) { it.error != null }
+        assertFalse(estado.eliminado)
+        assertFalse(estado.eliminando)
+        assertEquals(2, runBlocking { dao.getAll() }.size)
+    }
+
+    @Test
+    fun `eliminarMonitoreo sin conexion muestra error y no borra nada`() {
+        val (vm, dao) = cargado()
+        gddService.eliminarMonitoreoResult = { FakeGDDService.sinConexion() }
+
+        vm.eliminarMonitoreo {}
+
+        val estado = esperarEstado(vm.state) { it.error != null }
+        assertFalse(estado.eliminado)
+        assertEquals(2, runBlocking { dao.getAll() }.size)
+    }
+
+    // ---------- monitoreo eliminado (push vieja) ----------
+
+    private fun error404Monitoreo(detalle: String): Response<MonitoreoResponse> =
+        Response.error(404, """{"detail": "$detalle"}""".toResponseBody("application/json".toMediaType()))
+
+    @Test
+    fun `cargar con 404 no encontrado purga el cache y marca no disponible`() {
+        val (vm, dao) = viewModelCon(cache = listOf(Fixtures.monitoreo(id = 1), Fixtures.monitoreo(id = 2)))
+        gddService.getMonitoreoResult = { error404Monitoreo("Monitoreo no encontrado") }
+
+        vm.cargar(1)
+
+        val estado = esperarEstado(vm.state) { it.noDisponible }
+        assertEquals(null, estado.monitoreo)
+        assertEquals(null, estado.error)
+        assertFalse(estado.datosDesactualizados)
+        assertEquals(listOf(2), runBlocking { dao.getAll() }.map { it.monitoreo_id })
+    }
+
+    @Test
+    fun `cargar con 404 no encontrado sin cache marca no disponible`() {
+        val (vm, _) = viewModelCon(cache = emptyList())
+        gddService.getMonitoreoResult = { error404Monitoreo("Monitoreo no encontrado") }
+
+        vm.cargar(99)
+
+        val estado = esperarEstado(vm.state) { !it.isLoading }
+        assertTrue(estado.noDisponible)
+    }
+
+    @Test
+    fun `cargar sin cache con error del servidor no dice que fallo al guardar`() {
+        val (vm, _) = viewModelCon(cache = emptyList())
+        gddService.getMonitoreoResult = { FakeGDDService.errorServidor() }
+
+        vm.cargar(1)
+
+        val estado = esperarEstado(vm.state) { it.error != null }
+        assertFalse(estado.noDisponible)
+        assertEquals("No se pudo cargar el monitoreo. Intentá de nuevo.", estado.error)
     }
 }

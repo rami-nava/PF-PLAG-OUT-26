@@ -254,7 +254,7 @@ fun PerfilScreen(
                                 TarjetaActividad(
                                     terrenos = terrenosState.terrenos.size,
                                     plantacionesActivas = plantacionesState.plantaciones.count { it.activa },
-                                    monitoreos = monitoreosState.monitoreos.size
+                                    monitoreosActivos = monitoreosState.monitoreos.count { it.activo }
                                 )
                             }
 
@@ -603,7 +603,7 @@ private fun TarjetaInformacionPersonal(usuario: UsuarioResponse, onEditar: () ->
 }
 
 @Composable
-private fun TarjetaActividad(terrenos: Int, plantacionesActivas: Int, monitoreos: Int) {
+private fun TarjetaActividad(terrenos: Int, plantacionesActivas: Int, monitoreosActivos: Int) {
     TarjetaPerfil {
         Text(
             "Tu actividad",
@@ -627,7 +627,7 @@ private fun TarjetaActividad(terrenos: Int, plantacionesActivas: Int, monitoreos
             SeparadorVertical()
             EstadisticaCompacta("CULTIVOS", "${contadorAnimado(plantacionesActivas)}")
             SeparadorVertical()
-            EstadisticaCompacta("MONITOREOS", "${contadorAnimado(monitoreos)}")
+            EstadisticaCompacta("MONITOREOS", "${contadorAnimado(monitoreosActivos)}")
         }
     }
 }

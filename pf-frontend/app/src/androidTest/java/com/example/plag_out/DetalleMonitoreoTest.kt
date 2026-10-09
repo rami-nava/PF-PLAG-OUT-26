@@ -65,6 +65,7 @@ class DetalleMonitoreoTest {
                 viewModel = viewModel,
                 onBack = {},
                 onFinalizado = {},
+                onEliminado = {},
                 onVerPlantacion = {},
                 onVerTerreno = {}
             )

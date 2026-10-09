@@ -1,5 +1,7 @@
 package com.example.plag_out.fakes
 
+import com.example.plag_out.AlmacenamientoLocal.BiofixDao
+import com.example.plag_out.AlmacenamientoLocal.BiofixPendiente
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoDao
 import com.example.plag_out.AlmacenamientoLocal.PlantacionDao
 import com.example.plag_out.AlmacenamientoLocal.TerrenoDao
@@ -150,5 +152,24 @@ class FakeFeedbackPrediccionDao(
 
     override suspend fun deleteByOwner(ownerId: String) {
         filas.removeAll { it.owner_id == ownerId }
+    }
+}
+
+class FakeBiofixDao(inicial: List<BiofixPendiente> = emptyList()) : BiofixDao {
+    val filas = inicial.toMutableList()
+
+    override suspend fun get(owner: String, monitor: Int): BiofixPendiente? =
+        filas.firstOrNull { it.owner_id == owner && it.monitoreo_id == monitor }
+
+    override suspend fun insert(value: BiofixPendiente) {
+        filas += value
+    }
+
+    override suspend fun delete(owner: String, monitor: Int) {
+        filas.removeAll { it.owner_id == owner && it.monitoreo_id == monitor }
+    }
+
+    override suspend fun deleteByMonitoreos(monitoreos: List<Int>) {
+        filas.removeAll { it.monitoreo_id in monitoreos }
     }
 }
