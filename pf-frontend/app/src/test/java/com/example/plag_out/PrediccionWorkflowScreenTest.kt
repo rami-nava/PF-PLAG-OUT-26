@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionRepository
@@ -38,6 +39,24 @@ class PrediccionWorkflowScreenTest {
         compose.setContent { PrediccionDetalleScreen(41, vm, {}) }
         compose.waitUntil(timeoutMillis = 5000) { !vm.state.value.isLoading && vm.state.value.error != null }
         compose.onNodeWithText("Volver a cargar").assertIsDisplayed()
+    }
+
+    @Test fun `push ML antiguo muestra no disponible y permite volver sin confirmar`() {
+        val service = FakeGDDService().apply { getPrediccionResult = { FakeGDDService.errorServidor(404) } }
+        val vm = viewModel(service)
+        val destino = destinoDePush(tipo = "ALERTA_ML_RIESGO", prediccionId = "41")
+        org.junit.Assert.assertEquals("prediccion/41", destino)
+        var volvio = false
+        compose.setContent { PrediccionDetalleScreen(destino!!.substringAfter('/').toInt(), vm, { volvio = true }) }
+        compose.waitUntil(timeoutMillis = 5000) { vm.state.value.noDisponible }
+        compose.onNodeWithText("Esta predicción no está disponible.").assertIsDisplayed()
+        compose.onNodeWithText("Volver a cargar").assertDoesNotExist()
+        compose.onNodeWithText("No pude verificar").assertDoesNotExist()
+        compose.onNodeWithText("Reintentar envío").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Volver").performClick()
+        org.junit.Assert.assertTrue(volvio)
+        org.junit.Assert.assertNull(vm.state.value.error)
+        org.junit.Assert.assertEquals(0, service.vecesLlamado("confirmarPrediccion"))
     }
 
     @Test fun `error de envio conserva respuesta y retry muestra guardado confirmado`() {

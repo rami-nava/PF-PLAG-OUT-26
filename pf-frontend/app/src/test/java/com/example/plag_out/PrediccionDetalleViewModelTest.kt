@@ -162,6 +162,29 @@ class PrediccionDetalleViewModelTest {
     }
 
     @Test
+    fun `borrado mientras el detalle esta abierto descarta datos y feedback sin reintentar`() {
+        val dao = FakeFeedbackPrediccionDao()
+        val service = FakeGDDService().apply {
+            getPrediccionResult = { Response.success(Fixtures.prediccion()) }
+            confirmarPrediccionResult = { FakeGDDService.errorServidor(404) }
+        }
+        val vm = viewModel(service, dao)
+        vm.cargar(41)
+        esperarEstado(vm.state) { it.prediccion != null }
+        vm.responder("no_verificada")
+        val estado = esperarEstado(vm.state) { it.noDisponible }
+        assertNull(estado.prediccion)
+        assertNull(estado.feedbackPendiente)
+        assertNull(estado.biofixResultado)
+        assertNull(estado.error)
+        assertTrue(!estado.enviando && !estado.isLoading)
+        assertNull(runBlocking { dao.get(owner, 41) })
+        vm.reintentar()
+        vm.responder("no_observada")
+        assertEquals(1, service.vecesLlamado("confirmarPrediccion"))
+    }
+
+    @Test
     fun `409 recarga el estado real y 422 descarta el intento invalido`() {
         val service409 = FakeGDDService().apply {
             getPrediccionResult = {
