@@ -459,7 +459,7 @@ fun InsigniaAccion(icono: ImageVector, color: Color, rebote: Float) {
 
 // Sobre qué se actúa, con nombre propio: evita que se confirme sobre el elemento equivocado.
 @Composable
-private fun FichaElemento(icono: ImageVector, nombre: String, detalle: String?) {
+fun FichaElemento(icono: ImageVector, nombre: String, detalle: String?) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -521,7 +521,7 @@ private fun ConsecuenciaAccion(texto: String, color: Color) {
 }
 
 @Composable
-private fun AvisoDialogo(icono: ImageVector, texto: String, color: Color, negrita: Boolean = false) {
+fun AvisoDialogo(icono: ImageVector, texto: String, color: Color, negrita: Boolean = false) {
     Row(
         Modifier
             .fillMaxWidth()
