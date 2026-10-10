@@ -812,7 +812,7 @@ private fun InformacionPlantacionTab(
         ) {
             Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 EstadisticaCompacta(
-                    "Sembrada",
+                    "Sembrado",
                     plantacion?.fecha_siembra?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))) ?: "—",
                     Modifier.weight(1f)
                 )

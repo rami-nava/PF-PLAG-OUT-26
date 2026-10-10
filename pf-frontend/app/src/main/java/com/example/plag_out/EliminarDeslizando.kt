@@ -10,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -191,8 +192,50 @@ fun DialogoConfirmarEliminacion(
     onConfirmar: () -> Unit,
     onCancelar: () -> Unit,
     consejo: String? = null
+) = DialogoConfirmarAccion(
+    titulo = titulo,
+    colorAccion = PlagOutColors.RiskDanger,
+    iconoAccion = Icons.Outlined.DeleteOutline,
+    textoConfirmar = "Eliminar",
+    icono = icono,
+    nombre = nombre,
+    detalle = detalle,
+    encabezadoConsecuencias = "AL ELIMINARLO",
+    consecuencias = consecuencias,
+    aviso = "Esta acción no se puede deshacer.",
+    consejo = consejo,
+    tagDialogo = "dialogEliminar$tag",
+    tagConfirmar = "btnConfirmarEliminar$tag",
+    tagCancelar = "btnCancelarEliminar$tag",
+    onConfirmar = onConfirmar,
+    onCancelar = onCancelar
+)
+
+/**
+ * Esqueleto común de las confirmaciones de acciones fuertes (eliminar, finalizar): insignia
+ * animada, ficha del elemento afectado, qué pasa al confirmar y los dos botones.
+ * [contenidoExtra] va antes de los botones, para campos propios de cada acción.
+ */
+@Composable
+fun DialogoConfirmarAccion(
+    titulo: String,
+    colorAccion: Color,
+    iconoAccion: ImageVector,
+    textoConfirmar: String,
+    icono: ImageVector,
+    nombre: String,
+    detalle: String?,
+    encabezadoConsecuencias: String,
+    consecuencias: List<String>,
+    aviso: String?,
+    tagDialogo: String,
+    tagConfirmar: String,
+    tagCancelar: String,
+    onConfirmar: () -> Unit,
+    onCancelar: () -> Unit,
+    consejo: String? = null,
+    contenidoExtra: @Composable ColumnScope.() -> Unit = {}
 ) {
-    // Entrada: el diálogo crece apenas y el ícono rebota después, para que la atención vaya al tacho.
     val entrada = remember { Animatable(0f) }
     val rebote = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
@@ -219,7 +262,7 @@ fun DialogoConfirmarEliminacion(
                     scaleX = 0.92f + 0.08f * e
                     scaleY = 0.92f + 0.08f * e
                 }
-                .testTag("dialogEliminar$tag")
+                .testTag(tagDialogo)
         ) {
             Column(
                 Modifier
@@ -227,7 +270,7 @@ fun DialogoConfirmarEliminacion(
                     .padding(horizontal = 22.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                InsigniaEliminar(rebote.value)
+                InsigniaAccion(iconoAccion, colorAccion, rebote.value)
                 Spacer(Modifier.height(16.dp))
                 Text(
                     titulo,
@@ -242,23 +285,25 @@ fun DialogoConfirmarEliminacion(
                 if (consecuencias.isNotEmpty()) {
                     Spacer(Modifier.height(18.dp))
                     Text(
-                        "AL ELIMINARLO",
+                        encabezadoConsecuencias,
                         style = MaterialTheme.typography.labelSmall,
                         color = PlagOutColors.TextSecondary,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(Modifier.height(8.dp))
-                    consecuencias.forEach { ConsecuenciaEliminacion(it) }
+                    consecuencias.forEach { ConsecuenciaAccion(it, colorAccion) }
                 }
 
-                Spacer(Modifier.height(14.dp))
-                AvisoDialogo(
-                    icono = Icons.Outlined.WarningAmber,
-                    texto = "Esta acción no se puede deshacer.",
-                    color = PlagOutColors.RiskDanger,
-                    negrita = true
-                )
+                if (aviso != null) {
+                    Spacer(Modifier.height(14.dp))
+                    AvisoDialogo(
+                        icono = Icons.Outlined.WarningAmber,
+                        texto = aviso,
+                        color = colorAccion,
+                        negrita = true
+                    )
+                }
                 if (consejo != null) {
                     Spacer(Modifier.height(8.dp))
                     AvisoDialogo(
@@ -267,6 +312,8 @@ fun DialogoConfirmarEliminacion(
                         color = PlagOutColors.Leaf
                     )
                 }
+
+                contenidoExtra()
 
                 Spacer(Modifier.height(22.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -278,7 +325,7 @@ fun DialogoConfirmarEliminacion(
                         modifier = Modifier
                             .weight(1f)
                             .height(50.dp)
-                            .testTag("btnCancelarEliminar$tag")
+                            .testTag(tagCancelar)
                     ) {
                         Text("Cancelar", fontWeight = FontWeight.SemiBold)
                     }
@@ -286,17 +333,17 @@ fun DialogoConfirmarEliminacion(
                         onClick = onConfirmar,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = PlagOutColors.RiskDanger,
+                            containerColor = colorAccion,
                             contentColor = Color.White
                         ),
                         modifier = Modifier
                             .weight(1f)
                             .height(50.dp)
-                            .testTag("btnConfirmarEliminar$tag")
+                            .testTag(tagConfirmar)
                     ) {
-                        Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(iconoAccion, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Eliminar", fontWeight = FontWeight.Bold)
+                        Text(textoConfirmar, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -305,24 +352,24 @@ fun DialogoConfirmarEliminacion(
 }
 
 @Composable
-private fun InsigniaEliminar(rebote: Float) {
+private fun InsigniaAccion(icono: ImageVector, color: Color, rebote: Float) {
     Box(
         Modifier
             .size(72.dp)
             .graphicsLayer { scaleX = rebote; scaleY = rebote }
             .clip(CircleShape)
-            .background(PlagOutColors.RiskDanger.copy(alpha = 0.12f)),
+            .background(color.copy(alpha = 0.12f)),
         contentAlignment = Alignment.Center
     ) {
         Box(
             Modifier
                 .size(50.dp)
                 .clip(CircleShape)
-                .background(PlagOutColors.RiskDanger),
+                .background(color),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                Icons.Outlined.DeleteOutline,
+                icono,
                 contentDescription = null,
                 tint = Color.White,
                 // Un leve bamboleo mientras rebota: de 0 a 1 pasa por -8° y vuelve a su lugar.
@@ -334,7 +381,7 @@ private fun InsigniaEliminar(rebote: Float) {
     }
 }
 
-// Qué se va a borrar, con nombre propio: evita que se confirme sobre el elemento equivocado.
+// Sobre qué se actúa, con nombre propio: evita que se confirme sobre el elemento equivocado.
 @Composable
 private fun FichaElemento(icono: ImageVector, nombre: String, detalle: String?) {
     Row(
@@ -378,7 +425,7 @@ private fun FichaElemento(icono: ImageVector, nombre: String, detalle: String?) 
 }
 
 @Composable
-private fun ConsecuenciaEliminacion(texto: String) {
+private fun ConsecuenciaAccion(texto: String, color: Color) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -390,7 +437,7 @@ private fun ConsecuenciaEliminacion(texto: String) {
                 .padding(top = 7.dp)
                 .size(6.dp)
                 .clip(CircleShape)
-                .background(PlagOutColors.RiskDanger.copy(alpha = 0.7f))
+                .background(color.copy(alpha = 0.7f))
         )
         Spacer(Modifier.width(10.dp))
         Text(texto, style = MaterialTheme.typography.bodyMedium, color = PlagOutColors.TextMain)

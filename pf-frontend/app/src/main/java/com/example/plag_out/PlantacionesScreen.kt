@@ -778,7 +778,7 @@ fun PlantacionCard(
                     Icon(Icons.Outlined.CalendarToday, contentDescription = null, tint = PlagOutColors.Bark, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "Sembrada el ${plantacion.fecha_siembra.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.forLanguageTag("es")))}",
+                        "Sembrado el ${plantacion.fecha_siembra.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.forLanguageTag("es")))}",
                         fontSize = 12.sp,
                         color = PlagOutColors.TextSecondary,
                         modifier = Modifier.weight(1f)

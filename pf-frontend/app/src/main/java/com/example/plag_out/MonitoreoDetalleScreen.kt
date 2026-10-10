@@ -197,42 +197,39 @@ fun MonitoreoDetalleScreen(
     }
 
     if (mostrarDialogoFinalizar && monitoreo != null) {
-        AlertDialog(
-            onDismissRequest = { mostrarDialogoFinalizar = false },
-            modifier = Modifier.testTag("dialogFinalizar"),
-            title = { Text("¿Finalizar monitoreo?") },
-            text = {
-                Column {
-                    Text(
-                        "¿Finalizar el monitoreo de ${monitoreo.plaga_nombre} en ${monitoreo.cultivo_nombre}? " +
-                            "Vas a dejar de recibir alertas de esta plaga en este cultivo."
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    // El cierre de campaña es el momento en que el dato está fresco: se ofrece
-                    // escribir la nota acá mismo, sin obligar (el campo puede quedar vacío).
-                    CampoDeNota(
-                        texto = notaAlFinalizar,
-                        onTextoChange = { notaAlFinalizar = it.take(MAX_CARACTERES_OBSERVACIONES) },
-                        etiqueta = "Nota para la próxima campaña (opcional)",
-                        tag = "txtNotaFinalizar"
-                    )
-                }
+        DialogoConfirmarAccion(
+            titulo = "¿Finalizar este monitoreo?",
+            colorAccion = PlagOutColors.RiskWarn,
+            iconoAccion = Icons.Outlined.Flag,
+            textoConfirmar = "Finalizar",
+            icono = Icons.Outlined.BugReport,
+            nombre = monitoreo.plaga_nombre,
+            detalle = "${monitoreo.cultivo_nombre} · ${monitoreo.terreno_nombre}",
+            encabezadoConsecuencias = "AL FINALIZARLO",
+            consecuencias = listOf(
+                "Dejás de recibir alertas de esta plaga en este cultivo.",
+                "Se conservan sus ciclos, predicciones y alertas para consultarlos."
+            ),
+            aviso = "No se puede volver a activar.",
+            tagDialogo = "dialogFinalizar",
+            tagConfirmar = "btnConfirmarFinalizar",
+            tagCancelar = "btnCancelarFinalizar",
+            onConfirmar = {
+                mostrarDialogoFinalizar = false
+                viewModel.finalizarMonitoreo(observaciones = notaAlFinalizar) {}
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarDialogoFinalizar = false
-                        viewModel.finalizarMonitoreo(observaciones = notaAlFinalizar) {}
-                    },
-                    modifier = Modifier.testTag("btnConfirmarFinalizar")
-                ) {
-                    Text("Finalizar", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { mostrarDialogoFinalizar = false }) { Text("Cancelar") }
-            }
-        )
+            onCancelar = { mostrarDialogoFinalizar = false }
+        ) {
+            // El cierre de campaña es el momento en que el dato está fresco: se ofrece
+            // escribir la nota acá mismo, sin obligar (el campo puede quedar vacío).
+            Spacer(Modifier.height(18.dp))
+            CampoDeNota(
+                texto = notaAlFinalizar,
+                onTextoChange = { notaAlFinalizar = it.take(MAX_CARACTERES_OBSERVACIONES) },
+                etiqueta = "Nota para la próxima campaña (opcional)",
+                tag = "txtNotaFinalizar"
+            )
+        }
     }
 
     if (mostrarDialogoEliminar && monitoreo != null) {
