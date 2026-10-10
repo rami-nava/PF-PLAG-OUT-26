@@ -404,7 +404,7 @@ fun EstadoSinCiclos(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center
     ) {
         Surface(
-            color = PlagOutColors.Bark.copy(alpha = 0.12f),
+            color = PlagOutColors.Leaf.copy(alpha = 0.12f),
             shape = CircleShape,
             modifier = Modifier.size(108.dp)
         ) {
@@ -412,7 +412,7 @@ fun EstadoSinCiclos(modifier: Modifier = Modifier) {
                 Icon(
                     Icons.Outlined.EventBusy,
                     contentDescription = null,
-                    tint = PlagOutColors.Bark,
+                    tint = PlagOutColors.Leaf,
                     modifier = Modifier.size(48.dp)
                 )
             }

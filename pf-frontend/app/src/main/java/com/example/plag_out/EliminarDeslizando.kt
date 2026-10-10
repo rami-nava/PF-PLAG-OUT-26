@@ -296,6 +296,97 @@ fun DialogoConfirmarAccion(
     consejo: String? = null,
     contenidoExtra: @Composable ColumnScope.() -> Unit = {}
 ) {
+    MarcoDialogo(tag = tagDialogo, onDismissRequest = onCancelar) { rebote ->
+        InsigniaAccion(iconoAccion, colorAccion, rebote)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            titulo,
+            style = MaterialTheme.typography.titleLarge,
+            color = PlagOutColors.TextMain,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(18.dp))
+
+        FichaElemento(icono, nombre, detalle)
+
+        if (consecuencias.isNotEmpty()) {
+            Spacer(Modifier.height(18.dp))
+            Text(
+                encabezadoConsecuencias,
+                style = MaterialTheme.typography.labelSmall,
+                color = PlagOutColors.TextSecondary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            consecuencias.forEach { ConsecuenciaAccion(it, colorAccion) }
+        }
+
+        if (aviso != null) {
+            Spacer(Modifier.height(14.dp))
+            AvisoDialogo(
+                icono = Icons.Outlined.WarningAmber,
+                texto = aviso,
+                color = colorAccion,
+                negrita = true
+            )
+        }
+        if (consejo != null) {
+            Spacer(Modifier.height(8.dp))
+            AvisoDialogo(
+                icono = Icons.Outlined.Lightbulb,
+                texto = consejo,
+                color = PlagOutColors.Leaf
+            )
+        }
+
+        contenidoExtra()
+
+        Spacer(Modifier.height(22.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(
+                onClick = onCancelar,
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, PlagOutColors.Divider),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.TextMain),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp)
+                    .testTag(tagCancelar)
+            ) {
+                Text("Cancelar", fontWeight = FontWeight.SemiBold)
+            }
+            Button(
+                onClick = onConfirmar,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorAccion,
+                    contentColor = Color.White
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp)
+                    .testTag(tagConfirmar)
+            ) {
+                Icon(iconoAccion, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(textoConfirmar, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+/**
+ * Marco común de los diálogos de la app: tarjeta redondeada que entra con un leve crecimiento.
+ * [contenido] recibe el progreso del rebote (0→1) para animar la insignia de arriba.
+ */
+@Composable
+fun MarcoDialogo(
+    tag: String,
+    onDismissRequest: () -> Unit,
+    contenido: @Composable ColumnScope.(rebote: Float) -> Unit
+) {
+    // Entrada: el diálogo crece apenas y la insignia rebota después, para que la atención vaya a la acción.
     val entrada = remember { Animatable(0f) }
     val rebote = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
@@ -305,7 +396,7 @@ fun DialogoConfirmarAccion(
     }
 
     Dialog(
-        onDismissRequest = onCancelar,
+        onDismissRequest = onDismissRequest,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
@@ -322,7 +413,7 @@ fun DialogoConfirmarAccion(
                     scaleX = 0.92f + 0.08f * e
                     scaleY = 0.92f + 0.08f * e
                 }
-                .testTag(tagDialogo)
+                .testTag(tag)
         ) {
             Column(
                 Modifier
@@ -330,89 +421,14 @@ fun DialogoConfirmarAccion(
                     .padding(horizontal = 22.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                InsigniaAccion(iconoAccion, colorAccion, rebote.value)
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    titulo,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = PlagOutColors.TextMain,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(Modifier.height(18.dp))
-
-                FichaElemento(icono, nombre, detalle)
-
-                if (consecuencias.isNotEmpty()) {
-                    Spacer(Modifier.height(18.dp))
-                    Text(
-                        encabezadoConsecuencias,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = PlagOutColors.TextSecondary,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    consecuencias.forEach { ConsecuenciaAccion(it, colorAccion) }
-                }
-
-                if (aviso != null) {
-                    Spacer(Modifier.height(14.dp))
-                    AvisoDialogo(
-                        icono = Icons.Outlined.WarningAmber,
-                        texto = aviso,
-                        color = colorAccion,
-                        negrita = true
-                    )
-                }
-                if (consejo != null) {
-                    Spacer(Modifier.height(8.dp))
-                    AvisoDialogo(
-                        icono = Icons.Outlined.Lightbulb,
-                        texto = consejo,
-                        color = PlagOutColors.Leaf
-                    )
-                }
-
-                contenidoExtra()
-
-                Spacer(Modifier.height(22.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(
-                        onClick = onCancelar,
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, PlagOutColors.Divider),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.TextMain),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp)
-                            .testTag(tagCancelar)
-                    ) {
-                        Text("Cancelar", fontWeight = FontWeight.SemiBold)
-                    }
-                    Button(
-                        onClick = onConfirmar,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colorAccion,
-                            contentColor = Color.White
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp)
-                            .testTag(tagConfirmar)
-                    ) {
-                        Icon(iconoAccion, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(textoConfirmar, fontWeight = FontWeight.Bold)
-                    }
-                }
+                contenido(rebote.value)
             }
         }
     }
 }
 
 @Composable
-private fun InsigniaAccion(icono: ImageVector, color: Color, rebote: Float) {
+fun InsigniaAccion(icono: ImageVector, color: Color, rebote: Float) {
     Box(
         Modifier
             .size(72.dp)
@@ -443,7 +459,7 @@ private fun InsigniaAccion(icono: ImageVector, color: Color, rebote: Float) {
 
 // Sobre qué se actúa, con nombre propio: evita que se confirme sobre el elemento equivocado.
 @Composable
-private fun FichaElemento(icono: ImageVector, nombre: String, detalle: String?) {
+fun FichaElemento(icono: ImageVector, nombre: String, detalle: String?) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -505,7 +521,7 @@ private fun ConsecuenciaAccion(texto: String, color: Color) {
 }
 
 @Composable
-private fun AvisoDialogo(icono: ImageVector, texto: String, color: Color, negrita: Boolean = false) {
+fun AvisoDialogo(icono: ImageVector, texto: String, color: Color, negrita: Boolean = false) {
     Row(
         Modifier
             .fillMaxWidth()

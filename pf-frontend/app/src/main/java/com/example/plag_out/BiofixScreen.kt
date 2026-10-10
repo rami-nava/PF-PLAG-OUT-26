@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.BugReport
@@ -136,141 +137,146 @@ fun BiofixDialog(monitoreoId: Int, onDismiss: () -> Unit, onConfirm: (BiofixRequ
         }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = PlagOutColors.Surface,
-        shape = RoundedCornerShape(26.dp),
-        icon = {
-            Box(
-                Modifier.size(52.dp).background(PlagOutColors.Leaf.copy(alpha = 0.14f), CircleShape),
-                contentAlignment = Alignment.Center
+    val puedeConfirmar = monitor?.activo == true && valido && (activos.isEmpty() || opcion != null)
+
+    MarcoDialogo(tag = "dialogBiofix", onDismissRequest = onDismiss) { rebote ->
+        InsigniaAccion(Icons.Outlined.BugReport, PlagOutColors.Forest, rebote)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Registrar presencia",
+            style = MaterialTheme.typography.titleLarge,
+            color = PlagOutColors.TextMain,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Al confirmar arranca el conteo de GDD desde la fecha que elijas.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = PlagOutColors.TextSecondary,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(18.dp))
+
+        monitor?.let {
+            FichaElemento(Icons.Outlined.BugReport, it.plaga_nombre, "${it.cultivo_nombre} · ${it.terreno_nombre}")
+            Spacer(Modifier.height(18.dp))
+        }
+
+        EncabezadoSeccionBiofix("Fecha de observación")
+        Surface(
+            onClick = { mostrarCalendario = true },
+            enabled = monitor != null,
+            color = PlagOutColors.Cream,
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, if (valido || monitor == null) PlagOutColors.CreamDeep else PlagOutColors.RiskDanger),
+            modifier = Modifier.fillMaxWidth().testTag("btnFechaBiofix")
+        ) {
+            Row(
+                Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Outlined.BugReport,
-                    contentDescription = null,
-                    tint = PlagOutColors.Forest,
-                    modifier = Modifier.size(26.dp)
-                )
-            }
-        },
-        title = {
-            Text(
-                "Registrar presencia",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = PlagOutColors.TextMain,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    "Al confirmar arranca el conteo de GDD desde la fecha que elijas.",
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                    color = PlagOutColors.TextSecondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(Modifier.height(18.dp))
-
-                Text(
-                    "FECHA DE OBSERVACIÓN",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.6.sp,
-                    color = PlagOutColors.TextSecondary
-                )
-                Spacer(Modifier.height(6.dp))
-                Surface(
-                    onClick = { mostrarCalendario = true },
-                    enabled = monitor != null,
-                    color = PlagOutColors.Cream,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, if (valido || monitor == null) PlagOutColors.Divider else PlagOutColors.RiskDanger),
-                    modifier = Modifier.fillMaxWidth().testTag("btnFechaBiofix")
+                Box(
+                    Modifier.size(40.dp).background(PlagOutColors.Leaf.copy(alpha = 0.14f), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                formatearFechaLarga(fecha),
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PlagOutColors.TextMain
-                            )
-                            if (fecha == hoy) {
-                                Text("Hoy", fontSize = 11.sp, color = PlagOutColors.TextSecondary)
-                            }
-                        }
-                        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(18.dp))
-                    }
+                    Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = PlagOutColors.Leaf, modifier = Modifier.size(20.dp))
                 }
-
-                if (monitor == null && error == null) {
-                    Spacer(Modifier.height(16.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                        CircularProgressIndicator(color = PlagOutColors.Forest, modifier = Modifier.size(22.dp))
-                    }
-                }
-
-                if (activos.isEmpty()) {
-                    if (monitor != null) {
-                        Spacer(Modifier.height(14.dp))
-                        EtiquetaInfo(Icons.Outlined.Schedule, "Se inicia un ciclo GDD nuevo", PlagOutColors.Forest)
-                    }
-                } else {
-                    Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
                     Text(
-                        "¿Es la presencia que ya seguís o querés iniciar otro ciclo?",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        formatearFechaLarga(fecha),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
                         color = PlagOutColors.TextMain
                     )
-                    Spacer(Modifier.height(10.dp))
-                    activos.forEach { ciclo ->
-                        OpcionCiclo(
-                            seleccionada = opcion == ciclo.id,
-                            onSeleccionar = { opcion = ciclo.id },
-                            titulo = "Ciclo ${numeros[ciclo.id] ?: ciclo.id}",
-                            detalle = "Biofix ${ciclo.fecha_biofix} · ${ciclo.progreso.toInt()}%"
-                        )
-                        Spacer(Modifier.height(8.dp))
-                    }
-                    OpcionCiclo(
-                        seleccionada = opcion == -1,
-                        onSeleccionar = { opcion = -1 },
-                        titulo = "Iniciar otro ciclo",
-                        detalle = "Una presencia distinta, en paralelo a la que ya seguís"
+                    Text(
+                        if (fecha == hoy) "Hoy · tocá para cambiarla" else "Tocá para cambiarla",
+                        fontSize = 12.sp,
+                        color = PlagOutColors.TextSecondary
                     )
                 }
-
-                error?.let {
-                    Spacer(Modifier.height(14.dp))
-                    EtiquetaInfo(Icons.Filled.ErrorOutline, it, PlagOutColors.RiskDanger)
-                }
+                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(18.dp))
             }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = monitor?.activo == true && valido && (activos.isEmpty() || opcion != null),
+        }
+
+        if (monitor == null && error == null) {
+            Spacer(Modifier.height(16.dp))
+            CircularProgressIndicator(color = PlagOutColors.Forest, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+        }
+
+        if (activos.isEmpty()) {
+            if (monitor != null) {
+                Spacer(Modifier.height(12.dp))
+                AvisoDialogo(Icons.Outlined.Schedule, "Se inicia un ciclo GDD nuevo desde esa fecha.", PlagOutColors.Leaf)
+            }
+        } else {
+            Spacer(Modifier.height(18.dp))
+            EncabezadoSeccionBiofix("¿Es la presencia que ya seguís?")
+            activos.forEach { ciclo ->
+                OpcionCiclo(
+                    seleccionada = opcion == ciclo.id,
+                    onSeleccionar = { opcion = ciclo.id },
+                    titulo = "Ciclo ${numeros[ciclo.id] ?: ciclo.id}",
+                    detalle = "Biofix ${ciclo.fecha_biofix} · ${ciclo.progreso.toInt()}%"
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+            OpcionCiclo(
+                seleccionada = opcion == -1,
+                onSeleccionar = { opcion = -1 },
+                titulo = "Iniciar otro ciclo",
+                detalle = "Una presencia distinta, en paralelo a la que ya seguís"
+            )
+        }
+
+        error?.let {
+            Spacer(Modifier.height(12.dp))
+            AvisoDialogo(Icons.Filled.ErrorOutline, it, PlagOutColors.RiskDanger, negrita = true)
+        }
+
+        Spacer(Modifier.height(22.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, PlagOutColors.Divider),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.TextMain),
+                modifier = Modifier.weight(1f).height(50.dp).testTag("btnCancelarBiofix")
+            ) {
+                Text("Cancelar", fontWeight = FontWeight.SemiBold)
+            }
+            Button(
                 onClick = {
                     val asociar = activos.isNotEmpty() && opcion != -1
                     onConfirm(BiofixRequest(UUID.randomUUID().toString(), fecha.toString(),
                         if (asociar) "asociar_ciclo" else "iniciar_ciclo",
                         if (asociar) opcion else null, activos.isNotEmpty() && !asociar))
-                }
-            ) { Text("Confirmar presencia", color = PlagOutColors.Forest, fontWeight = FontWeight.Bold) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar", color = PlagOutColors.TextSecondary) }
+                },
+                enabled = puedeConfirmar,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PlagOutColors.Forest,
+                    contentColor = PlagOutColors.TextOnDark
+                ),
+                modifier = Modifier.weight(1f).height(50.dp).testTag("btnConfirmarBiofix")
+            ) {
+                Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Confirmar", fontWeight = FontWeight.Bold)
+            }
         }
+    }
+}
+
+@Composable
+private fun EncabezadoSeccionBiofix(texto: String) {
+    Text(
+        texto.uppercase(),
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.6.sp,
+        color = PlagOutColors.TextSecondary,
+        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 8.dp)
     )
 }
 
@@ -284,7 +290,7 @@ private fun OpcionCiclo(
     Surface(
         color = if (seleccionada) PlagOutColors.Leaf.copy(alpha = 0.12f) else PlagOutColors.Cream,
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, if (seleccionada) PlagOutColors.Leaf else PlagOutColors.Divider),
+        border = BorderStroke(1.dp, if (seleccionada) PlagOutColors.Leaf else PlagOutColors.CreamDeep),
         modifier = Modifier
             .fillMaxWidth()
             .selectable(selected = seleccionada, role = Role.RadioButton, onClick = onSeleccionar)
