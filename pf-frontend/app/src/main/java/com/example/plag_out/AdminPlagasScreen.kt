@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -327,19 +326,21 @@ fun PlagaFormScreen(
             }
 
             SeccionFormulario(titulo = "Identificación", subtitulo = "Cómo la ven los productores al elegirla.") {
-                CampoTextoPlaga(
+                CampoFormularioAdmin(
                     valor = form.nombre,
                     onCambio = { form = form.copy(nombre = it) },
                     etiqueta = "Nombre común",
+                    placeholder = "Ej: Carpocapsa",
                     error = errorDe(CampoPlaga.NOMBRE),
                     icono = Icons.Outlined.BugReport,
                     tag = "txtNombrePlaga"
                 )
-                Spacer(Modifier.height(12.dp))
-                CampoTextoPlaga(
+                Spacer(Modifier.height(14.dp))
+                CampoFormularioAdmin(
                     valor = form.nombreCientifico,
                     onCambio = { form = form.copy(nombreCientifico = it) },
                     etiqueta = "Nombre científico",
+                    placeholder = "Ej: Cydia pomonella",
                     error = errorDe(CampoPlaga.NOMBRE_CIENTIFICO),
                     icono = Icons.Outlined.Science,
                     tag = "txtNombreCientifico"
@@ -350,23 +351,27 @@ fun PlagaFormScreen(
                 titulo = "Parámetros térmicos",
                 subtitulo = "Umbrales de temperatura entre los que la plaga acumula grados-día."
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CampoNumeroPlaga(
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                    CampoFormularioAdmin(
                         valor = form.tempBase,
-                        onCambio = { form = form.copy(tempBase = it) },
+                        onCambio = { nuevo -> if (esNumeroPlaga(nuevo)) form = form.copy(tempBase = nuevo) },
                         etiqueta = "Temp. base",
-                        sufijo = "°C",
+                        unidad = "°C",
                         error = errorDe(CampoPlaga.TEMP_BASE),
                         tag = "txtTempBase",
+                        placeholder = "0",
+                        teclado = KeyboardType.Decimal,
                         modifier = Modifier.weight(1f)
                     )
-                    CampoNumeroPlaga(
+                    CampoFormularioAdmin(
                         valor = form.tempMax,
-                        onCambio = { form = form.copy(tempMax = it) },
+                        onCambio = { nuevo -> if (esNumeroPlaga(nuevo)) form = form.copy(tempMax = nuevo) },
                         etiqueta = "Temp. máxima",
-                        sufijo = "°C",
+                        unidad = "°C",
                         error = errorDe(CampoPlaga.TEMP_MAX),
                         tag = "txtTempMax",
+                        placeholder = "0",
+                        teclado = KeyboardType.Decimal,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -376,23 +381,27 @@ fun PlagaFormScreen(
                 titulo = "Grados-día del ciclo",
                 subtitulo = "GDD acumulados desde el biofix hasta cada evento biológico."
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CampoNumeroPlaga(
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                    CampoFormularioAdmin(
                         valor = form.gddEclosion,
-                        onCambio = { form = form.copy(gddEclosion = it) },
+                        onCambio = { nuevo -> if (esNumeroPlaga(nuevo)) form = form.copy(gddEclosion = nuevo) },
                         etiqueta = "Eclosión",
-                        sufijo = "GDD",
+                        unidad = "GDD",
                         error = errorDe(CampoPlaga.GDD_ECLOSION),
                         tag = "txtGddEclosion",
+                        placeholder = "0",
+                        teclado = KeyboardType.Decimal,
                         modifier = Modifier.weight(1f)
                     )
-                    CampoNumeroPlaga(
+                    CampoFormularioAdmin(
                         valor = form.gddGeneracion,
-                        onCambio = { form = form.copy(gddGeneracion = it) },
+                        onCambio = { nuevo -> if (esNumeroPlaga(nuevo)) form = form.copy(gddGeneracion = nuevo) },
                         etiqueta = "Generación",
-                        sufijo = "GDD",
+                        unidad = "GDD",
                         error = errorDe(CampoPlaga.GDD_GENERACION),
                         tag = "txtGddGeneracion",
+                        placeholder = "0",
+                        teclado = KeyboardType.Decimal,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -523,56 +532,8 @@ private fun SeccionFormulario(titulo: String, subtitulo: String, contenido: @Com
     }
 }
 
-@Composable
-private fun CampoTextoPlaga(
-    valor: String,
-    onCambio: (String) -> Unit,
-    etiqueta: String,
-    error: String?,
-    icono: androidx.compose.ui.graphics.vector.ImageVector,
-    tag: String
-) {
-    OutlinedTextField(
-        value = valor,
-        onValueChange = onCambio,
-        label = { Text(etiqueta) },
-        leadingIcon = { Icon(icono, contentDescription = null, tint = PlagOutColors.Forest) },
-        isError = error != null,
-        supportingText = error?.let { { Text(it) } },
-        singleLine = true,
-        shape = RoundedCornerShape(16.dp),
-        colors = camposColors(),
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(tag)
-    )
-}
-
-@Composable
-private fun CampoNumeroPlaga(
-    valor: String,
-    onCambio: (String) -> Unit,
-    etiqueta: String,
-    sufijo: String,
-    error: String?,
-    tag: String,
-    modifier: Modifier = Modifier
-) {
-    OutlinedTextField(
-        value = valor,
-        // Solo dígitos, signo y un separador decimal: la temperatura base puede ser negativa
-        onValueChange = { nuevo -> if (nuevo.all { it.isDigit() || it in "-.," }) onCambio(nuevo) },
-        label = { Text(etiqueta) },
-        suffix = { Text(sufijo, color = PlagOutColors.TextSecondary, fontSize = 12.sp) },
-        isError = error != null,
-        supportingText = error?.let { { Text(it) } },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        shape = RoundedCornerShape(16.dp),
-        colors = camposColors(),
-        modifier = modifier.testTag(tag)
-    )
-}
+// Solo dígitos, signo y un separador decimal: la temperatura base puede ser negativa.
+private fun esNumeroPlaga(texto: String) = texto.all { it.isDigit() || it in "-.," }
 
 @Composable
 private fun AvisoImpacto(texto: String) {

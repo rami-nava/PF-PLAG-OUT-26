@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Block
@@ -356,10 +357,13 @@ fun AdminUsuarioDetalleScreen(
             OutlinedTextField(
                 value = confirmacion,
                 onValueChange = { confirmacion = it },
-                placeholder = { Text(usuario.email, color = PlagOutColors.RiskUnknown) },
+                placeholder = { Text(usuario.email, color = PlagOutColors.TextSecondary.copy(alpha = 0.55f)) },
                 singleLine = true,
+                trailingIcon = if (coincide) {
+                    { Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = PlagOutColors.RiskDanger) }
+                } else null,
                 shape = RoundedCornerShape(14.dp),
-                colors = camposColors(),
+                colors = camposAdminColors(acento = PlagOutColors.RiskDanger),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("txtConfirmarEliminarUsuario")
