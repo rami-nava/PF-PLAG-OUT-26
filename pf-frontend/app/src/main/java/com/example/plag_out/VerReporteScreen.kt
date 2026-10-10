@@ -611,6 +611,7 @@ private fun ContenidoVerReporte(
     // Modal de confirmación para eliminar reporte propio
     if (detalle.es_propio && mostrarDialogoConfirmacion) {
         DialogoEliminarReporte(
+            reporte = detalle,
             onConfirmar = {
                 mostrarDialogoConfirmacion = false
                 viewModel.eliminarReporte(detalle.id) { onBack() }

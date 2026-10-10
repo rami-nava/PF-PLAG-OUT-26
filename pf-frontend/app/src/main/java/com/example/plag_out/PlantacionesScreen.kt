@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.SquareFoot
 import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
@@ -126,6 +127,8 @@ fun PlantacionesPorTerreno(
 
     var plantacionAEliminar by remember { mutableStateOf<PlantacionesResponse?>(null) }
     var eliminandoId by remember { mutableStateOf<Int?>(null) }
+    var mostrarDialogoEditar by remember { mutableStateOf(false) }
+    var mostrarDialogoEliminar by remember { mutableStateOf(false) }
 
     var filtro by rememberSaveable { mutableStateOf(FILTRO_TODAS) }
 
@@ -183,7 +186,7 @@ fun PlantacionesPorTerreno(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextOnDark)
                     }
-                    Column {
+                    Column(Modifier.weight(1f)) {
                         Text(
                             "Terreno",
                             color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
@@ -205,6 +208,30 @@ fun PlantacionesPorTerreno(
                             else "$activas activa${if (activas == 1) "" else "s"} de ${plantacionesDelTerreno.size}",
                             color = PlagOutColors.TextOnDark.copy(alpha = 0.8f),
                             fontSize = 13.sp
+                        )
+                    }
+                    if (terreno != null) {
+                        MenuAccionesHeader(
+                            ocupado = terrenosState.procesando,
+                            tag = "btnMenuTerreno",
+                            opciones = listOf(
+                                OpcionMenuAccion(
+                                    icono = Icons.Outlined.Edit,
+                                    titulo = "Editar terreno",
+                                    detalle = "Cambiá el nombre o las hectáreas",
+                                    color = PlagOutColors.TextMain,
+                                    tag = "btnEditarTerreno",
+                                    onClick = { mostrarDialogoEditar = true }
+                                ),
+                                OpcionMenuAccion(
+                                    icono = Icons.Outlined.DeleteOutline,
+                                    titulo = "Eliminar terreno",
+                                    detalle = "Borra sus cultivos y monitoreos",
+                                    color = PlagOutColors.RiskDanger,
+                                    tag = "btnEliminarTerreno",
+                                    onClick = { mostrarDialogoEliminar = true }
+                                )
+                            )
                         )
                     }
                 }
@@ -232,11 +259,7 @@ fun PlantacionesPorTerreno(
                     PAGINA_INFORMACION -> InformacionTerrenoTab(
                         terreno = terreno,
                         plantacionesDelTerreno = plantacionesDelTerreno,
-                        monitoreosDelTerreno = monitoreosDelTerreno,
-                        terrenoViewModel = terrenoViewModel,
-                        plantacionesViewModel = plantacionesViewModel,
-                        monitoreosViewModel = monitoreosViewModel,
-                        onEliminado = onBack
+                        monitoreosDelTerreno = monitoreosDelTerreno
                     )
                     else -> PlantacionesTab(
                         isRefreshing = plantacionesState.isRefreshing || monitoreosState.isRefreshing,
@@ -256,6 +279,36 @@ fun PlantacionesPorTerreno(
                 }
             }
         }
+    }
+
+    if (mostrarDialogoEditar && terreno != null) {
+        EditarTerrenoDialog(
+            terreno = terreno,
+            procesando = terrenosState.procesando,
+            onDismiss = { mostrarDialogoEditar = false },
+            onGuardar = { nombre, hectareas ->
+                terrenoViewModel.editarTerreno(terreno.terreno_id, nombre, hectareas) { actualizado ->
+                    // El nombre del terreno viaja desnormalizado en plantaciones y monitoreos:
+                    // sin esto, las pantallas hijas seguirían mostrando el nombre viejo.
+                    plantacionesViewModel.renombrarTerreno(actualizado.terreno_id, actualizado.terreno_nombre)
+                    monitoreosViewModel.renombrarTerreno(actualizado.terreno_id, actualizado.terreno_nombre)
+                    mostrarDialogoEditar = false
+                }
+            }
+        )
+    }
+
+    if (mostrarDialogoEliminar && terreno != null) {
+        DialogoEliminarTerreno(
+            terreno = terreno,
+            onConfirmar = {
+                mostrarDialogoEliminar = false
+                eliminarTerrenoEnCascada(
+                    terreno.terreno_id, terrenoViewModel, plantacionesViewModel, monitoreosViewModel, onBack
+                )
+            },
+            onCancelar = { mostrarDialogoEliminar = false }
+        )
     }
 
     plantacionAEliminar?.let { plantacion ->
@@ -280,16 +333,9 @@ fun PlantacionesPorTerreno(
 private fun InformacionTerrenoTab(
     terreno: TerrenoResponse?,
     plantacionesDelTerreno: List<PlantacionesResponse>,
-    monitoreosDelTerreno: List<MonitoreoResponse>,
-    terrenoViewModel: TerrenosViewModel,
-    plantacionesViewModel: PlantacionesViewModel,
-    monitoreosViewModel: MonitoreosViewModel,
-    onEliminado: () -> Unit
+    monitoreosDelTerreno: List<MonitoreoResponse>
 ) {
     val context = LocalContext.current
-    val terrenosState by terrenoViewModel.state.collectAsState()
-    var mostrarDialogoEliminar by remember { mutableStateOf(false) }
-    var mostrarDialogoEditar by remember { mutableStateOf(false) }
     // Un monitoreo finalizado conserva congelado su último nivel de alerta: contarlo acá pintaría
     // el terreno con un estado que ya no existe.
     val monitoreosActivos = monitoreosDelTerreno.filter { it.activo }
@@ -404,76 +450,9 @@ private fun InformacionTerrenoTab(
             )
         }
 
-        if (terreno != null) {
-            Spacer(Modifier.height(20.dp))
-            Button(
-                onClick = { mostrarDialogoEditar = true },
-                enabled = !terrenosState.procesando,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PlagOutColors.Forest,
-                    contentColor = PlagOutColors.TextOnDark
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("btnEditarTerreno")
-            ) {
-                Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Editar terreno", fontWeight = FontWeight.SemiBold)
-            }
-
-            Spacer(Modifier.height(10.dp))
-            OutlinedButton(
-                onClick = { mostrarDialogoEliminar = true },
-                enabled = !terrenosState.procesando,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskDanger),
-                border = BorderStroke(1.dp, PlagOutColors.RiskDanger),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("btnEliminarTerreno")
-            ) {
-                if (terrenosState.procesando) {
-                    CircularProgressIndicator(color = PlagOutColors.RiskDanger, modifier = Modifier.size(20.dp))
-                } else {
-                    Text("Eliminar terreno", fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-
         Spacer(Modifier.height(16.dp))
     }
 
-    if (mostrarDialogoEditar && terreno != null) {
-        EditarTerrenoDialog(
-            terreno = terreno,
-            procesando = terrenosState.procesando,
-            onDismiss = { mostrarDialogoEditar = false },
-            onGuardar = { nombre, hectareas ->
-                terrenoViewModel.editarTerreno(terreno.terreno_id, nombre, hectareas) { actualizado ->
-                    // El nombre del terreno viaja desnormalizado en plantaciones y monitoreos:
-                    // sin esto, las pantallas hijas seguirían mostrando el nombre viejo.
-                    plantacionesViewModel.renombrarTerreno(actualizado.terreno_id, actualizado.terreno_nombre)
-                    monitoreosViewModel.renombrarTerreno(actualizado.terreno_id, actualizado.terreno_nombre)
-                    mostrarDialogoEditar = false
-                }
-            }
-        )
-    }
-
-    if (mostrarDialogoEliminar && terreno != null) {
-        DialogoEliminarTerreno(
-            terreno = terreno,
-            onConfirmar = {
-                mostrarDialogoEliminar = false
-                eliminarTerrenoEnCascada(
-                    terreno.terreno_id, terrenoViewModel, plantacionesViewModel, monitoreosViewModel, onEliminado
-                )
-            },
-            onCancelar = { mostrarDialogoEliminar = false }
-        )
-    }
 }
 
 @Composable
@@ -778,7 +757,7 @@ fun PlantacionCard(
                     Icon(Icons.Outlined.CalendarToday, contentDescription = null, tint = PlagOutColors.Bark, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "Sembrada el ${plantacion.fecha_siembra.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.forLanguageTag("es")))}",
+                        "Sembrado el ${plantacion.fecha_siembra.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.forLanguageTag("es")))}",
                         fontSize = 12.sp,
                         color = PlagOutColors.TextSecondary,
                         modifier = Modifier.weight(1f)

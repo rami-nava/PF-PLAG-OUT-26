@@ -474,6 +474,7 @@ fun MisReportesScreen(
 
     reporteAEliminar?.let { reporte ->
         DialogoEliminarReporte(
+            reporte = reporte,
             onConfirmar = {
                 reporteAEliminar = null
                 viewModel.eliminarReporte(reporte.id) { error ->
