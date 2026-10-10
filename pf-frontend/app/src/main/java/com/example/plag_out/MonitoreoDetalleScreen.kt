@@ -393,6 +393,7 @@ private fun ContenidoMonitoreoDetalle(
                 PAGINA_DETALLE -> DetalleTab(
                     monitoreo = monitoreo,
                     datosDesactualizados = datosDesactualizados,
+                    operacionEnCurso = finalizando || eliminando,
                     onVerPlantacion = onVerPlantacion,
                     onVerTerreno = onVerTerreno,
                     onEditarUmbral = onEditarUmbral,
@@ -416,6 +417,7 @@ private fun ContenidoMonitoreoDetalle(
 private fun DetalleTab(
     monitoreo: MonitoreoResponse,
     datosDesactualizados: Boolean,
+    operacionEnCurso: Boolean,
     onVerPlantacion: (Int) -> Unit,
     onVerTerreno: (Int) -> Unit,
     onEditarUmbral: () -> Unit,
@@ -533,7 +535,7 @@ private fun DetalleTab(
             Spacer(Modifier.height(10.dp))
 
             AlertasMlCard(monitoreo, guardandoAlertasMl,
-                editable = !datosDesactualizados && !finalizando && !eliminando,
+                editable = !datosDesactualizados && !operacionEnCurso,
                 onCambiar = onCambiarAlertasMl)
 
             Spacer(Modifier.height(10.dp))
