@@ -48,9 +48,6 @@ import com.example.plag_out.ui.theme.estiloDeNivel
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import java.math.BigDecimal
-import kotlin.math.ceil
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -120,7 +117,12 @@ fun MonitoreoDetalleScreen(
                     onVerPlantacion = onVerPlantacion,
                     onVerTerreno = onVerTerreno,
                     onEditarUmbral = { viewModel.abrirEditorUmbral() },
-                    onEditarUmbralMl = { viewModel.abrirEditorUmbralMl() },
+                    guardandoAlertasMl = state.guardandoAlertasMl,
+                    onCambiarAlertasMl = { activas ->
+                        viewModel.cambiarAlertasMl(activas) {
+                            scope.launch { snackbarHostState.showSnackbar("Preferencia de alertas actualizada") }
+                        }
+                    },
                     onEditarObservaciones = { viewModel.abrirEditorObservaciones() },
                     onVerInfoNivel = { mostrarInfoNivel = true },
                     onVerInfoUmbral = { mostrarInfoUmbral = true },
@@ -158,27 +160,6 @@ fun MonitoreoDetalleScreen(
             onGuardar = {
                 viewModel.guardarUmbral {
                     scope.launch { snackbarHostState.showSnackbar("Umbral actualizado") }
-                }
-            }
-        )
-    }
-
-    if (state.umbralMlEditado != null && monitoreo != null) {
-        SheetEditarUmbralMl(
-            umbralEditado = state.umbralMlEditado!!,
-            recomendado = monitoreo.umbral_alerta_ml_recomendado ?: 0f,
-            tieneOverride = monitoreo.umbral_alerta_ml != null,
-            guardando = state.guardandoUmbralMl,
-            onUmbralChange = viewModel::actualizarUmbralMlEditado,
-            onCancelar = viewModel::cancelarEdicionUmbralMl,
-            onGuardar = {
-                viewModel.guardarUmbralMl {
-                    scope.launch { snackbarHostState.showSnackbar("Threshold ML actualizado") }
-                }
-            },
-            onUsarRecomendado = {
-                viewModel.usarUmbralMlRecomendado {
-                    scope.launch { snackbarHostState.showSnackbar("Se usará el threshold recomendado") }
                 }
             }
         )
@@ -292,7 +273,8 @@ private fun ContenidoMonitoreoDetalle(
     onVerPlantacion: (Int) -> Unit,
     onVerTerreno: (Int) -> Unit,
     onEditarUmbral: () -> Unit,
-    onEditarUmbralMl: () -> Unit,
+    guardandoAlertasMl: Boolean,
+    onCambiarAlertasMl: (Boolean) -> Unit,
     onEditarObservaciones: () -> Unit,
     onVerInfoNivel: () -> Unit,
     onVerInfoUmbral: () -> Unit,
@@ -411,10 +393,12 @@ private fun ContenidoMonitoreoDetalle(
                 PAGINA_DETALLE -> DetalleTab(
                     monitoreo = monitoreo,
                     datosDesactualizados = datosDesactualizados,
+                    operacionEnCurso = finalizando || eliminando,
                     onVerPlantacion = onVerPlantacion,
                     onVerTerreno = onVerTerreno,
                     onEditarUmbral = onEditarUmbral,
-                    onEditarUmbralMl = onEditarUmbralMl,
+                    guardandoAlertasMl = guardandoAlertasMl,
+                    onCambiarAlertasMl = onCambiarAlertasMl,
                     onVerInfoUmbral = onVerInfoUmbral,
                     onEditarObservaciones = onEditarObservaciones
                 )
@@ -433,10 +417,12 @@ private fun ContenidoMonitoreoDetalle(
 private fun DetalleTab(
     monitoreo: MonitoreoResponse,
     datosDesactualizados: Boolean,
+    operacionEnCurso: Boolean,
     onVerPlantacion: (Int) -> Unit,
     onVerTerreno: (Int) -> Unit,
     onEditarUmbral: () -> Unit,
-    onEditarUmbralMl: () -> Unit,
+    guardandoAlertasMl: Boolean,
+    onCambiarAlertasMl: (Boolean) -> Unit,
     onVerInfoUmbral: () -> Unit,
     onEditarObservaciones: () -> Unit
 ) {
@@ -548,66 +534,9 @@ private fun DetalleTab(
 
             Spacer(Modifier.height(10.dp))
 
-            TarjetaCampo(
-                titulo = "Alerta predictiva (ML)",
-                onInfo = null,
-                descripcionInfo = "Threshold del modelo",
-                tagInfo = "btnInfoUmbralMl"
-            ) {
-                val recomendado = monitoreo.umbral_alerta_ml_recomendado
-                val compatible = recomendado != null && monitoreo.modelo_alerta_ml_id != null
-                if (!compatible) {
-                    Text(
-                        "No hay un modelo compatible para este monitoreo.",
-                        fontSize = 13.sp,
-                        color = PlagOutColors.TextSecondary,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp)
-                    )
-                } else {
-                    val editable = monitoreo.activo
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .let { if (editable) it.clickable(onClick = onEditarUmbralMl) else it }
-                            .testTag("btnEditarUmbralMl")
-                            .padding(horizontal = 6.dp, vertical = 8.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                formatearPorcentajeMl(monitoreo.umbral_alerta_ml_efectivo ?: recomendado),
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = PlagOutColors.Forest
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                if (monitoreo.umbral_alerta_ml == null) "Threshold recomendado"
-                                else "Override del monitoreo",
-                                fontSize = 12.sp,
-                                color = PlagOutColors.TextSecondary,
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (editable) {
-                                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(18.dp))
-                            }
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            "Recomendado ${formatearPorcentajeMl(recomendado)} · horizonte ${monitoreo.horizonte_alerta_ml_dias ?: "—"} días",
-                            fontSize = 11.sp,
-                            color = PlagOutColors.TextSecondary
-                        )
-                        Text(
-                            "Modelo ${monitoreo.modelo_alerta_ml_id}",
-                            fontSize = 11.sp,
-                            color = PlagOutColors.TextSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
+            AlertasMlCard(monitoreo, guardandoAlertasMl,
+                editable = !datosDesactualizados && !operacionEnCurso,
+                onCambiar = onCambiarAlertasMl)
 
             Spacer(Modifier.height(10.dp))
 
@@ -819,67 +748,41 @@ private fun SheetEditarUmbral(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SheetEditarUmbralMl(
-    umbralEditado: Int,
-    recomendado: Float,
-    tieneOverride: Boolean,
+internal fun AlertasMlCard(
+    monitoreo: MonitoreoResponse,
     guardando: Boolean,
-    onUmbralChange: (Int) -> Unit,
-    onCancelar: () -> Unit,
-    onGuardar: () -> Unit,
-    onUsarRecomendado: () -> Unit
+    editable: Boolean,
+    onCambiar: (Boolean) -> Unit
 ) {
-    val minimo = ceil(recomendado.toDouble()).toInt().coerceIn(0, 100)
-    ModalBottomSheet(
-        onDismissRequest = onCancelar,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = PlagOutColors.Surface,
-        modifier = Modifier.testTag("sheetUmbralMl")
+    TarjetaCampo(
+        titulo = "Alerta de brote severo",
+        onInfo = null,
+        descripcionInfo = "Alertas automáticas del modelo",
+        tagInfo = "btnInfoAlertasMl"
     ) {
-        Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-            Text("Threshold de alerta ML", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "El modelo recomienda ${formatearPorcentajeMl(recomendado)}. Podés usar un porcentaje entero desde $minimo%.",
-                fontSize = 13.sp,
-                color = PlagOutColors.TextSecondary
-            )
-            Spacer(Modifier.height(18.dp))
-            Text("$umbralEditado%", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.Forest)
-            Slider(
-                value = umbralEditado.toFloat(),
-                onValueChange = { onUmbralChange(it.roundToInt()) },
-                valueRange = minimo.toFloat()..100f,
-                steps = (100 - minimo - 1).coerceAtLeast(0),
-                colors = SliderDefaults.colors(
-                    thumbColor = PlagOutColors.Forest,
-                    activeTrackColor = PlagOutColors.Forest
-                ),
-                modifier = Modifier.testTag("sliderUmbralMl")
-            )
-            if (tieneOverride) {
-                TextButton(
-                    onClick = onUsarRecomendado,
-                    enabled = !guardando,
-                    modifier = Modifier.align(Alignment.End).testTag("btnUsarRecomendadoMl")
-                ) { Text("Usar recomendado", color = PlagOutColors.Forest) }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onCancelar, enabled = !guardando, modifier = Modifier.weight(1f)) {
-                    Text("Cancelar")
+        Column(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp)) {
+            if (monitoreo.modelo_alerta_ml_id == null) {
+                Text("No hay un modelo compatible para este monitoreo.", color = PlagOutColors.TextSecondary)
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Recibir alertas", modifier = Modifier.weight(1f), color = PlagOutColors.TextMain)
+                    Switch(
+                        checked = monitoreo.alertas_ml_activas == true,
+                        onCheckedChange = onCambiar,
+                        enabled = monitoreo.activo && monitoreo.alertas_ml_activas != null &&
+                            !guardando && editable,
+                        modifier = Modifier.testTag("switchAlertasMl")
+                    )
                 }
-                Button(
-                    onClick = onGuardar,
-                    enabled = !guardando,
-                    colors = ButtonDefaults.buttonColors(containerColor = PlagOutColors.Forest),
-                    modifier = Modifier.weight(1f).testTag("btnGuardarUmbralMl")
-                ) {
-                    if (guardando) CircularProgressIndicator(Modifier.size(18.dp), color = PlagOutColors.TextOnDark)
-                    else Text("Guardar")
+                Text(
+                    "El modelo estima capturas elevadas a ${monitoreo.horizonte_alerta_ml_dias ?: "—"} días. " +
+                        "La alerta no confirma presencia: revisá el cultivo. Desactivarla conserva el seguimiento GDD y el historial.",
+                    fontSize = 12.sp, color = PlagOutColors.TextSecondary
+                )
+                if (monitoreo.alertas_ml_activas == null) {
+                    Text("Actualizá el monitoreo para consultar esta preferencia.", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
-            Spacer(Modifier.height(16.dp))
         }
     }
 }
@@ -1001,6 +904,3 @@ private fun DialogoEditarObservaciones(
         }
     }
 }
-
-private fun formatearPorcentajeMl(valor: Float): String =
-    "${BigDecimal(valor.toString()).stripTrailingZeros().toPlainString()}%"

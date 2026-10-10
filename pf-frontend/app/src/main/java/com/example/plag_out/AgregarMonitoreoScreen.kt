@@ -426,6 +426,8 @@ fun AgregarMonitoreoScreen(
                 onInfo = { mostrarInfoUmbral = true }
             )
 
+            Text("En monitoreos compatibles, las alertas de brote severo se activan automáticamente. Podés desactivarlas desde el detalle.", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
+
             AnimatedVisibility(
                 visible = state.error != null,
                 enter = fadeIn(tween(220)) + expandVertically(tween(220)),
