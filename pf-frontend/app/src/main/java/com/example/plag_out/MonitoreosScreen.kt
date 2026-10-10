@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Landscape
@@ -495,7 +496,7 @@ fun MonitoreoCard(
                         }
                     }
                     Spacer(Modifier.width(14.dp))
-                    if (activos.isEmpty()) {
+                    if (esperandoBiofix(monitoreo)) {
                         EtiquetaInfo(Icons.Outlined.HourglassEmpty, "Esperando biofix", PlagOutColors.TextSecondary)
                     }
                 }
@@ -713,6 +714,7 @@ fun MonitoreosPorPlantacion(
                     isRefreshing = state.isRefreshing,
                     onRefresh = { viewModel.refrescar() },
                     monitoreosFiltrados = monitoreosFiltrados,
+                    plantacionActiva = plantacion?.activa != false,
                     eliminando = state.eliminando,
                     onMonitoreoClick = onMonitoreoClick,
                     onMonitoreoEliminar = { aEliminar = it }
@@ -926,6 +928,7 @@ private fun MonitoreosDePlantacionTab(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     monitoreosFiltrados: List<MonitoreoResponse>,
+    plantacionActiva: Boolean,
     eliminando: Set<Int>,
     onMonitoreoClick: (Int) -> Unit,
     onMonitoreoEliminar: (MonitoreoResponse) -> Unit
@@ -941,11 +944,20 @@ private fun MonitoreosDePlantacionTab(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                 contentAlignment = Alignment.Center
             ) {
-                EstadoVacioFlotante(
-                    icono = Icons.Outlined.BugReport,
-                    titulo = "Sin monitoreos activos",
-                    subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en este cultivo."
-                )
+                // Un cultivo finalizado ya no admite monitoreos nuevos: invitar a crearlos no tiene sentido.
+                if (plantacionActiva) {
+                    EstadoVacioFlotante(
+                        icono = Icons.Outlined.BugReport,
+                        titulo = "Sin monitoreos activos",
+                        subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en este cultivo."
+                    )
+                } else {
+                    EstadoVacioFlotante(
+                        icono = Icons.Outlined.EventBusy,
+                        titulo = "No se monitoreó ninguna plaga",
+                        subtitulo = "Este cultivo se finalizó sin registrar monitoreos."
+                    )
+                }
             }
         } else {
             LazyColumn(

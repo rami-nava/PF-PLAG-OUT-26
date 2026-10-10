@@ -36,6 +36,9 @@ import androidx.compose.material.icons.filled.SquareFoot
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.LocationOn
@@ -473,76 +476,118 @@ private fun EditarTerrenoDialog(
     val huboCambios = nombre.trim() != terreno.terreno_nombre ||
         area?.toFloat() != terreno.terreno_area
 
-    AlertDialog(
-        onDismissRequest = { if (!procesando) onDismiss() },
-        modifier = Modifier.testTag("dialogEditarTerreno"),
-        containerColor = PlagOutColors.Surface,
-        icon = {
-            Box(
-                Modifier.size(40.dp).background(PlagOutColors.Forest.copy(alpha = 0.12f), CircleShape),
-                contentAlignment = Alignment.Center
+    val nombreInvalido = nombre.isNotEmpty() && nombre.isBlank()
+    val hectareasInvalidas = hectareas.isNotEmpty() && (area == null || area <= 0.0)
+    val puedeGuardar = formularioValido && huboCambios && !procesando
+
+    MarcoDialogo(tag = "dialogEditarTerreno", onDismissRequest = { if (!procesando) onDismiss() }) { rebote ->
+        InsigniaAccion(Icons.Outlined.Edit, PlagOutColors.Forest, rebote)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Editar terreno",
+            style = MaterialTheme.typography.titleLarge,
+            color = PlagOutColors.TextMain,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Cambiá el nombre o la superficie de ${terreno.terreno_nombre}.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = PlagOutColors.TextSecondary,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(20.dp))
+
+        OutlinedTextField(
+            value = nombre,
+            onValueChange = { nombre = it },
+            label = { Text("Nombre del terreno") },
+            leadingIcon = { Icon(Icons.Outlined.Terrain, contentDescription = null, tint = PlagOutColors.Forest) },
+            singleLine = true,
+            enabled = !procesando,
+            isError = nombreInvalido,
+            supportingText = if (nombreInvalido) {
+                { Text("Escribí un nombre") }
+            } else null,
+            shape = RoundedCornerShape(16.dp),
+            colors = camposColors(),
+            modifier = Modifier.fillMaxWidth().testTag("txtEditarNombre")
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = hectareas,
+            onValueChange = { if (it.matches(regex)) hectareas = it },
+            label = { Text("Superficie") },
+            leadingIcon = { Icon(Icons.Filled.SquareFoot, contentDescription = null, tint = PlagOutColors.Forest) },
+            trailingIcon = { Text("ha", color = PlagOutColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.padding(end = 12.dp)) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            singleLine = true,
+            enabled = !procesando,
+            isError = hectareasInvalidas,
+            supportingText = if (hectareasInvalidas) {
+                { Text("Tiene que ser mayor a 0") }
+            } else null,
+            shape = RoundedCornerShape(16.dp),
+            colors = camposColors(),
+            modifier = Modifier.fillMaxWidth().testTag("txtEditarHectareas")
+        )
+
+        if (nombre.trim() != terreno.terreno_nombre) {
+            Spacer(Modifier.height(12.dp))
+            // El nombre viaja desnormalizado: conviene avisar que se actualiza en todos lados.
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(PlagOutColors.Leaf.copy(alpha = 0.09f))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Outlined.Edit, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
-            }
-        },
-        title = { Text("Editar terreno", fontWeight = FontWeight.Bold) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = nombre,
-                    onValueChange = { nombre = it },
-                    label = { Text("Nombre del terreno") },
-                    leadingIcon = { Icon(Icons.Outlined.Terrain, contentDescription = null, tint = PlagOutColors.Forest) },
-                    singleLine = true,
-                    enabled = !procesando,
-                    isError = nombre.isNotEmpty() && nombre.isBlank(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = camposColors(),
-                    modifier = Modifier.fillMaxWidth().testTag("txtEditarNombre")
-                )
-
-                Spacer(Modifier.height(14.dp))
-
-                OutlinedTextField(
-                    value = hectareas,
-                    onValueChange = { if (it.matches(regex)) hectareas = it },
-                    label = { Text("Hectáreas") },
-                    leadingIcon = { Icon(Icons.Filled.SquareFoot, contentDescription = null, tint = PlagOutColors.Forest) },
-                    trailingIcon = { Text("ha", color = PlagOutColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.padding(end = 12.dp)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    enabled = !procesando,
-                    isError = hectareas.isNotEmpty() && (area == null || area <= 0.0),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = camposColors(),
-                    modifier = Modifier.fillMaxWidth().testTag("txtEditarHectareas")
+                Icon(Icons.Outlined.Info, contentDescription = null, tint = PlagOutColors.Leaf, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "El nuevo nombre se verá también en sus cultivos y monitoreos.",
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    color = PlagOutColors.TextMain
                 )
             }
-        },
-        confirmButton = {
-            val puedeGuardar = formularioValido && huboCambios && !procesando
-            TextButton(
+        }
+
+        Spacer(Modifier.height(22.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(
+                onClick = onDismiss,
+                enabled = !procesando,
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, PlagOutColors.Divider),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.TextMain),
+                modifier = Modifier.weight(1f).height(50.dp)
+            ) {
+                Text("Cancelar", fontWeight = FontWeight.SemiBold)
+            }
+            Button(
                 onClick = { onGuardar(nombre, hectareas) },
                 enabled = puedeGuardar,
-                modifier = Modifier.testTag("btnConfirmarEditarTerreno")
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PlagOutColors.Forest,
+                    contentColor = PlagOutColors.TextOnDark
+                ),
+                modifier = Modifier.weight(1f).height(50.dp).testTag("btnConfirmarEditarTerreno")
             ) {
                 if (procesando) {
-                    CircularProgressIndicator(color = PlagOutColors.Forest, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                    CircularProgressIndicator(color = PlagOutColors.TextOnDark, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
                 } else {
-                    // El color explícito pisa el contentColor de deshabilitado del TextButton:
-                    // sin atenuarlo a mano, "Guardar" se ve activo aunque no lo esté.
-                    Text(
-                        "Guardar",
-                        color = PlagOutColors.Forest.copy(alpha = if (puedeGuardar) 1f else 0.38f),
-                        fontWeight = FontWeight.Bold
-                    )
+                    Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Guardar", fontWeight = FontWeight.Bold)
                 }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !procesando) { Text("Cancelar") }
         }
-    )
+    }
 }
 
 private fun formatearHectareas(area: Float): String =
