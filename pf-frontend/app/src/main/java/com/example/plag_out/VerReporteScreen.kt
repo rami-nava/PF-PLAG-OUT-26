@@ -610,34 +610,12 @@ private fun ContenidoVerReporte(
 
     // Modal de confirmación para eliminar reporte propio
     if (detalle.es_propio && mostrarDialogoConfirmacion) {
-        AlertDialog(
-            onDismissRequest = { mostrarDialogoConfirmacion = false },
-            modifier = Modifier.testTag("dialogEliminarReporte"),
-            title = { Text("¿Estás seguro de que deseas eliminar este reporte?") },
-            text = {
-                Text(
-                    "Esta acción no se puede deshacer y si eliminas este reporte, dejará de ser visible para los productores de tu zona."
-                )
+        DialogoEliminarReporte(
+            onConfirmar = {
+                mostrarDialogoConfirmacion = false
+                viewModel.eliminarReporte(detalle.id) { onBack() }
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarDialogoConfirmacion = false
-                        viewModel.eliminarReporte(detalle.id) { onBack() }
-                    },
-                    modifier = Modifier.testTag("btnConfirmarEliminarReporte")
-                ) {
-                    Text("Eliminar", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { mostrarDialogoConfirmacion = false },
-                    modifier = Modifier.testTag("btnCancelarEliminarReporte")
-                ) {
-                    Text("Cancelar")
-                }
-            }
+            onCancelar = { mostrarDialogoConfirmacion = false }
         )
     }
 

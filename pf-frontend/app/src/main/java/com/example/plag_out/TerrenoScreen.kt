@@ -17,6 +17,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -108,6 +109,18 @@ fun TerrenoScreen(
     var filtro by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
     var filtrosExpandidos by rememberSaveable { mutableStateOf(false) }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var terrenoAEliminar by remember { mutableStateOf<TerrenoResponse?>(null) }
+    var eliminandoId by remember { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(state.error) {
+        state.error?.let {
+            snackbarHostState.showSnackbar(it)
+            terrenoViewModel.limpiarError()
+        }
+    }
+
     // Solo los monitoreos en curso definen el estado del terreno: uno finalizado conserva
     // congelado su último nivel de alerta y lo pintaría en rojo para siempre.
     fun nivelMaxDe(terreno: TerrenoResponse): Int =
@@ -126,6 +139,7 @@ fun TerrenoScreen(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             var shown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { shown = true }
@@ -239,12 +253,17 @@ fun TerrenoScreen(
                                     it.terreno_id == terreno.terreno_id && it.activa
                                 }
                                 StaggeredAppear(index = index) {
-                                    TerrenoCard(
-                                        terreno = terreno,
-                                        monitoreos = monitoreosDelTerreno,
-                                        plantacionesActivas = plantacionesActivas.size,
-                                        onClick = { navController.navigate("terreno/${terreno.terreno_id}") }
-                                    )
+                                    DeslizableParaEliminar(
+                                        procesando = state.procesando && terreno.terreno_id == eliminandoId,
+                                        onEliminar = { terrenoAEliminar = terreno }
+                                    ) {
+                                        TerrenoCard(
+                                            terreno = terreno,
+                                            monitoreos = monitoreosDelTerreno,
+                                            plantacionesActivas = plantacionesActivas.size,
+                                            onClick = { navController.navigate("terreno/${terreno.terreno_id}") }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -253,6 +272,20 @@ fun TerrenoScreen(
             }
         }
         }
+    }
+
+    terrenoAEliminar?.let { terreno ->
+        DialogoEliminarTerreno(
+            terreno = terreno,
+            onConfirmar = {
+                terrenoAEliminar = null
+                eliminandoId = terreno.terreno_id
+                eliminarTerrenoEnCascada(terreno.terreno_id, terrenoViewModel, plantacionViewModel, monitoreoViewModel) {
+                    scope.launch { snackbarHostState.showSnackbar("Terreno eliminado") }
+                }
+            },
+            onCancelar = { terrenoAEliminar = null }
+        )
     }
 }
 
@@ -409,7 +442,7 @@ fun TerrenoCard(
         onClick = onClick,
         interactionSource = interactionSource,
         color = PlagOutColors.Surface,
-        shape = RoundedCornerShape(22.dp),
+        shape = FormaTarjeta,
         shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
