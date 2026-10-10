@@ -20,6 +20,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -109,6 +110,9 @@ fun MisReportesScreen(
     navController: NavController
 ) {
     val state by viewModel.state.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var reporteAEliminar by remember { mutableStateOf<ReporteDetalleResponse?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.cargarReportes()
@@ -187,6 +191,7 @@ fun MisReportesScreen(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             var shown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { shown = true }
@@ -433,22 +438,30 @@ fun MisReportesScreen(
                                 verticalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
                                 itemsIndexed(reportesFiltrados, key = { _, r -> r.id }) { index, reporte ->
-                                    StaggeredAppear(index = index) {
-                                        TarjetaReporteItem(
-                                            reporte = reporte,
-                                            onClick = {
-                                                val payload = ReporteNavPayload(
-                                                    id = reporte.id,
-                                                    plaga_nombre = reporte.plaga_nombre,
-                                                    nivel_severidad = reporte.nivel_severidad,
-                                                    latitud = reporte.latitud,
-                                                    longitud = reporte.longitud,
-                                                    timestamp_ms = reporte.timestamp_ms
-                                                )
-                                                val jsonEncoded = Uri.encode(Gson().toJson(payload))
-                                                navController.navigate("ver_reporte/${reporte.id}/$jsonEncoded")
-                                            }
+                                    val abrirReporte = {
+                                        val payload = ReporteNavPayload(
+                                            id = reporte.id,
+                                            plaga_nombre = reporte.plaga_nombre,
+                                            nivel_severidad = reporte.nivel_severidad,
+                                            latitud = reporte.latitud,
+                                            longitud = reporte.longitud,
+                                            timestamp_ms = reporte.timestamp_ms
                                         )
+                                        val jsonEncoded = Uri.encode(Gson().toJson(payload))
+                                        navController.navigate("ver_reporte/${reporte.id}/$jsonEncoded")
+                                    }
+                                    StaggeredAppear(index = index) {
+                                        // Solo se puede eliminar lo propio: los de la comunidad no se deslizan.
+                                        if (reporte.es_propio) {
+                                            DeslizableParaEliminar(
+                                                procesando = reporte.id in state.eliminando,
+                                                onEliminar = { reporteAEliminar = reporte }
+                                            ) {
+                                                TarjetaReporteItem(reporte = reporte, onClick = abrirReporte)
+                                            }
+                                        } else {
+                                            TarjetaReporteItem(reporte = reporte, onClick = abrirReporte)
+                                        }
                                     }
                                 }
                             }
@@ -457,6 +470,18 @@ fun MisReportesScreen(
                 }
             }
         }
+    }
+
+    reporteAEliminar?.let { reporte ->
+        DialogoEliminarReporte(
+            onConfirmar = {
+                reporteAEliminar = null
+                viewModel.eliminarReporte(reporte.id) { error ->
+                    scope.launch { snackbarHostState.showSnackbar(error ?: "Reporte eliminado") }
+                }
+            },
+            onCancelar = { reporteAEliminar = null }
+        )
     }
 
     if (state.mostrarDialogoRadio) {
@@ -848,7 +873,7 @@ fun TarjetaReporteItem(
     Surface(
         onClick = onClick,
         interactionSource = interactionSource,
-        shape = RoundedCornerShape(22.dp),
+        shape = FormaTarjeta,
         color = PlagOutColors.Surface,
         shadowElevation = 2.dp,
         modifier = Modifier

@@ -102,9 +102,13 @@ fun MonitoreosScreen(
     monitoreosViewModel: MonitoreosViewModel,
     plantacionesViewModel: PlantacionesViewModel,
     terrenosViewModel: TerrenosViewModel,
-    navController: NavHostController
+    navController: NavHostController,
+    onMonitoreoEliminado: () -> Unit = {}
 ) {
     val state by monitoreosViewModel.state.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var aEliminar by remember { mutableStateOf<MonitoreoResponse?>(null) }
 
     LaunchedEffect(Unit) {
         monitoreosViewModel.getMonitoreos()
@@ -134,6 +138,7 @@ fun MonitoreosScreen(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             var shown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { shown = true }
@@ -239,8 +244,13 @@ fun MonitoreosScreen(
                         ) {
                             itemsIndexed(filtrados, key = { _, m -> m.monitoreo_id }) { index, monitoreo ->
                                 StaggeredAppear(index = index) {
-                                    MonitoreoCard(monitoreo) {
-                                        navController.navigate("monitoreo/${monitoreo.monitoreo_id}")
+                                    DeslizableParaEliminar(
+                                        procesando = monitoreo.monitoreo_id in state.eliminando,
+                                        onEliminar = { aEliminar = monitoreo }
+                                    ) {
+                                        MonitoreoCard(monitoreo) {
+                                            navController.navigate("monitoreo/${monitoreo.monitoreo_id}")
+                                        }
                                     }
                                 }
                             }
@@ -250,6 +260,20 @@ fun MonitoreosScreen(
             }
         }
         }
+    }
+
+    aEliminar?.let { monitoreo ->
+        DialogoEliminarMonitoreo(
+            monitoreo = monitoreo,
+            onConfirmar = {
+                aEliminar = null
+                monitoreosViewModel.eliminarMonitoreo(monitoreo.monitoreo_id) { error ->
+                    if (error == null) onMonitoreoEliminado()
+                    scope.launch { snackbarHostState.showSnackbar(error ?: "Monitoreo eliminado") }
+                }
+            },
+            onCancelar = { aEliminar = null }
+        )
     }
 }
 
@@ -416,11 +440,12 @@ fun MonitoreoCard(
         onClick = onClick,
         interactionSource = interactionSource,
         color = PlagOutColors.Surface,
-        shape = RoundedCornerShape(22.dp),
+        shape = FormaTarjeta,
         shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
             .graphicsLayer { scaleX = escala; scaleY = escala }
+            .testTag("cardMonitoreo_${monitoreo.monitoreo_id}")
     ) {
         Row(Modifier.height(IntrinsicSize.Min)) {
             Box(
@@ -532,7 +557,8 @@ fun MonitoreosPorPlantacion(
     plantacionesViewModel: PlantacionesViewModel,
     onBack: () -> Unit,
     onMonitoreoClick: (Int) -> Unit = {},
-    onAgregarMonitoreo: () -> Unit = {}
+    onAgregarMonitoreo: () -> Unit = {},
+    onMonitoreoEliminado: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     val plantacionesState by plantacionesViewModel.state.collectAsState()
@@ -556,9 +582,13 @@ fun MonitoreosPorPlantacion(
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { 2 })
     val snackbarHostState = remember { SnackbarHostState() }
+    var aEliminar by remember { mutableStateOf<MonitoreoResponse?>(null) }
 
     LaunchedEffect(plantacionesState.error) {
-        plantacionesState.error?.let { snackbarHostState.showSnackbar(it) }
+        plantacionesState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            plantacionesViewModel.limpiarError()
+        }
     }
 
     Scaffold(
@@ -657,11 +687,27 @@ fun MonitoreosPorPlantacion(
                     isRefreshing = state.isRefreshing,
                     onRefresh = { viewModel.refrescar() },
                     monitoreosFiltrados = monitoreosFiltrados,
-                    onMonitoreoClick = onMonitoreoClick
+                    eliminando = state.eliminando,
+                    onMonitoreoClick = onMonitoreoClick,
+                    onMonitoreoEliminar = { aEliminar = it }
                 )
             }
         }
     }
+    }
+
+    aEliminar?.let { monitoreo ->
+        DialogoEliminarMonitoreo(
+            monitoreo = monitoreo,
+            onConfirmar = {
+                aEliminar = null
+                viewModel.eliminarMonitoreo(monitoreo.monitoreo_id) { error ->
+                    if (error == null) onMonitoreoEliminado()
+                    scope.launch { snackbarHostState.showSnackbar(error ?: "Monitoreo eliminado") }
+                }
+            },
+            onCancelar = { aEliminar = null }
+        )
     }
 }
 
@@ -865,33 +911,13 @@ private fun InformacionPlantacionTab(
     }
 
     if (mostrarDialogoEliminar && plantacion != null) {
-        AlertDialog(
-            onDismissRequest = { mostrarDialogoEliminar = false },
-            modifier = Modifier.testTag("dialogEliminarPlantacion"),
-            title = { Text("¿Eliminar cultivo?") },
-            text = {
-                Text(
-                    "Se va a eliminar \"${plantacion.cultivo_nombre}\" de forma permanente, junto con sus monitoreos. " +
-                        "Esta acción no se puede deshacer."
-                )
+        DialogoEliminarPlantacion(
+            plantacion = plantacion,
+            onConfirmar = {
+                mostrarDialogoEliminar = false
+                eliminarPlantacionEnCascada(plantacion.plantacion_id, viewModel, monitoreosViewModel, onEliminada)
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarDialogoEliminar = false
-                        viewModel.eliminarPlantacion(plantacion.plantacion_id) {
-                            monitoreosViewModel.purgarPorPlantacion(plantacion.plantacion_id)
-                            onEliminada()
-                        }
-                    },
-                    modifier = Modifier.testTag("btnConfirmarEliminarPlantacion")
-                ) {
-                    Text("Eliminar", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { mostrarDialogoEliminar = false }) { Text("Cancelar") }
-            }
+            onCancelar = { mostrarDialogoEliminar = false }
         )
     }
 }
@@ -922,7 +948,9 @@ private fun MonitoreosDePlantacionTab(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     monitoreosFiltrados: List<MonitoreoResponse>,
-    onMonitoreoClick: (Int) -> Unit
+    eliminando: Set<Int>,
+    onMonitoreoClick: (Int) -> Unit,
+    onMonitoreoEliminar: (MonitoreoResponse) -> Unit
 ) {
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -949,7 +977,12 @@ private fun MonitoreosDePlantacionTab(
             ) {
                 itemsIndexed(monitoreosFiltrados, key = { _, m -> m.monitoreo_id }) { index, monitoreo ->
                     StaggeredAppear(index = index) {
-                        MonitoreoCard(monitoreo) { onMonitoreoClick(monitoreo.monitoreo_id) }
+                        DeslizableParaEliminar(
+                            procesando = monitoreo.monitoreo_id in eliminando,
+                            onEliminar = { onMonitoreoEliminar(monitoreo) }
+                        ) {
+                            MonitoreoCard(monitoreo) { onMonitoreoClick(monitoreo.monitoreo_id) }
+                        }
                     }
                 }
             }

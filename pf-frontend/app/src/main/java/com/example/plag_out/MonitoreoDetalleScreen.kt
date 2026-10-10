@@ -235,32 +235,13 @@ fun MonitoreoDetalleScreen(
     }
 
     if (mostrarDialogoEliminar && monitoreo != null) {
-        AlertDialog(
-            onDismissRequest = { mostrarDialogoEliminar = false },
-            modifier = Modifier.testTag("dialogEliminarMonitoreo"),
-            title = { Text("¿Eliminar monitoreo?") },
-            text = {
-                Text(
-                    "Se va a eliminar el monitoreo de ${monitoreo.plaga_nombre} en ${monitoreo.cultivo_nombre} " +
-                        "de forma permanente, junto con sus ciclos, predicciones y alertas. " +
-                        "Esta acción no se puede deshacer.\n\nSi solo querés dejar de recibir alertas y " +
-                        "conservar el historial, usá Finalizar."
-                )
+        DialogoEliminarMonitoreo(
+            monitoreo = monitoreo,
+            onConfirmar = {
+                mostrarDialogoEliminar = false
+                viewModel.eliminarMonitoreo(onEliminado)
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarDialogoEliminar = false
-                        viewModel.eliminarMonitoreo(onEliminado)
-                    },
-                    modifier = Modifier.testTag("btnConfirmarEliminarMonitoreo")
-                ) {
-                    Text("Eliminar", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { mostrarDialogoEliminar = false }) { Text("Cancelar") }
-            }
+            onCancelar = { mostrarDialogoEliminar = false }
         )
     }
 }

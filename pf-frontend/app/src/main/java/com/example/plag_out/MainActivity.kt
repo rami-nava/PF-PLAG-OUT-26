@@ -486,7 +486,11 @@ fun AppNavigation(
                 CrearCuentaScreen(authViewModel,{navController.popBackStack()},{navController.popBackStack()})
             }
             composable("monitoreos") {
-                MonitoreosScreen(monitoreosViewModel, plantacionesViewModel, terrenosViewModel,navController)
+                MonitoreosScreen(
+                    monitoreosViewModel, plantacionesViewModel, terrenosViewModel, navController,
+                    // Las alertas de ese monitoreo se borraron en cascada en el backend
+                    onMonitoreoEliminado = { notificacionesViewModel.cargar() }
+                )
             }
             composable("perfil") {
                 PerfilScreen(
@@ -555,7 +559,8 @@ fun AppNavigation(
                     plantacionesViewModel = plantacionesViewModel,
                     onBack = { navController.popBackStack() },
                     onMonitoreoClick = { monitoreoId -> navController.navigate("monitoreo/$monitoreoId") },
-                    onAgregarMonitoreo = { navController.navigate("agregar_monitoreo/$plantacionId") }
+                    onAgregarMonitoreo = { navController.navigate("agregar_monitoreo/$plantacionId") },
+                    onMonitoreoEliminado = { notificacionesViewModel.cargar() }
                 )
             }
             composable("monitoreo/{monitoreo_id}") { backStackEntry ->

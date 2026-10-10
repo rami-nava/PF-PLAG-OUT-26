@@ -117,6 +117,15 @@ fun PlantacionesPorTerreno(
             terrenoViewModel.limpiarError()
         }
     }
+    LaunchedEffect(plantacionesState.error) {
+        plantacionesState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            plantacionesViewModel.limpiarError()
+        }
+    }
+
+    var plantacionAEliminar by remember { mutableStateOf<PlantacionesResponse?>(null) }
+    var eliminandoId by remember { mutableStateOf<Int?>(null) }
 
     var filtro by rememberSaveable { mutableStateOf(FILTRO_TODAS) }
 
@@ -240,11 +249,27 @@ fun PlantacionesPorTerreno(
                         filtro = filtro,
                         onFiltroChange = { filtro = it },
                         monitoreos = monitoreosState.monitoreos,
-                        onPlantacionClick = { plantacionId -> navController.navigate("plantacion/$plantacionId") }
+                        eliminandoId = eliminandoId.takeIf { plantacionesState.procesando },
+                        onPlantacionClick = { plantacionId -> navController.navigate("plantacion/$plantacionId") },
+                        onPlantacionEliminar = { plantacionAEliminar = it }
                     )
                 }
             }
         }
+    }
+
+    plantacionAEliminar?.let { plantacion ->
+        DialogoEliminarPlantacion(
+            plantacion = plantacion,
+            onConfirmar = {
+                plantacionAEliminar = null
+                eliminandoId = plantacion.plantacion_id
+                eliminarPlantacionEnCascada(plantacion.plantacion_id, plantacionesViewModel, monitoreosViewModel) {
+                    scope.launch { snackbarHostState.showSnackbar("Cultivo eliminado") }
+                }
+            },
+            onCancelar = { plantacionAEliminar = null }
+        )
     }
 }
 
@@ -438,34 +463,15 @@ private fun InformacionTerrenoTab(
     }
 
     if (mostrarDialogoEliminar && terreno != null) {
-        AlertDialog(
-            onDismissRequest = { mostrarDialogoEliminar = false },
-            modifier = Modifier.testTag("dialogEliminarTerreno"),
-            title = { Text("¿Eliminar terreno?") },
-            text = {
-                Text(
-                    "Se va a eliminar \"${terreno.terreno_nombre}\" de forma permanente, junto con sus " +
-                        "cultivos y monitoreos. Esta acción no se puede deshacer."
+        DialogoEliminarTerreno(
+            terreno = terreno,
+            onConfirmar = {
+                mostrarDialogoEliminar = false
+                eliminarTerrenoEnCascada(
+                    terreno.terreno_id, terrenoViewModel, plantacionesViewModel, monitoreosViewModel, onEliminado
                 )
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarDialogoEliminar = false
-                        terrenoViewModel.eliminarTerreno(terreno.terreno_id) {
-                            plantacionesViewModel.purgarPorTerreno(terreno.terreno_id)
-                            monitoreosViewModel.purgarPorTerreno(terreno.terreno_id)
-                            onEliminado()
-                        }
-                    },
-                    modifier = Modifier.testTag("btnConfirmarEliminarTerreno")
-                ) {
-                    Text("Eliminar", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { mostrarDialogoEliminar = false }) { Text("Cancelar") }
-            }
+            onCancelar = { mostrarDialogoEliminar = false }
         )
     }
 }
@@ -606,7 +612,9 @@ private fun PlantacionesTab(
     filtro: Int,
     onFiltroChange: (Int) -> Unit,
     monitoreos: List<MonitoreoResponse>,
-    onPlantacionClick: (Int) -> Unit
+    eliminandoId: Int?,
+    onPlantacionClick: (Int) -> Unit,
+    onPlantacionEliminar: (PlantacionesResponse) -> Unit
 ) {
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -658,11 +666,16 @@ private fun PlantacionesTab(
                         ) {
                             itemsIndexed(filtradas, key = { _, p -> p.plantacion_id }) { index, plantacion ->
                                 StaggeredAppear(index = index) {
-                                    PlantacionCard(
-                                        plantacion = plantacion,
-                                        monitoreos = monitoreos.filter { it.plantacion_id == plantacion.plantacion_id && it.activo },
-                                        onClick = { onPlantacionClick(plantacion.plantacion_id) }
-                                    )
+                                    DeslizableParaEliminar(
+                                        procesando = plantacion.plantacion_id == eliminandoId,
+                                        onEliminar = { onPlantacionEliminar(plantacion) }
+                                    ) {
+                                        PlantacionCard(
+                                            plantacion = plantacion,
+                                            monitoreos = monitoreos.filter { it.plantacion_id == plantacion.plantacion_id && it.activo },
+                                            onClick = { onPlantacionClick(plantacion.plantacion_id) }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -695,7 +708,7 @@ fun PlantacionCard(
         onClick = onClick,
         interactionSource = interactionSource,
         color = PlagOutColors.Surface,
-        shape = RoundedCornerShape(22.dp),
+        shape = FormaTarjeta,
         shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth().graphicsLayer { scaleX = escala; scaleY = escala }
     ) {
