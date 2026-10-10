@@ -40,14 +40,12 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Terrain
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +57,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.plag_out.ui.theme.PlagOutColors
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.style.TextAlign
 
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.HelpOutline
@@ -389,33 +389,32 @@ fun AdminTopBar() {
 /** Confirmación de cierre de sesión, disparada desde el drawer del perfil. */
 @Composable
 fun DialogoCerrarSesion(onConfirmar: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = PlagOutColors.Surface,
-        icon = {
-            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = PlagOutColors.RiskDanger)
-        },
-        title = {
-            Text("¿Cerrar sesión?", fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
-        },
-        text = {
-            Text(
-                "Se borrarán los datos guardados en este dispositivo y vas a tener que iniciar sesión de nuevo.",
-                color = PlagOutColors.TextSecondary
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirmar,
-                modifier = Modifier.testTag("btnConfirmarCerrarSesion")
-            ) {
-                Text("Cerrar sesión", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancelar", color = PlagOutColors.TextSecondary, fontWeight = FontWeight.SemiBold)
-            }
-        }
-    )
+    MarcoDialogo(tag = "dialogCerrarSesion", onDismissRequest = onDismiss) { rebote ->
+        InsigniaAccion(Icons.AutoMirrored.Filled.Logout, PlagOutColors.RiskDanger, rebote)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "¿Cerrar sesión?",
+            style = MaterialTheme.typography.titleLarge,
+            color = PlagOutColors.TextMain,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Vas a tener que volver a ingresar con tu mail y contraseña.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = PlagOutColors.TextSecondary,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(22.dp))
+        BotonesDialogo(
+            textoConfirmar = "Cerrar sesión",
+            // Sin ícono: el texto es largo y con él no entra en medio ancho.
+            iconoConfirmar = null,
+            color = PlagOutColors.RiskDanger,
+            tagCancelar = "btnCancelarCerrarSesion",
+            tagConfirmar = "btnConfirmarCerrarSesion",
+            onCancelar = onDismiss,
+            onConfirmar = onConfirmar
+        )
+    }
 }

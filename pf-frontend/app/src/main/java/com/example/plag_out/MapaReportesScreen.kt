@@ -20,6 +20,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.fadeIn
+import androidx.compose.ui.draw.rotate
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -30,6 +37,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -89,7 +97,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
-import com.example.plag_out.ui.theme.EncabezadoGrupoFiltro
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.estiloDeNivel
 import com.google.gson.Gson
@@ -235,25 +242,46 @@ fun MapaReportesScreen(
                 .testTag("mapaReportes")
         )
 
-        Row(
+        Column(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(end = 54.dp)
         ) {
-            BotonMapa(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                "Volver",
-                onBack,
-                "btnVolverMapaReportes"
-            )
-            BotonFiltrar(
-                cantidadActiva = filtros.activos,
-                onClick = { mostrarFiltros = true }
+            Row(
+                modifier = Modifier.padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BotonMapa(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    "Volver",
+                    onBack,
+                    "btnVolverMapaReportes"
+                )
+                BotonFiltrar(
+                    cantidadActiva = filtros.activos,
+                    onClick = { mostrarFiltros = true }
+                )
+                AnimatedVisibility(
+                    visible = filtros.activos > 0,
+                    enter = fadeIn() + scaleIn(initialScale = 0.8f),
+                    exit = fadeOut() + scaleOut(targetScale = 0.8f)
+                ) {
+                    BotonLimpiarFiltros(onClick = { viewModel.actualizarFiltros(FiltrosMapa()) })
+                }
+            }
+            FilaFiltrosActivos(
+                filtros = filtros,
+                onFiltros = viewModel::actualizarFiltros,
+                modifier = Modifier.offset(y = (-4).dp)
             )
         }
+        // Los avisos bajan cuando aparece la fila de filtros activos, para no taparla.
+        val topAviso by animateDpAsState(
+            targetValue = if (filtros.activos > 0) 112.dp else 74.dp,
+            label = "topAvisoMapa"
+        )
 
         ControlesMapa(
             modifier = Modifier
@@ -285,7 +313,7 @@ fun MapaReportesScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(top = 74.dp, start = 16.dp, end = 16.dp)
+                    .padding(top = topAviso, start = 16.dp, end = 16.dp)
             )
         } else if (aviso != null) {
             AvisoFlotante(
@@ -294,7 +322,7 @@ fun MapaReportesScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(top = 74.dp, start = 16.dp, end = 16.dp)
+                    .padding(top = topAviso, start = 16.dp, end = 16.dp)
             )
         }
 
@@ -355,7 +383,7 @@ fun MapaReportesScreen(
             cultivosDisponibles = state.cultivos,
             sinTerrenos = terrenos.isEmpty(),
             filtros = filtros,
-            onFiltros = viewModel::actualizarFiltros
+            onAplicar = viewModel::actualizarFiltros
         )
     }
 }
@@ -373,8 +401,15 @@ private fun HojaFiltrosMapa(
     cultivosDisponibles: List<String>,
     sinTerrenos: Boolean,
     filtros: FiltrosMapa,
-    onFiltros: (FiltrosMapa) -> Unit
+    onAplicar: (FiltrosMapa) -> Unit
 ) {
+    // Los toques solo editan un borrador: el mapa se vuelve a consultar recién al aplicar, así
+    // armar una combinación de filtros no dispara un pedido por cada celda. Cerrar la hoja sin
+    // aplicar descarta el borrador.
+    var borrador by remember { mutableStateOf(filtros) }
+    fun editar(nuevo: FiltrosMapa) { borrador = nuevo }
+    val hayCambios = borrador != filtros
+
     // Tocar una celda ya elegida la destilda: cada grupo funciona como un selector opcional.
     fun <T> alternar(actual: T?, elegido: T): T? = if (actual == elegido) null else elegido
 
@@ -402,14 +437,14 @@ private fun HojaFiltrosMapa(
                 Column(Modifier.weight(1f)) {
                     Text("Filtrar el mapa", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
                     Text(
-                        "Tocá una celda elegida para quitar ese filtro",
+                        "Tocá un grupo para ver sus opciones",
                         fontSize = 12.sp,
                         color = PlagOutColors.TextSecondary
                     )
                 }
-                if (filtros.activos > 0) {
+                if (borrador.activos > 0) {
                     Surface(
-                        onClick = { onFiltros(FiltrosMapa()) },
+                        onClick = { editar(FiltrosMapa()) },
                         shape = CircleShape,
                         color = PlagOutColors.RiskDanger.copy(alpha = 0.1f),
                         modifier = Modifier.testTag("btnLimpiarFiltrosMapa")
@@ -426,112 +461,155 @@ private fun HojaFiltrosMapa(
                 }
             }
 
-            EncabezadoGrupoFiltro(Icons.Outlined.Groups, "ÁMBITO")
-            GrillaFiltro(
-                listOf(
-                    CeldaFiltro(
-                        etiqueta = "Míos",
-                        icono = Icons.Outlined.Person,
-                        color = PlagOutColors.Forest,
-                        activa = filtros.ambito == AmbitoMapa.PROPIOS,
-                        onClick = {
-                            onFiltros(filtros.copy(ambito = alternar(filtros.ambito, AmbitoMapa.PROPIOS) ?: AmbitoMapa.TODOS))
-                        }
-                    ),
-                    CeldaFiltro(
-                        etiqueta = "Comunidad",
-                        icono = Icons.Filled.Group,
-                        color = AzulMapa,
-                        activa = filtros.ambito == AmbitoMapa.COMUNIDAD,
-                        onClick = {
-                            onFiltros(filtros.copy(ambito = alternar(filtros.ambito, AmbitoMapa.COMUNIDAD) ?: AmbitoMapa.TODOS))
-                        }
+            GrupoFiltroPlegable(
+                icono = Icons.Outlined.Groups,
+                titulo = "ÁMBITO",
+                elegido = when (borrador.ambito) {
+                    AmbitoMapa.PROPIOS -> "Míos"
+                    AmbitoMapa.COMUNIDAD -> "Comunidad"
+                    AmbitoMapa.TODOS -> null
+                },
+                tag = "Ambito"
+            ) {
+                GrillaFiltro(
+                    listOf(
+                        CeldaFiltro(
+                            etiqueta = "Míos",
+                            icono = Icons.Outlined.Person,
+                            color = PlagOutColors.Forest,
+                            activa = borrador.ambito == AmbitoMapa.PROPIOS,
+                            onClick = {
+                                editar(borrador.copy(ambito = alternar(borrador.ambito, AmbitoMapa.PROPIOS) ?: AmbitoMapa.TODOS))
+                            }
+                        ),
+                        CeldaFiltro(
+                            etiqueta = "Comunidad",
+                            icono = Icons.Filled.Group,
+                            color = AzulMapa,
+                            activa = borrador.ambito == AmbitoMapa.COMUNIDAD,
+                            onClick = {
+                                editar(borrador.copy(ambito = alternar(borrador.ambito, AmbitoMapa.COMUNIDAD) ?: AmbitoMapa.TODOS))
+                            }
+                        )
                     )
                 )
-            )
+            }
 
-            EncabezadoGrupoFiltro(Icons.Outlined.Explore, "CERCANÍA A MIS LOTES")
-            GrillaFiltro(
-                RADIOS_MAPA_KM.map { km ->
-                    CeldaFiltro(
-                        etiqueta = "A menos de\n$km km",
-                        icono = Icons.Outlined.NearMe,
-                        color = AzulMapa,
-                        activa = filtros.radioKm == km,
-                        onClick = { onFiltros(filtros.copy(radioKm = alternar(filtros.radioKm, km))) }
-                    )
+            GrupoFiltroPlegable(
+                icono = Icons.Outlined.Explore,
+                titulo = "CERCANÍA A MIS LOTES",
+                elegido = borrador.radioKm?.let { "A menos de $it km" },
+                tag = "Cercania"
+            ) {
+                GrillaFiltro(
+                    RADIOS_MAPA_KM.map { km ->
+                        CeldaFiltro(
+                            etiqueta = "A menos de\n$km km",
+                            icono = Icons.Outlined.NearMe,
+                            color = AzulMapa,
+                            activa = borrador.radioKm == km,
+                            onClick = { editar(borrador.copy(radioKm = alternar(borrador.radioKm, km))) }
+                        )
+                    }
+                )
+                if (sinTerrenos) {
+                    NotaFiltro("Cargá un terreno para poder filtrar por cercanía.")
                 }
-            )
-            if (sinTerrenos) {
-                NotaFiltro("Cargá un terreno para poder filtrar por cercanía.")
             }
 
             // Una plaga reportada hace medio año no describe el riesgo de hoy: por eso la ventana
             // temporal es un filtro de primera línea y no un detalle escondido.
-            EncabezadoGrupoFiltro(Icons.Outlined.AccessTime, "ANTIGÜEDAD")
-            GrillaFiltro(
-                VENTANAS_DIAS.map { d ->
-                    CeldaFiltro(
-                        etiqueta = "Últimos\n$d días",
-                        icono = Icons.Outlined.AccessTime,
-                        color = PlagOutColors.Bark,
-                        activa = filtros.dias == d,
-                        onClick = { onFiltros(filtros.copy(dias = alternar(filtros.dias, d))) }
-                    )
-                }
-            )
-
-            EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE SEVERIDAD")
-            GrillaFiltro(
-                listOf(
-                    Triple("Alto", Icons.Default.ErrorOutline, Color(0xFFC62828)),
-                    Triple("Medio", Icons.Default.WarningAmber, Color(0xFFEF6C00)),
-                    Triple("Bajo", Icons.Default.CheckCircle, Color(0xFF2E7D32))
-                ).map { (nivel, icono, color) ->
-                    CeldaFiltro(
-                        etiqueta = nivel,
-                        icono = icono,
-                        color = color,
-                        activa = filtros.severidad.equals(nivel, true),
-                        onClick = { onFiltros(filtros.copy(severidad = alternar(filtros.severidad, nivel))) }
-                    )
-                }
-            )
-
-            if (plagasDisponibles.isNotEmpty()) {
-                EncabezadoGrupoFiltro(Icons.Outlined.BugReport, "PLAGA")
+            GrupoFiltroPlegable(
+                icono = Icons.Outlined.AccessTime,
+                titulo = "ANTIGÜEDAD",
+                elegido = borrador.dias?.let { "Últimos $it días" },
+                tag = "Antiguedad"
+            ) {
                 GrillaFiltro(
-                    plagasDisponibles.map { nombre ->
+                    VENTANAS_DIAS.map { d ->
                         CeldaFiltro(
-                            etiqueta = nombre,
-                            icono = Icons.Outlined.BugReport,
-                            color = PlagOutColors.Forest,
-                            activa = filtros.plaga == nombre,
-                            onClick = { onFiltros(filtros.copy(plaga = alternar(filtros.plaga, nombre))) }
+                            etiqueta = "Últimos\n$d días",
+                            icono = Icons.Outlined.AccessTime,
+                            color = PlagOutColors.Bark,
+                            activa = borrador.dias == d,
+                            onClick = { editar(borrador.copy(dias = alternar(borrador.dias, d))) }
                         )
                     }
                 )
             }
 
-            if (cultivosDisponibles.isNotEmpty()) {
-                EncabezadoGrupoFiltro(Icons.Outlined.Grass, "CULTIVO")
+            GrupoFiltroPlegable(
+                icono = Icons.Outlined.Shield,
+                titulo = "NIVEL DE SEVERIDAD",
+                elegido = borrador.severidad,
+                tag = "Severidad"
+            ) {
                 GrillaFiltro(
-                    cultivosDisponibles.map { nombre ->
+                    listOf(
+                        Triple("Alto", Icons.Default.ErrorOutline, Color(0xFFC62828)),
+                        Triple("Medio", Icons.Default.WarningAmber, Color(0xFFEF6C00)),
+                        Triple("Bajo", Icons.Default.CheckCircle, Color(0xFF2E7D32))
+                    ).map { (nivel, icono, color) ->
                         CeldaFiltro(
-                            etiqueta = nombre,
-                            icono = Icons.Outlined.Grass,
-                            color = PlagOutColors.Leaf,
-                            activa = filtros.cultivo == nombre,
-                            onClick = { onFiltros(filtros.copy(cultivo = alternar(filtros.cultivo, nombre))) }
+                            etiqueta = nivel,
+                            icono = icono,
+                            color = color,
+                            activa = borrador.severidad.equals(nivel, true),
+                            onClick = { editar(borrador.copy(severidad = alternar(borrador.severidad, nivel))) }
                         )
                     }
                 )
+            }
+
+            if (plagasDisponibles.isNotEmpty()) {
+                GrupoFiltroPlegable(
+                    icono = Icons.Outlined.BugReport,
+                    titulo = "PLAGA",
+                    elegido = borrador.plaga,
+                    tag = "Plaga"
+                ) {
+                    GrillaFiltro(
+                        plagasDisponibles.map { nombre ->
+                            CeldaFiltro(
+                                etiqueta = nombre,
+                                icono = Icons.Outlined.BugReport,
+                                color = PlagOutColors.Forest,
+                                activa = borrador.plaga == nombre,
+                                onClick = { editar(borrador.copy(plaga = alternar(borrador.plaga, nombre))) }
+                            )
+                        }
+                    )
+                }
+            }
+
+            if (cultivosDisponibles.isNotEmpty()) {
+                GrupoFiltroPlegable(
+                    icono = Icons.Outlined.Grass,
+                    titulo = "CULTIVO",
+                    elegido = borrador.cultivo,
+                    tag = "Cultivo"
+                ) {
+                    GrillaFiltro(
+                        cultivosDisponibles.map { nombre ->
+                            CeldaFiltro(
+                                etiqueta = nombre,
+                                icono = Icons.Outlined.Grass,
+                                color = PlagOutColors.Leaf,
+                                activa = borrador.cultivo == nombre,
+                                onClick = { editar(borrador.copy(cultivo = alternar(borrador.cultivo, nombre))) }
+                            )
+                        }
+                    )
+                }
             }
 
             Spacer(Modifier.height(20.dp))
 
             Surface(
-                onClick = onCerrar,
+                onClick = {
+                    onAplicar(borrador)
+                    onCerrar()
+                },
                 shape = RoundedCornerShape(18.dp),
                 color = PlagOutColors.Forest,
                 modifier = Modifier
@@ -542,7 +620,11 @@ private fun HojaFiltrosMapa(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        if (actualizando) "Actualizando…" else when (totalVisible) {
+                        if (hayCambios) when (borrador.activos) {
+                            0 -> "Quitar filtros"
+                            1 -> "Aplicar 1 filtro"
+                            else -> "Aplicar ${borrador.activos} filtros"
+                        } else if (actualizando) "Actualizando…" else when (totalVisible) {
                             0 -> "Ningún reporte coincide"
                             1 -> "Ver 1 reporte en el mapa"
                             else -> "Ver $totalVisible reportes en el mapa"
@@ -631,6 +713,155 @@ private fun VistaCeldaFiltro(celda: CeldaFiltro, modifier: Modifier = Modifier) 
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+// ── Filtros activos sobre el mapa ─────────────────────────────────────────────
+
+private data class FiltroActivo(
+    val etiqueta: String,
+    val icono: ImageVector,
+    val quitar: (FiltrosMapa) -> FiltrosMapa
+)
+
+private fun filtrosActivos(f: FiltrosMapa): List<FiltroActivo> = buildList {
+    when (f.ambito) {
+        AmbitoMapa.PROPIOS -> add(FiltroActivo("Míos", Icons.Outlined.Person) { it.copy(ambito = AmbitoMapa.TODOS) })
+        AmbitoMapa.COMUNIDAD -> add(FiltroActivo("Comunidad", Icons.Outlined.Groups) { it.copy(ambito = AmbitoMapa.TODOS) })
+        AmbitoMapa.TODOS -> Unit
+    }
+    f.radioKm?.let { km -> add(FiltroActivo("A menos de $km km", Icons.Outlined.NearMe) { it.copy(radioKm = null) }) }
+    f.dias?.let { d -> add(FiltroActivo("Últimos $d días", Icons.Outlined.AccessTime) { it.copy(dias = null) }) }
+    f.severidad?.let { nivel -> add(FiltroActivo("Severidad ${nivel.lowercase()}", Icons.Outlined.Shield) { it.copy(severidad = null) }) }
+    f.plaga?.let { nombre -> add(FiltroActivo(nombre, Icons.Outlined.BugReport) { it.copy(plaga = null) }) }
+    f.cultivo?.let { nombre -> add(FiltroActivo(nombre, Icons.Outlined.Grass) { it.copy(cultivo = null) }) }
+}
+
+@Composable
+private fun FilaFiltrosActivos(
+    filtros: FiltrosMapa,
+    onFiltros: (FiltrosMapa) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val activos = filtrosActivos(filtros)
+    AnimatedVisibility(
+        visible = activos.isNotEmpty(),
+        enter = fadeIn() + slideInVertically { -it / 2 },
+        exit = fadeOut() + slideOutVertically { -it / 2 },
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 2.dp)
+                .testTag("filaFiltrosActivosMapa"),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            activos.forEach { filtro ->
+                Surface(
+                    onClick = { onFiltros(filtro.quitar(filtros)) },
+                    shape = CircleShape,
+                    color = PlagOutColors.Surface,
+                    shadowElevation = 2.dp,
+                    border = BorderStroke(1.dp, PlagOutColors.Forest.copy(alpha = 0.35f)),
+                    modifier = Modifier
+                        .height(32.dp)
+                        .testTag("chipFiltroActivo:${filtro.etiqueta}")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(start = 10.dp, end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(filtro.icono, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            filtro.etiqueta,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PlagOutColors.TextMain,
+                            maxLines = 1
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Quitar filtro ${filtro.etiqueta}",
+                            tint = PlagOutColors.TextSecondary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GrupoFiltroPlegable(
+    icono: ImageVector,
+    titulo: String,
+    elegido: String?,
+    tag: String,
+    contenido: @Composable ColumnScope.() -> Unit
+) {
+    var abierto by rememberSaveable { mutableStateOf(false) }
+    val giro by animateFloatAsState(
+        targetValue = if (abierto) 180f else 0f,
+        animationSpec = tween(220),
+        label = "giroGrupoFiltro"
+    )
+
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { abierto = !abierto }
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .testTag("grupoFiltro$tag"),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icono, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                titulo,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PlagOutColors.TextSecondary,
+                letterSpacing = 0.6.sp
+            )
+            Spacer(Modifier.weight(1f))
+            if (elegido != null) {
+                Surface(shape = CircleShape, color = PlagOutColors.Forest.copy(alpha = 0.12f)) {
+                    Text(
+                        elegido,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PlagOutColors.Forest,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .widthIn(max = 150.dp)
+                            .padding(horizontal = 9.dp, vertical = 3.dp)
+                    )
+                }
+                Spacer(Modifier.width(6.dp))
+            }
+            Icon(
+                Icons.Default.KeyboardArrowDown,
+                contentDescription = if (abierto) "Ocultar $titulo" else "Mostrar $titulo",
+                tint = PlagOutColors.TextSecondary,
+                modifier = Modifier
+                    .size(20.dp)
+                    .rotate(giro)
+            )
+        }
+        AnimatedVisibility(
+            visible = abierto,
+            enter = expandVertically(tween(220)) + fadeIn(tween(220)),
+            exit = shrinkVertically(tween(200)) + fadeOut(tween(150))
+        ) {
+            Column(Modifier.padding(bottom = 8.dp), content = contenido)
+        }
+        HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.padding(horizontal = 16.dp))
     }
 }
 
@@ -1303,6 +1534,29 @@ private fun BotonFiltrar(cantidadActiva: Int, onClick: () -> Unit) {
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun BotonLimpiarFiltros(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = PlagOutColors.Surface,
+        shadowElevation = 3.dp,
+        border = BorderStroke(1.dp, PlagOutColors.RiskDanger.copy(alpha = 0.4f)),
+        modifier = Modifier
+            .height(42.dp)
+            .testTag("btnLimpiarFiltrosActivosMapa")
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Close, contentDescription = null, tint = PlagOutColors.RiskDanger, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(5.dp))
+            Text("Limpiar", color = PlagOutColors.RiskDanger, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
