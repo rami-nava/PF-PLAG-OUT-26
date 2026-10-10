@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,6 +32,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -62,7 +66,7 @@ fun BuscadorAdmin(valor: String, onCambio: (String) -> Unit, placeholder: String
     OutlinedTextField(
         value = valor,
         onValueChange = onCambio,
-        placeholder = { Text(placeholder, color = PlagOutColors.TextSecondary) },
+        placeholder = { Text(placeholder, color = PlagOutColors.TextSecondary.copy(alpha = 0.7f), fontSize = 14.sp) },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = PlagOutColors.Forest) },
         trailingIcon = {
             if (valor.isNotEmpty()) {
@@ -73,12 +77,116 @@ fun BuscadorAdmin(valor: String, onCambio: (String) -> Unit, placeholder: String
         },
         singleLine = true,
         shape = RoundedCornerShape(16.dp),
-        colors = camposColors(),
+        colors = camposAdminColors(contenedor = PlagOutColors.Surface),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
+            .shadow(2.dp, RoundedCornerShape(16.dp))
             .testTag(tag)
     )
+}
+
+@Composable
+fun camposAdminColors(
+    acento: Color = PlagOutColors.Forest,
+    contenedor: Color = PlagOutColors.Cream
+) = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = PlagOutColors.Surface,
+    unfocusedContainerColor = contenedor,
+    errorContainerColor = PlagOutColors.RiskDanger.copy(alpha = 0.04f),
+    focusedBorderColor = acento,
+    unfocusedBorderColor = PlagOutColors.CreamDeep,
+    errorBorderColor = PlagOutColors.RiskDanger,
+    cursorColor = acento,
+    focusedTextColor = PlagOutColors.TextMain,
+    unfocusedTextColor = PlagOutColors.TextMain
+)
+
+
+@Composable
+fun CampoFormularioAdmin(
+    valor: String,
+    onCambio: (String) -> Unit,
+    etiqueta: String,
+    tag: String,
+    modifier: Modifier = Modifier,
+    placeholder: String? = null,
+    icono: ImageVector? = null,
+    unidad: String? = null,
+    error: String? = null,
+    teclado: KeyboardType = KeyboardType.Text
+) {
+    Column(modifier) {
+        Text(
+            etiqueta,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (error != null) PlagOutColors.RiskDanger else PlagOutColors.TextMain,
+            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
+        )
+        OutlinedTextField(
+            value = valor,
+            onValueChange = onCambio,
+            placeholder = placeholder?.let {
+                { Text(it, color = PlagOutColors.TextSecondary.copy(alpha = 0.55f), maxLines = 1) }
+            },
+            leadingIcon = icono?.let {
+                {
+                    Box(
+                        Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(PlagOutColors.Leaf.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(it, contentDescription = null, tint = PlagOutColors.Leaf, modifier = Modifier.size(18.dp))
+                    }
+                }
+            },
+            trailingIcon = unidad?.let {
+                {
+                    Text(
+                        it,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PlagOutColors.Leaf,
+                        modifier = Modifier
+                            .padding(end = 10.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(PlagOutColors.Leaf.copy(alpha = 0.12f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            },
+            isError = error != null,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = teclado),
+            shape = RoundedCornerShape(14.dp),
+            colors = camposAdminColors(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(tag)
+        )
+        AnimatedVisibility(
+            visible = error != null,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Row(
+                Modifier.padding(start = 4.dp, top = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.ErrorOutline,
+                    contentDescription = null,
+                    tint = PlagOutColors.RiskDanger,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(error.orEmpty(), fontSize = 12.sp, color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
 }
 
 @Composable
@@ -275,45 +383,64 @@ fun FilaInfoAdmin(icono: ImageVector, etiqueta: String, valor: String, tag: Stri
 fun DialogoConfirmacionAdmin(
     icono: ImageVector,
     titulo: String,
-    texto: String,
     textoConfirmar: String,
     peligro: Boolean,
     onConfirmar: () -> Unit,
     onDismiss: () -> Unit,
+    iconoFicha: ImageVector,
+    nombre: String,
+    detalle: String?,
+    consecuencias: List<String> = emptyList(),
+    tranquilidad: String? = null,
     confirmarHabilitado: Boolean = true,
     contenidoExtra: @Composable ColumnScope.() -> Unit = {}
 ) {
     val acento = if (peligro) PlagOutColors.RiskDanger else PlagOutColors.Forest
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = PlagOutColors.Surface,
-        icon = { Icon(icono, contentDescription = null, tint = acento) },
-        title = { Text(titulo, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain) },
-        text = {
-            Column {
-                Text(texto, color = PlagOutColors.TextSecondary)
-                contenidoExtra()
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirmar,
-                enabled = confirmarHabilitado,
-                modifier = Modifier.testTag("btnConfirmarAdmin")
-            ) {
-                Text(
-                    textoConfirmar,
-                    color = if (confirmarHabilitado) acento else PlagOutColors.RiskUnknown,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancelar", color = PlagOutColors.TextSecondary, fontWeight = FontWeight.SemiBold)
-            }
+    MarcoDialogo(tag = "dialogConfirmacionAdmin", onDismissRequest = onDismiss) { rebote ->
+        InsigniaAccion(icono, acento, rebote)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            titulo,
+            style = MaterialTheme.typography.titleLarge,
+            color = PlagOutColors.TextMain,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(18.dp))
+        FichaElemento(iconoFicha, nombre, detalle)
+
+        if (consecuencias.isNotEmpty()) {
+            Spacer(Modifier.height(18.dp))
+            Text(
+                "QUÉ PASA AL CONFIRMAR",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp,
+                color = PlagOutColors.TextSecondary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, bottom = 8.dp)
+            )
+            consecuencias.forEach { ConsecuenciaAccion(it, acento) }
         }
-    )
+        if (tranquilidad != null) {
+            Spacer(Modifier.height(14.dp))
+            AvisoDialogo(Icons.Outlined.CheckCircle, tranquilidad, PlagOutColors.Leaf)
+        }
+
+        contenidoExtra()
+
+        Spacer(Modifier.height(22.dp))
+        BotonesDialogo(
+            textoConfirmar = textoConfirmar,
+            iconoConfirmar = icono,
+            color = acento,
+            tagCancelar = "btnCancelarAdmin",
+            tagConfirmar = "btnConfirmarAdmin",
+            onCancelar = onDismiss,
+            onConfirmar = onConfirmar,
+            habilitado = confirmarHabilitado
+        )
+    }
 }
 
 @RequiresApi(Build.VERSION_CODES.O)

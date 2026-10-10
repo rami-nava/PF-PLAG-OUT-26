@@ -61,6 +61,7 @@ import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -501,7 +502,7 @@ fun FichaElemento(icono: ImageVector, nombre: String, detalle: String?) {
 }
 
 @Composable
-private fun ConsecuenciaAccion(texto: String, color: Color) {
+fun ConsecuenciaAccion(texto: String, color: Color) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -517,6 +518,61 @@ private fun ConsecuenciaAccion(texto: String, color: Color) {
         )
         Spacer(Modifier.width(10.dp))
         Text(texto, style = MaterialTheme.typography.bodyMedium, color = PlagOutColors.TextMain)
+    }
+}
+
+@Composable
+fun BotonesDialogo(
+    textoConfirmar: String,
+    iconoConfirmar: ImageVector?,
+    color: Color,
+    tagCancelar: String,
+    tagConfirmar: String,
+    onCancelar: () -> Unit,
+    onConfirmar: () -> Unit,
+    habilitado: Boolean = true,
+    ocupado: Boolean = false
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        OutlinedButton(
+            onClick = onCancelar,
+            enabled = !ocupado,
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, PlagOutColors.Divider),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.TextMain),
+            modifier = Modifier
+                .weight(1f)
+                .height(50.dp)
+                .testTag(tagCancelar)
+        ) {
+            Text("Cancelar", fontWeight = FontWeight.SemiBold)
+        }
+        Button(
+            onClick = onConfirmar,
+            enabled = habilitado && !ocupado,
+            shape = RoundedCornerShape(14.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = color,
+                contentColor = Color.White,
+                disabledContainerColor = color.copy(alpha = 0.35f),
+                disabledContentColor = Color.White.copy(alpha = 0.85f)
+            ),
+            modifier = Modifier
+                .weight(1f)
+                .height(50.dp)
+                .testTag(tagConfirmar)
+        ) {
+            if (ocupado) {
+                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+            } else {
+                if (iconoConfirmar != null) {
+                    Icon(iconoConfirmar, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(textoConfirmar, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
     }
 }
 

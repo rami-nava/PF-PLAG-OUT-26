@@ -25,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -49,6 +50,9 @@ data class CrearCuentaState(
     val cargando: Boolean = false,
     val error: String? = null
 )
+
+/** Tope para el logout remoto de Supabase */
+private const val TOPE_SIGN_OUT_MS = 5_000L
 
 class AuthViewModel(
     private val supabaseClient: SupabaseClient,
@@ -244,11 +248,18 @@ class AuthViewModel(
         viewModelScope.launch {
             // Desregistrar el token FCM antes del signOut, mientras el JWT sigue válido
             FcmTokenRegistrar.desregistrar(desregistrarDispositivo)
-            try {
-                supabaseClient.auth.signOut()
+            val cerroRemoto = try {
+                withTimeoutOrNull(TOPE_SIGN_OUT_MS) { supabaseClient.auth.signOut() } != null
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                // Sin conexión el signOut remoto puede fallar: lo local se limpia igual
                 Log.e("AuthViewModel", "Error al cerrar sesión en Supabase", e)
+                false
+            }
+            if (!cerroRemoto) {
+                //se borra la sesion en el celular sin contactar a supabase
+                runCatching { supabaseClient.auth.clearSession() }
+                    .onFailure { Log.e("AuthViewModel", "No se pudo limpiar la sesión local", it) }
             }
             withContext(Dispatchers.IO) {
                 monitoreoRepository.borrarTodos()
