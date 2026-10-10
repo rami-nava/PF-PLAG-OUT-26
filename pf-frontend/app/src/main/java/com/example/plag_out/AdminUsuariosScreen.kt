@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.GroupOff
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -324,8 +325,16 @@ fun AdminUsuarioDetalleScreen(
     if (confirmarSuspension) {
         DialogoConfirmacionAdmin(
             icono = Icons.Outlined.Block,
-            titulo = "¿Suspender a ${usuario.nombreCompleto}?",
-            texto = "Se cierra su sesión y no va a poder volver a entrar ni recibir alertas hasta que la reactives. Sus datos se conservan.",
+            titulo = "¿Suspender la cuenta?",
+            iconoFicha = Icons.Outlined.Person,
+            nombre = usuario.nombreCompleto,
+            detalle = usuario.email,
+            consecuencias = listOf(
+                "Se cierra su sesión",
+                "No va a poder volver a entrar hasta que la reactives",
+                "Deja de recibir alertas"
+            ),
+            tranquilidad = "Sus datos se conservan y podés reactivarla cuando quieras.",
             textoConfirmar = "Suspender",
             peligro = true,
             onConfirmar = {
@@ -342,8 +351,14 @@ fun AdminUsuarioDetalleScreen(
         DialogoConfirmacionAdmin(
             icono = Icons.Outlined.DeleteForever,
             titulo = "¿Eliminar la cuenta?",
-            texto = "Se borran la cuenta, sus terrenos, cultivos y monitoreos. Esta acción no se puede deshacer. " +
-                "Para confirmar, escribí el email de la cuenta.",
+            iconoFicha = Icons.Outlined.Person,
+            nombre = usuario.nombreCompleto,
+            detalle = usuario.email,
+            consecuencias = listOf(
+                "Se borra la cuenta",
+                "Se borran sus terrenos, cultivos y monitoreos",
+                "No se puede deshacer"
+            ),
             textoConfirmar = "Eliminar",
             peligro = true,
             confirmarHabilitado = coincide,
@@ -353,7 +368,17 @@ fun AdminUsuarioDetalleScreen(
             },
             onDismiss = { confirmarEliminacion = false }
         ) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(18.dp))
+            Text(
+                "PARA CONFIRMAR, ESCRIBÍ SU EMAIL",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp,
+                color = PlagOutColors.TextSecondary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, bottom = 8.dp)
+            )
             OutlinedTextField(
                 value = confirmacion,
                 onValueChange = { confirmacion = it },

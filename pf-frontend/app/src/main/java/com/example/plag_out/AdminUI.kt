@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -382,45 +383,64 @@ fun FilaInfoAdmin(icono: ImageVector, etiqueta: String, valor: String, tag: Stri
 fun DialogoConfirmacionAdmin(
     icono: ImageVector,
     titulo: String,
-    texto: String,
     textoConfirmar: String,
     peligro: Boolean,
     onConfirmar: () -> Unit,
     onDismiss: () -> Unit,
+    iconoFicha: ImageVector,
+    nombre: String,
+    detalle: String?,
+    consecuencias: List<String> = emptyList(),
+    tranquilidad: String? = null,
     confirmarHabilitado: Boolean = true,
     contenidoExtra: @Composable ColumnScope.() -> Unit = {}
 ) {
     val acento = if (peligro) PlagOutColors.RiskDanger else PlagOutColors.Forest
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = PlagOutColors.Surface,
-        icon = { Icon(icono, contentDescription = null, tint = acento) },
-        title = { Text(titulo, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain) },
-        text = {
-            Column {
-                Text(texto, color = PlagOutColors.TextSecondary)
-                contenidoExtra()
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirmar,
-                enabled = confirmarHabilitado,
-                modifier = Modifier.testTag("btnConfirmarAdmin")
-            ) {
-                Text(
-                    textoConfirmar,
-                    color = if (confirmarHabilitado) acento else PlagOutColors.RiskUnknown,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancelar", color = PlagOutColors.TextSecondary, fontWeight = FontWeight.SemiBold)
-            }
+    MarcoDialogo(tag = "dialogConfirmacionAdmin", onDismissRequest = onDismiss) { rebote ->
+        InsigniaAccion(icono, acento, rebote)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            titulo,
+            style = MaterialTheme.typography.titleLarge,
+            color = PlagOutColors.TextMain,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(18.dp))
+        FichaElemento(iconoFicha, nombre, detalle)
+
+        if (consecuencias.isNotEmpty()) {
+            Spacer(Modifier.height(18.dp))
+            Text(
+                "QUÉ PASA AL CONFIRMAR",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp,
+                color = PlagOutColors.TextSecondary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, bottom = 8.dp)
+            )
+            consecuencias.forEach { ConsecuenciaAccion(it, acento) }
         }
-    )
+        if (tranquilidad != null) {
+            Spacer(Modifier.height(14.dp))
+            AvisoDialogo(Icons.Outlined.CheckCircle, tranquilidad, PlagOutColors.Leaf)
+        }
+
+        contenidoExtra()
+
+        Spacer(Modifier.height(22.dp))
+        BotonesDialogo(
+            textoConfirmar = textoConfirmar,
+            iconoConfirmar = icono,
+            color = acento,
+            tagCancelar = "btnCancelarAdmin",
+            tagConfirmar = "btnConfirmarAdmin",
+            onCancelar = onDismiss,
+            onConfirmar = onConfirmar,
+            habilitado = confirmarHabilitado
+        )
+    }
 }
 
 @RequiresApi(Build.VERSION_CODES.O)

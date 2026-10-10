@@ -496,10 +496,17 @@ fun PlagaFormScreen(
         val monitoreos = original.monitoreos_activos ?: 0
         DialogoConfirmacionAdmin(
             icono = Icons.Outlined.Archive,
-            titulo = "¿Dar de baja ${original.nombre}?",
-            texto = "Deja de ofrecerse para monitoreos y reportes nuevos." +
-                (if (monitoreos > 0) " Los $monitoreos monitoreos activos siguen funcionando." else "") +
-                " Podés reactivarla cuando quieras.",
+            titulo = "¿Dar de baja la plaga?",
+            iconoFicha = Icons.Outlined.BugReport,
+            nombre = original.nombre,
+            detalle = original.nombre_cientifico,
+            consecuencias = listOf(
+                "Deja de ofrecerse para monitoreos nuevos",
+                "Deja de ofrecerse para reportes nuevos"
+            ),
+            tranquilidad = (if (monitoreos > 0) {
+                "${if (monitoreos == 1) "El monitoreo activo sigue" else "Los ${monitoreos} monitoreos activos siguen"} funcionando. "
+            } else "") + "Podés reactivarla cuando quieras.",
             textoConfirmar = "Dar de baja",
             peligro = true,
             onConfirmar = {
