@@ -24,7 +24,8 @@ data class MonitoreoUIState(
     val isRefreshing: Boolean = false,
     val monitoreos: List<MonitoreoResponse> = emptyList(),
     /** Se sirvió del caché porque el fetch a la red falló o no hay conexión. */
-    val datosDesactualizados: Boolean = false
+    val datosDesactualizados: Boolean = false,
+    val eliminando: Set<Int> = emptySet()
 )
 
 class MonitoreosViewModel(
@@ -194,6 +195,44 @@ class MonitoreosViewModel(
             _state.value = _state.value.copy(
                 monitoreos = _state.value.monitoreos.filter { it.monitoreo_id != monitoreoId }
             )
+        }
+    }
+
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun eliminarMonitoreo(monitoreoId: Int, onResultado: (error: String?) -> Unit) {
+        if (monitoreoId in _state.value.eliminando) return
+        _state.value = _state.value.copy(eliminando = _state.value.eliminando + monitoreoId)
+        viewModelScope.launch {
+            val error = try {
+                val response = withContext(Dispatchers.IO) { gddService.eliminarMonitoreo(monitoreoId) }
+                val cuerpo = if (response.isSuccessful) "" else
+                    runCatching { response.errorBody()?.string() }.getOrNull().orEmpty()
+                val yaNoExiste = response.code() == 404 && cuerpo.contains("no encontrado", ignoreCase = true)
+
+                if (response.isSuccessful || yaNoExiste) {
+                    withContext(Dispatchers.IO) {
+                        descartarBiofixPendientes(listOf(monitoreoId))
+                        monitoreosRepository.borrarMonitoreo(monitoreoId)
+                    }
+                    _state.value = _state.value.copy(
+                        monitoreos = _state.value.monitoreos.filter { it.monitoreo_id != monitoreoId }
+                    )
+                    null
+                } else {
+                    Log.e("MONITOREOS", "Error al eliminar $monitoreoId: ${response.code()}")
+                    when (response.code()) {
+                        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
+                        404, 405 -> "Eliminar monitoreos todavía no está disponible en el servidor."
+                        else -> "No se pudo eliminar el monitoreo. Intentá de nuevo."
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MONITOREOS", "Error al eliminar $monitoreoId: ${e.message}")
+                "No se pudo eliminar el monitoreo. Revisá tu conexión."
+            }
+            _state.value = _state.value.copy(eliminando = _state.value.eliminando - monitoreoId)
+            onResultado(error)
         }
     }
 

@@ -35,8 +35,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.outlined.Spa
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Landscape
@@ -102,9 +106,13 @@ fun MonitoreosScreen(
     monitoreosViewModel: MonitoreosViewModel,
     plantacionesViewModel: PlantacionesViewModel,
     terrenosViewModel: TerrenosViewModel,
-    navController: NavHostController
+    navController: NavHostController,
+    onMonitoreoEliminado: () -> Unit = {}
 ) {
     val state by monitoreosViewModel.state.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var aEliminar by remember { mutableStateOf<MonitoreoResponse?>(null) }
 
     LaunchedEffect(Unit) {
         monitoreosViewModel.getMonitoreos()
@@ -134,6 +142,7 @@ fun MonitoreosScreen(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             var shown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { shown = true }
@@ -239,8 +248,13 @@ fun MonitoreosScreen(
                         ) {
                             itemsIndexed(filtrados, key = { _, m -> m.monitoreo_id }) { index, monitoreo ->
                                 StaggeredAppear(index = index) {
-                                    MonitoreoCard(monitoreo) {
-                                        navController.navigate("monitoreo/${monitoreo.monitoreo_id}")
+                                    DeslizableParaEliminar(
+                                        procesando = monitoreo.monitoreo_id in state.eliminando,
+                                        onEliminar = { aEliminar = monitoreo }
+                                    ) {
+                                        MonitoreoCard(monitoreo) {
+                                            navController.navigate("monitoreo/${monitoreo.monitoreo_id}")
+                                        }
                                     }
                                 }
                             }
@@ -250,6 +264,20 @@ fun MonitoreosScreen(
             }
         }
         }
+    }
+
+    aEliminar?.let { monitoreo ->
+        DialogoEliminarMonitoreo(
+            monitoreo = monitoreo,
+            onConfirmar = {
+                aEliminar = null
+                monitoreosViewModel.eliminarMonitoreo(monitoreo.monitoreo_id) { error ->
+                    if (error == null) onMonitoreoEliminado()
+                    scope.launch { snackbarHostState.showSnackbar(error ?: "Monitoreo eliminado") }
+                }
+            },
+            onCancelar = { aEliminar = null }
+        )
     }
 }
 
@@ -416,11 +444,12 @@ fun MonitoreoCard(
         onClick = onClick,
         interactionSource = interactionSource,
         color = PlagOutColors.Surface,
-        shape = RoundedCornerShape(22.dp),
+        shape = FormaTarjeta,
         shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
             .graphicsLayer { scaleX = escala; scaleY = escala }
+            .testTag("cardMonitoreo_${monitoreo.monitoreo_id}")
     ) {
         Row(Modifier.height(IntrinsicSize.Min)) {
             Box(
@@ -467,7 +496,7 @@ fun MonitoreoCard(
                         }
                     }
                     Spacer(Modifier.width(14.dp))
-                    if (activos.isEmpty()) {
+                    if (esperandoBiofix(monitoreo)) {
                         EtiquetaInfo(Icons.Outlined.HourglassEmpty, "Esperando biofix", PlagOutColors.TextSecondary)
                     }
                 }
@@ -532,7 +561,8 @@ fun MonitoreosPorPlantacion(
     plantacionesViewModel: PlantacionesViewModel,
     onBack: () -> Unit,
     onMonitoreoClick: (Int) -> Unit = {},
-    onAgregarMonitoreo: () -> Unit = {}
+    onAgregarMonitoreo: () -> Unit = {},
+    onMonitoreoEliminado: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     val plantacionesState by plantacionesViewModel.state.collectAsState()
@@ -556,9 +586,15 @@ fun MonitoreosPorPlantacion(
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { 2 })
     val snackbarHostState = remember { SnackbarHostState() }
+    var aEliminar by remember { mutableStateOf<MonitoreoResponse?>(null) }
+    var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
+    var mostrarDialogoEliminar by remember { mutableStateOf(false) }
 
     LaunchedEffect(plantacionesState.error) {
-        plantacionesState.error?.let { snackbarHostState.showSnackbar(it) }
+        plantacionesState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            plantacionesViewModel.limpiarError()
+        }
     }
 
     Scaffold(
@@ -606,7 +642,7 @@ fun MonitoreosPorPlantacion(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextOnDark)
                 }
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text(
                         "Detalle de cultivo",
                         color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
@@ -623,6 +659,30 @@ fun MonitoreosPorPlantacion(
                     if (terrenoNombre != null) {
                         Text(terrenoNombre, color = PlagOutColors.TextOnDark.copy(alpha = 0.8f), fontSize = 13.sp)
                     }
+                }
+                if (plantacion != null) {
+                    MenuAccionesHeader(
+                        ocupado = plantacionesState.procesando,
+                        tag = "btnMenuPlantacion",
+                        opciones = listOfNotNull(
+                            OpcionMenuAccion(
+                                icono = Icons.Outlined.Flag,
+                                titulo = "Finalizar cultivo",
+                                detalle = "Finaliza sus monitoreos y conserva el historial",
+                                color = PlagOutColors.TextMain,
+                                tag = "btnFinalizarPlantacion",
+                                onClick = { mostrarDialogoFinalizar = true }
+                            ).takeIf { plantacion.activa },
+                            OpcionMenuAccion(
+                                icono = Icons.Outlined.DeleteOutline,
+                                titulo = "Eliminar cultivo",
+                                detalle = "Borra sus monitoreos y su historial",
+                                color = PlagOutColors.RiskDanger,
+                                tag = "btnEliminarPlantacion",
+                                onClick = { mostrarDialogoEliminar = true }
+                            )
+                        )
+                    )
                 }
             }
         }
@@ -648,20 +708,74 @@ fun MonitoreosPorPlantacion(
             when (pagina) {
                 PAGINA_INFO_PLANTACION -> InformacionPlantacionTab(
                     plantacion = plantacion,
-                    monitoreosDeLaPlantacion = monitoreosFiltrados,
-                    viewModel = plantacionesViewModel,
-                    monitoreosViewModel = viewModel,
-                    onEliminada = onBack
+                    monitoreosDeLaPlantacion = monitoreosFiltrados
                 )
                 else -> MonitoreosDePlantacionTab(
                     isRefreshing = state.isRefreshing,
                     onRefresh = { viewModel.refrescar() },
                     monitoreosFiltrados = monitoreosFiltrados,
-                    onMonitoreoClick = onMonitoreoClick
+                    plantacionActiva = plantacion?.activa != false,
+                    eliminando = state.eliminando,
+                    onMonitoreoClick = onMonitoreoClick,
+                    onMonitoreoEliminar = { aEliminar = it }
                 )
             }
         }
     }
+    }
+
+    if (mostrarDialogoFinalizar && plantacion != null) {
+        DialogoConfirmarAccion(
+            titulo = "¿Finalizar este cultivo?",
+            colorAccion = PlagOutColors.RiskWarn,
+            iconoAccion = Icons.Outlined.Flag,
+            textoConfirmar = "Finalizar",
+            icono = Icons.Outlined.Spa,
+            nombre = plantacion.cultivo_nombre,
+            detalle = "En ${plantacion.terreno_nombre}",
+            encabezadoConsecuencias = "AL FINALIZARLO",
+            consecuencias = listOf(
+                "Se finalizan todos sus monitoreos y dejás de recibir sus alertas.",
+                "Se archivan sus ciclos activos.",
+                "Se conserva el historial para consultarlo."
+            ),
+            aviso = "No se puede volver a activar.",
+            tagDialogo = "dialogFinalizarPlantacion",
+            tagConfirmar = "btnConfirmarFinalizarPlantacion",
+            tagCancelar = "btnCancelarFinalizarPlantacion",
+            onConfirmar = {
+                mostrarDialogoFinalizar = false
+                plantacionesViewModel.finalizarPlantacion(plantacion.plantacion_id) {
+                    viewModel.finalizarPorPlantacion(plantacion.plantacion_id)
+                }
+            },
+            onCancelar = { mostrarDialogoFinalizar = false }
+        )
+    }
+
+    if (mostrarDialogoEliminar && plantacion != null) {
+        DialogoEliminarPlantacion(
+            plantacion = plantacion,
+            onConfirmar = {
+                mostrarDialogoEliminar = false
+                eliminarPlantacionEnCascada(plantacion.plantacion_id, plantacionesViewModel, viewModel, onBack)
+            },
+            onCancelar = { mostrarDialogoEliminar = false }
+        )
+    }
+
+    aEliminar?.let { monitoreo ->
+        DialogoEliminarMonitoreo(
+            monitoreo = monitoreo,
+            onConfirmar = {
+                aEliminar = null
+                viewModel.eliminarMonitoreo(monitoreo.monitoreo_id) { error ->
+                    if (error == null) onMonitoreoEliminado()
+                    scope.launch { snackbarHostState.showSnackbar(error ?: "Monitoreo eliminado") }
+                }
+            },
+            onCancelar = { aEliminar = null }
+        )
     }
 }
 
@@ -669,14 +783,8 @@ fun MonitoreosPorPlantacion(
 @Composable
 private fun InformacionPlantacionTab(
     plantacion: PlantacionesResponse?,
-    monitoreosDeLaPlantacion: List<MonitoreoResponse>,
-    viewModel: PlantacionesViewModel,
-    monitoreosViewModel: MonitoreosViewModel,
-    onEliminada: () -> Unit
+    monitoreosDeLaPlantacion: List<MonitoreoResponse>
 ) {
-    val plantacionesState by viewModel.state.collectAsState()
-    var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
-    var mostrarDialogoEliminar by remember { mutableStateOf(false) }
 
     val activos = monitoreosDeLaPlantacion.filter { it.activo }
     val finalizados = monitoreosDeLaPlantacion.size - activos.size
@@ -766,7 +874,7 @@ private fun InformacionPlantacionTab(
         ) {
             Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 EstadisticaCompacta(
-                    "Sembrada",
+                    "Sembrado",
                     plantacion?.fecha_siembra?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))) ?: "—",
                     Modifier.weight(1f)
                 )
@@ -790,109 +898,7 @@ private fun InformacionPlantacionTab(
             )
         }
 
-        if (plantacion != null) {
-            Spacer(Modifier.height(20.dp))
-
-            if (plantacion.activa) {
-                OutlinedButton(
-                    onClick = { mostrarDialogoFinalizar = true },
-                    enabled = !plantacionesState.procesando,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskWarn),
-                    border = BorderStroke(1.dp, PlagOutColors.RiskWarn),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .testTag("btnFinalizarPlantacion")
-                ) {
-                    if (plantacionesState.procesando) {
-                        CircularProgressIndicator(color = PlagOutColors.RiskWarn, modifier = Modifier.size(20.dp))
-                    } else {
-                        Text("Finalizar cultivo", fontWeight = FontWeight.SemiBold)
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-            }
-
-            OutlinedButton(
-                onClick = { mostrarDialogoEliminar = true },
-                enabled = !plantacionesState.procesando,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskDanger),
-                border = BorderStroke(1.dp, PlagOutColors.RiskDanger),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("btnEliminarPlantacion")
-            ) {
-                if (plantacionesState.procesando) {
-                    CircularProgressIndicator(color = PlagOutColors.RiskDanger, modifier = Modifier.size(20.dp))
-                } else {
-                    Text("Eliminar cultivo", fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-
         Spacer(Modifier.height(16.dp))
-    }
-
-    if (mostrarDialogoFinalizar && plantacion != null) {
-        AlertDialog(
-            onDismissRequest = { mostrarDialogoFinalizar = false },
-            modifier = Modifier.testTag("dialogFinalizarPlantacion"),
-            title = { Text("¿Finalizar cultivo?") },
-            text = {
-                Text(
-                    "Vas a finalizar \"${plantacion.cultivo_nombre}\" y sus monitoreos, y archivar sus ciclos activos. " +
-                        "Conservarás el historial. Este cierre es irreversible; podés cancelar antes de confirmar."
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarDialogoFinalizar = false
-                        viewModel.finalizarPlantacion(plantacion.plantacion_id) {
-                            monitoreosViewModel.finalizarPorPlantacion(plantacion.plantacion_id)
-                        }
-                    },
-                    modifier = Modifier.testTag("btnConfirmarFinalizarPlantacion")
-                ) {
-                    Text("Finalizar", color = PlagOutColors.RiskWarn, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { mostrarDialogoFinalizar = false }) { Text("Cancelar") }
-            }
-        )
-    }
-
-    if (mostrarDialogoEliminar && plantacion != null) {
-        AlertDialog(
-            onDismissRequest = { mostrarDialogoEliminar = false },
-            modifier = Modifier.testTag("dialogEliminarPlantacion"),
-            title = { Text("¿Eliminar cultivo?") },
-            text = {
-                Text(
-                    "Se va a eliminar \"${plantacion.cultivo_nombre}\" de forma permanente, junto con sus monitoreos. " +
-                        "Esta acción no se puede deshacer."
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarDialogoEliminar = false
-                        viewModel.eliminarPlantacion(plantacion.plantacion_id) {
-                            monitoreosViewModel.purgarPorPlantacion(plantacion.plantacion_id)
-                            onEliminada()
-                        }
-                    },
-                    modifier = Modifier.testTag("btnConfirmarEliminarPlantacion")
-                ) {
-                    Text("Eliminar", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { mostrarDialogoEliminar = false }) { Text("Cancelar") }
-            }
-        )
     }
 }
 
@@ -922,7 +928,10 @@ private fun MonitoreosDePlantacionTab(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     monitoreosFiltrados: List<MonitoreoResponse>,
-    onMonitoreoClick: (Int) -> Unit
+    plantacionActiva: Boolean,
+    eliminando: Set<Int>,
+    onMonitoreoClick: (Int) -> Unit,
+    onMonitoreoEliminar: (MonitoreoResponse) -> Unit
 ) {
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -935,11 +944,20 @@ private fun MonitoreosDePlantacionTab(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                 contentAlignment = Alignment.Center
             ) {
-                EstadoVacioFlotante(
-                    icono = Icons.Outlined.BugReport,
-                    titulo = "Sin monitoreos activos",
-                    subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en este cultivo."
-                )
+                // Un cultivo finalizado ya no admite monitoreos nuevos: invitar a crearlos no tiene sentido.
+                if (plantacionActiva) {
+                    EstadoVacioFlotante(
+                        icono = Icons.Outlined.BugReport,
+                        titulo = "Sin monitoreos activos",
+                        subtitulo = "Creá un monitoreo para seguir el riesgo de plagas en este cultivo."
+                    )
+                } else {
+                    EstadoVacioFlotante(
+                        icono = Icons.Outlined.EventBusy,
+                        titulo = "No se monitoreó ninguna plaga",
+                        subtitulo = "Este cultivo se finalizó sin registrar monitoreos."
+                    )
+                }
             }
         } else {
             LazyColumn(
@@ -949,7 +967,12 @@ private fun MonitoreosDePlantacionTab(
             ) {
                 itemsIndexed(monitoreosFiltrados, key = { _, m -> m.monitoreo_id }) { index, monitoreo ->
                     StaggeredAppear(index = index) {
-                        MonitoreoCard(monitoreo) { onMonitoreoClick(monitoreo.monitoreo_id) }
+                        DeslizableParaEliminar(
+                            procesando = monitoreo.monitoreo_id in eliminando,
+                            onEliminar = { onMonitoreoEliminar(monitoreo) }
+                        ) {
+                            MonitoreoCard(monitoreo) { onMonitoreoClick(monitoreo.monitoreo_id) }
+                        }
                     }
                 }
             }

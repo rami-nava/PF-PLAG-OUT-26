@@ -2,7 +2,6 @@ package com.example.plag_out
 
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,10 +15,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.Landscape
@@ -162,7 +166,8 @@ fun MonitoreoDetalleScreen(
     }
 
     if (state.observacionesEditadas != null && monitoreo != null) {
-        SheetEditarObservaciones(
+        DialogoEditarObservaciones(
+            monitoreo = monitoreo,
             texto = state.observacionesEditadas ?: "",
             textoOriginal = monitoreo.observaciones.orEmpty(),
             guardando = state.guardandoObservaciones,
@@ -177,71 +182,49 @@ fun MonitoreoDetalleScreen(
     }
 
     if (mostrarDialogoFinalizar && monitoreo != null) {
-        AlertDialog(
-            onDismissRequest = { mostrarDialogoFinalizar = false },
-            modifier = Modifier.testTag("dialogFinalizar"),
-            title = { Text("¿Finalizar monitoreo?") },
-            text = {
-                Column {
-                    Text(
-                        "¿Finalizar el monitoreo de ${monitoreo.plaga_nombre} en ${monitoreo.cultivo_nombre}? " +
-                            "Vas a dejar de recibir alertas de esta plaga en este cultivo."
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    // El cierre de campaña es el momento en que el dato está fresco: se ofrece
-                    // escribir la nota acá mismo, sin obligar (el campo puede quedar vacío).
-                    CampoDeNota(
-                        texto = notaAlFinalizar,
-                        onTextoChange = { notaAlFinalizar = it.take(MAX_CARACTERES_OBSERVACIONES) },
-                        etiqueta = "Nota para la próxima campaña (opcional)",
-                        tag = "txtNotaFinalizar"
-                    )
-                }
+        DialogoConfirmarAccion(
+            titulo = "¿Finalizar este monitoreo?",
+            colorAccion = PlagOutColors.RiskWarn,
+            iconoAccion = Icons.Outlined.Flag,
+            textoConfirmar = "Finalizar",
+            icono = Icons.Outlined.BugReport,
+            nombre = monitoreo.plaga_nombre,
+            detalle = "${monitoreo.cultivo_nombre} · ${monitoreo.terreno_nombre}",
+            encabezadoConsecuencias = "AL FINALIZARLO",
+            consecuencias = listOf(
+                "Dejás de recibir alertas de esta plaga en este cultivo.",
+                "Se conservan sus ciclos, predicciones y alertas para consultarlos."
+            ),
+            aviso = "No se puede volver a activar.",
+            tagDialogo = "dialogFinalizar",
+            tagConfirmar = "btnConfirmarFinalizar",
+            tagCancelar = "btnCancelarFinalizar",
+            onConfirmar = {
+                mostrarDialogoFinalizar = false
+                viewModel.finalizarMonitoreo(observaciones = notaAlFinalizar) {}
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarDialogoFinalizar = false
-                        viewModel.finalizarMonitoreo(observaciones = notaAlFinalizar) {}
-                    },
-                    modifier = Modifier.testTag("btnConfirmarFinalizar")
-                ) {
-                    Text("Finalizar", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { mostrarDialogoFinalizar = false }) { Text("Cancelar") }
-            }
-        )
+            onCancelar = { mostrarDialogoFinalizar = false }
+        ) {
+            // El cierre de campaña es el momento en que el dato está fresco: se ofrece
+            // escribir la nota acá mismo, sin obligar (el campo puede quedar vacío).
+            Spacer(Modifier.height(18.dp))
+            CampoDeNota(
+                texto = notaAlFinalizar,
+                onTextoChange = { notaAlFinalizar = it.take(MAX_CARACTERES_OBSERVACIONES) },
+                etiqueta = "Nota para la próxima campaña (opcional)",
+                tag = "txtNotaFinalizar"
+            )
+        }
     }
 
     if (mostrarDialogoEliminar && monitoreo != null) {
-        AlertDialog(
-            onDismissRequest = { mostrarDialogoEliminar = false },
-            modifier = Modifier.testTag("dialogEliminarMonitoreo"),
-            title = { Text("¿Eliminar monitoreo?") },
-            text = {
-                Text(
-                    "Se va a eliminar el monitoreo de ${monitoreo.plaga_nombre} en ${monitoreo.cultivo_nombre} " +
-                        "de forma permanente, junto con sus ciclos, predicciones y alertas. " +
-                        "Esta acción no se puede deshacer.\n\nSi solo querés dejar de recibir alertas y " +
-                        "conservar el historial, usá Finalizar."
-                )
+        DialogoEliminarMonitoreo(
+            monitoreo = monitoreo,
+            onConfirmar = {
+                mostrarDialogoEliminar = false
+                viewModel.eliminarMonitoreo(onEliminado)
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarDialogoEliminar = false
-                        viewModel.eliminarMonitoreo(onEliminado)
-                    },
-                    modifier = Modifier.testTag("btnConfirmarEliminarMonitoreo")
-                ) {
-                    Text("Eliminar", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { mostrarDialogoEliminar = false }) { Text("Cancelar") }
-            }
+            onCancelar = { mostrarDialogoEliminar = false }
         )
     }
 }
@@ -321,9 +304,10 @@ private fun ContenidoMonitoreoDetalle(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextOnDark)
                 }
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text(
-                        "Monitoreo de plaga",
+                        if (monitoreo.activo) "Monitoreo de plaga" else "Monitoreo finalizado",
+                        modifier = Modifier.testTag("txtEstadoMonitoreo"),
                         color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
@@ -359,6 +343,29 @@ private fun ContenidoMonitoreoDetalle(
                         )
                     }
                 }
+                // Eliminar se ofrece también finalizado: finalizar conserva el historial, eliminar lo borra.
+                MenuAccionesHeader(
+                    ocupado = finalizando || eliminando,
+                    tag = "btnMenuMonitoreo",
+                    opciones = listOfNotNull(
+                        OpcionMenuAccion(
+                            icono = Icons.Outlined.Flag,
+                            titulo = "Finalizar monitoreo",
+                            detalle = "Deja de alertar y conserva el historial",
+                            color = PlagOutColors.TextMain,
+                            tag = "btnFinalizarMonitoreo",
+                            onClick = onFinalizarClick
+                        ).takeIf { monitoreo.activo },
+                        OpcionMenuAccion(
+                            icono = Icons.Outlined.DeleteOutline,
+                            titulo = "Eliminar monitoreo",
+                            detalle = "Borra ciclos, predicciones y alertas",
+                            color = PlagOutColors.RiskDanger,
+                            tag = "btnEliminarMonitoreo",
+                            onClick = onEliminarClick
+                        )
+                    )
+                )
             }
         }
 
@@ -392,11 +399,7 @@ private fun ContenidoMonitoreoDetalle(
                     guardandoAlertasMl = guardandoAlertasMl,
                     onCambiarAlertasMl = onCambiarAlertasMl,
                     onVerInfoUmbral = onVerInfoUmbral,
-                    onEditarObservaciones = onEditarObservaciones,
-                    finalizando = finalizando,
-                    eliminando = eliminando,
-                    onFinalizarClick = onFinalizarClick,
-                    onEliminarClick = onEliminarClick
+                    onEditarObservaciones = onEditarObservaciones
                 )
                 else -> CiclosTab(
                     monitoreo = monitoreo,
@@ -419,11 +422,7 @@ private fun DetalleTab(
     guardandoAlertasMl: Boolean,
     onCambiarAlertasMl: (Boolean) -> Unit,
     onVerInfoUmbral: () -> Unit,
-    onEditarObservaciones: () -> Unit,
-    finalizando: Boolean,
-    eliminando: Boolean,
-    onFinalizarClick: () -> Unit,
-    onEliminarClick: () -> Unit
+    onEditarObservaciones: () -> Unit
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Column(
@@ -589,61 +588,8 @@ private fun DetalleTab(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
         }
-
-        if (!monitoreo.activo) {
-            Surface(
-                color = PlagOutColors.RiskUnknown.copy(alpha = 0.14f),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Flag, contentDescription = null, tint = PlagOutColors.TextSecondary)
-                    Spacer(Modifier.width(10.dp))
-                    Text("Monitoreo finalizado", color = PlagOutColors.TextSecondary, fontWeight = FontWeight.Medium)
-                }
-            }
-        } else {
-            OutlinedButton(
-                onClick = onFinalizarClick,
-                enabled = !finalizando && !eliminando,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskWarn),
-                border = BorderStroke(1.dp, PlagOutColors.RiskWarn),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("btnFinalizarMonitoreo")
-            ) {
-                if (finalizando) {
-                    CircularProgressIndicator(color = PlagOutColors.RiskWarn, modifier = Modifier.size(20.dp))
-                } else {
-                    Text("Finalizar monitoreo", fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-
-        Spacer(Modifier.height(10.dp))
-
-        // Finalizar conserva el historial; eliminar lo borra todo, así que se ofrece en ambos estados.
-        OutlinedButton(
-            onClick = onEliminarClick,
-            enabled = !finalizando && !eliminando,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskDanger),
-            border = BorderStroke(1.dp, PlagOutColors.RiskDanger),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .testTag("btnEliminarMonitoreo")
-        ) {
-            if (eliminando) {
-                CircularProgressIndicator(color = PlagOutColors.RiskDanger, modifier = Modifier.size(20.dp))
-            } else {
-                Text("Eliminar monitoreo", fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -874,9 +820,9 @@ private fun CampoDeNota(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SheetEditarObservaciones(
+private fun DialogoEditarObservaciones(
+    monitoreo: MonitoreoResponse,
     texto: String,
     textoOriginal: String,
     guardando: Boolean,
@@ -884,51 +830,75 @@ private fun SheetEditarObservaciones(
     onCancelar: () -> Unit,
     onGuardar: () -> Unit
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onCancelar,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = PlagOutColors.Surface,
-        modifier = Modifier.testTag("sheetObservaciones")
-    ) {
-        Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-            Text("Notas de campaña", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Lo que escribas acá te va a servir el año que viene: si la plaga apareció, qué " +
-                    "tratamiento hiciste y si dio resultado.",
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                color = PlagOutColors.TextSecondary
-            )
-            Spacer(Modifier.height(16.dp))
-            CampoDeNota(
-                texto = texto,
-                onTextoChange = onTextoChange,
-                etiqueta = "Tu nota",
-                tag = "txtEditarObservaciones",
-                habilitado = !guardando
-            )
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onCancelar, enabled = !guardando, modifier = Modifier.weight(1f)) {
-                    Text("Cancelar")
-                }
-                Button(
-                    onClick = onGuardar,
-                    enabled = !guardando && texto.trim() != textoOriginal,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = PlagOutColors.Forest,
-                        contentColor = PlagOutColors.TextOnDark,
-                        disabledContainerColor = PlagOutColors.Forest.copy(alpha = 0.4f),
-                        disabledContentColor = PlagOutColors.TextOnDark.copy(alpha = 0.6f)
-                    ),
-                    modifier = Modifier.weight(1f).testTag("btnGuardarObservaciones")
-                ) {
-                    if (guardando) CircularProgressIndicator(Modifier.size(18.dp), color = PlagOutColors.TextOnDark)
-                    else Text("Guardar")
+    MarcoDialogo(tag = "sheetObservaciones", onDismissRequest = { if (!guardando) onCancelar() }) { rebote ->
+        InsigniaAccion(Icons.Outlined.EditNote, PlagOutColors.Forest, rebote)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Notas de campaña",
+            style = MaterialTheme.typography.titleLarge,
+            color = PlagOutColors.TextMain,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Lo que escribas acá te va a servir para la próxima campaña.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = PlagOutColors.TextSecondary,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(18.dp))
+
+        FichaElemento(
+            Icons.Outlined.BugReport,
+            monitoreo.plaga_nombre,
+            "${monitoreo.cultivo_nombre} · ${monitoreo.terreno_nombre}"
+        )
+        Spacer(Modifier.height(16.dp))
+
+        CampoDeNota(
+            texto = texto,
+            onTextoChange = onTextoChange,
+            etiqueta = "Tu nota",
+            tag = "txtEditarObservaciones",
+            habilitado = !guardando
+        )
+        Spacer(Modifier.height(8.dp))
+        AvisoDialogo(
+            Icons.Outlined.Lightbulb,
+            "Anotá si apareció la plaga, qué tratamiento hiciste y si dio resultado.",
+            PlagOutColors.Leaf
+        )
+
+        Spacer(Modifier.height(22.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(
+                onClick = onCancelar,
+                enabled = !guardando,
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, PlagOutColors.Divider),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.TextMain),
+                modifier = Modifier.weight(1f).height(50.dp)
+            ) {
+                Text("Cancelar", fontWeight = FontWeight.SemiBold)
+            }
+            Button(
+                onClick = onGuardar,
+                enabled = !guardando && texto.trim() != textoOriginal,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PlagOutColors.Forest,
+                    contentColor = PlagOutColors.TextOnDark
+                ),
+                modifier = Modifier.weight(1f).height(50.dp).testTag("btnGuardarObservaciones")
+            ) {
+                if (guardando) {
+                    CircularProgressIndicator(color = PlagOutColors.TextOnDark, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                } else {
+                    Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Guardar", fontWeight = FontWeight.Bold)
                 }
             }
-            Spacer(Modifier.height(16.dp))
         }
     }
 }

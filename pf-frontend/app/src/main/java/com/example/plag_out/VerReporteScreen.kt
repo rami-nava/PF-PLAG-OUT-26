@@ -43,6 +43,7 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -164,7 +165,24 @@ private fun ContenidoVerReporte(
                 .fillMaxSize()
                 .background(PlagOutColors.Cream)
         ) {
-            HeaderVerReporte(onBack = onBack)
+            HeaderVerReporte(onBack = onBack) {
+                if (detalle.es_propio) {
+                    MenuAccionesHeader(
+                        ocupado = isEliminando,
+                        tag = "btnMenuReporte",
+                        opciones = listOf(
+                            OpcionMenuAccion(
+                                icono = Icons.Outlined.DeleteOutline,
+                                titulo = "Eliminar reporte",
+                                detalle = "Deja de verse para los productores de tu zona",
+                                color = PlagOutColors.RiskDanger,
+                                tag = "btnEliminarReporte",
+                                onClick = { mostrarDialogoConfirmacion = true }
+                            )
+                        )
+                    )
+                }
+            }
 
             Column(
                 modifier = Modifier
@@ -584,60 +602,19 @@ private fun ContenidoVerReporte(
                 }
             }
 
-            if (detalle.es_propio) {
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = { mostrarDialogoConfirmacion = true },
-                    enabled = !isEliminando,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskDanger),
-                    border = BorderStroke(1.dp, PlagOutColors.RiskDanger),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .testTag("btnEliminarReporte")
-                ) {
-                    if (isEliminando) {
-                        CircularProgressIndicator(color = PlagOutColors.RiskDanger, modifier = Modifier.size(20.dp))
-                    } else {
-                        Text("Eliminar reporte", fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-
             Spacer(Modifier.height(8.dp))
         }
     }
 
     // Modal de confirmación para eliminar reporte propio
     if (detalle.es_propio && mostrarDialogoConfirmacion) {
-        AlertDialog(
-            onDismissRequest = { mostrarDialogoConfirmacion = false },
-            modifier = Modifier.testTag("dialogEliminarReporte"),
-            title = { Text("¿Estás seguro de que deseas eliminar este reporte?") },
-            text = {
-                Text(
-                    "Esta acción no se puede deshacer y si eliminas este reporte, dejará de ser visible para los productores de tu zona."
-                )
+        DialogoEliminarReporte(
+            reporte = detalle,
+            onConfirmar = {
+                mostrarDialogoConfirmacion = false
+                viewModel.eliminarReporte(detalle.id) { onBack() }
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarDialogoConfirmacion = false
-                        viewModel.eliminarReporte(detalle.id) { onBack() }
-                    },
-                    modifier = Modifier.testTag("btnConfirmarEliminarReporte")
-                ) {
-                    Text("Eliminar", color = PlagOutColors.RiskDanger, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { mostrarDialogoConfirmacion = false },
-                    modifier = Modifier.testTag("btnCancelarEliminarReporte")
-                ) {
-                    Text("Cancelar")
-                }
-            }
+            onCancelar = { mostrarDialogoConfirmacion = false }
         )
     }
 
@@ -777,7 +754,7 @@ private fun FilaDatoSeveridad(
 // ── Header ───────────────────────────────────────────────────────────────────
 
 @Composable
-private fun HeaderVerReporte(onBack: () -> Unit) {
+private fun HeaderVerReporte(onBack: () -> Unit, acciones: @Composable () -> Unit = {}) {
     val respiracion = rememberInfiniteTransition(label = "respiracionHeaderReporte")
     val escala by respiracion.animateFloat(
         initialValue = 1f,
@@ -839,6 +816,7 @@ private fun HeaderVerReporte(onBack: () -> Unit) {
                     fontWeight = FontWeight.ExtraBold
                 )
             }
+            acciones()
         }
     }
 }

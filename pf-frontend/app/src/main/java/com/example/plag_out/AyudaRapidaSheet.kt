@@ -20,8 +20,8 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.Grass
-import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -96,9 +96,14 @@ fun AyudaRapidaSheet(onDismiss: () -> Unit, onVerGuiaCompleta: () -> Unit) {
                 "Elegí la plaga a seguir y tu umbral de riesgo."
             )
             PasoRapido(
+                Icons.Outlined.EventAvailable,
+                "Confirmá la presencia de la plaga",
+                "Así se generan los ciclos por generación."
+            )
+            PasoRapido(
                 Icons.Outlined.BugReport,
                 "Realizá reportes",
-                "Registrá lo que ves a campo con el botón + de la barra."
+                "Registrá lo que ves a campo."
             )
             PasoRapido(
                 Icons.Default.Notifications,
@@ -108,31 +113,6 @@ fun AyudaRapidaSheet(onDismiss: () -> Unit, onVerGuiaCompleta: () -> Unit) {
             )
 
             Spacer(Modifier.height(24.dp))
-
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .background(PlagOutColors.Moss.copy(alpha = 0.22f), RoundedCornerShape(12.dp))
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Outlined.MenuBook,
-                    contentDescription = null,
-                    tint = PlagOutColors.Forest,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    "La explicación en detalle —GDD, biofix y niveles de alerta— está en " +
-                        "Perfil → Ajustes → ¿Cómo funciona?",
-                    fontSize = 12.sp,
-                    color = PlagOutColors.TextMain,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(Modifier.height(20.dp))
 
             Button(
                 onClick = onDismiss,
