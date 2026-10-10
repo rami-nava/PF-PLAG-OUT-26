@@ -15,6 +15,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -390,7 +395,12 @@ fun AppNavigation(
     // Cerrar sesión: AuthViewModel borra el almacenamiento local (token, Room,
     // marcas de caché); acá se descarta además el estado en memoria de los
     // ViewModels y se vuelve al login vaciando el back stack
-    val limpiarSesion: (Boolean, () -> Unit) -> Unit = { desregistrarDispositivo, despues ->
+    // Mientras dura el cierre se tapa la app: así no se puede seguir usando y no asoman los
+    // errores de las pantallas que se quedan sin sesión antes de llegar al login.
+    var cerrandoSesion by remember { mutableStateOf(false) }
+    val limpiarSesion: (Boolean, () -> Unit) -> Unit = limpiar@{ desregistrarDispositivo, despues ->
+        if (cerrandoSesion) return@limpiar
+        cerrandoSesion = true
         authViewModel.cerrarSesion(desregistrarDispositivo) {
             userViewModel.limpiar()
             monitoreosViewModel.limpiar()
@@ -403,9 +413,12 @@ fun AppNavigation(
             navController.navigate("logIn") {
                 popUpTo(0) { inclusive = true }
             }
+            cerrandoSesion = false
             despues()
         }
     }
+
+    if (cerrandoSesion) PantallaCerrandoSesion()
     val cerrarSesion: () -> Unit = { limpiarSesion(true) {} }
 
     // Cuenta suspendida por un admin con la sesión abierta: cualquier request devuelve 403
@@ -865,6 +878,57 @@ private fun SoloAdmin(navController: NavController, contenido: @Composable () ->
 
 /** Cuánto esperamos a que Supabase resuelva la sesión antes de ofrecer ir al login. */
 private const val ESPERA_MAXIMA_SESION_MS = 8_000L
+
+@Composable
+private fun PantallaCerrandoSesion() {
+    val aparicion = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { aparicion.animateTo(1f, tween(260)) }
+    Dialog(
+        onDismissRequest = {},
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = aparicion.value }
+                .testTag("pantallaCerrandoSesion")
+        ) {
+            FondoVerdeAuth()
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 32.dp)
+                    .graphicsLayer {
+                        val a = aparicion.value
+                        translationY = (1f - a) * 24.dp.toPx()
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator(color = PlagOutColors.TextOnDark, strokeWidth = 3.dp)
+                Spacer(Modifier.height(22.dp))
+                Text(
+                    "Cerrando sesión…",
+                    color = PlagOutColors.TextOnDark,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "¡Hasta pronto!",
+                    color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun PantallaCargandoSesion(esperaAgotada: Boolean, onIrAlLogin: () -> Unit) {
