@@ -104,6 +104,8 @@ data class MonitoreoResponse(
     val plaga_nombre_cientifico: String? = null,
     @SerializedName("umbral_alerta_ml")
     val umbral_alerta_ml: Float? = null,
+    @SerializedName("alertas_ml_activas")
+    val alertas_ml_activas: Boolean? = null,
     @SerializedName("umbral_alerta_ml_recomendado")
     val umbral_alerta_ml_recomendado: Float? = null,
     @SerializedName("umbral_alerta_ml_efectivo")
