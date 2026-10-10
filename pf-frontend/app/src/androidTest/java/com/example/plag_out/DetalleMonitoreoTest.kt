@@ -150,13 +150,15 @@ class DetalleMonitoreoTest {
         mostrarDetalle()
         irADetalle()
 
+        composeRule.onNodeWithTag("btnMenuMonitoreo").performClick()
         composeRule.onNodeWithTag("btnFinalizarMonitoreo").performClick()
         composeRule.onNodeWithTag("dialogFinalizar").assertExists()
 
         composeRule.onNodeWithText("Cancelar").performClick()
 
         composeRule.onNodeWithTag("dialogFinalizar").assertDoesNotExist()
-        // Al cancelar, no se disparó el PATCH y el botón de finalizar sigue disponible.
+        // Al cancelar, no se disparó el PATCH y la opción de finalizar sigue disponible.
+        composeRule.onNodeWithTag("btnMenuMonitoreo").performClick()
         composeRule.onNodeWithTag("btnFinalizarMonitoreo").assertExists()
         assert(gddService.vecesLlamado("actualizarMonitoreo") == 0)
     }
@@ -188,6 +190,7 @@ class DetalleMonitoreoTest {
         mostrarDetalle()
         irADetalle()
 
+        composeRule.onNodeWithTag("btnMenuMonitoreo").performClick()
         composeRule.onNodeWithTag("btnFinalizarMonitoreo").performClick()
         composeRule.onNodeWithTag("txtNotaFinalizar").performTextInput(nota)
         composeRule.onNodeWithTag("btnConfirmarFinalizar").performClick()

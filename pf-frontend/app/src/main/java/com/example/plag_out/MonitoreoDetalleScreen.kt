@@ -2,7 +2,6 @@ package com.example.plag_out
 
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,7 +15,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.EditNote
@@ -320,9 +321,10 @@ private fun ContenidoMonitoreoDetalle(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextOnDark)
                 }
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text(
-                        "Monitoreo de plaga",
+                        if (monitoreo.activo) "Monitoreo de plaga" else "Monitoreo finalizado",
+                        modifier = Modifier.testTag("txtEstadoMonitoreo"),
                         color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
@@ -358,6 +360,12 @@ private fun ContenidoMonitoreoDetalle(
                         )
                     }
                 }
+                MenuAccionesMonitoreo(
+                    activo = monitoreo.activo,
+                    ocupado = finalizando || eliminando,
+                    onFinalizarClick = onFinalizarClick,
+                    onEliminarClick = onEliminarClick
+                )
             }
         }
 
@@ -390,11 +398,7 @@ private fun ContenidoMonitoreoDetalle(
                     onEditarUmbral = onEditarUmbral,
                     onEditarUmbralMl = onEditarUmbralMl,
                     onVerInfoUmbral = onVerInfoUmbral,
-                    onEditarObservaciones = onEditarObservaciones,
-                    finalizando = finalizando,
-                    eliminando = eliminando,
-                    onFinalizarClick = onFinalizarClick,
-                    onEliminarClick = onEliminarClick
+                    onEditarObservaciones = onEditarObservaciones
                 )
                 else -> CiclosTab(
                     monitoreo = monitoreo,
@@ -416,11 +420,7 @@ private fun DetalleTab(
     onEditarUmbral: () -> Unit,
     onEditarUmbralMl: () -> Unit,
     onVerInfoUmbral: () -> Unit,
-    onEditarObservaciones: () -> Unit,
-    finalizando: Boolean,
-    eliminando: Boolean,
-    onFinalizarClick: () -> Unit,
-    onEliminarClick: () -> Unit
+    onEditarObservaciones: () -> Unit
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Column(
@@ -643,62 +643,85 @@ private fun DetalleTab(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
         }
-
-        if (!monitoreo.activo) {
-            Surface(
-                color = PlagOutColors.RiskUnknown.copy(alpha = 0.14f),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Flag, contentDescription = null, tint = PlagOutColors.TextSecondary)
-                    Spacer(Modifier.width(10.dp))
-                    Text("Monitoreo finalizado", color = PlagOutColors.TextSecondary, fontWeight = FontWeight.Medium)
-                }
-            }
-        } else {
-            OutlinedButton(
-                onClick = onFinalizarClick,
-                enabled = !finalizando && !eliminando,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskWarn),
-                border = BorderStroke(1.dp, PlagOutColors.RiskWarn),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("btnFinalizarMonitoreo")
-            ) {
-                if (finalizando) {
-                    CircularProgressIndicator(color = PlagOutColors.RiskWarn, modifier = Modifier.size(20.dp))
-                } else {
-                    Text("Finalizar monitoreo", fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-
-        Spacer(Modifier.height(10.dp))
-
-        // Finalizar conserva el historial; eliminar lo borra todo, así que se ofrece en ambos estados.
-        OutlinedButton(
-            onClick = onEliminarClick,
-            enabled = !finalizando && !eliminando,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskDanger),
-            border = BorderStroke(1.dp, PlagOutColors.RiskDanger),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .testTag("btnEliminarMonitoreo")
-        ) {
-            if (eliminando) {
-                CircularProgressIndicator(color = PlagOutColors.RiskDanger, modifier = Modifier.size(20.dp))
-            } else {
-                Text("Eliminar monitoreo", fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
     }
+}
+
+/**
+ * Finalizar y eliminar viven en el header para estar a mano desde ambas pestañas sin ocupar
+ * espacio fijo al pie. Finalizar conserva el historial; eliminar lo borra todo, así que se
+ * ofrece también en monitoreos ya finalizados.
+ */
+@Composable
+private fun MenuAccionesMonitoreo(
+    activo: Boolean,
+    ocupado: Boolean,
+    onFinalizarClick: () -> Unit,
+    onEliminarClick: () -> Unit
+) {
+    var abierto by remember { mutableStateOf(false) }
+    Box {
+        if (ocupado) {
+            CircularProgressIndicator(
+                color = PlagOutColors.TextOnDark,
+                strokeWidth = 2.dp,
+                modifier = Modifier.padding(12.dp).size(22.dp)
+            )
+        } else {
+            IconButton(onClick = { abierto = true }, modifier = Modifier.testTag("btnMenuMonitoreo")) {
+                Icon(Icons.Filled.MoreVert, contentDescription = "Más acciones", tint = PlagOutColors.TextOnDark)
+            }
+        }
+        DropdownMenu(
+            expanded = abierto,
+            onDismissRequest = { abierto = false },
+            shape = RoundedCornerShape(16.dp),
+            containerColor = PlagOutColors.Surface
+        ) {
+            if (activo) {
+                OpcionMenuMonitoreo(
+                    icono = Icons.Outlined.Flag,
+                    titulo = "Finalizar monitoreo",
+                    detalle = "Deja de alertar y conserva el historial",
+                    color = PlagOutColors.TextMain,
+                    tag = "btnFinalizarMonitoreo",
+                    onClick = { abierto = false; onFinalizarClick() }
+                )
+                HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.padding(horizontal = 12.dp))
+            }
+            OpcionMenuMonitoreo(
+                icono = Icons.Outlined.DeleteOutline,
+                titulo = "Eliminar monitoreo",
+                detalle = "Borra ciclos, predicciones y alertas",
+                color = PlagOutColors.RiskDanger,
+                tag = "btnEliminarMonitoreo",
+                onClick = { abierto = false; onEliminarClick() }
+            )
+        }
+    }
+}
+
+@Composable
+private fun OpcionMenuMonitoreo(
+    icono: ImageVector,
+    titulo: String,
+    detalle: String,
+    color: Color,
+    tag: String,
+    onClick: () -> Unit
+) {
+    DropdownMenuItem(
+        onClick = onClick,
+        leadingIcon = { Icon(icono, contentDescription = null, tint = color) },
+        text = {
+            Column(Modifier.padding(vertical = 4.dp)) {
+                Text(titulo, color = color, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(detalle, color = PlagOutColors.TextSecondary, fontSize = 12.sp)
+            }
+        },
+        modifier = Modifier.widthIn(min = 260.dp).testTag(tag)
+    )
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
