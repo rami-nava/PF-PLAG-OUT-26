@@ -404,7 +404,8 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
                     mensaje?.let {
                         EtiquetaInfo(Icons.Filled.ErrorOutline, it, PlagOutColors.RiskWarn)
                     }
-                    EstadoEsperandoBiofix(Modifier.fillMaxWidth())
+                    if (monitoreo.activo) EstadoEsperandoBiofix(Modifier.fillMaxWidth())
+                    else EstadoSinCiclos(Modifier.fillMaxWidth())
                 }
             }
         } else {
@@ -456,7 +457,8 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
             }
         }
 
-        Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp)) {
+        // Un monitoreo finalizado ya no admite biofix: el botón deshabilitado solo confundía.
+        if (monitoreo.activo) Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp)) {
             BotonRegistrarBiofix(
                 texto = if (pendiente == null) "Registrar nuevo biofix" else "Reintentar biofix pendiente",
                 habilitado = pendienteCargado && monitoreo.activo && owner != null,

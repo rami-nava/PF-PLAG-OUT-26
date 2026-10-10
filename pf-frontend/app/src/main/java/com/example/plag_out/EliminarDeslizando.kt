@@ -75,6 +75,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.sin
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.example.plag_out.ui.theme.PlagOutColors
 
 // ── Deslizar para eliminar ───────────────────────────────────────────────────
@@ -174,6 +182,58 @@ private fun FondoEliminar(estado: SwipeToDismissBoxState, pasoElUmbral: Boolean,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold
             )
+        }
+    }
+}
+
+// ── Menú de acciones del header ──────────────────────────────────────────────
+// Las acciones de un detalle (editar, finalizar, eliminar) viven en un ⋮ del header: quedan
+// a mano desde todas las pestañas sin ocupar espacio fijo al pie del contenido.
+
+data class OpcionMenuAccion(
+    val icono: ImageVector,
+    val titulo: String,
+    val detalle: String,
+    val color: Color,
+    val tag: String,
+    val onClick: () -> Unit
+)
+
+@Composable
+fun MenuAccionesHeader(opciones: List<OpcionMenuAccion>, ocupado: Boolean, tag: String) {
+    var abierto by remember { mutableStateOf(false) }
+    Box {
+        if (ocupado) {
+            CircularProgressIndicator(
+                color = PlagOutColors.TextOnDark,
+                strokeWidth = 2.dp,
+                modifier = Modifier.padding(12.dp).size(22.dp)
+            )
+        } else {
+            IconButton(onClick = { abierto = true }, modifier = Modifier.testTag(tag)) {
+                Icon(Icons.Filled.MoreVert, contentDescription = "Más acciones", tint = PlagOutColors.TextOnDark)
+            }
+        }
+        DropdownMenu(
+            expanded = abierto,
+            onDismissRequest = { abierto = false },
+            shape = RoundedCornerShape(16.dp),
+            containerColor = PlagOutColors.Surface
+        ) {
+            opciones.forEachIndexed { i, opcion ->
+                if (i > 0) HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.padding(horizontal = 12.dp))
+                DropdownMenuItem(
+                    onClick = { abierto = false; opcion.onClick() },
+                    leadingIcon = { Icon(opcion.icono, contentDescription = null, tint = opcion.color) },
+                    text = {
+                        Column(Modifier.padding(vertical = 4.dp)) {
+                            Text(opcion.titulo, color = opcion.color, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text(opcion.detalle, color = PlagOutColors.TextSecondary, fontSize = 12.sp)
+                        }
+                    },
+                    modifier = Modifier.widthIn(min = 260.dp).testTag(opcion.tag)
+                )
+            }
         }
     }
 }

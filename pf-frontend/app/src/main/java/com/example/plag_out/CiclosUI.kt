@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Button
@@ -387,6 +388,47 @@ fun EstadoEsperandoBiofix(modifier: Modifier = Modifier) {
         Spacer(Modifier.height(8.dp))
         Text(
             "El conteo de GDD arranca cuando registrás la primera presencia de la plaga.",
+            fontSize = 13.sp,
+            lineHeight = 19.sp,
+            textAlign = TextAlign.Center,
+            color = PlagOutColors.TextSecondary
+        )
+    }
+}
+
+@Composable
+fun EstadoSinCiclos(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Surface(
+            color = PlagOutColors.Bark.copy(alpha = 0.12f),
+            shape = CircleShape,
+            modifier = Modifier.size(108.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Outlined.EventBusy,
+                    contentDescription = null,
+                    tint = PlagOutColors.Bark,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+        Text(
+            "No se registraron ciclos para este monitoreo",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            color = PlagOutColors.TextMain,
+            modifier = Modifier.testTag("txtSinCiclos")
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "El monitoreo se finalizó antes de confirmar la presencia de la plaga.",
             fontSize = 13.sp,
             lineHeight = 19.sp,
             textAlign = TextAlign.Center,

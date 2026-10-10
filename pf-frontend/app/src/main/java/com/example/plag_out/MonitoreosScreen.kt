@@ -35,6 +35,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.outlined.Spa
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Grass
@@ -583,6 +586,8 @@ fun MonitoreosPorPlantacion(
     val pagerState = rememberPagerState(pageCount = { 2 })
     val snackbarHostState = remember { SnackbarHostState() }
     var aEliminar by remember { mutableStateOf<MonitoreoResponse?>(null) }
+    var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
+    var mostrarDialogoEliminar by remember { mutableStateOf(false) }
 
     LaunchedEffect(plantacionesState.error) {
         plantacionesState.error?.let {
@@ -636,7 +641,7 @@ fun MonitoreosPorPlantacion(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextOnDark)
                 }
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text(
                         "Detalle de cultivo",
                         color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
@@ -653,6 +658,30 @@ fun MonitoreosPorPlantacion(
                     if (terrenoNombre != null) {
                         Text(terrenoNombre, color = PlagOutColors.TextOnDark.copy(alpha = 0.8f), fontSize = 13.sp)
                     }
+                }
+                if (plantacion != null) {
+                    MenuAccionesHeader(
+                        ocupado = plantacionesState.procesando,
+                        tag = "btnMenuPlantacion",
+                        opciones = listOfNotNull(
+                            OpcionMenuAccion(
+                                icono = Icons.Outlined.Flag,
+                                titulo = "Finalizar cultivo",
+                                detalle = "Finaliza sus monitoreos y conserva el historial",
+                                color = PlagOutColors.TextMain,
+                                tag = "btnFinalizarPlantacion",
+                                onClick = { mostrarDialogoFinalizar = true }
+                            ).takeIf { plantacion.activa },
+                            OpcionMenuAccion(
+                                icono = Icons.Outlined.DeleteOutline,
+                                titulo = "Eliminar cultivo",
+                                detalle = "Borra sus monitoreos y su historial",
+                                color = PlagOutColors.RiskDanger,
+                                tag = "btnEliminarPlantacion",
+                                onClick = { mostrarDialogoEliminar = true }
+                            )
+                        )
+                    )
                 }
             }
         }
@@ -678,10 +707,7 @@ fun MonitoreosPorPlantacion(
             when (pagina) {
                 PAGINA_INFO_PLANTACION -> InformacionPlantacionTab(
                     plantacion = plantacion,
-                    monitoreosDeLaPlantacion = monitoreosFiltrados,
-                    viewModel = plantacionesViewModel,
-                    monitoreosViewModel = viewModel,
-                    onEliminada = onBack
+                    monitoreosDeLaPlantacion = monitoreosFiltrados
                 )
                 else -> MonitoreosDePlantacionTab(
                     isRefreshing = state.isRefreshing,
@@ -694,6 +720,46 @@ fun MonitoreosPorPlantacion(
             }
         }
     }
+    }
+
+    if (mostrarDialogoFinalizar && plantacion != null) {
+        DialogoConfirmarAccion(
+            titulo = "¿Finalizar este cultivo?",
+            colorAccion = PlagOutColors.RiskWarn,
+            iconoAccion = Icons.Outlined.Flag,
+            textoConfirmar = "Finalizar",
+            icono = Icons.Outlined.Spa,
+            nombre = plantacion.cultivo_nombre,
+            detalle = "En ${plantacion.terreno_nombre}",
+            encabezadoConsecuencias = "AL FINALIZARLO",
+            consecuencias = listOf(
+                "Se finalizan todos sus monitoreos y dejás de recibir sus alertas.",
+                "Se archivan sus ciclos activos.",
+                "Se conserva el historial para consultarlo."
+            ),
+            aviso = "No se puede volver a activar.",
+            tagDialogo = "dialogFinalizarPlantacion",
+            tagConfirmar = "btnConfirmarFinalizarPlantacion",
+            tagCancelar = "btnCancelarFinalizarPlantacion",
+            onConfirmar = {
+                mostrarDialogoFinalizar = false
+                plantacionesViewModel.finalizarPlantacion(plantacion.plantacion_id) {
+                    viewModel.finalizarPorPlantacion(plantacion.plantacion_id)
+                }
+            },
+            onCancelar = { mostrarDialogoFinalizar = false }
+        )
+    }
+
+    if (mostrarDialogoEliminar && plantacion != null) {
+        DialogoEliminarPlantacion(
+            plantacion = plantacion,
+            onConfirmar = {
+                mostrarDialogoEliminar = false
+                eliminarPlantacionEnCascada(plantacion.plantacion_id, plantacionesViewModel, viewModel, onBack)
+            },
+            onCancelar = { mostrarDialogoEliminar = false }
+        )
     }
 
     aEliminar?.let { monitoreo ->
@@ -715,14 +781,8 @@ fun MonitoreosPorPlantacion(
 @Composable
 private fun InformacionPlantacionTab(
     plantacion: PlantacionesResponse?,
-    monitoreosDeLaPlantacion: List<MonitoreoResponse>,
-    viewModel: PlantacionesViewModel,
-    monitoreosViewModel: MonitoreosViewModel,
-    onEliminada: () -> Unit
+    monitoreosDeLaPlantacion: List<MonitoreoResponse>
 ) {
-    val plantacionesState by viewModel.state.collectAsState()
-    var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
-    var mostrarDialogoEliminar by remember { mutableStateOf(false) }
 
     val activos = monitoreosDeLaPlantacion.filter { it.activo }
     val finalizados = monitoreosDeLaPlantacion.size - activos.size
@@ -836,89 +896,7 @@ private fun InformacionPlantacionTab(
             )
         }
 
-        if (plantacion != null) {
-            Spacer(Modifier.height(20.dp))
-
-            if (plantacion.activa) {
-                OutlinedButton(
-                    onClick = { mostrarDialogoFinalizar = true },
-                    enabled = !plantacionesState.procesando,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskWarn),
-                    border = BorderStroke(1.dp, PlagOutColors.RiskWarn),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .testTag("btnFinalizarPlantacion")
-                ) {
-                    if (plantacionesState.procesando) {
-                        CircularProgressIndicator(color = PlagOutColors.RiskWarn, modifier = Modifier.size(20.dp))
-                    } else {
-                        Text("Finalizar cultivo", fontWeight = FontWeight.SemiBold)
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-            }
-
-            OutlinedButton(
-                onClick = { mostrarDialogoEliminar = true },
-                enabled = !plantacionesState.procesando,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.RiskDanger),
-                border = BorderStroke(1.dp, PlagOutColors.RiskDanger),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("btnEliminarPlantacion")
-            ) {
-                if (plantacionesState.procesando) {
-                    CircularProgressIndicator(color = PlagOutColors.RiskDanger, modifier = Modifier.size(20.dp))
-                } else {
-                    Text("Eliminar cultivo", fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-
         Spacer(Modifier.height(16.dp))
-    }
-
-    if (mostrarDialogoFinalizar && plantacion != null) {
-        AlertDialog(
-            onDismissRequest = { mostrarDialogoFinalizar = false },
-            modifier = Modifier.testTag("dialogFinalizarPlantacion"),
-            title = { Text("¿Finalizar cultivo?") },
-            text = {
-                Text(
-                    "Vas a finalizar \"${plantacion.cultivo_nombre}\" y sus monitoreos, y archivar sus ciclos activos. " +
-                        "Conservarás el historial. Este cierre es irreversible; podés cancelar antes de confirmar."
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarDialogoFinalizar = false
-                        viewModel.finalizarPlantacion(plantacion.plantacion_id) {
-                            monitoreosViewModel.finalizarPorPlantacion(plantacion.plantacion_id)
-                        }
-                    },
-                    modifier = Modifier.testTag("btnConfirmarFinalizarPlantacion")
-                ) {
-                    Text("Finalizar", color = PlagOutColors.RiskWarn, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { mostrarDialogoFinalizar = false }) { Text("Cancelar") }
-            }
-        )
-    }
-
-    if (mostrarDialogoEliminar && plantacion != null) {
-        DialogoEliminarPlantacion(
-            plantacion = plantacion,
-            onConfirmar = {
-                mostrarDialogoEliminar = false
-                eliminarPlantacionEnCascada(plantacion.plantacion_id, viewModel, monitoreosViewModel, onEliminada)
-            },
-            onCancelar = { mostrarDialogoEliminar = false }
-        )
     }
 }
 

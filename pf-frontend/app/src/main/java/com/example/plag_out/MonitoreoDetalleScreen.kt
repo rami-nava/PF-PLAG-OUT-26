@@ -15,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.BugReport
@@ -357,11 +356,28 @@ private fun ContenidoMonitoreoDetalle(
                         )
                     }
                 }
-                MenuAccionesMonitoreo(
-                    activo = monitoreo.activo,
+                // Eliminar se ofrece también finalizado: finalizar conserva el historial, eliminar lo borra.
+                MenuAccionesHeader(
                     ocupado = finalizando || eliminando,
-                    onFinalizarClick = onFinalizarClick,
-                    onEliminarClick = onEliminarClick
+                    tag = "btnMenuMonitoreo",
+                    opciones = listOfNotNull(
+                        OpcionMenuAccion(
+                            icono = Icons.Outlined.Flag,
+                            titulo = "Finalizar monitoreo",
+                            detalle = "Deja de alertar y conserva el historial",
+                            color = PlagOutColors.TextMain,
+                            tag = "btnFinalizarMonitoreo",
+                            onClick = onFinalizarClick
+                        ).takeIf { monitoreo.activo },
+                        OpcionMenuAccion(
+                            icono = Icons.Outlined.DeleteOutline,
+                            titulo = "Eliminar monitoreo",
+                            detalle = "Borra ciclos, predicciones y alertas",
+                            color = PlagOutColors.RiskDanger,
+                            tag = "btnEliminarMonitoreo",
+                            onClick = onEliminarClick
+                        )
+                    )
                 )
             }
         }
@@ -643,82 +659,6 @@ private fun DetalleTab(
             Spacer(Modifier.height(16.dp))
         }
     }
-}
-
-/**
- * Finalizar y eliminar viven en el header para estar a mano desde ambas pestañas sin ocupar
- * espacio fijo al pie. Finalizar conserva el historial; eliminar lo borra todo, así que se
- * ofrece también en monitoreos ya finalizados.
- */
-@Composable
-private fun MenuAccionesMonitoreo(
-    activo: Boolean,
-    ocupado: Boolean,
-    onFinalizarClick: () -> Unit,
-    onEliminarClick: () -> Unit
-) {
-    var abierto by remember { mutableStateOf(false) }
-    Box {
-        if (ocupado) {
-            CircularProgressIndicator(
-                color = PlagOutColors.TextOnDark,
-                strokeWidth = 2.dp,
-                modifier = Modifier.padding(12.dp).size(22.dp)
-            )
-        } else {
-            IconButton(onClick = { abierto = true }, modifier = Modifier.testTag("btnMenuMonitoreo")) {
-                Icon(Icons.Filled.MoreVert, contentDescription = "Más acciones", tint = PlagOutColors.TextOnDark)
-            }
-        }
-        DropdownMenu(
-            expanded = abierto,
-            onDismissRequest = { abierto = false },
-            shape = RoundedCornerShape(16.dp),
-            containerColor = PlagOutColors.Surface
-        ) {
-            if (activo) {
-                OpcionMenuMonitoreo(
-                    icono = Icons.Outlined.Flag,
-                    titulo = "Finalizar monitoreo",
-                    detalle = "Deja de alertar y conserva el historial",
-                    color = PlagOutColors.TextMain,
-                    tag = "btnFinalizarMonitoreo",
-                    onClick = { abierto = false; onFinalizarClick() }
-                )
-                HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.padding(horizontal = 12.dp))
-            }
-            OpcionMenuMonitoreo(
-                icono = Icons.Outlined.DeleteOutline,
-                titulo = "Eliminar monitoreo",
-                detalle = "Borra ciclos, predicciones y alertas",
-                color = PlagOutColors.RiskDanger,
-                tag = "btnEliminarMonitoreo",
-                onClick = { abierto = false; onEliminarClick() }
-            )
-        }
-    }
-}
-
-@Composable
-private fun OpcionMenuMonitoreo(
-    icono: ImageVector,
-    titulo: String,
-    detalle: String,
-    color: Color,
-    tag: String,
-    onClick: () -> Unit
-) {
-    DropdownMenuItem(
-        onClick = onClick,
-        leadingIcon = { Icon(icono, contentDescription = null, tint = color) },
-        text = {
-            Column(Modifier.padding(vertical = 4.dp)) {
-                Text(titulo, color = color, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Text(detalle, color = PlagOutColors.TextSecondary, fontSize = 12.sp)
-            }
-        },
-        modifier = Modifier.widthIn(min = 260.dp).testTag(tag)
-    )
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
