@@ -74,11 +74,7 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
             Spacer(Modifier.height(16.dp))
 
             Text(
-                "Plag-Out te ayuda a anticipar el riesgo de plagas en tus cultivos: cargás tus " +
-                    "terrenos y lo que sembraste en cada uno, monitoreás las plagas que te " +
-                    "importan y reportás lo que ves a campo. Con el clima de tu ubicación la app " +
-                    "calcula día a día qué tan favorable fue el ambiente para cada plaga y te " +
-                    "avisa cuando el riesgo sube o cuando se viene un nuevo biofix.",
+                "Plag-Out te ayuda a anticipar el riesgo de plagas en tus cultivos:",
                 fontSize = 14.sp,
                 color = PlagOutColors.TextSecondary
             )
@@ -104,17 +100,25 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
             )
             PasoAyuda(
                 4,
-                "Realizá reportes",
-                "Con el botón + de la barra registrás lo que ves a campo: plaga, etapa " +
-                    "biológica, severidad, ubicación y fecha. Queda en Reportes como historial " +
-                    "de lo que pasó en cada terreno."
+                "Confirmá la presencia de la plaga",
+                "Si notás presencia no aislada de insectos adultos, se trata de un biofix, informalo " +
+                        "para iniciar el acumulador de grados días. Nuestro modelo de Inteligencia Artificial " +
+                        "busca predecir biofix, si recibís una alerta confirmala o negala."
             )
             PasoAyuda(
                 5,
+                "Realizá reportes",
+                "Registrá lo que ves a campo: plaga, etapa " +
+                        "biológica, severidad, ubicación y fecha. Queda un registro de lo que pasó " +
+                        "y notifica a usuarios cercanos."
+
+            )
+            PasoAyuda(
+                6,
                 "Recibí alertas",
-                "Cada monitoreo muestra un nivel de alerta —Bajo, Moderado o Alto— y te " +
-                    "notificamos cuando el riesgo supera tu umbral y cuando detectamos un " +
-                    "posible biofix, para que llegues antes que la plaga.",
+                "Te avisamos si el desarrollo de un monitoreo " +
+                    "supera tu umbral, si detectamos un " +
+                    "posible biofix y si realizan reportes cercanos a vos.",
                 ultimo = true
             )
 
@@ -140,15 +144,6 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
                         "que aparezcan los adultos. Es una estimación, no una garantía: el clima y la " +
                         "población de la zona pueden adelantarla o atrasarla."
                 )
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    "En el monitoreo vas a ver los GDD acumulados avanzar hasta el objetivo de " +
-                        "eclosión. Y si llega a los GDD de una generación completa, te avisamos de un " +
-                        "nuevo biofix: los adultos alcanzan a poner huevos antes de migrar, así que " +
-                        "el ciclo vuelve a empezar.",
-                    fontSize = 13.sp,
-                    color = PlagOutColors.TextSecondary
-                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -165,7 +160,7 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
                 color = PlagOutColors.TextMain
             )
             Text(
-                "El nivel de alerta (0, 1 y 2 en los datos) dice qué tan favorables fueron las " +
+                "El nivel de alerta dice qué tan favorables fueron las " +
                     "condiciones para la plaga y, con eso, qué densidad poblacional esperar.",
                 fontSize = 13.sp,
                 color = PlagOutColors.TextSecondary,
