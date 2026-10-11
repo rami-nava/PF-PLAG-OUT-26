@@ -488,6 +488,7 @@ fun MisReportesScreen(
     if (state.mostrarDialogoRadio) {
         DialogoConfiguracionRadio(
             radioKm = state.radioTemporalKm,
+            radioActualKm = state.radioNotificacionKm.toFloat(),
             guardando = state.guardandoRadio,
             onRadioChange = { viewModel.onRadioTemporalChange(it) },
             // La recarga la decide el ViewModel: solo si el listado usa el radio configurado.
