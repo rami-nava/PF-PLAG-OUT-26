@@ -56,6 +56,8 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
@@ -1029,54 +1031,65 @@ private fun DialogoConsentimientoModelo(
     onConfirmar: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = PlagOutColors.Surface,
-        title = {
-            Text(
-                if (consentir) "¿Autorizar uso de reportes?" else "¿Revocar consentimiento?",
-                fontWeight = FontWeight.Bold,
-                color = PlagOutColors.TextMain
+    val acento = if (consentir) PlagOutColors.Forest else PlagOutColors.RiskDanger
+    MarcoDialogo(tag = "dialogConsentimientoMl", onDismissRequest = onDismiss) { rebote ->
+        InsigniaAccion(if (consentir) Icons.Outlined.Insights else Icons.Outlined.Block, acento, rebote)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            if (consentir) "¿Autorizar uso de reportes?" else "¿Revocar consentimiento?",
+            style = MaterialTheme.typography.titleLarge,
+            color = PlagOutColors.TextMain,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            if (consentir) "Ayudá a que Plag-Out anticipe mejor el riesgo de plagas en tu zona."
+            else "Podés volver a autorizarlo cuando quieras desde tu perfil.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = PlagOutColors.TextSecondary,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(Modifier.height(18.dp))
+        Text(
+            if (consentir) "QUÉ PASA AL ACEPTAR" else "QUÉ PASA AL REVOCAR",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.6.sp,
+            color = PlagOutColors.TextSecondary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 4.dp, bottom = 8.dp)
+        )
+        val consecuencias = if (consentir) {
+            listOf(
+                "Los reportes que envíes desde ahora podrán usarse para evaluar y mejorar los modelos de riesgo.",
+                "Tus reportes anteriores no se incluyen."
             )
-        },
-        text = {
-            Column {
-                Text(
-                    if (consentir) {
-                        "Si aceptás, los reportes que envíes a partir de ahora podrán utilizarse " +
-                            "para evaluar y mejorar los modelos de riesgo de plagas de Plag-Out. " +
-                            "Tus reportes anteriores no se incluyen por este consentimiento. " +
-                            "Podés revocarlo cuando quieras desde Ajustes; la revocación se aplica " +
-                            "hacia adelante y no borra el historial ya registrado."
-                    } else {
-                        "Los reportes que envíes después de revocar ya no podrán utilizarse para " +
-                            "evaluar modelos. El historial ya registrado no se borra."
-                    },
-                    color = PlagOutColors.TextSecondary,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp
-                )
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    "Versión: $VERSION_CONSENTIMIENTO_ML",
-                    color = PlagOutColors.TextSecondary,
-                    fontSize = 11.sp
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirmar, modifier = Modifier.testTag("btnConfirmarConsentimientoMl")) {
-                Text(
-                    if (consentir) "Aceptar" else "Revocar",
-                    color = if (consentir) PlagOutColors.Forest else PlagOutColors.RiskDanger,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar", color = PlagOutColors.TextSecondary) }
+        } else {
+            listOf("Los reportes que envíes después de revocar ya no se usarán para evaluar modelos.")
         }
-    )
+        consecuencias.forEach { ConsecuenciaAccion(it, acento) }
+
+        Spacer(Modifier.height(14.dp))
+        AvisoDialogo(
+            Icons.Outlined.CheckCircle,
+            if (consentir) "Podés revocarlo cuando quieras. La revocación aplica hacia adelante."
+            else "El historial ya registrado no se borra.",
+            PlagOutColors.Leaf
+        )
+
+        Spacer(Modifier.height(22.dp))
+        BotonesDialogo(
+            textoConfirmar = if (consentir) "Aceptar" else "Revocar",
+            iconoConfirmar = if (consentir) Icons.Filled.Check else Icons.Outlined.Block,
+            color = acento,
+            tagCancelar = "btnCancelarConsentimientoMl",
+            tagConfirmar = "btnConfirmarConsentimientoMl",
+            onCancelar = onDismiss,
+            onConfirmar = onConfirmar
+        )
+    }
 }
 
 private const val PALABRA_CONFIRMACION = "ELIMINAR"

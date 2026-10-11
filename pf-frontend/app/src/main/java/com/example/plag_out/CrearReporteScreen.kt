@@ -754,16 +754,6 @@ fun CrearReporteScreen(
                     }
                 }
 
-                if (!formularioValido) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Seleccioná Terreno, Cultivo, Plaga y Etapa Biológica para habilitar el envío.",
-                        fontSize = 12.sp,
-                        color = PlagOutColors.TextSecondary,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
-                }
-
                 Spacer(Modifier.height(16.dp))
             }
         }
