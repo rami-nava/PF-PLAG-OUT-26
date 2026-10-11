@@ -40,9 +40,11 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -303,6 +305,18 @@ private fun ContenidoVerReporte(
                         icono = Icons.Outlined.AccessTime,
                         etiqueta = "Fecha y hora",
                         valor = fechaStr
+                    )
+
+                    FilaDato(
+                        icono = Icons.Outlined.Grass,
+                        etiqueta = "Cultivo",
+                        valor = detalle.cultivo_nombre?.takeIf { it.isNotBlank() } ?: "No especificado"
+                    )
+
+                    FilaDato(
+                        icono = Icons.Outlined.Timeline,
+                        etiqueta = "Etapa biológica",
+                        valor = detalle.etapa_biologica?.takeIf { it.isNotBlank() } ?: "No registrada"
                     )
 
                     // Nivel de severidad

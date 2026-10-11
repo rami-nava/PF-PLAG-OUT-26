@@ -22,7 +22,6 @@ import androidx.compose.material.icons.outlined.GroupOff
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -304,19 +303,6 @@ fun AdminUsuarioDetalleScreen(
                     tag = "btnEliminarUsuario",
                     onClick = { if (!procesando) confirmarEliminacion = true },
                     acento = PlagOutColors.RiskDanger
-                )
-            }
-
-            Row(
-                Modifier.padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Outlined.VerifiedUser, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    "Los roles se asignan desde la base de datos, no desde la app.",
-                    fontSize = 11.sp,
-                    color = PlagOutColors.TextSecondary
                 )
             }
         }
