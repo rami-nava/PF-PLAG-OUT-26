@@ -18,6 +18,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.OffsetDateTime
 import com.example.plag_out.CuentaSuspendidaEventBus
+import com.example.plag_out.SesionExpiradaEventBus
 import com.example.plag_out.SupabaseProvider
 import io.github.jan.supabase.auth.auth
 
@@ -90,6 +91,10 @@ object RetrofitClient {
             val response = chain.proceed(builder.build())
             if (response.code == 403 && esCuentaSuspendida(response)) {
                 CuentaSuspendidaEventBus.avisar()
+            }
+            // Sin token el 401 es esperable (todavía no hay sesión): no hay nada que renovar
+            if (response.code == 401 && token != null) {
+                SesionExpiradaEventBus.avisar()
             }
             response
         }

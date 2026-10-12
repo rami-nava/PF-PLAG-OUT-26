@@ -90,11 +90,13 @@ class PlantacionesViewModel(
                 } else {
                     // TODO AGREGAR WARNING DE VALORES DESACTUALIZADOS
                     _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                    if (forzar) Avisos.error(errorDeRespuesta(response).mensaje)
                     Log.e("CULTIVOS", "Error: ${response.code()}")
                 }
             } catch (e: Exception) {
                 // Sin conexión: se queda con el caché ya mostrado
                 _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                if (forzar) Avisos.error(errorDeExcepcion(e).mensaje)
                 Log.e("CULTIVOS", "Error: ${e.message}")
             }
         }
@@ -122,13 +124,15 @@ class PlantacionesViewModel(
                     )
                     onSuccess()
                 } else {
-                    _state.value = _state.value.copy(procesando = false, error = mensajeDeError(response.code()))
+                    val mensaje = if (response.isSuccessful) "No se pudo finalizar el cultivo. Intentá de nuevo."
+                                  else errorDeRespuesta(response, ERRORES_FINALIZAR, ERRORES_FINALIZAR_CODIGO).mensaje
+                    _state.value = _state.value.copy(procesando = false, error = mensaje)
                     Log.e("CULTIVOS", "Error al finalizar: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     procesando = false,
-                    error = "No se pudo finalizar el cultivo. Revisá tu conexión."
+                    error = errorDeExcepcion(e).mensaje
                 )
                 Log.e("CULTIVOS", "Error al finalizar: ${e.message}")
             }
@@ -153,13 +157,16 @@ class PlantacionesViewModel(
                     )
                     onSuccess()
                 } else {
-                    _state.value = _state.value.copy(procesando = false, error = mensajeDeError(response.code()))
+                    _state.value = _state.value.copy(
+                        procesando = false,
+                        error = errorDeRespuesta(response, porCodigo = ERRORES_ELIMINAR).mensaje
+                    )
                     Log.e("CULTIVOS", "Error al eliminar: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     procesando = false,
-                    error = "No se pudo eliminar el cultivo. Revisá tu conexión."
+                    error = errorDeExcepcion(e).mensaje
                 )
                 Log.e("CULTIVOS", "Error al eliminar: ${e.message}")
             }
@@ -191,11 +198,18 @@ class PlantacionesViewModel(
         }
     }
 
-    private fun mensajeDeError(codigo: Int): String = when (codigo) {
-        400, 422 -> "Revisá los datos ingresados."
-        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
-        404 -> "El cultivo ya no existe."
-        else -> "No se pudieron guardar los cambios. Intentá de nuevo."
+    private companion object {
+        val ERRORES_FINALIZAR = mapOf(
+            "plantation_finalized" to "La plantación ya fue finalizada y no puede reactivarse."
+        )
+        val ERRORES_FINALIZAR_CODIGO = mapOf(
+            404 to "El cultivo ya no existe.",
+            500 to "No se pudo finalizar el cultivo. Intentá de nuevo."
+        )
+        val ERRORES_ELIMINAR = mapOf(
+            404 to "El cultivo ya no existe.",
+            500 to "No se pudo eliminar el cultivo. Intentá de nuevo."
+        )
     }
 }
 

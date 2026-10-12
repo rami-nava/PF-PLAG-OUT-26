@@ -168,8 +168,8 @@ class MisReportesViewModelTest {
         viewModel.guardarRadioNotificacion()
 
         val estado = esperarEstado(viewModel.state) { !it.guardandoRadio }
-        assertNotNull(estado.error)
-        assertEquals(false, estado.guardandoRadio)
+        assertNull(estado.error)
+        assertEquals(true, estado.mostrarDialogoRadio)
     }
 
     @Test
@@ -226,7 +226,7 @@ class MisReportesViewModelTest {
         viewModel.onRadioTemporalChange(80f)
         viewModel.guardarRadioNotificacion()
 
-        esperarEstado(viewModel.state) { !it.guardandoRadio && it.error != null }
+        esperarEstado(viewModel.state) { !it.guardandoRadio }
         assertEquals(0, gddService.vecesLlamado("getReportes"))
     }
 

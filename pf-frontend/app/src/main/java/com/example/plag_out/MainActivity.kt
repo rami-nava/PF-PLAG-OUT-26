@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -76,6 +75,8 @@ import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.PlagasGDDTheme
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.exceptions.RestException
+import kotlinx.coroutines.CancellationException
 import kotlin.collections.contains
 
 import android.preference.PreferenceManager
@@ -438,6 +439,30 @@ fun AppNavigation(
         }
     }
 
+    // 401 con la sesión abierta: primero se intenta renovar el token. Solo si Supabase rechaza la
+    // renovación se vuelve al login; si falla por red se deja la sesión como está.
+    LaunchedEffect(Unit) {
+        SesionExpiradaEventBus.eventos.collect {
+            val ruta = navController.currentBackStackEntry?.destination?.route
+            if (cerrandoSesion || ruta == "logIn" || ruta == "crearCuenta") return@collect
+            val renovada = try {
+                SupabaseProvider.client.auth.refreshCurrentSession()
+                true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: RestException) {
+                false
+            } catch (e: Exception) {
+                true
+            }
+            if (!renovada) {
+                limpiarSesion(false) {
+                    Avisos.error(MENSAJE_SESION_EXPIRADA)
+                }
+            }
+        }
+    }
+
     // Si el backend dice que la cuenta ya no es admin, se relee el usuario: el efecto que
     // observa el rol se encarga de llevarla al lado correcto.
     val onSinPermisoAdmin: () -> Unit = { userViewModel.refrescar() }
@@ -551,11 +576,7 @@ fun AppNavigation(
                             navController.popBackStack()
                             // El aviso va acá y no en la pantalla de edición porque esta se
                             // desmonta al volver al perfil.
-                            Toast.makeText(
-                                context,
-                                "Perfil actualizado.",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            Avisos.exito("Perfil actualizado.")
                         }
                     )
                 }
@@ -764,7 +785,7 @@ fun AppNavigation(
                         onBack = { navController.popBackStack() },
                         onGuardado = {
                             navController.popBackStack()
-                            Toast.makeText(context, "Plaga creada.", Toast.LENGTH_SHORT).show()
+                            Avisos.exito("Plaga creada.")
                         }
                     )
                 }
@@ -778,7 +799,7 @@ fun AppNavigation(
                         onBack = { navController.popBackStack() },
                         onGuardado = {
                             navController.popBackStack()
-                            Toast.makeText(context, "Cambios guardados.", Toast.LENGTH_SHORT).show()
+                            Avisos.exito("Cambios guardados.")
                         }
                     )
                 }
@@ -801,7 +822,7 @@ fun AppNavigation(
                         onBack = { navController.popBackStack() },
                         onEliminado = {
                             navController.popBackStack()
-                            Toast.makeText(context, "Cuenta eliminada.", Toast.LENGTH_SHORT).show()
+                            Avisos.exito("Cuenta eliminada.")
                         }
                     )
                 }
@@ -859,6 +880,8 @@ fun AppNavigation(
     if (mostrarComoFunciona) {
         ComoFuncionaSheet(onDismiss = { mostrarComoFunciona = false })
     }
+
+    AvisosHost()
 }
 
 private val rutasAdminConBarras = listOf(RUTA_ADMIN_PLAGAS, RUTA_ADMIN_USUARIOS, RUTA_ADMIN_METRICAS, RUTA_ADMIN_CUENTA)

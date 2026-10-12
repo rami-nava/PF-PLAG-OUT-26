@@ -91,11 +91,13 @@ class TerrenosViewModel(
                 } else {
                     // TODO AGREGAR WARNING DE VALORES DESACTUALIZADOS
                     _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                    if (forzar) Avisos.error(errorDeRespuesta(response).mensaje)
                     Log.e("TERRENOS", "Error: ${response.code()}")
                 }
             } catch (e: Exception) {
                 // Sin conexión: se queda con el caché ya mostrado
                 _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                if (forzar) Avisos.error(errorDeExcepcion(e).mensaje)
                 Log.e("TERRENOS", "Error: ${e.message}")
             }
         }
@@ -111,16 +113,12 @@ class TerrenosViewModel(
         val actual = _state.value.terrenos.find { it.terreno_id == terrenoId } ?: return
 
         val nombreLimpio = nombre.trim()
-        if (nombreLimpio.isEmpty()) {
-            _state.value = _state.value.copy(error = "El nombre del terreno no puede estar vacío")
+        val area = areaHectareas.trim().replace(',', '.').toDoubleOrNull()
+        validarTerreno(nombreLimpio, area)?.let {
+            _state.value = _state.value.copy(error = it)
             return
         }
-
-        val area = areaHectareas.trim().toDoubleOrNull()
-        if (area == null || area <= 0.0) {
-            _state.value = _state.value.copy(error = "Las hectáreas deben ser un número decimal mayor a 0")
-            return
-        }
+        area!!
 
         _state.value = _state.value.copy(procesando = true, error = null)
         viewModelScope.launch {
@@ -143,13 +141,13 @@ class TerrenosViewModel(
                     )
                     onSuccess(actualizado)
                 } else {
-                    _state.value = _state.value.copy(procesando = false, error = mensajeDeEdicion(response.code()))
+                    _state.value = _state.value.copy(procesando = false, error = errorDeRespuesta(response, porCodigo = ERRORES_EDICION).mensaje)
                     Log.e("TERRENOS", "Error al editar: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     procesando = false,
-                    error = "No se pudieron guardar los cambios. Revisá tu conexión."
+                    error = errorDeExcepcion(e).mensaje
                 )
                 Log.e("TERRENOS", "Error al editar: ${e.message}")
             }
@@ -179,31 +177,28 @@ class TerrenosViewModel(
                     )
                     onSuccess()
                 } else {
-                    _state.value = _state.value.copy(procesando = false, error = mensajeDeError(response.code()))
+                    _state.value = _state.value.copy(procesando = false, error = errorDeRespuesta(response, porCodigo = ERRORES_ELIMINACION).mensaje)
                     Log.e("TERRENOS", "Error al eliminar: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     procesando = false,
-                    error = "No se pudo eliminar el terreno. Revisá tu conexión."
+                    error = errorDeExcepcion(e).mensaje
                 )
                 Log.e("TERRENOS", "Error al eliminar: ${e.message}")
             }
         }
     }
 
-    private fun mensajeDeEdicion(codigo: Int): String = when (codigo) {
-        400, 422 -> "Revisá los datos ingresados."
-        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
-        404 -> "El terreno ya no existe."
-        else -> "No se pudieron guardar los cambios. Intentá de nuevo."
-    }
-
-    private fun mensajeDeError(codigo: Int): String = when (codigo) {
-        400, 422 -> "Revisá los datos ingresados."
-        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
-        404 -> "El terreno ya no existe."
-        else -> "No se pudo eliminar el terreno. Intentá de nuevo."
+    private companion object {
+        val ERRORES_EDICION = mapOf(
+            404 to "El terreno ya no existe.",
+            500 to "No se pudieron guardar los cambios del terreno. Intentá de nuevo."
+        )
+        val ERRORES_ELIMINACION = mapOf(
+            404 to "El terreno ya no existe.",
+            500 to "No se pudo eliminar el terreno. Intentá de nuevo."
+        )
     }
 }
 

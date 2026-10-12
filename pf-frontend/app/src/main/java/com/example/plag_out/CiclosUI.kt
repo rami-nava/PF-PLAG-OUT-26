@@ -85,24 +85,25 @@ data class ResultadoFinalizarCiclo(val mensaje: String?, val recargar: Boolean)
 
 suspend fun finalizarCiclo(service: GDDService, cicloId: Int): ResultadoFinalizarCiclo = try {
     val response = service.archivarCiclo(cicloId)
-    when {
-        response.isSuccessful -> ResultadoFinalizarCiclo(null, recargar = true)
-        // Ya no está activo o todavía no superó el umbral: se recarga para mostrar el estado real.
-        response.code() == 409 -> ResultadoFinalizarCiclo(
-            "Este ciclo ya no se puede finalizar. Actualizamos su estado.", recargar = true
-        )
-        response.code() == 404 -> ResultadoFinalizarCiclo(
-            "No se pudo finalizar el ciclo: no está disponible.", recargar = true
-        )
-        else -> ResultadoFinalizarCiclo(
-            "No se pudo finalizar el ciclo (${response.code()}). Intentá de nuevo.", recargar = false
-        )
-    }
+    if (response.isSuccessful) ResultadoFinalizarCiclo(null, recargar = true)
+    else ResultadoFinalizarCiclo(
+        errorDeRespuesta(response, ERRORES_ARCHIVAR_CICLO, ERRORES_ARCHIVAR_CICLO_CODIGO).mensaje,
+        // 404/409: ya no existe o cambió de estado; se recarga para mostrar el estado real.
+        recargar = response.code() == 404 || response.code() == 409
+    )
 } catch (e: CancellationException) {
     throw e
-} catch (_: Exception) {
-    ResultadoFinalizarCiclo("Sin conexión. Intentá finalizar el ciclo de nuevo.", recargar = false)
+} catch (e: Exception) {
+    ResultadoFinalizarCiclo(errorDeExcepcion(e).mensaje, recargar = false)
 }
+
+private val ERRORES_ARCHIVAR_CICLO = mapOf(
+    "cycle_not_found" to "El ciclo no existe.",
+    "cycle_completed" to "El ciclo ya se completó.",
+    "monitoring_inactive" to "El monitoreo o la plantación están finalizados.",
+    "cycle_below_risk_threshold" to "El ciclo todavía no alcanzó el umbral de riesgo para archivarse."
+)
+private val ERRORES_ARCHIVAR_CICLO_CODIGO = mapOf(500 to "No se pudo finalizar el ciclo. Intentá de nuevo.")
 
 fun esperandoBiofix(monitoreo: MonitoreoResponse): Boolean =
     monitoreo.activo && ciclosActivos(monitoreo).isEmpty()

@@ -67,13 +67,20 @@ internal fun fechasDeBiofixValidas(inicioMonitoreo: LocalDate?, hoy: LocalDate):
             year <= hoy.year && (inicioMonitoreo == null || year >= inicioMonitoreo.year)
     }
 
-internal fun detalleDeError(cuerpo: String?): String? = runCatching {
-    when (val detail = JsonParser.parseString(cuerpo).asJsonObject.get("detail")) {
-        is JsonPrimitive -> detail.asString
-        is JsonArray -> detail.mapNotNull { it.asJsonObject.get("msg")?.asString }.joinToString("; ")
-        else -> null
-    }
-}.getOrNull()?.takeIf { it.isNotBlank() }
+internal const val DETALLE_CICLOS_ACTIVOS_CAMBIARON = "biofix_active_cycles_changed"
+
+private val ERRORES_BIOFIX = ERRORES_REPORTE + mapOf(
+    "monitoring_not_found" to "Monitoreo no encontrado.",
+    "active_cycle_not_found" to "El ciclo no existe.",
+    "monitoring_inactive" to "El monitoreo o la plantación están finalizados.",
+    "cycle_not_active" to "Ese ciclo ya no está activo.",
+    // Bug del cliente (misma key con otro body): el pendiente se descarta y el próximo intento
+    // sale con una key nueva.
+    "biofix_idempotency_key_reused" to "No se pudo registrar el biofix. Intentá de nuevo.",
+    "biofix_observation_date_invalid" to "La fecha debe estar entre el inicio del monitoreo y hoy.",
+    "biofix_observation_before_cycle" to "La fecha es anterior al inicio del ciclo.",
+    "biofix_thermal_parameters_missing" to "Esta plaga no tiene datos térmicos configurados."
+)
 
 @RequiresApi(Build.VERSION_CODES.O)
 private fun formatearFechaLarga(fecha: LocalDate): String =
@@ -326,6 +333,7 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
     var pendienteCargado by remember { mutableStateOf(false) }
     var mensaje by remember { mutableStateOf<String?>(null) }
     var resultado by remember { mutableStateOf<BiofixResult?>(null) }
+    var confirmarAdicional by remember { mutableStateOf<BiofixRequest?>(null) }
     LaunchedEffect(owner, monitoreo.monitoreo_id) {
         if (owner != null) AppDatabase.getDatabase(context).presenceRetryDao().manual(owner).collect { rows ->
             pendienteCargado = true
@@ -338,7 +346,10 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
         PresenceRetryEvents.events.collect { event ->
             if (event.owner == owner && event.kind == "manual" && event.id == monitoreo.monitoreo_id) {
                 resultado = event.result
-                if (event.result != null) mensaje = "Presencia registrada automáticamente"
+                if (event.result != null) {
+                    mensaje = null
+                    Avisos.exito("Presencia registrada automáticamente.")
+                }
                 onRefresh()
             }
         }
@@ -361,13 +372,19 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
                 if (response.isSuccessful) {
                     resultado = response.body()
                     dao.delete(owner, monitoreo.monitoreo_id); pendiente = null
-                    mensaje = "Presencia registrada"; onRefresh()
+                    mensaje = null
+                    Avisos.exito(
+                        if (resultado?.ciclo_creado == true) "Biofix registrado, se inició un nuevo ciclo."
+                        else "Observación asociada al ciclo."
+                    )
+                    onRefresh()
                 } else if (response.code() in setOf(404, 409, 410, 422)) {
-                    val cuerpo = response.errorBody()?.string()
-                    Log.w("BIOFIX", "Monitoreo ${monitoreo.monitoreo_id}: ${response.code()} $cuerpo")
+                    val fallo = errorDeRespuesta(response, ERRORES_BIOFIX)
+                    Log.w("BIOFIX", "Monitoreo ${monitoreo.monitoreo_id}: ${response.code()} ${fallo.detalle}")
                     dao.delete(owner, monitoreo.monitoreo_id); pendiente = null
-                    mensaje = "No se registró (${response.code()}): " +
-                        (detalleDeError(cuerpo) ?: "actualizá y revisá fecha y ciclo antes de confirmar de nuevo.")
+                    mensaje = null
+                    if (fallo.detalle == DETALLE_CICLOS_ACTIVOS_CAMBIARON) confirmarAdicional = exacto
+                    else Avisos.error(fallo.mensaje)
                     onRefresh()
                 } else mensaje = "Envío pendiente. Se reintentará automáticamente; también podés reintentar ahora."
             } catch (_: Exception) { mensaje = "Envío pendiente. Se reintentará automáticamente con conexión; también podés reintentar ahora." }
@@ -393,7 +410,7 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
         scope.launch {
             try {
                 val finalizado = finalizarCiclo(RetrofitClient.gddService, ciclo.id)
-                mensaje = finalizado.mensaje
+                finalizado.mensaje?.let { Avisos.error(it) } ?: Avisos.exito("Ciclo finalizado.")
                 if (finalizado.recargar) onRefresh()
             } finally { finalizandoId = null }
         }
@@ -476,6 +493,43 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
     if (mostrar) BiofixDialog(monitoreo.monitoreo_id, { mostrar = false }, {
         mostrar = false; enviar(it)
     })
+    confirmarAdicional?.let { rechazado ->
+        AlertDialog(
+            onDismissRequest = { confirmarAdicional = null },
+            containerColor = PlagOutColors.Surface,
+            shape = RoundedCornerShape(26.dp),
+            title = {
+                Text(
+                    "Ya hay un ciclo activo",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = PlagOutColors.TextMain
+                )
+            },
+            text = {
+                Text(
+                    "¿Querés iniciar uno adicional?",
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    color = PlagOutColors.TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmarAdicional = null
+                    enviar(rechazado.copy(
+                        idempotency_key = UUID.randomUUID().toString(),
+                        confirmar_ciclo_adicional = true
+                    ))
+                }) { Text("Iniciar otro ciclo", color = PlagOutColors.Forest, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmarAdicional = null }) {
+                    Text("Cancelar", color = PlagOutColors.TextSecondary)
+                }
+            }
+        )
+    }
     aFinalizar?.let { ciclo ->
         AlertDialog(
             onDismissRequest = { aFinalizar = null },

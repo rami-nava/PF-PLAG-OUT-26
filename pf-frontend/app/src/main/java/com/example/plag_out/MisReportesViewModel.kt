@@ -130,24 +130,26 @@ class MisReportesViewModel(
                     if (radioFinal != radioAnterior && _state.value.distanciaListadoKm == null) {
                         cargarReportes(forzar = true)
                     }
+                    Avisos.exito("Radio de notificación actualizado.")
                     onSuccess?.invoke()
                 } else {
-                    _state.value = _state.value.copy(
-                        guardandoRadio = false,
-                        error = "No se pudo actualizar el radio de notificación."
+                    _state.value = _state.value.copy(guardandoRadio = false)
+                    Avisos.error(
+                        errorDeRespuesta(
+                            response, ERRORES_PERFIL,
+                            mapOf(500 to "No se pudo actualizar el radio de notificación. Intentá de nuevo.")
+                        ).mensaje
                     )
                 }
             } catch (e: Exception) {
                 Log.e("MIS_REPORTES", "Error al guardar radio de notificación: ${e.message}")
-                _state.value = _state.value.copy(
-                    guardandoRadio = false,
-                    error = "Error de red al actualizar el radio."
-                )
+                _state.value = _state.value.copy(guardandoRadio = false)
+                Avisos.error(errorDeExcepcion(e).mensaje)
             }
         }
     }
 
-    fun cargarReportes(forzar: Boolean = false) {
+    fun cargarReportes(forzar: Boolean = false, avisarSiFalla: Boolean = false) {
         if (!forzar && cargaReportes?.isActive == true) return
         cargaReportes?.cancel()
         // Todos los requests de una carga usan el mismo rango, incluso si el usuario lo cambia.
@@ -204,12 +206,16 @@ class MisReportesViewModel(
                     isRefreshing = false,
                     error = "No se pudieron cargar todos los reportes. Reintentá."
                 )
+                if (avisarSiFalla) {
+                    val fallo = (e as? HttpException)?.response()?.let { errorDeRespuesta(it) } ?: errorDeExcepcion(e)
+                    Avisos.error(fallo.mensaje)
+                }
             }
         }
     }
 
     fun refrescar() {
-        cargarReportes(forzar = true)
+        cargarReportes(forzar = true, avisarSiFalla = true)
     }
 
     fun eliminarReporte(reporteId: Int, onResultado: (error: String?) -> Unit) {
@@ -223,13 +229,19 @@ class MisReportesViewModel(
                     null
                 } else {
                     Log.e("MIS_REPORTES", "Error al eliminar el reporte $reporteId: ${response.code()}")
-                    "No se pudo eliminar el reporte. Intentá de nuevo."
+                    errorDeRespuesta(
+                        response,
+                        porCodigo = mapOf(
+                            404 to "El reporte ya no existe.",
+                            500 to "No se pudo eliminar el reporte. Intentá de nuevo."
+                        )
+                    ).mensaje
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e("MIS_REPORTES", "Error al eliminar el reporte $reporteId", e)
-                "No se pudo eliminar el reporte. Revisá tu conexión."
+                errorDeExcepcion(e).mensaje
             }
             _state.value = _state.value.copy(eliminando = _state.value.eliminando - reporteId)
             onResultado(error)

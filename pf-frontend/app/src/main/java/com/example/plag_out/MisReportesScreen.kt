@@ -110,8 +110,6 @@ fun MisReportesScreen(
     navController: NavController
 ) {
     val state by viewModel.state.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     var reporteAEliminar by remember { mutableStateOf<ReporteDetalleResponse?>(null) }
 
     LaunchedEffect(Unit) {
@@ -191,7 +189,6 @@ fun MisReportesScreen(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             var shown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { shown = true }
@@ -478,7 +475,7 @@ fun MisReportesScreen(
             onConfirmar = {
                 reporteAEliminar = null
                 viewModel.eliminarReporte(reporte.id) { error ->
-                    scope.launch { snackbarHostState.showSnackbar(error ?: "Reporte eliminado") }
+                    if (error != null) Avisos.error(error) else Avisos.exito("Reporte eliminado.")
                 }
             },
             onCancelar = { reporteAEliminar = null }
