@@ -24,6 +24,25 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Deep link para recuperar contraseña desde correo de Supabase -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="plagout" android:host="reset-password" />
+            </intent-filter>
+
+            <!-- Soporte para Site URL por defecto de Supabase (http://localhost:3000) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="http"
+                    android:host="localhost"
+                    android:port="3000" />
+            </intent-filter>
         </activity>
 
         <!-- Firebase Cloud Messaging: recibe los push y token refresh -->

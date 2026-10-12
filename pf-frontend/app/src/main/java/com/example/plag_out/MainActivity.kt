@@ -69,6 +69,9 @@ import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
 import com.example.plag_out.AlmacenamientoLocal.UsuarioRepository
 import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionRepository
 import io.github.jan.supabase.auth.handleDeeplinks
+import io.github.jan.supabase.auth.user.UserSession
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.example.plag_out.Service.RetrofitClient
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.PlagasGDDTheme
@@ -88,13 +91,23 @@ class MainActivity : ComponentActivity() {
     private val deepLinkCicloId = mutableStateOf<String?>(null)
     private val deepLinkPrediccionId = mutableStateOf<String?>(null)
     private val deepLinkRecuperarPassword = mutableStateOf(false)
+    private val deepLinkRecuperarPasswordError = mutableStateOf<String?>(null)
+    private val deepLinkRecoverySession = mutableStateOf<UserSession?>(null)
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         configurarOsmdroid(applicationContext)
         
-        SupabaseProvider.client.handleDeeplinks(intent)
+        SupabaseProvider.client.handleDeeplinks(
+            intent = intent,
+            onSessionSuccess = { userSession ->
+                android.util.Log.d("MainActivity", "handleDeeplinks exitoso. Usuario: ${userSession.user?.email}")
+            },
+            onError = { error ->
+                android.util.Log.e("MainActivity", "handleDeeplinks falló al procesar enlace", error)
+            }
+        )
         leerDeepLink(intent)
         setContent {
             PlagasGDDTheme {
@@ -104,7 +117,13 @@ class MainActivity : ComponentActivity() {
                 ) {
                     AppNavigation(
                         deepLinkRecuperarPassword = deepLinkRecuperarPassword.value,
-                        onDeepLinkRecuperarPasswordConsumido = { deepLinkRecuperarPassword.value = false },
+                        deepLinkRecuperarPasswordError = deepLinkRecuperarPasswordError.value,
+                        deepLinkRecoverySession = deepLinkRecoverySession.value,
+                        onDeepLinkRecuperarPasswordConsumido = {
+                            deepLinkRecuperarPassword.value = false
+                            deepLinkRecuperarPasswordError.value = null
+                            deepLinkRecoverySession.value = null
+                        },
                         deepLinkMonitoreoId = deepLinkMonitoreoId.value,
                         onDeepLinkMonitoreoConsumido = { deepLinkMonitoreoId.value = null },
                         deepLinkReporteId = deepLinkReporteId.value,
@@ -125,17 +144,67 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        SupabaseProvider.client.handleDeeplinks(intent)
+        SupabaseProvider.client.handleDeeplinks(
+            intent = intent,
+            onSessionSuccess = { userSession ->
+                android.util.Log.d("MainActivity", "onNewIntent handleDeeplinks exitoso. Usuario: ${userSession.user?.email}")
+            },
+            onError = { error ->
+                android.util.Log.e("MainActivity", "onNewIntent handleDeeplinks falló al procesar enlace", error)
+            }
+        )
         leerDeepLink(intent)
     }
 
     private fun leerDeepLink(intent: Intent?) {
         intent ?: return
-        val uri = intent.data
-        if (uri != null && (
-            (uri.scheme == "plagout" && uri.host == "reset-password") ||
+        val uri = intent.data ?: return
+        val uriStr = uri.toString().lowercase()
+        val esResetPassword = (uri.scheme == "plagout" && uri.host == "reset-password") ||
             (uri.scheme == "http" && uri.host == "localhost" && uri.port == 3000)
-        )) {
+
+        if (esResetPassword) {
+            val fragment = uri.fragment ?: ""
+            val fragmentParams = if (fragment.isNotBlank()) {
+                fragment.split("&").associate {
+                    val kv = it.split("=", limit = 2)
+                    kv[0] to (kv.getOrNull(1) ?: "")
+                }
+            } else emptyMap()
+
+            val error = uri.getQueryParameter("error") ?: fragmentParams["error"]
+            val errorDesc = uri.getQueryParameter("error_description") ?: fragmentParams["error_description"]
+            val esError = !error.isNullOrBlank() || !errorDesc.isNullOrBlank() || uriStr.contains("otp_expired")
+
+            if (esError) {
+                deepLinkRecuperarPasswordError.value = "El enlace de recuperación ya fue utilizado o ha expirado. Por favor, solicitá uno nuevo."
+                deepLinkRecuperarPassword.value = true
+                return
+            }
+
+            val accessToken = fragmentParams["access_token"]
+            val refreshToken = fragmentParams["refresh_token"]
+            if (!accessToken.isNullOrBlank()) {
+                val expiresIn = fragmentParams["expires_in"]?.toLongOrNull() ?: 3600L
+                val tokenType = fragmentParams["token_type"]?.takeIf { it.isNotBlank() } ?: "bearer"
+                val session = UserSession(
+                    accessToken = accessToken,
+                    refreshToken = refreshToken ?: "",
+                    expiresIn = expiresIn,
+                    tokenType = tokenType,
+                    user = null
+                )
+                deepLinkRecoverySession.value = session
+                lifecycleScope.launch {
+                    try {
+                        SupabaseProvider.client.auth.importSession(session)
+                        android.util.Log.d("MainActivity", "Sesión de recuperación importada manualmente desde fragment.")
+                    } catch (e: Exception) {
+                        android.util.Log.e("MainActivity", "Error al importar UserSession manualmente", e)
+                    }
+                }
+            }
+
             deepLinkRecuperarPassword.value = true
             return
         }
@@ -163,6 +232,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation(
     deepLinkRecuperarPassword: Boolean = false,
+    deepLinkRecuperarPasswordError: String? = null,
+    deepLinkRecoverySession: UserSession? = null,
     onDeepLinkRecuperarPasswordConsumido: () -> Unit = {},
     deepLinkCicloId: String? = null,
     onDeepLinkCicloConsumido: () -> Unit = {},
@@ -263,9 +334,12 @@ fun AppNavigation(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
 
     // Manejo de Deep link para restablecimiento de contraseña
-    LaunchedEffect(deepLinkRecuperarPassword) {
+    LaunchedEffect(deepLinkRecuperarPassword, deepLinkRecuperarPasswordError) {
         if (deepLinkRecuperarPassword) {
-            authViewModel.activarModoRestablecerPassword()
+            authViewModel.activarModoRestablecerPassword(
+                errorInicial = deepLinkRecuperarPasswordError,
+                recoverySession = deepLinkRecoverySession
+            )
             if (navController.currentBackStackEntry?.destination?.route != "recuperarPassword") {
                 navController.navigate("recuperarPassword") {
                     launchSingleTop = true
@@ -523,10 +597,22 @@ fun AppNavigation(
             composable("recuperarPassword") {
                 RecuperarPasswordScreen(
                     authViewModel = authViewModel,
-                    onBack = { navController.popBackStack() },
+                    onBack = {
+                        if (!navController.popBackStack()) {
+                            navController.navigate("logIn") {
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
                     onPasswordRestablecida = {
+                        authViewModel.limpiarEstadoRecuperacion()
                         authViewModel.avisarExitoLogin("¡Contraseña restablecida con éxito! Ya podés iniciar sesión.")
-                        navController.popBackStack()
+                        Toast.makeText(context, "¡Contraseña restablecida con éxito! Ya podés iniciar sesión.", Toast.LENGTH_LONG).show()
+                        navController.navigate("logIn") {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
                     }
                 )
             }

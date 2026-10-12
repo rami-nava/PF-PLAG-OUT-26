@@ -1,6 +1,7 @@
 package com.example.plag_out
 
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -46,6 +47,11 @@ fun RecuperarPasswordScreen(
     onBack: () -> Unit,
     onPasswordRestablecida: () -> Unit
 ) {
+    BackHandler {
+        authViewModel.limpiarEstadoRecuperacion()
+        onBack()
+    }
+
     val estado by authViewModel.recuperarPasswordState.collectAsState()
 
     var mostrarPasswordNueva by remember { mutableStateOf(false) }
@@ -98,7 +104,9 @@ fun RecuperarPasswordScreen(
                         letterSpacing = 0.3.sp
                     )
                     Text(
-                        text = if (estado.sesionDeRecuperacionActiva) "Nueva contraseña" else "Recuperar contraseña",
+                        text = if (estado.enlaceInvalido) "Enlace expirado"
+                               else if (estado.sesionDeRecuperacionActiva) "Nueva contraseña"
+                               else "Recuperar contraseña",
                         color = PlagOutColors.TextOnDark,
                         fontSize = 26.sp,
                         fontWeight = FontWeight.ExtraBold
@@ -116,7 +124,86 @@ fun RecuperarPasswordScreen(
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
 
-                    if (estado.sesionDeRecuperacionActiva) {
+                    if (estado.enlaceInvalido) {
+                        // ========================================================
+                        // MODO 3: Enlace inválido, caducado o ya utilizado
+                        // ========================================================
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .background(PlagOutColors.RiskDanger.copy(alpha = 0.12f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ErrorOutline,
+                                    contentDescription = null,
+                                    tint = PlagOutColors.RiskDanger,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Text(
+                                text = "Enlace no válido o ya utilizado",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PlagOutColors.TextMain,
+                                textAlign = TextAlign.Center
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = estado.error ?: "Este enlace para recuperar tu contraseña ya fue utilizado o ha caducado. Por seguridad, cada enlace puede usarse una sola vez.",
+                                fontSize = 14.sp,
+                                color = PlagOutColors.TextSecondary,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 20.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            Button(
+                                onClick = { authViewModel.volverAIngresoEmail() },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = PlagOutColors.Forest
+                                ),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(54.dp)
+                                    .testTag("btnSolicitarNuevoEnlace")
+                            ) {
+                                Text(
+                                    text = "SOLICITAR NUEVO ENLACE",
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp,
+                                    color = PlagOutColors.TextOnDark
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            TextButton(
+                                onClick = {
+                                    authViewModel.limpiarEstadoRecuperacion()
+                                    onBack()
+                                }
+                            ) {
+                                Text(
+                                    text = "Volver al inicio de sesión",
+                                    color = PlagOutColors.TextSecondary,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+
+                    } else if (estado.sesionDeRecuperacionActiva) {
                         // ========================================================
                         // MODO 2: Ingreso de nueva contraseña (abierto desde link)
                         // ========================================================
@@ -382,7 +469,7 @@ fun RecuperarPasswordScreen(
 
                     // Mensaje de error general si ocurre
                     AnimatedVisibility(
-                        visible = estado.error != null,
+                        visible = estado.error != null && !estado.enlaceInvalido,
                         enter = fadeIn(tween(200)) + expandVertically(tween(200)),
                         exit = fadeOut(tween(150)) + shrinkVertically(tween(150))
                     ) {

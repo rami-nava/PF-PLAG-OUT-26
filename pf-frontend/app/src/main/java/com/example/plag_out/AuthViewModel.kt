@@ -20,6 +20,7 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.exceptions.RestException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -58,9 +59,11 @@ data class RecuperarPasswordState(
     val repetirPassword: String = "",
     val enlaceEnviado: Boolean = false,
     val sesionDeRecuperacionActiva: Boolean = false,
+    val enlaceInvalido: Boolean = false,
     val cargando: Boolean = false,
     val error: String? = null,
-    val mensajeExito: String? = null
+    val mensajeExito: String? = null,
+    val recoverySession: UserSession? = null
 )
 
 class AuthViewModel(
@@ -311,10 +314,41 @@ class AuthViewModel(
         _recuperarPasswordState.value = _recuperarPasswordState.value.copy(repetirPassword = valor, error = null)
     }
 
-    fun activarModoRestablecerPassword() {
+    fun activarModoRestablecerPassword(
+        errorInicial: String? = null,
+        recoverySession: UserSession? = null
+    ) {
+        if (recoverySession != null) {
+            viewModelScope.launch {
+                try {
+                    supabaseClient.auth.importSession(recoverySession)
+                    Log.d("AuthViewModel", "Sesión de recuperación importada en AuthViewModel.")
+                } catch (e: Exception) {
+                    Log.e("AuthViewModel", "Error al importar sesión en AuthViewModel", e)
+                }
+            }
+        }
+        if (errorInicial != null) {
+            _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
+                sesionDeRecuperacionActiva = false,
+                enlaceInvalido = true,
+                error = errorInicial
+            )
+        } else {
+            _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
+                sesionDeRecuperacionActiva = true,
+                enlaceInvalido = false,
+                error = null,
+                recoverySession = recoverySession
+            )
+        }
+    }
+
+    fun notificarEnlaceInvalido(mensaje: String = "El enlace de recuperación ya fue utilizado o ha expirado. Por favor, solicitá uno nuevo.") {
         _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
-            sesionDeRecuperacionActiva = true,
-            error = null
+            sesionDeRecuperacionActiva = false,
+            enlaceInvalido = true,
+            error = mensaje
         )
     }
 
@@ -326,6 +360,7 @@ class AuthViewModel(
         _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
             enlaceEnviado = false,
             sesionDeRecuperacionActiva = false,
+            enlaceInvalido = false,
             nuevaPassword = "",
             repetirPassword = "",
             error = null
@@ -417,6 +452,16 @@ class AuthViewModel(
 
         viewModelScope.launch {
             try {
+                // Si teníamos la sesión de recuperación y no está activa en el cliente, asegurar su importación
+                val recSession = _recuperarPasswordState.value.recoverySession
+                if (recSession != null && supabaseClient.auth.currentSessionOrNull() == null) {
+                    try {
+                        supabaseClient.auth.importSession(recSession)
+                    } catch (e: Exception) {
+                        Log.e("AuthViewModel", "Fallo al asegurar sesión de recuperación antes de updateUser", e)
+                    }
+                }
+
                 // Actualizar la contraseña en Supabase (la sesión de recuperación ya fue autenticada por el deep link)
                 supabaseClient.auth.updateUser { password = nueva }
 
@@ -427,17 +472,45 @@ class AuthViewModel(
                 _recuperarPasswordState.value = RecuperarPasswordState()
                 onSuccess(mensajeExito)
             } catch (e: RestException) {
-                val errorMsg = mapearErrorPassword(e)
+                Log.e("AuthViewModel", "Error RestException Supabase al restablecer contraseña: ${e.message} (status: ${e.statusCode})", e)
+                val esInvalido = e.statusCode == 401 || e.statusCode == 403 ||
+                    e.message?.contains("session", ignoreCase = true) == true ||
+                    e.message?.contains("unauthorized", ignoreCase = true) == true ||
+                    e.message?.contains("jwt", ignoreCase = true) == true ||
+                    e.message?.contains("expired", ignoreCase = true) == true
+
+                val errorMsg = if (esInvalido) {
+                    "El enlace de recuperación ya fue utilizado o ha expirado. Por favor, solicitá uno nuevo."
+                } else {
+                    mapearErrorPassword(e)
+                }
+
                 _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
                     cargando = false,
+                    sesionDeRecuperacionActiva = !esInvalido,
+                    enlaceInvalido = esInvalido,
                     error = errorMsg
                 )
                 onError(errorMsg)
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Error al restablecer contraseña", e)
-                val errorMsg = "No se pudo actualizar la contraseña. Intentá de nuevo."
+                val msg = e.message.orEmpty()
+                val esInvalido = msg.contains("session", ignoreCase = true) ||
+                    msg.contains("auth", ignoreCase = true) ||
+                    msg.contains("unauthorized", ignoreCase = true) ||
+                    msg.contains("401") ||
+                    msg.contains("403")
+
+                val errorMsg = if (esInvalido) {
+                    "El enlace de recuperación ya fue utilizado o ha expirado. Por favor, solicitá uno nuevo."
+                } else {
+                    "No se pudo actualizar la contraseña. Intentá de nuevo."
+                }
+
                 _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
                     cargando = false,
+                    sesionDeRecuperacionActiva = !esInvalido,
+                    enlaceInvalido = esInvalido,
                     error = errorMsg
                 )
                 onError(errorMsg)
@@ -458,9 +531,74 @@ class AuthViewModel(
     // ---------- CAMBIAR CONTRASEÑA ----------
 
     /**
-     * Cambia la contraseña del usuario logueado. La sesión sigue siendo válida después del cambio,
-     * así que no hace falta volver a iniciar sesión.
+     * Cambia la contraseña del usuario logueado después de verificar su contraseña actual.
+     * La sesión sigue siendo válida después del cambio, así que no hace falta volver a iniciar sesión.
      */
+    fun cambiarPassword(
+        actual: String,
+        nueva: String,
+        emailUsuario: String? = null,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        if (actual.isBlank()) {
+            onError("Ingresá tu contraseña actual")
+            return
+        }
+        if (nueva.length < 6) {
+            onError("La nueva contraseña debe tener al menos 6 caracteres")
+            return
+        }
+        if (actual == nueva) {
+            onError("La nueva contraseña tiene que ser distinta de la actual")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val email = emailUsuario?.takeIf { it.isNotBlank() }
+                    ?: supabaseClient.auth.currentUserOrNull()?.email
+                    ?: withContext(Dispatchers.IO) { usuarioRepository.obtenerUsuario() }?.email
+                    ?: run {
+                        onError("No se pudo identificar tu cuenta. Por favor cerrá sesión y volvé a entrar.")
+                        return@launch
+                    }
+
+                // Verificar la contraseña actual contra Supabase
+                try {
+                    supabaseClient.auth.signInWith(Email) {
+                        this.email = email
+                        this.password = actual
+                    }
+                } catch (e: RestException) {
+                    val msg = e.message.orEmpty()
+                    val esCredencialesInvalidas = e.statusCode == 400 ||
+                        msg.contains("Invalid login credentials", ignoreCase = true) ||
+                        msg.contains("invalid_grant", ignoreCase = true)
+                    if (esCredencialesInvalidas) {
+                        onError("La contraseña actual es incorrecta")
+                        return@launch
+                    } else {
+                        throw e
+                    }
+                }
+
+                // Actualizar a la nueva contraseña
+                supabaseClient.auth.updateUser { password = nueva }
+                onSuccess()
+            } catch (e: RestException) {
+                onError(mapearErrorPassword(e))
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Error al cambiar la contraseña", e)
+                onError("No se pudo cambiar la contraseña. Revisá tu conexión.")
+            }
+        }
+    }
+
+    @Deprecated(
+        "Usar la versión que verifica la contraseña actual",
+        ReplaceWith("cambiarPassword(actual, nueva, null, onSuccess, onError)")
+    )
     fun cambiarPassword(nueva: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             try {
@@ -485,6 +623,11 @@ class AuthViewModel(
 
             e.message?.contains("reauthentication", ignoreCase = true) == true ->
                 "Por seguridad, volvé a iniciar sesión antes de cambiar la contraseña"
+
+            e.message?.contains("session", ignoreCase = true) == true ||
+            e.message?.contains("unauthorized", ignoreCase = true) == true ||
+            e.message?.contains("jwt", ignoreCase = true) == true ->
+                "El enlace ha expirado o ya fue utilizado. Por favor solicitá uno nuevo."
 
             else -> "No se pudo cambiar la contraseña. Intentá de nuevo."
         }

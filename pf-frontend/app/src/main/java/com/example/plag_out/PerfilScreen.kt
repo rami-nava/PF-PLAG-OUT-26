@@ -42,11 +42,14 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -84,7 +87,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -294,6 +299,7 @@ fun PerfilScreen(
     if (mostrarCambiarPassword) {
         DialogoCambiarPassword(
             authViewModel = authViewModel,
+            emailUsuario = state.usuario?.email,
             onDismiss = { mostrarCambiarPassword = false }
         )
     }
@@ -1091,18 +1097,27 @@ private const val PALABRA_CONFIRMACION = "ELIMINAR"
 
 /** Cambio de contraseña contra Supabase, con el molde visual de [DialogoCerrarSesion]. */
 @Composable
-internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () -> Unit) {
+internal fun DialogoCambiarPassword(
+    authViewModel: AuthViewModel,
+    emailUsuario: String? = null,
+    onDismiss: () -> Unit
+) {
     val context = LocalContext.current
+    var actual by remember { mutableStateOf("") }
     var nueva by remember { mutableStateOf("") }
     var repetir by remember { mutableStateOf("") }
+    var mostrarActual by remember { mutableStateOf(false) }
+    var mostrarNueva by remember { mutableStateOf(false) }
+    var mostrarRepetir by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var enviando by remember { mutableStateOf(false) }
 
     val coinciden = nueva == repetir
-    val valido = nueva.length >= 6 && coinciden
+    val noSonIguales = actual.isBlank() || nueva.isBlank() || actual != nueva
+    val valido = actual.isNotBlank() && nueva.length >= 6 && coinciden && noSonIguales
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!enviando) onDismiss() },
         containerColor = PlagOutColors.Surface,
         icon = {
             Icon(Icons.Outlined.Lock, contentDescription = null, tint = PlagOutColors.Forest)
@@ -1113,11 +1128,52 @@ internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () 
         text = {
             Column {
                 OutlinedTextField(
+                    value = actual,
+                    onValueChange = { actual = it; error = null },
+                    label = { Text("Contraseña actual") },
+                    leadingIcon = {
+                        Icon(Icons.Outlined.Lock, contentDescription = null, tint = PlagOutColors.Forest)
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { mostrarActual = !mostrarActual }) {
+                            Icon(
+                                imageVector = if (mostrarActual) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (mostrarActual) "Ocultar contraseña actual" else "Mostrar contraseña actual",
+                                tint = PlagOutColors.TextSecondary
+                            )
+                        }
+                    },
+                    singleLine = true,
+                    enabled = !enviando,
+                    visualTransformation = if (mostrarActual) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = camposColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("txtPasswordActual")
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
                     value = nueva,
                     onValueChange = { nueva = it; error = null },
                     label = { Text("Contraseña nueva") },
+                    leadingIcon = {
+                        Icon(Icons.Outlined.Lock, contentDescription = null, tint = PlagOutColors.Forest)
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { mostrarNueva = !mostrarNueva }) {
+                            Icon(
+                                imageVector = if (mostrarNueva) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (mostrarNueva) "Ocultar contraseña nueva" else "Mostrar contraseña nueva",
+                                tint = PlagOutColors.TextSecondary
+                            )
+                        }
+                    },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    enabled = !enviando,
+                    visualTransformation = if (mostrarNueva) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     shape = RoundedCornerShape(16.dp),
                     colors = camposColors(),
                     modifier = Modifier
@@ -1129,9 +1185,23 @@ internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () 
                     value = repetir,
                     onValueChange = { repetir = it; error = null },
                     label = { Text("Repetir contraseña") },
+                    leadingIcon = {
+                        Icon(Icons.Outlined.Lock, contentDescription = null, tint = PlagOutColors.Forest)
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { mostrarRepetir = !mostrarRepetir }) {
+                            Icon(
+                                imageVector = if (mostrarRepetir) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (mostrarRepetir) "Ocultar repetir contraseña" else "Mostrar repetir contraseña",
+                                tint = PlagOutColors.TextSecondary
+                            )
+                        }
+                    },
                     singleLine = true,
+                    enabled = !enviando,
                     isError = repetir.isNotBlank() && !coinciden,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (mostrarRepetir) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     shape = RoundedCornerShape(16.dp),
                     colors = camposColors(),
                     modifier = Modifier
@@ -1139,6 +1209,8 @@ internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () 
                         .testTag("txtPasswordRepetir")
                 )
                 val mensaje = error ?: when {
+                    actual.isBlank() && (nueva.isNotBlank() || repetir.isNotBlank()) -> "Ingresá tu contraseña actual"
+                    nueva.isNotBlank() && actual.isNotBlank() && actual == nueva -> "La nueva contraseña debe ser distinta de la actual"
                     repetir.isNotBlank() && !coinciden -> "Las contraseñas no coinciden"
                     nueva.isNotBlank() && nueva.length < 6 -> "Mínimo 6 caracteres"
                     else -> null
@@ -1159,8 +1231,11 @@ internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () 
             TextButton(
                 onClick = {
                     enviando = true
+                    error = null
                     authViewModel.cambiarPassword(
+                        actual = actual,
                         nueva = nueva,
+                        emailUsuario = emailUsuario,
                         onSuccess = {
                             enviando = false
                             onDismiss()
@@ -1179,17 +1254,25 @@ internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () 
                 enabled = valido && !enviando,
                 modifier = Modifier.testTag("btnConfirmarCambiarPassword")
             ) {
-                Text(
-                    "Guardar",
-                    // El color va atado al estado: si no, el botón se ve activo estando deshabilitado.
-                    color = if (valido && !enviando) PlagOutColors.Forest
-                            else PlagOutColors.Forest.copy(alpha = 0.38f),
-                    fontWeight = FontWeight.Bold
-                )
+                if (enviando) {
+                    CircularProgressIndicator(
+                        color = PlagOutColors.Forest,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(18.dp)
+                    )
+                } else {
+                    Text(
+                        "Guardar",
+                        // El color va atado al estado: si no, el botón se ve activo estando deshabilitado.
+                        color = if (valido && !enviando) PlagOutColors.Forest
+                                else PlagOutColors.Forest.copy(alpha = 0.38f),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, enabled = !enviando) {
                 Text("Cancelar", color = PlagOutColors.TextSecondary, fontWeight = FontWeight.SemiBold)
             }
         }
