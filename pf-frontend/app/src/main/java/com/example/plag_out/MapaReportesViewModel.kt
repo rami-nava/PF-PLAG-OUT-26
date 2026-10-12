@@ -27,6 +27,7 @@ import kotlin.math.sqrt
  * A zoom 11 la pantalla de un teléfono abarca unos 100 km: pocos reportes, y ya se distinguen lotes.
  */
 const val ZOOM_REPORTES_INDIVIDUALES = 11.0
+const val ZOOM_MAXIMO_SERVIDOR = 22
 
 
 const val CELDA_GRUPO_SERVIDOR_PX = 64.0
@@ -155,7 +156,7 @@ class MapaReportesViewModel(
         val v = vista ?: return
         val filtros = _state.value.filtros
         val nivel = nivelParaZoom(v.zoom)
-        val zoomEntero = floor(v.zoom).toInt()
+        val zoomEntero = floor(v.zoom).toInt().coerceIn(0, ZOOM_MAXIMO_SERVIDOR)
         if (cargado?.cubre(v, nivel, zoomEntero, filtros) == true) return
 
         val consulta = ConsultaMapa(v.ampliada(), nivel, zoomEntero, filtros)

@@ -42,6 +42,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -66,9 +67,6 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
@@ -96,7 +94,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -306,6 +306,7 @@ fun PerfilScreen(
     if (mostrarCambiarPassword) {
         DialogoCambiarPassword(
             authViewModel = authViewModel,
+            emailUsuario = state.usuario?.email,
             onDismiss = { mostrarCambiarPassword = false }
         )
     }
@@ -1096,16 +1097,23 @@ private const val PALABRA_CONFIRMACION = "ELIMINAR"
 
 /** Cambio de contraseña contra Supabase */
 @Composable
-internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () -> Unit) {
+internal fun DialogoCambiarPassword(
+    authViewModel: AuthViewModel,
+    emailUsuario: String? = null,
+    onDismiss: () -> Unit
+) {
     val context = LocalContext.current
+    var actual by remember { mutableStateOf("") }
     var nueva by remember { mutableStateOf("") }
     var repetir by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var enviando by remember { mutableStateOf(false) }
 
+    val actualOk = actual.isNotBlank()
     val largoOk = nueva.length >= 6
     val coinciden = repetir.isNotEmpty() && nueva == repetir
-    val valido = largoOk && coinciden
+    val distintaDeActual = actual.isBlank() || nueva.isBlank() || actual != nueva
+    val valido = actualOk && largoOk && coinciden && distintaDeActual
 
     MarcoDialogo(tag = "dialogCambiarPassword", onDismissRequest = { if (!enviando) onDismiss() }) { rebote ->
         InsigniaAccion(Icons.Outlined.Lock, PlagOutColors.Forest, rebote)
@@ -1126,6 +1134,14 @@ internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () 
         Spacer(Modifier.height(18.dp))
 
         CampoPassword(
+            valor = actual,
+            onValor = { actual = it; error = null },
+            etiqueta = "Contraseña actual",
+            habilitado = !enviando,
+            tag = "txtPasswordActual"
+        )
+        Spacer(Modifier.height(12.dp))
+        CampoPassword(
             valor = nueva,
             onValor = { nueva = it; error = null },
             etiqueta = "Contraseña nueva",
@@ -1138,13 +1154,16 @@ internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () 
             onValor = { repetir = it; error = null },
             etiqueta = "Repetir contraseña",
             habilitado = !enviando,
-            esError = repetir.isNotBlank() && nueva != repetir,
+            esError = repetir.isNotBlank() && !coinciden,
             tag = "txtPasswordRepetir"
         )
 
         Spacer(Modifier.height(12.dp))
         RequisitoPassword("Al menos 6 caracteres", cumplido = largoOk)
         RequisitoPassword("Las dos contraseñas coinciden", cumplido = coinciden)
+        if (actual.isNotBlank() && nueva.isNotBlank()) {
+            RequisitoPassword("Distinta de la contraseña actual", cumplido = distintaDeActual)
+        }
 
         error?.let {
             Spacer(Modifier.height(10.dp))
@@ -1163,8 +1182,11 @@ internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () 
             onCancelar = onDismiss,
             onConfirmar = {
                 enviando = true
+                error = null
                 authViewModel.cambiarPassword(
+                    actual = actual,
                     nueva = nueva,
+                    emailUsuario = emailUsuario,
                     onSuccess = {
                         enviando = false
                         onDismiss()

@@ -362,10 +362,14 @@ fun MapaReportesScreen(
                     nivel_severidad = reporte.nivel_severidad,
                     latitud = reporte.latitud,
                     longitud = reporte.longitud,
-                    timestamp_ms = reporte.timestamp_ms
+                    timestamp_ms = reporte.timestamp_ms,
+                    es_propio = reporte.es_propio,
+                    terreno_nombre = reporte.terreno_nombre,
+                    terreno_mas_cercano_id = reporte.terreno_mas_cercano_id,
+                    distancia_km = reporte.distancia_km
                 )
                 val json = Uri.encode(Gson().toJson(payload))
-                navController.navigate("ver_reporte/${reporte.id}/$json")
+                navController.navigate("ver_reporte/${reporte.id}/$json?ignorar_limite=true")
             },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -943,6 +947,7 @@ private fun LienzoMapa(
                 zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
                 setUseDataConnection(true)
                 minZoomLevel = 3.0
+                maxZoomLevel = ZOOM_MAXIMO_SERVIDOR.toDouble()
                 controller.setZoom(ZOOM_PAIS)
                 controller.setCenter(CENTRO_PAIS)
                 val informarVista = {
