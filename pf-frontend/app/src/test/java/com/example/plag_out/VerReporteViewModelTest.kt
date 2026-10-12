@@ -51,6 +51,25 @@ class VerReporteViewModelTest {
     }
 
     @Test
+    fun `el detalle trae la etapa biologica y el cultivo que manda el servidor`() {
+        val gsonApp = com.example.plag_out.Service.RetrofitClient::class.java
+            .getDeclaredField("gson").apply { isAccessible = true }
+            .get(com.example.plag_out.Service.RetrofitClient) as Gson
+        val json = """{"id":78,"plantacion_id":5,"plaga_id":3,"plaga_nombre":"Chicharrita",
+            "terreno_nombre":"Lote Norte","cultivo_nombre":"Maíz","etapa_biologica":"HUEVO",
+            "nivel_severidad":"Medio","latitud":-34.6,"longitud":-58.4,
+            "timestamp_ms":1760000000000,"es_propio":true}"""
+        val detalle = gsonApp.fromJson(json, ReporteDetalleResponse::class.java)
+        gddService.getReporteResult = { Response.success(detalle) }
+
+        viewModel.cargar(reporteId = 78, reporteJsonFallback = null)
+
+        val exito = esperarEstado(viewModel.state) { it is VerReporteUiState.Exito } as VerReporteUiState.Exito
+        assertEquals("HUEVO", exito.detalle.etapa_biologica)
+        assertEquals("Maíz", exito.detalle.cultivo_nombre)
+    }
+
+    @Test
     fun `cargar con error de servidor usa fallback JSON`() {
         gddService.getReporteResult = { FakeGDDService.errorServidor(404) }
 

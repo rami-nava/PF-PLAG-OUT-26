@@ -518,7 +518,7 @@ private fun EditarTerrenoDialog(
 
         OutlinedTextField(
             value = hectareas,
-            onValueChange = { if (it.matches(regex)) hectareas = it },
+            onValueChange = { val valor = it.replace(',', '.'); if (valor.matches(regex)) hectareas = valor },
             label = { Text("Superficie") },
             leadingIcon = { Icon(Icons.Filled.SquareFoot, contentDescription = null, tint = PlagOutColors.Forest) },
             trailingIcon = { Text("ha", color = PlagOutColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.padding(end = 12.dp)) },

@@ -29,6 +29,8 @@ data class AgregarMonitoreoUIState(
     val plagas: List<PlagaResponse> = emptyList(),
     val plagasDisponibles: List<PlagaResponse> = emptyList(),
     val plagasSeleccionadas: List<PlagaResponse> = emptyList(),
+    val plagasMonitoreadas: Map<Int, Set<String>> = emptyMap(),
+    val plagasYaMonitoreadas: Int = 0,
     val umbralDeRiesgo: Int = 80, //Inicializado en un valor tipico
     val contextoFijado: Boolean = false,
     val isLoading: Boolean = false,
@@ -97,15 +99,36 @@ class AgregarMonitoreoViewModel(
         }
     }
 
-    /** Sin cultivo elegido ([cultivoId] nulo) no hay plagas para ofrecer. */
-    fun filtrarPlagas(cultivoId: Int?){
+    /**
+     * Sin cultivo elegido ([cultivoId] nulo) no hay plagas para ofrecer. Con [plantacionId] se
+     * excluyen las plagas que ya tienen un monitoreo activo en esa plantación, para no duplicarlo.
+     */
+    fun filtrarPlagas(cultivoId: Int?, plantacionId: Int? = null){
         val plagasParaCultivo = if (cultivoId == null) emptyList() else {
             _state.value.plagas
                 .filter { p -> p.cultivos_afectados.orEmpty().contains(cultivoId) }
                 .toList()
         }
-        _state.value = _state.value.copy(plagasDisponibles = plagasParaCultivo)
+        val yaMonitoreadas = plantacionId?.let { _state.value.plagasMonitoreadas[it] }.orEmpty()
+        val disponibles = plagasParaCultivo.filter { normalizarNombrePlaga(it.nombre) !in yaMonitoreadas }
+        _state.value = _state.value.copy(
+            plagasDisponibles = disponibles,
+            plagasYaMonitoreadas = plagasParaCultivo.size - disponibles.size
+        )
     }
+
+
+    suspend fun cargarMonitoreosActivos() {
+        val monitoreos = withContext(Dispatchers.IO) { monitoreoRepository.obtenerMonitoreos() }
+        _state.value = _state.value.copy(
+            plagasMonitoreadas = monitoreos
+                .filter { it.activo }
+                .groupBy { it.plantacion_id }
+                .mapValues { (_, lista) -> lista.map { normalizarNombrePlaga(it.plaga_nombre) }.toSet() }
+        )
+    }
+
+    private fun normalizarNombrePlaga(nombre: String) = nombre.trim().lowercase()
 
     suspend fun cargarPlantaciones(terrenoId: Int){
         val plantaciones = plantacionRepository.obtenerPlantaciones()

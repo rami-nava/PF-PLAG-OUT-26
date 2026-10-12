@@ -61,14 +61,15 @@ class AgregarMonitoreoViewModelTest {
     private fun viewModel(
         plantaciones: List<PlantacionesResponse> = emptyList(),
         plagas: List<PlagaResponse> = emptyList(),
-        terrenos: List<TerrenoResponse> = emptyList()
+        terrenos: List<TerrenoResponse> = emptyList(),
+        monitoreos: List<MonitoreoResponse> = emptyList()
     ): AgregarMonitoreoViewModel {
         gddService = FakeGDDService().apply {
             getPlagasResult = { Response.success(plagas) }
         }
         val vm = AgregarMonitoreoViewModel(
             context = context,
-            monitoreoRepository = MonitoreoRepository(FakeMonitoreoDao()),
+            monitoreoRepository = MonitoreoRepository(FakeMonitoreoDao(inicial = monitoreos)),
             plantacionRepository = PlantacionRepository(FakePlantacionDao(inicial = plantaciones)),
             terrenoRepository = TerrenoRepository(FakeTerrenoDao(inicial = terrenos)),
             gddService = gddService
@@ -153,6 +154,28 @@ class AgregarMonitoreoViewModelTest {
         vm.filtrarPlagas(cultivoId = TRIGO)
 
         assertEquals(listOf(1), vm.state.value.plagasDisponibles.map { it.id })
+    }
+
+    @Test
+    fun `no se ofrecen las plagas con monitoreo activo en la misma plantacion`() = runTest {
+        val vm = viewModel(
+            plagas = listOf(
+                Fixtures.plaga(id = 1, nombre = "Chicharrita", cultivosAfectados = listOf(TRIGO)),
+                Fixtures.plaga(id = 2, nombre = "Pulgón", cultivosAfectados = listOf(TRIGO)),
+                Fixtures.plaga(id = 3, nombre = "Trips", cultivosAfectados = listOf(TRIGO))
+            ),
+            monitoreos = listOf(
+                Fixtures.monitoreo(id = 1, plantacionId = 10, plaga = "Chicharrita"),        // misma plantación
+                Fixtures.monitoreo(id = 2, plantacionId = 10, plaga = "Pulgón", activo = false), // inactivo
+                Fixtures.monitoreo(id = 3, plantacionId = 20, plaga = "Trips")               // otra plantación
+            )
+        )
+        vm.cargarMonitoreosActivos()
+
+        vm.filtrarPlagas(cultivoId = TRIGO, plantacionId = 10)
+
+        assertEquals(listOf(2, 3), vm.state.value.plagasDisponibles.map { it.id })
+        assertEquals(1, vm.state.value.plagasYaMonitoreadas)
     }
 
     @Test

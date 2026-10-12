@@ -96,7 +96,7 @@ fun DatosDelTerrenoScreen(
 
                     OutlinedTextField(
                         value = state.areaHectareas,
-                        onValueChange = { if (it.matches(regex)) nuevoTerrenoViewModel.actualizarArea(it) },
+                        onValueChange = { val valor = it.replace(',', '.'); if (valor.matches(regex)) nuevoTerrenoViewModel.actualizarArea(valor) },
                         label = { Text("Hectáreas") },
                         leadingIcon = { Icon(Icons.Filled.SquareFoot, contentDescription = null, tint = PlagOutColors.Forest) },
                         trailingIcon = { Text("ha", color = PlagOutColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.padding(end = 12.dp)) },

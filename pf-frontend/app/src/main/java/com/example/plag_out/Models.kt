@@ -650,6 +650,7 @@ data class ReporteDetalleResponse(
     @SerializedName("plaga_nombre")     val plaga_nombre: String,
     @SerializedName("terreno_nombre")   val terreno_nombre: String? = null,
     @SerializedName("cultivo_nombre")   val cultivo_nombre: String? = null,
+    @SerializedName("etapa_biologica")  val etapa_biologica: String? = null,
     @SerializedName("nivel_severidad")  val nivel_severidad: String,
     @SerializedName("latitud")          val latitud: Double?,
     @SerializedName("longitud")         val longitud: Double?,
