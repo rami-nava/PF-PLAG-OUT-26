@@ -11,8 +11,8 @@ import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
-import com.google.gson.JsonNull
 import com.google.gson.JsonObject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,8 +20,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.ceil
-import kotlin.math.roundToInt
 
 const val MAX_CARACTERES_OBSERVACIONES = 500
 
@@ -31,8 +29,7 @@ data class MonitoreoDetalleUIState(
     /** Valor en vivo del slider mientras el bottom sheet de umbral está abierto; null = cerrado. */
     val umbralEditado: Int? = null,
     val guardandoUmbral: Boolean = false,
-    val umbralMlEditado: Int? = null,
-    val guardandoUmbralMl: Boolean = false,
+    val guardandoAlertasMl: Boolean = false,
     val observacionesEditadas: String? = null,
     val guardandoObservaciones: Boolean = false,
     val finalizando: Boolean = false,
@@ -117,6 +114,8 @@ class MonitoreoDetalleViewModel(
                     )
                     Log.e("MONITOREO_DETALLE", "Error al cargar: ${response.code()}")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
@@ -138,26 +137,6 @@ class MonitoreoDetalleViewModel(
 
     fun cancelarEdicionUmbral() {
         _state.value = _state.value.copy(umbralEditado = null)
-    }
-
-    fun abrirEditorUmbralMl() {
-        val monitoreo = _state.value.monitoreo ?: return
-        val recomendado = monitoreo.umbral_alerta_ml_recomendado ?: return
-        if (monitoreo.modelo_alerta_ml_id == null) return
-        val inicial = monitoreo.umbral_alerta_ml?.roundToInt()
-            ?: monitoreo.umbral_alerta_ml_efectivo?.roundToInt()
-            ?: ceil(recomendado.toDouble()).toInt()
-        _state.value = _state.value.copy(
-            umbralMlEditado = inicial.coerceIn(ceil(recomendado.toDouble()).toInt(), 100)
-        )
-    }
-
-    fun actualizarUmbralMlEditado(valor: Int) {
-        _state.value = _state.value.copy(umbralMlEditado = valor)
-    }
-
-    fun cancelarEdicionUmbralMl() {
-        _state.value = _state.value.copy(umbralMlEditado = null)
     }
 
     fun abrirEditorObservaciones() {
@@ -270,73 +249,35 @@ class MonitoreoDetalleViewModel(
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun guardarUmbralMl(onSuccess: () -> Unit) {
+    fun cambiarAlertasMl(activas: Boolean, onSuccess: () -> Unit = {}) {
         val monitoreo = _state.value.monitoreo ?: return
-        val nuevo = _state.value.umbralMlEditado ?: return
-        val recomendado = monitoreo.umbral_alerta_ml_recomendado ?: return
-        if (monitoreo.modelo_alerta_ml_id == null) return
-
-        val minimo = ceil(recomendado.toDouble()).toInt()
-        if (nuevo !in minimo..100) {
-            _state.value = _state.value.copy(error = "El threshold ML debe estar entre $minimo y 100%.")
-            return
-        }
-        actualizarUmbralMl(monitoreo, JsonObject().apply { addProperty("umbral_alerta_ml", nuevo) }, onSuccess)
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun usarUmbralMlRecomendado(onSuccess: () -> Unit) {
-        val monitoreo = _state.value.monitoreo ?: return
-        if (monitoreo.modelo_alerta_ml_id == null || monitoreo.umbral_alerta_ml_recomendado == null) return
-        actualizarUmbralMl(
-            monitoreo,
-            JsonObject().apply { add("umbral_alerta_ml", JsonNull.INSTANCE) },
-            onSuccess
-        )
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun actualizarUmbralMl(
-        monitoreo: MonitoreoResponse,
-        body: JsonObject,
-        onSuccess: () -> Unit
-    ) {
-        _state.value = _state.value.copy(guardandoUmbralMl = true, error = null)
+        if (_state.value.guardandoAlertasMl || !monitoreo.activo ||
+            monitoreo.alertas_ml_activas == null || monitoreo.modelo_alerta_ml_id == null) return
+        cargaEnCurso?.cancel()
+        _state.value = _state.value.copy(guardandoAlertasMl = true, error = null)
         viewModelScope.launch {
             try {
                 val response = withContext(Dispatchers.IO) {
-                    gddService.actualizarUmbralAlertaMl(monitoreo.monitoreo_id, body)
+                    gddService.actualizarUmbralAlertaMl(monitoreo.monitoreo_id,
+                        JsonObject().apply { addProperty("alertas_ml_activas", activas) })
                 }
-                if (response.isSuccessful) {
-                    val actualizado = response.body() ?: monitoreo.copy(
-                        umbral_alerta_ml = body.get("umbral_alerta_ml")?.takeUnless { it.isJsonNull }?.asFloat,
-                        umbral_alerta_ml_efectivo = body.get("umbral_alerta_ml")
-                            ?.takeUnless { it.isJsonNull }?.asFloat
-                            ?: monitoreo.umbral_alerta_ml_recomendado
-                    )
+                val actualizado = response.body()
+                if (response.isSuccessful && actualizado?.alertas_ml_activas != null) {
                     withContext(Dispatchers.IO) { repository.guardarMonitoreo(actualizado) }
                     CacheTracker.invalidar(context, CacheTracker.MONITOREOS)
-                    _state.value = _state.value.copy(
-                        monitoreo = actualizado,
-                        guardandoUmbralMl = false,
-                        umbralMlEditado = null
-                    )
+                    _state.value = _state.value.copy(monitoreo = actualizado, guardandoAlertasMl = false)
                     onSuccess()
                 } else {
-                    _state.value = _state.value.copy(
-                        guardandoUmbralMl = false,
-                        error = if (response.code() == 422) {
-                            "Ese threshold ML no es válido para el modelo disponible."
-                        } else mensajeDeError(response.code())
-                    )
-                    Log.e("MONITOREO_DETALLE", "Error al guardar threshold ML: ${response.code()}")
+                    _state.value = _state.value.copy(guardandoAlertasMl = false,
+                        error = if (response.isSuccessful || response.code() == 422)
+                            "No se pudo confirmar el cambio de alertas. Reintentá o actualizá el monitoreo."
+                        else mensajeDeError(response.code()))
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _state.value = _state.value.copy(
-                    guardandoUmbralMl = false,
-                    error = "No se pudo actualizar el threshold ML. Revisá tu conexión."
-                )
-                Log.e("MONITOREO_DETALLE", "Error al guardar threshold ML: ${e.message}")
+                _state.value = _state.value.copy(guardandoAlertasMl = false,
+                    error = "No se pudo actualizar la alerta de brote severo. Revisá tu conexión y reintentá.")
             }
         }
     }
