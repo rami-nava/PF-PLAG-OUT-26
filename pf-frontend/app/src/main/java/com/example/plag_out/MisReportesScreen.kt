@@ -239,6 +239,8 @@ fun MisReportesScreen(
                     ErrorCargaReportes(
                         mensaje = state.error!!,
                         onReintentar = viewModel::refrescar,
+                        sinConexion = state.sinConexion,
+                        reintentando = state.isRefreshing,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
@@ -375,11 +377,18 @@ fun MisReportesScreen(
                         when {
                             target == "cargando" -> SkeletonCargando(alturaTarjeta = 140.dp, cantidad = 4)
 
-                            target == "error" -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                ErrorCargaReportes(
-                                    mensaje = state.error ?: "No se pudieron cargar todos los reportes. Reintentá.",
-                                    onReintentar = viewModel::refrescar,
-                                    modifier = Modifier.padding(16.dp)
+                            // Scrolleable para que el pull to refresh también funcione sobre el error
+                            target == "error" -> Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState()),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                EstadoErrorReportes(
+                                    mensaje = state.error ?: MENSAJE_ERROR_GENERICO,
+                                    sinConexion = state.sinConexion,
+                                    reintentando = state.isRefreshing,
+                                    onReintentar = viewModel::refrescar
                                 )
                             }
 

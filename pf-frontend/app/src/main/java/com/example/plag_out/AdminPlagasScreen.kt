@@ -453,7 +453,7 @@ fun PlagaFormScreen(
                     habilitada = !state.guardando,
                     onClick = {
                         if (original.estaActiva) confirmarBaja = true
-                        else viewModel.reactivar(original.id)
+                        else viewModel.reactivar(original.id) { Avisos.exito("Plaga reactivada.") }
                     }
                 )
             }
@@ -511,7 +511,7 @@ fun PlagaFormScreen(
             peligro = true,
             onConfirmar = {
                 confirmarBaja = false
-                viewModel.desactivar(original.id)
+                viewModel.desactivar(original.id) { Avisos.exito("Plaga dada de baja.") }
             },
             onDismiss = { confirmarBaja = false }
         )

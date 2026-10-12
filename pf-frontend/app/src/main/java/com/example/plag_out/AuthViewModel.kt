@@ -354,7 +354,7 @@ class AuthViewModel(
         viewModelScope.launch {
             try {
                 // 1. Crear usuario en Supabase (esto enviará el mail de confirmación)
-                supabaseClient.auth.signUpWith(Email) {
+                val usuario = supabaseClient.auth.signUpWith(Email) {
                     email = state.email
                     password = state.password
                     data = buildJsonObject {
@@ -362,6 +362,18 @@ class AuthViewModel(
                         put("apellido", state.apellido)
                         put("cargo", state.cargo?.id.toString())
                     }
+                }
+
+                // Con la confirmación por mail activa, Supabase no da error si el correo ya está
+                // registrado: responde "éxito" con un usuario falso sin identidades (para no revelar
+                // qué correos existen) y no crea nada. Sin esto, el usuario creería que la cuenta
+                // se creó y esperaría un mail que nunca llega.
+                if (usuario?.identities?.isEmpty() == true) {
+                    _crearCuentaState.value = _crearCuentaState.value.copy(
+                        cargando = false,
+                        error = "Ya existe una cuenta con este correo."
+                    )
+                    return@launch
                 }
 
                 _crearCuentaState.value = _crearCuentaState.value.copy(cargando = false)

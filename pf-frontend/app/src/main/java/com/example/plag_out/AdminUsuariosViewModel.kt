@@ -157,11 +157,11 @@ class AdminUsuariosViewModel(
         }
     }
 
-    fun suspender(id: String) = actualizar(id) { gddService.adminSuspenderUsuario(id) }
+    fun suspender(id: String) = actualizar(id, "Cuenta suspendida.") { gddService.adminSuspenderUsuario(id) }
 
-    fun reactivar(id: String) = actualizar(id) { gddService.adminReactivarUsuario(id) }
+    fun reactivar(id: String) = actualizar(id, "Cuenta reactivada.") { gddService.adminReactivarUsuario(id) }
 
-    private fun actualizar(id: String, llamada: suspend () -> retrofit2.Response<UsuarioAdmin>) {
+    private fun actualizar(id: String, mensajeExito: String, llamada: suspend () -> retrofit2.Response<UsuarioAdmin>) {
         if (_state.value.procesando != null) return
         _state.value = _state.value.copy(procesando = id, errorAccion = null)
         viewModelScope.launch {
@@ -176,6 +176,7 @@ class AdminUsuariosViewModel(
                     // salió del filtro y corrió las páginas.
                     val filtro = _state.value.filtro.activo
                     if (filtro != null && usuario.estaActivo != filtro) completarPagina()
+                    Avisos.exito(mensajeExito)
                 } else {
                     val fallo = falloDeRespuesta(response)
                     _state.value = _state.value.copy(errorAccion = fallo.mensaje, sinPermiso = fallo.sinPermiso)
