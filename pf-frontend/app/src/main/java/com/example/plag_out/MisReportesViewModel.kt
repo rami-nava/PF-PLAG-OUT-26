@@ -34,7 +34,8 @@ data class MisReportesUiState(
     val radioNotificacionKm: Double = 20.0,
     val mostrarDialogoRadio: Boolean = false,
     val radioTemporalKm: Float = 20f,
-    val guardandoRadio: Boolean = false
+    val guardandoRadio: Boolean = false,
+    val eliminando: Set<Int> = emptySet()
 )
 
 class MisReportesViewModel(
@@ -209,6 +210,30 @@ class MisReportesViewModel(
 
     fun refrescar() {
         cargarReportes(forzar = true)
+    }
+
+    fun eliminarReporte(reporteId: Int, onResultado: (error: String?) -> Unit) {
+        if (reporteId in _state.value.eliminando) return
+        _state.value = _state.value.copy(eliminando = _state.value.eliminando + reporteId)
+        viewModelScope.launch {
+            val error = try {
+                val response = withContext(reportesDispatcher) { gddService.deleteReporte(reporteId) }
+                if (response.isSuccessful) {
+                    _state.value = _state.value.copy(reportes = _state.value.reportes.filter { it.id != reporteId })
+                    null
+                } else {
+                    Log.e("MIS_REPORTES", "Error al eliminar el reporte $reporteId: ${response.code()}")
+                    "No se pudo eliminar el reporte. Intentá de nuevo."
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("MIS_REPORTES", "Error al eliminar el reporte $reporteId", e)
+                "No se pudo eliminar el reporte. Revisá tu conexión."
+            }
+            _state.value = _state.value.copy(eliminando = _state.value.eliminando - reporteId)
+            onResultado(error)
+        }
     }
 
     fun actualizarDistanciaListado(distanciaKm: Int?) {

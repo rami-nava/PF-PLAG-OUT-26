@@ -135,6 +135,10 @@ class PlantacionesViewModel(
         }
     }
 
+    fun limpiarError() {
+        _state.value = _state.value.copy(error = null)
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     fun eliminarPlantacion(plantacionId: Int, onSuccess: () -> Unit) {
         _state.value = _state.value.copy(procesando = true, error = null)
