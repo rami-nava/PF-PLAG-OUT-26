@@ -100,6 +100,7 @@ import java.util.Locale
 fun VerReporteScreen(
     reporteId: Int,
     reporteJsonFallback: String?,
+    ignorarLimite: Boolean = false,
     viewModel: VerReporteViewModel,
     onBack: () -> Unit,
     onVerTerreno: (Int) -> Unit
@@ -107,7 +108,7 @@ fun VerReporteScreen(
     val state by viewModel.state.collectAsState()
 
     LaunchedEffect(reporteId) {
-        viewModel.cargar(reporteId, reporteJsonFallback)
+        viewModel.cargar(reporteId, reporteJsonFallback, ignorarLimite)
     }
 
     Scaffold(
@@ -359,7 +360,18 @@ private fun ContenidoVerReporte(
                             }
                             Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(start = 26.dp)) {
                                 if (terrenosAfectados.isEmpty()) {
-                                    Text("Sin terrenos cercanos", fontSize = 14.sp, color = PlagOutColors.TextMain)
+                                    if (!detalle.terreno_nombre.isNullOrBlank()) {
+                                        val distText = if (detalle.distancia_km != null) {
+                                            if (detalle.distancia_km < 1f) " · a ${(detalle.distancia_km * 1000).toInt()} m (más cercano)"
+                                            else String.format(Locale.getDefault(), " · a %.1f km (más cercano)", detalle.distancia_km)
+                                        } else " (más cercano)"
+                                        FilaContextoNav(
+                                            titulo = "${detalle.terreno_nombre}$distText",
+                                            onClick = if (detalle.terreno_mas_cercano_id != null) { { onVerTerreno(detalle.terreno_mas_cercano_id) } } else null
+                                        )
+                                    } else {
+                                        Text("Sin terrenos cercanos", fontSize = 14.sp, color = PlagOutColors.TextMain)
+                                    }
                                 } else {
                                     terrenosAfectados.forEachIndexed { index, ta ->
                                         val textDist = if (ta.distanciaKm < 1f) {

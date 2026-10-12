@@ -684,7 +684,11 @@ data class ReporteNavPayload(
     val nivel_severidad: String,
     val latitud: Double?,
     val longitud: Double?,
-    val timestamp_ms: Long
+    val timestamp_ms: Long,
+    val es_propio: Boolean = false,
+    val terreno_nombre: String? = null,
+    val terreno_mas_cercano_id: Int? = null,
+    val distancia_km: Float? = null
 )
 
 

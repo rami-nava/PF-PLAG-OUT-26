@@ -17,6 +17,7 @@ import com.example.plag_out.Service.FcmTokenRegistrar
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.exceptions.RestException
@@ -35,7 +36,8 @@ data class LoginState(
     val email: String = "",
     val password: String = "",
     val cargando: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val mensajeExito: String? = null
 )
 
 data class CrearCuentaState(
@@ -48,6 +50,17 @@ data class CrearCuentaState(
     val repetirPassword: String = "",
     val cargando: Boolean = false,
     val error: String? = null
+)
+
+data class RecuperarPasswordState(
+    val email: String = "",
+    val nuevaPassword: String = "",
+    val repetirPassword: String = "",
+    val enlaceEnviado: Boolean = false,
+    val sesionDeRecuperacionActiva: Boolean = false,
+    val cargando: Boolean = false,
+    val error: String? = null,
+    val mensajeExito: String? = null
 )
 
 class AuthViewModel(
@@ -65,6 +78,9 @@ class AuthViewModel(
 
     private val _crearCuentaState = MutableStateFlow(CrearCuentaState())
     val crearCuentaState: StateFlow<CrearCuentaState> = _crearCuentaState
+
+    private val _recuperarPasswordState = MutableStateFlow(RecuperarPasswordState())
+    val recuperarPasswordState: StateFlow<RecuperarPasswordState> = _recuperarPasswordState
 
     // ---------- LOGIN ----------
 
@@ -211,6 +227,14 @@ class AuthViewModel(
         _loginState.value = _loginState.value.copy(error = CuentaSuspendidaEventBus.MENSAJE)
     }
 
+    fun avisarExitoLogin(mensaje: String) {
+        _loginState.value = _loginState.value.copy(mensajeExito = mensaje, error = null)
+    }
+
+    fun limpiarMensajeExitoLogin() {
+        _loginState.value = _loginState.value.copy(mensajeExito = null)
+    }
+
     private fun mapearErrorLogin(e: RestException): String {
         return when {
             // Al suspender una cuenta el backend la banea en Supabase Auth
@@ -260,7 +284,174 @@ class AuthViewModel(
             PreferenciasUsuario.limpiarRol(context)
             _loginState.value = LoginState()
             _crearCuentaState.value = CrearCuentaState()
+            _recuperarPasswordState.value = RecuperarPasswordState()
             onComplete()
+        }
+    }
+
+    companion object {
+        const val REDIRECT_URL_RECUPERAR = "plagout://reset-password"
+    }
+
+    // ---------- RECUPERAR CONTRASEÑA (LINK / DEEP LINK) ----------
+
+    fun iniciarRecuperacionPassword(emailInicial: String = "") {
+        _recuperarPasswordState.value = RecuperarPasswordState(email = emailInicial)
+    }
+
+    fun actualizarEmailRecuperacion(valor: String) {
+        _recuperarPasswordState.value = _recuperarPasswordState.value.copy(email = valor, error = null)
+    }
+
+    fun actualizarNuevaPasswordRecuperacion(valor: String) {
+        _recuperarPasswordState.value = _recuperarPasswordState.value.copy(nuevaPassword = valor, error = null)
+    }
+
+    fun actualizarRepetirPasswordRecuperacion(valor: String) {
+        _recuperarPasswordState.value = _recuperarPasswordState.value.copy(repetirPassword = valor, error = null)
+    }
+
+    fun activarModoRestablecerPassword() {
+        _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
+            sesionDeRecuperacionActiva = true,
+            error = null
+        )
+    }
+
+    fun limpiarEstadoRecuperacion() {
+        _recuperarPasswordState.value = RecuperarPasswordState()
+    }
+
+    fun volverAIngresoEmail() {
+        _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
+            enlaceEnviado = false,
+            sesionDeRecuperacionActiva = false,
+            nuevaPassword = "",
+            repetirPassword = "",
+            error = null
+        )
+    }
+
+    /**
+     * Envía el correo de recuperación indicando la URL de redirección a la app (plagout://reset-password)
+     */
+    fun enviarEnlaceRecuperacion(
+        email: String = _recuperarPasswordState.value.email,
+        onResult: ((exito: Boolean, mensaje: String?) -> Unit)? = null
+    ) {
+        val trimmedEmail = email.trim()
+        val emailValido = trimmedEmail.isNotBlank() &&
+            android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()
+
+        if (!emailValido) {
+            val errorMsg = "Ingresá un correo electrónico válido"
+            _recuperarPasswordState.value = _recuperarPasswordState.value.copy(error = errorMsg)
+            onResult?.invoke(false, errorMsg)
+            return
+        }
+
+        _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
+            email = trimmedEmail,
+            cargando = true,
+            error = null,
+            mensajeExito = null
+        )
+
+        viewModelScope.launch {
+            try {
+                supabaseClient.auth.resetPasswordForEmail(
+                    email = trimmedEmail,
+                    redirectUrl = REDIRECT_URL_RECUPERAR
+                )
+                val exitoMsg = "Enlace enviado a tu correo electrónico."
+                _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
+                    cargando = false,
+                    enlaceEnviado = true,
+                    error = null
+                )
+                onResult?.invoke(true, exitoMsg)
+            } catch (e: RestException) {
+                val errorMsg = mapearErrorRecuperacion(e)
+                _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
+                    cargando = false,
+                    error = errorMsg
+                )
+                onResult?.invoke(false, errorMsg)
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Error al enviar enlace de recuperación", e)
+                val errorMsg = "No se pudo enviar el correo. Verificá tu conexión e intentá de nuevo."
+                _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
+                    cargando = false,
+                    error = errorMsg
+                )
+                onResult?.invoke(false, errorMsg)
+            }
+        }
+    }
+
+    /**
+     * Guarda la nueva contraseña del usuario una vez que abrió el link de recuperación.
+     */
+    fun restablecerPassword(
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val estado = _recuperarPasswordState.value
+        val nueva = estado.nuevaPassword
+        val repetir = estado.repetirPassword
+
+        if (nueva.length < 6) {
+            val errorMsg = "La contraseña debe tener al menos 6 caracteres"
+            _recuperarPasswordState.value = estado.copy(error = errorMsg)
+            onError(errorMsg)
+            return
+        }
+        if (nueva != repetir) {
+            val errorMsg = "Las contraseñas no coinciden"
+            _recuperarPasswordState.value = estado.copy(error = errorMsg)
+            onError(errorMsg)
+            return
+        }
+
+        _recuperarPasswordState.value = estado.copy(cargando = true, error = null)
+
+        viewModelScope.launch {
+            try {
+                // Actualizar la contraseña en Supabase (la sesión de recuperación ya fue autenticada por el deep link)
+                supabaseClient.auth.updateUser { password = nueva }
+
+                // Cerrar la sesión de recuperación para que el usuario inicie sesión limpiamente
+                runCatching { supabaseClient.auth.signOut() }
+
+                val mensajeExito = "¡Contraseña restablecida con éxito! Ya podés iniciar sesión."
+                _recuperarPasswordState.value = RecuperarPasswordState()
+                onSuccess(mensajeExito)
+            } catch (e: RestException) {
+                val errorMsg = mapearErrorPassword(e)
+                _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
+                    cargando = false,
+                    error = errorMsg
+                )
+                onError(errorMsg)
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Error al restablecer contraseña", e)
+                val errorMsg = "No se pudo actualizar la contraseña. Intentá de nuevo."
+                _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
+                    cargando = false,
+                    error = errorMsg
+                )
+                onError(errorMsg)
+            }
+        }
+    }
+
+    private fun mapearErrorRecuperacion(e: RestException): String {
+        return when {
+            e.message?.contains("rate limit", ignoreCase = true) == true ->
+                "Demasiadas solicitudes. Esperá unos minutos antes de volver a intentar."
+            e.message?.contains("User not found", ignoreCase = true) == true ->
+                "No existe una cuenta registrada con este correo"
+            else -> "No se pudo procesar la solicitud. Intentá de nuevo."
         }
     }
 
