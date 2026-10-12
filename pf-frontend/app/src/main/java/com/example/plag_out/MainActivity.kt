@@ -497,7 +497,7 @@ fun AppNavigation(
         }
     }
 
-    val fullBleedScreens = listOf("logIn", "crearCuenta", "recuperarPassword", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}", "mapa_reportes")
+    val fullBleedScreens = listOf("logIn", "crearCuenta", "recuperarPassword", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "mapa_reportes")
     val rutaActual = navBackStackEntry?.destination?.route
 
     // Cerrar sesión: AuthViewModel borra el almacenamiento local (token, Room,
@@ -1135,6 +1135,6 @@ fun shouldShowBottomBar(navController: NavController): Boolean {
 fun shouldShowTopBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("logIn","crearCuenta","recuperarPassword","perfil","editarPerfil","monitoreo/{monitoreo_id}","prediccion/{prediccion_id}","ver_reporte/{reporte_id}","ver_reporte/{reporte_id}/{reporte_json}","mapa_reportes")
+    val screensWithoutNavBar = listOf("logIn","crearCuenta","recuperarPassword","perfil","editarPerfil","monitoreo/{monitoreo_id}","prediccion/{prediccion_id}","mapa_reportes")
     return !screensWithoutNavBar.contains(currentScreen)
 }

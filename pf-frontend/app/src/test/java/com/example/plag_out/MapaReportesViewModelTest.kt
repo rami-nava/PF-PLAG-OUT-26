@@ -295,4 +295,18 @@ class MapaReportesViewModelTest {
         assertEquals(0, FiltrosMapa().activos)
         assertEquals(2, FiltrosMapa(ambito = AmbitoMapa.PROPIOS, dias = 7).activos)
     }
+
+    @Test
+    fun `zoom excesivo se limita al maximo permitido por el servidor`() {
+        gddService.getReportesMapaResult = {
+            Response.success(ReportesMapaResponse(reportes = emptyList()))
+        }
+
+        val vistaConZoom29 = VistaMapa(sur = -34.7, oeste = -58.5, norte = -34.5, este = -58.3, zoom = 29.0)
+        viewModel.actualizarVista(vistaConZoom29)
+
+        esperarEstado(viewModel.state) { !it.cargando }
+        val consulta = gddService.consultasMapa.single()
+        assertEquals(ZOOM_MAXIMO_SERVIDOR, consulta["zoom"])
+    }
 }

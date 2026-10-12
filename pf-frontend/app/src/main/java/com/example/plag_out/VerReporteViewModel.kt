@@ -80,11 +80,11 @@ class VerReporteViewModel(
                                         TerrenoConDistancia(t.terreno_id, t.terreno_nombre, distKm)
                                     }.sortedBy { it.distanciaKm }
 
-                                    terrenosAfectados = if (ignorarLimite) {
-                                        todosOrdenados
+                                    val menores150 = todosOrdenados.filter { it.distanciaKm < 150f }
+                                    terrenosAfectados = if (menores150.isNotEmpty()) {
+                                        menores150
                                     } else {
-                                        val menores150 = todosOrdenados.filter { it.distanciaKm < 150f }
-                                        if (menores150.isNotEmpty()) menores150 else todosOrdenados.take(1)
+                                        todosOrdenados.take(1)
                                     }
                                 }
                                 
@@ -210,11 +210,11 @@ class VerReporteViewModel(
                                 TerrenoConDistancia(t.terreno_id, t.terreno_nombre, distKm)
                             }.sortedBy { it.distanciaKm }
 
-                            val terrenosAfectados = if (ignorarLimite) {
-                                todosOrdenados
+                            val menores150 = todosOrdenados.filter { it.distanciaKm < 150f }
+                            val terrenosAfectados = if (menores150.isNotEmpty()) {
+                                menores150
                             } else {
-                                val menores150 = todosOrdenados.filter { it.distanciaKm < 150f }
-                                if (menores150.isNotEmpty()) menores150 else todosOrdenados.take(1)
+                                todosOrdenados.take(1)
                             }
 
                             val terrenoRef = if (terrenosAfectados.isNotEmpty()) {

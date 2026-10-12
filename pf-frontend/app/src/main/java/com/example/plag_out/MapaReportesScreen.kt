@@ -947,6 +947,7 @@ private fun LienzoMapa(
                 zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
                 setUseDataConnection(true)
                 minZoomLevel = 3.0
+                maxZoomLevel = ZOOM_MAXIMO_SERVIDOR.toDouble()
                 controller.setZoom(ZOOM_PAIS)
                 controller.setCenter(CENTRO_PAIS)
                 val informarVista = {
