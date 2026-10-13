@@ -109,14 +109,12 @@ fun TerrenoScreen(
     var filtro by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
     var filtrosExpandidos by rememberSaveable { mutableStateOf(false) }
 
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     var terrenoAEliminar by remember { mutableStateOf<TerrenoResponse?>(null) }
     var eliminandoId by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(state.error) {
         state.error?.let {
-            snackbarHostState.showSnackbar(it)
+            Avisos.error(it)
             terrenoViewModel.limpiarError()
         }
     }
@@ -139,7 +137,6 @@ fun TerrenoScreen(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             var shown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { shown = true }
@@ -280,9 +277,7 @@ fun TerrenoScreen(
             onConfirmar = {
                 terrenoAEliminar = null
                 eliminandoId = terreno.terreno_id
-                eliminarTerrenoEnCascada(terreno.terreno_id, terrenoViewModel, plantacionViewModel, monitoreoViewModel) {
-                    scope.launch { snackbarHostState.showSnackbar("Terreno eliminado") }
-                }
+                eliminarTerrenoEnCascada(terreno.terreno_id, terrenoViewModel, plantacionViewModel, monitoreoViewModel)
             },
             onCancelar = { terrenoAEliminar = null }
         )

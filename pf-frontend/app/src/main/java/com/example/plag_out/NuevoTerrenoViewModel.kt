@@ -70,16 +70,12 @@ class NuevoTerrenoViewModel(
         val lat = currentState.latitud
         val lon = currentState.longitud
 
-        if (nombre.isEmpty()) {
-            _state.value = _state.value.copy(error = "El nombre del terreno no puede estar vacío")
+        val area = areaStr.replace(',', '.').toDoubleOrNull()
+        validarTerreno(nombre, area)?.let {
+            _state.value = _state.value.copy(error = it)
             return
         }
-
-        val area = areaStr.toDoubleOrNull()
-        if (area == null || area <= 0.0) {
-            _state.value = _state.value.copy(error = "Las hectáreas deben ser un número decimal mayor a 0")
-            return
-        }
+        area!!
 
         if (lat == null || lon == null) {
             _state.value = _state.value.copy(error = "Debe seleccionar la ubicación")
@@ -122,6 +118,7 @@ class NuevoTerrenoViewModel(
                         }
                         
                         _state.value = _state.value.copy(isLoading = false)
+                        Avisos.exito("Terreno creado.")
                         withContext(Dispatchers.Main) { onSuccess() }
                     } else {
                         _state.value = _state.value.copy(
@@ -130,10 +127,9 @@ class NuevoTerrenoViewModel(
                         )
                     }
                 } else {
-                    val errorMsg = response.errorBody()?.string() ?: "Error del servidor al registrar terreno"
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        error = errorMsg
+                        error = errorDeRespuesta(response, porCodigo = ERRORES_CREACION).enFormularioOAviso()
                     )
                 }
             } catch (e: Exception) {
@@ -141,7 +137,7 @@ class NuevoTerrenoViewModel(
                 // de pantalla, igual que en la creación de plantaciones y monitoreos.
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = "Error de red. Revisá tu conexión e intentá de nuevo."
+                    error = errorDeExcepcion(e).enFormularioOAviso()
                 )
                 Log.e("NUEVO_TERRENO", "Error al registrar terreno: ${e.message}")
             }
@@ -159,4 +155,14 @@ class NuevoTerrenoViewModelFactory(
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return NuevoTerrenoViewModel(context, repository, gddService) as T
     }
+}
+
+private val ERRORES_CREACION = mapOf(500 to "No se pudo crear el terreno. Intentá de nuevo.")
+
+fun validarTerreno(nombre: String, area: Double?): String? = when {
+    nombre.isEmpty() -> "El nombre del terreno no puede estar vacío"
+    nombre.length > 150 -> "El nombre del terreno no puede superar los 150 caracteres"
+    area == null || area <= 0.0 -> "Las hectáreas deben ser un número decimal mayor a 0"
+    area > 100_000.0 -> "Las hectáreas no pueden superar las 100.000"
+    else -> null
 }

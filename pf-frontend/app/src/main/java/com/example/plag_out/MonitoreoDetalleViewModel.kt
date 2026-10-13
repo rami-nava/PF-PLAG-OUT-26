@@ -68,7 +68,7 @@ class MonitoreoDetalleViewModel(
      * (instantáneo), después intenta refrescar contra el backend.
      */
     @RequiresApi(Build.VERSION_CODES.O)
-    fun cargar(monitoreoId: Int) {
+    fun cargar(monitoreoId: Int, refresco: Boolean = false) {
         // Antes se salía cuando ya había un monitoreo cargado con ese id: eso dejaba el dato
         // congelado durante toda la vida del ViewModel (el caché rancio sólo se iba cuando se
         // reiniciaba la app) y además volvía inútil el botón "Reintentar". Ahora cada entrada a
@@ -115,6 +115,7 @@ class MonitoreoDetalleViewModel(
                         datosDesactualizados = cache != null,
                         error = if (cache == null) mensajeDeCarga(response.code()) else null
                     )
+                    if (refresco && cache != null) Avisos.error(errorDeCuerpo(response.code(), "").mensaje)
                     Log.e("MONITOREO_DETALLE", "Error al cargar: ${response.code()}")
                 }
             } catch (e: Exception) {
@@ -123,6 +124,7 @@ class MonitoreoDetalleViewModel(
                     datosDesactualizados = cache != null,
                     error = if (cache == null) "No se pudo cargar el monitoreo. Revisá tu conexión." else null
                 )
+                if (refresco && cache != null) Avisos.error(errorDeExcepcion(e).mensaje)
                 Log.e("MONITOREO_DETALLE", "Error al cargar: ${e.message}")
             }
         }
@@ -207,14 +209,14 @@ class MonitoreoDetalleViewModel(
                 } else {
                     _state.value = _state.value.copy(
                         guardandoObservaciones = false,
-                        error = mensajeDeError(response.code())
+                        error = mensajeDeEdicion(response, "No se pudo guardar la nota. Intentá de nuevo.")
                     )
                     Log.e("MONITOREO_DETALLE", "Error al guardar la nota: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     guardandoObservaciones = false,
-                    error = "No se pudo guardar la nota. Revisá tu conexión."
+                    error = errorDeExcepcion(e).mensaje
                 )
                 Log.e("MONITOREO_DETALLE", "Error al guardar la nota: ${e.message}")
             }
@@ -256,13 +258,16 @@ class MonitoreoDetalleViewModel(
                     )
                     onSuccess()
                 } else {
-                    _state.value = _state.value.copy(guardandoUmbral = false, error = mensajeDeError(response.code()))
+                    _state.value = _state.value.copy(
+                        guardandoUmbral = false,
+                        error = mensajeDeEdicion(response, "No se pudo actualizar el umbral. Intentá de nuevo.")
+                    )
                     Log.e("MONITOREO_DETALLE", "Error al guardar umbral: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     guardandoUmbral = false,
-                    error = "No se pudo actualizar el umbral. Revisá tu conexión."
+                    error = errorDeExcepcion(e).mensaje
                 )
                 Log.e("MONITOREO_DETALLE", "Error al guardar umbral: ${e.message}")
             }
@@ -325,16 +330,18 @@ class MonitoreoDetalleViewModel(
                 } else {
                     _state.value = _state.value.copy(
                         guardandoUmbralMl = false,
-                        error = if (response.code() == 422) {
-                            "Ese threshold ML no es válido para el modelo disponible."
-                        } else mensajeDeError(response.code())
+                        error = mensajeDeEdicion(
+                            response,
+                            "No se pudo actualizar el threshold ML. Intentá de nuevo.",
+                            mapOf(422 to "Ese threshold ML no es válido para el modelo disponible.")
+                        )
                     )
                     Log.e("MONITOREO_DETALLE", "Error al guardar threshold ML: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     guardandoUmbralMl = false,
-                    error = "No se pudo actualizar el threshold ML. Revisá tu conexión."
+                    error = errorDeExcepcion(e).mensaje
                 )
                 Log.e("MONITOREO_DETALLE", "Error al guardar threshold ML: ${e.message}")
             }
@@ -371,13 +378,16 @@ class MonitoreoDetalleViewModel(
                     )
                     onSuccess()
                 } else {
-                    _state.value = _state.value.copy(finalizando = false, error = mensajeDeError(response.code()))
+                    _state.value = _state.value.copy(
+                        finalizando = false,
+                        error = mensajeDeEdicion(response, "No se pudo finalizar el monitoreo. Intentá de nuevo.")
+                    )
                     Log.e("MONITOREO_DETALLE", "Error al finalizar: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     finalizando = false,
-                    error = "No se pudo finalizar el monitoreo. Revisá tu conexión."
+                    error = errorDeExcepcion(e).mensaje
                 )
                 Log.e("MONITOREO_DETALLE", "Error al finalizar: ${e.message}")
             }
@@ -398,8 +408,8 @@ class MonitoreoDetalleViewModel(
         viewModelScope.launch {
             try {
                 val response = withContext(Dispatchers.IO) { gddService.eliminarMonitoreo(monitoreo.monitoreo_id) }
-                val yaNoExiste = !response.isSuccessful &&
-                    esNoEncontrado(response.code(), leerCuerpoDeError(response))
+                val cuerpo = if (response.isSuccessful) "" else leerCuerpoDeError(response)
+                val yaNoExiste = !response.isSuccessful && esNoEncontrado(response.code(), cuerpo)
 
                 if (response.isSuccessful || yaNoExiste) {
                     cargaEnCurso?.cancel()
@@ -411,7 +421,10 @@ class MonitoreoDetalleViewModel(
                         eliminando = false,
                         error = when (response.code()) {
                             404, 405 -> "Eliminar monitoreos todavía no está disponible en el servidor."
-                            else -> mensajeDeError(response.code())
+                            else -> errorDeCuerpo(
+                                response.code(), cuerpo,
+                                porCodigo = mapOf(500 to "No se pudo eliminar el monitoreo. Intentá de nuevo.")
+                            ).mensaje
                         }
                     )
                     Log.e("MONITOREO_DETALLE", "Error al eliminar: ${response.code()}")
@@ -419,7 +432,7 @@ class MonitoreoDetalleViewModel(
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     eliminando = false,
-                    error = "No se pudo eliminar el monitoreo. Revisá tu conexión."
+                    error = errorDeExcepcion(e).mensaje
                 )
                 Log.e("MONITOREO_DETALLE", "Error al eliminar: ${e.message}")
             }
@@ -438,11 +451,18 @@ class MonitoreoDetalleViewModel(
         else -> "No se pudo cargar el monitoreo. Intentá de nuevo."
     }
 
-    private fun mensajeDeError(codigo: Int): String = when (codigo) {
-        400, 422 -> "Revisá los datos ingresados."
-        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
-        else -> "No se pudieron guardar los cambios. Intentá de nuevo."
-    }
+    private fun mensajeDeEdicion(
+        response: retrofit2.Response<*>,
+        al500: String,
+        porCodigo: Map<Int, String> = emptyMap()
+    ): String = errorDeRespuesta(
+        response,
+        porDetalle = mapOf(
+            "monitoring_finalized" to "El monitoreo ya fue finalizado y no puede reactivarse.",
+            "ml_alert_model_unavailable" to "Esta plaga todavía no tiene un modelo de alertas aprobado."
+        ),
+        porCodigo = mapOf(404 to "El monitoreo ya no existe.", 500 to al500) + porCodigo
+    ).mensaje
 }
 
 class MonitoreoDetalleViewModelFactory(

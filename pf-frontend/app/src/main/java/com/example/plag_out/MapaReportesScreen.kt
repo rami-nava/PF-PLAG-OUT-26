@@ -573,7 +573,8 @@ private fun HojaFiltrosMapa(
                     tag = "Plaga"
                 ) {
                     GrillaFiltro(
-                        plagasDisponibles.map { nombre ->
+                        columnas = 2,
+                        celdas = plagasDisponibles.map { nombre ->
                             CeldaFiltro(
                                 etiqueta = nombre,
                                 icono = Icons.Outlined.BugReport,
@@ -594,7 +595,8 @@ private fun HojaFiltrosMapa(
                     tag = "Cultivo"
                 ) {
                     GrillaFiltro(
-                        cultivosDisponibles.map { nombre ->
+                        columnas = 3,
+                        celdas = cultivosDisponibles.map { nombre ->
                             CeldaFiltro(
                                 etiqueta = nombre,
                                 icono = Icons.Outlined.Grass,
@@ -664,11 +666,13 @@ private fun GrillaFiltro(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         celdas.chunked(columnas).forEach { fila ->
+            // IntrinsicSize.Min: la fila toma el alto de su celda más alta y las demás la igualan,
+            // así un nombre largo en dos o tres líneas no deja celdas desparejas.
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                fila.forEach { celda -> VistaCeldaFiltro(celda, Modifier.weight(1f)) }
+                fila.forEach { celda -> VistaCeldaFiltro(celda, Modifier.weight(1f).fillMaxHeight()) }
                 repeat(columnas - fila.size) { Spacer(Modifier.weight(1f)) }
             }
         }
@@ -692,7 +696,9 @@ private fun VistaCeldaFiltro(celda: CeldaFiltro, modifier: Modifier = Modifier) 
         shape = RoundedCornerShape(16.dp),
         color = fondo,
         border = BorderStroke(if (celda.activa) 2.dp else 1.dp, borde),
-        modifier = modifier.height(76.dp)
+        // Alto mínimo y no fijo: con nombres largos o la fuente del sistema agrandada, la celda
+        // crece en vez de cortar el texto.
+        modifier = modifier.heightIn(min = 76.dp)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 10.dp),
@@ -712,9 +718,7 @@ private fun VistaCeldaFiltro(celda: CeldaFiltro, modifier: Modifier = Modifier) 
                 lineHeight = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = PlagOutColors.TextMain,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                textAlign = TextAlign.Center
             )
         }
     }

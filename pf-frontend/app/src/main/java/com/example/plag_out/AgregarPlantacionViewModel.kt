@@ -144,6 +144,7 @@ class AgregarPlantacionViewModel(
                         }
 
                         _state.value = _state.value.copy(isGuardando = false)
+                        Avisos.exito("Cultivo agregado.")
                         withContext(Dispatchers.Main) {
                             onSuccess()
                         }
@@ -154,22 +155,30 @@ class AgregarPlantacionViewModel(
                         )
                     }
                 } else {
-                    val errorMsg = response.errorBody()?.string() ?: "Error del servidor al registrar cultivo"
                     _state.value = _state.value.copy(
                         isGuardando = false,
-                        error = errorMsg
+                        error = errorDeRespuesta(response, ERRORES_CREACION, ERRORES_CREACION_CODIGO).enFormularioOAviso()
                     )
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isGuardando = false,
-                    error = "Error al guardar: ${e.message}"
+                    error = errorDeExcepcion(e).enFormularioOAviso()
                 )
                 Log.e("AGREGAR_PLANTACION", "Error al guardar cultivo: ${e.message}")
             }
         }
     }
 }
+
+private val ERRORES_CREACION = mapOf(
+    "plantation_already_active" to "Ya existe una plantación activa de ese cultivo con esa fecha en este terreno."
+)
+private val ERRORES_CREACION_CODIGO = mapOf(
+    400 to "El cultivo seleccionado ya no está disponible.",
+    404 to "El terreno ya no existe.",
+    500 to "No se pudo crear la plantación. Intentá de nuevo."
+)
 
 class AgregarPlantacionViewModelFactory(
     private val context: Context,

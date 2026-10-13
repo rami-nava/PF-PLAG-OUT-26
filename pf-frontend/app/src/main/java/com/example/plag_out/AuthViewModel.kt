@@ -20,6 +20,7 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.exception.AuthWeakPasswordException
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.exceptions.RestException
 import kotlinx.coroutines.CancellationException
@@ -138,6 +139,13 @@ class AuthViewModel(
                                 if(response.body()?.created == false) "El usuario ya existe en el backend"
                                         else "Usuario creado exitosamente en el backend: ${response.body()?.usuario_id}"
                             )
+                        } else if (response.code() == 404) {
+                            runCatching { supabaseClient.auth.signOut() }
+                            _loginState.value = _loginState.value.copy(
+                                cargando = false,
+                                error = "Esta cuenta fue eliminada y no puede volver a usarse."
+                            )
+                            return@launch
                         } else {
                             Log.e(
                                 "AuthViewModel",
@@ -192,7 +200,7 @@ class AuthViewModel(
                 Log.e("AuthViewModel", "Error inesperado al iniciar sesión", e)
                 _loginState.value = _loginState.value.copy(
                     cargando = false,
-                    error = "Ocurrió un error inesperado. Intentá de nuevo."
+                    error = errorDeExcepcion(e).mensaje
                 )
             }
         }
@@ -233,6 +241,7 @@ class AuthViewModel(
         _loginState.value = _loginState.value.copy(error = CuentaSuspendidaEventBus.MENSAJE)
     }
 
+   
     fun avisarExitoLogin(mensaje: String) {
         _loginState.value = _loginState.value.copy(mensajeExito = mensaje, error = null)
     }
@@ -240,22 +249,9 @@ class AuthViewModel(
     fun limpiarMensajeExitoLogin() {
         _loginState.value = _loginState.value.copy(mensajeExito = null)
     }
-
-    private fun mapearErrorLogin(e: RestException): String {
-        return when {
-            // Al suspender una cuenta el backend la banea en Supabase Auth
-            e.message?.contains("banned", ignoreCase = true) == true ->
-                CuentaSuspendidaEventBus.MENSAJE
-
-            e.message?.contains("Invalid login credentials", ignoreCase = true) == true ->
-                "Correo o contraseña incorrectos"
-
-            e.message?.contains("Email not confirmed", ignoreCase = true) == true ->
-                "Confirmá tu correo antes de iniciar sesión"
-
-            else -> "No se pudo iniciar sesión. Intentá de nuevo."
-        }
-    }
+    
+    private fun mapearErrorLogin(e: RestException): String =
+        mensajeDeErrorAuth(e, "No se pudo iniciar sesión. Intentá de nuevo.")
 
     // ---------- CERRAR SESIÓN ----------
 
@@ -618,30 +614,13 @@ class AuthViewModel(
                 onError(mapearErrorPassword(e))
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Error al cambiar la contraseña", e)
-                onError("No se pudo cambiar la contraseña. Revisá tu conexión.")
+                onError(errorDeExcepcion(e).mensaje)
             }
         }
     }
 
-    private fun mapearErrorPassword(e: RestException): String {
-        return when {
-            e.message?.contains("Password should be", ignoreCase = true) == true ->
-                "La contraseña no cumple los requisitos mínimos"
-
-            e.message?.contains("should be different", ignoreCase = true) == true ->
-                "La contraseña nueva tiene que ser distinta de la actual"
-
-            e.message?.contains("reauthentication", ignoreCase = true) == true ->
-                "Por seguridad, volvé a iniciar sesión antes de cambiar la contraseña"
-
-            e.message?.contains("session", ignoreCase = true) == true ||
-            e.message?.contains("unauthorized", ignoreCase = true) == true ||
-            e.message?.contains("jwt", ignoreCase = true) == true ->
-                "El enlace ha expirado o ya fue utilizado. Por favor solicitá uno nuevo."
-
-            else -> "No se pudo cambiar la contraseña. Intentá de nuevo."
-        }
-    }
+    private fun mapearErrorPassword(e: RestException): String =
+        mensajeDeErrorAuth(e, "No se pudo cambiar la contraseña. Intentá de nuevo.")
 
     // ---------- CREAR CUENTA ----------
 
@@ -704,7 +683,7 @@ class AuthViewModel(
         viewModelScope.launch {
             try {
                 // 1. Crear usuario en Supabase (esto enviará el mail de confirmación)
-                supabaseClient.auth.signUpWith(Email) {
+                val usuario = supabaseClient.auth.signUpWith(Email) {
                     email = state.email
                     password = state.password
                     data = buildJsonObject {
@@ -712,6 +691,18 @@ class AuthViewModel(
                         put("apellido", state.apellido)
                         put("cargo", state.cargo?.id.toString())
                     }
+                }
+
+                // Con la confirmación por mail activa, Supabase no da error si el correo ya está
+                // registrado: responde "éxito" con un usuario falso sin identidades (para no revelar
+                // qué correos existen) y no crea nada. Sin esto, el usuario creería que la cuenta
+                // se creó y esperaría un mail que nunca llega.
+                if (usuario?.identities?.isEmpty() == true) {
+                    _crearCuentaState.value = _crearCuentaState.value.copy(
+                        cargando = false,
+                        error = "Ya existe una cuenta con este correo."
+                    )
+                    return@launch
                 }
 
                 _crearCuentaState.value = _crearCuentaState.value.copy(cargando = false)
@@ -726,23 +717,14 @@ class AuthViewModel(
                 Log.e("Supabase", "Error creando cuenta", e)
                 _crearCuentaState.value = _crearCuentaState.value.copy(
                     cargando = false,
-                    error = "No se pudo crear la cuenta. Intentá de nuevo."
+                    error = errorDeExcepcion(e).mensaje
                 )
             }
         }
     }
 
-    private fun mapearErrorRegistro(e: RestException): String {
-        return when {
-            e.message?.contains("already registered", ignoreCase = true) == true ->
-                "Ya existe una cuenta con este correo"
-
-            e.message?.contains("Password should be", ignoreCase = true) == true ->
-                "La contraseña no cumple los requisitos mínimos"
-
-            else -> "No se pudo crear la cuenta. Intentá de nuevo."
-        }
-    }
+    private fun mapearErrorRegistro(e: RestException): String =
+        mensajeDeErrorAuth(e, "No se pudo crear la cuenta. Intentá de nuevo.")
 
     class AuthViewModelFactory(
         private val client: SupabaseClient,
@@ -764,3 +746,30 @@ class AuthViewModel(
     }
 }
 
+internal fun mensajeDeErrorAuth(e: RestException, porDefecto: String): String = when (e.error) {
+    "invalid_credentials" -> "Correo o contraseña incorrectos."
+    "email_not_confirmed" -> "Confirmá tu correo antes de iniciar sesión."
+    "user_already_exists", "email_exists" -> "Ya existe una cuenta con este correo."
+    "email_address_invalid" -> "El correo no es válido."
+    // Al suspender una cuenta el backend la banea en Supabase Auth
+    "user_banned" -> CuentaSuspendidaEventBus.MENSAJE
+    "same_password" -> "La nueva contraseña debe ser distinta a la actual."
+    "weak_password" -> mensajeDePasswordDebil((e as? AuthWeakPasswordException)?.reasons.orEmpty())
+    "reauthentication_needed", "reauthentication_not_valid" -> "Por seguridad, volvé a iniciar sesión."
+    "session_not_found", "session_expired" -> MENSAJE_SESION_EXPIRADA
+    "over_request_rate_limit", "over_email_send_rate_limit" -> "Demasiados intentos, probá de nuevo en unos minutos."
+    else -> if (e.statusCode == 429) "Demasiados intentos, probá de nuevo en unos minutos." else porDefecto
+}
+
+private fun mensajeDePasswordDebil(motivos: List<String>): String {
+    val requisitos = motivos.mapNotNull {
+        when (it) {
+            "length" -> "es muy corta"
+            "characters" -> "tiene que combinar mayúsculas, minúsculas, números y símbolos"
+            "pwned" -> "apareció en filtraciones conocidas, elegí otra"
+            else -> null
+        }
+    }
+    return if (requisitos.isEmpty()) "La contraseña es demasiado débil."
+    else "La contraseña es demasiado débil: ${requisitos.joinToString("; ")}."
+}

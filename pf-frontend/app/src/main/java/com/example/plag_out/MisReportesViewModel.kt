@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import io.github.jan.supabase.exceptions.HttpRequestException
 import java.io.IOException
 import java.time.LocalDate
 import java.time.ZoneId
@@ -28,6 +29,7 @@ data class MisReportesUiState(
     val isRefreshing: Boolean = false,
     val reportes: List<ReporteDetalleResponse> = emptyList(),
     val error: String? = null,
+    val sinConexion: Boolean = false,
     val fechaDesde: LocalDate = LocalDate.now().minusMonths(1),
     val fechaHasta: LocalDate = LocalDate.now(),
     val distanciaListadoKm: Int? = null,
@@ -130,24 +132,26 @@ class MisReportesViewModel(
                     if (radioFinal != radioAnterior && _state.value.distanciaListadoKm == null) {
                         cargarReportes(forzar = true)
                     }
+                    Avisos.exito("Radio de notificación actualizado.")
                     onSuccess?.invoke()
                 } else {
-                    _state.value = _state.value.copy(
-                        guardandoRadio = false,
-                        error = "No se pudo actualizar el radio de notificación."
+                    _state.value = _state.value.copy(guardandoRadio = false)
+                    Avisos.error(
+                        errorDeRespuesta(
+                            response, ERRORES_PERFIL,
+                            mapOf(500 to "No se pudo actualizar el radio de notificación. Intentá de nuevo.")
+                        ).mensaje
                     )
                 }
             } catch (e: Exception) {
                 Log.e("MIS_REPORTES", "Error al guardar radio de notificación: ${e.message}")
-                _state.value = _state.value.copy(
-                    guardandoRadio = false,
-                    error = "Error de red al actualizar el radio."
-                )
+                _state.value = _state.value.copy(guardandoRadio = false)
+                Avisos.error(errorDeExcepcion(e).mensaje)
             }
         }
     }
 
-    fun cargarReportes(forzar: Boolean = false) {
+    fun cargarReportes(forzar: Boolean = false, avisarSiFalla: Boolean = false) {
         if (!forzar && cargaReportes?.isActive == true) return
         cargaReportes?.cancel()
         // Todos los requests de una carga usan el mismo rango, incluso si el usuario lo cambia.
@@ -176,10 +180,10 @@ class MisReportesViewModel(
                             distanciaKm = distanciaKm
                         )
                         if (!response.isSuccessful) throw HttpException(response)
-                        val pagina = response.body() ?: throw IOException("Report response has no body")
+                        val pagina = response.body() ?: throw IllegalStateException("Report response has no body")
                         if (pagina.size > REPORTES_PAGE_SIZE ||
                             (pagina.isNotEmpty() && pagina.none { it.id !in completos })) {
-                            throw IOException("Report pagination did not advance")
+                            throw IllegalStateException("Report pagination did not advance")
                         }
                         pagina.forEach { completos[it.id] = it }
                         if (pagina.size < REPORTES_PAGE_SIZE) break
@@ -193,23 +197,27 @@ class MisReportesViewModel(
                     isLoading = false,
                     isRefreshing = false,
                     reportes = reportes,
-                    error = null
+                    error = null,
+                    sinConexion = false
                 )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e("MIS_REPORTES", "No se pudo completar la carga de reportes", e)
+                val fallo = (e as? HttpException)?.response()?.let { errorDeRespuesta(it) } ?: errorDeExcepcion(e)
                 _state.value = _state.value.copy(
                     isLoading = false,
                     isRefreshing = false,
-                    error = "No se pudieron cargar todos los reportes. Reintentá."
+                    error = fallo.mensaje,
+                    sinConexion = e is IOException || e is HttpRequestException
                 )
+                if (avisarSiFalla) Avisos.error(fallo.mensaje)
             }
         }
     }
 
     fun refrescar() {
-        cargarReportes(forzar = true)
+        cargarReportes(forzar = true, avisarSiFalla = true)
     }
 
     fun eliminarReporte(reporteId: Int, onResultado: (error: String?) -> Unit) {
@@ -223,13 +231,19 @@ class MisReportesViewModel(
                     null
                 } else {
                     Log.e("MIS_REPORTES", "Error al eliminar el reporte $reporteId: ${response.code()}")
-                    "No se pudo eliminar el reporte. Intentá de nuevo."
+                    errorDeRespuesta(
+                        response,
+                        porCodigo = mapOf(
+                            404 to "El reporte ya no existe.",
+                            500 to "No se pudo eliminar el reporte. Intentá de nuevo."
+                        )
+                    ).mensaje
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e("MIS_REPORTES", "Error al eliminar el reporte $reporteId", e)
-                "No se pudo eliminar el reporte. Revisá tu conexión."
+                errorDeExcepcion(e).mensaje
             }
             _state.value = _state.value.copy(eliminando = _state.value.eliminando - reporteId)
             onResultado(error)

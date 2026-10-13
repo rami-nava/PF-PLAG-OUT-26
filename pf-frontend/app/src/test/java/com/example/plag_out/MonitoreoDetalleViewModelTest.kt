@@ -166,7 +166,7 @@ class MonitoreoDetalleViewModelTest {
         vm.guardarUmbral {}
 
         esperarEstado(vm.state) { it.error != null }
-        assertEquals("Tu sesión expiró. Volvé a iniciar sesión.", vm.state.value.error)
+        assertEquals(MENSAJE_SESION_EXPIRADA, vm.state.value.error)
     }
 
     @Test

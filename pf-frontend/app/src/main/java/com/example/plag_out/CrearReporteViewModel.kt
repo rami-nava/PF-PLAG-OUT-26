@@ -300,28 +300,15 @@ class CrearReporteViewModel(
                         error = null,
                         reporteNavPayload = navPayload
                     )
+                    // 200: el backend reutilizó un reporte equivalente reciente en vez de crear otro
+                    Avisos.exito(if (response.code() == 201) "Reporte enviado." else "Ya existía un reporte similar.")
                     withContext(Dispatchers.Main) { onSuccess() }
                 } else {
-                    val errorBodyStr = response.errorBody()?.string()
-                    Log.e("CREAR_REPORTE", "Respuesta de error de API code=${response.code()}: $errorBodyStr")
-                    val parsedDetail = try {
-                        if (!errorBodyStr.isNullOrEmpty() && errorBodyStr.contains("detail")) {
-                            val jsonObj = org.json.JSONObject(errorBodyStr)
-                            jsonObj.optString("detail", errorBodyStr)
-                        } else errorBodyStr
-                    } catch (e: Exception) {
-                        errorBodyStr
-                    }
-
-                    val userFriendlyError = when {
-                        parsedDetail?.contains("report_create_failed") == true -> "No se pudo registrar el reporte. Por favor, verificá los datos e intentá nuevamente."
-                        !parsedDetail.isNullOrEmpty() -> parsedDetail
-                        else -> "Error del servidor (${response.code()}) al guardar el reporte"
-                    }
-
+                    val fallo = errorDeRespuesta(response, ERRORES_CREAR_REPORTE, ERRORES_CREAR_REPORTE_CODIGO)
+                    Log.e("CREAR_REPORTE", "Respuesta de error de API code=${response.code()}: ${fallo.detalle}")
                     _state.value = _state.value.copy(
                         isGuardando = false,
-                        error = userFriendlyError
+                        error = fallo.enFormularioOAviso()
                     )
                 }
             } catch (e: CancellationException) {
@@ -330,12 +317,17 @@ class CrearReporteViewModel(
                 Log.e("CREAR_REPORTE", "Error al guardar reporte: ${e.message}")
                 _state.value = _state.value.copy(
                     isGuardando = false,
-                    error = "Error de red al enviar reporte. Revisá tu conexión."
+                    error = errorDeExcepcion(e).mensaje
                 )
             }
         }
     }
 }
+
+private val ERRORES_CREAR_REPORTE = ERRORES_REPORTE + mapOf(
+    "report_create_failed" to "No se pudo registrar el reporte. Verificá los datos e intentá de nuevo."
+)
+private val ERRORES_CREAR_REPORTE_CODIGO = mapOf(500 to "No se pudo enviar el reporte. Intentá de nuevo.")
 
 class CrearReporteViewModelFactory(
     private val context: Context,

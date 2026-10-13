@@ -200,14 +200,13 @@ class EditarPerfilViewModelTest {
         gddService.actualizarUsuarioResult = { FakeGDDService.sinConexion() }
         vm.actualizarNombre("Juan Ariel")
 
-        vm.guardar {}
-        esperarEstado(vm.state) { it.error != null }
+        var guardado = false
+        vm.guardar { guardado = true }
+        esperarEstado(vm.state) { !it.guardando }
 
-        assertEquals(
-            "No se pudieron guardar los cambios. Revisá tu conexión.",
-            vm.state.value.error
-        )
-        assertFalse(vm.state.value.guardando)
+        // Sin conexión no es un error de un campo: sale como aviso y no queda en el formulario
+        assertNull(vm.state.value.error)
+        assertFalse(guardado)
     }
 
     @Test

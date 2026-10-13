@@ -110,8 +110,6 @@ fun MisReportesScreen(
     navController: NavController
 ) {
     val state by viewModel.state.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     var reporteAEliminar by remember { mutableStateOf<ReporteDetalleResponse?>(null) }
 
     LaunchedEffect(Unit) {
@@ -191,7 +189,6 @@ fun MisReportesScreen(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             var shown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { shown = true }
@@ -242,6 +239,8 @@ fun MisReportesScreen(
                     ErrorCargaReportes(
                         mensaje = state.error!!,
                         onReintentar = viewModel::refrescar,
+                        sinConexion = state.sinConexion,
+                        reintentando = state.isRefreshing,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
@@ -378,11 +377,18 @@ fun MisReportesScreen(
                         when {
                             target == "cargando" -> SkeletonCargando(alturaTarjeta = 140.dp, cantidad = 4)
 
-                            target == "error" -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                ErrorCargaReportes(
-                                    mensaje = state.error ?: "No se pudieron cargar todos los reportes. Reintentá.",
-                                    onReintentar = viewModel::refrescar,
-                                    modifier = Modifier.padding(16.dp)
+                            // Scrolleable para que el pull to refresh también funcione sobre el error
+                            target == "error" -> Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState()),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                EstadoErrorReportes(
+                                    mensaje = state.error ?: MENSAJE_ERROR_GENERICO,
+                                    sinConexion = state.sinConexion,
+                                    reintentando = state.isRefreshing,
+                                    onReintentar = viewModel::refrescar
                                 )
                             }
 
@@ -478,7 +484,7 @@ fun MisReportesScreen(
             onConfirmar = {
                 reporteAEliminar = null
                 viewModel.eliminarReporte(reporte.id) { error ->
-                    scope.launch { snackbarHostState.showSnackbar(error ?: "Reporte eliminado") }
+                    if (error != null) Avisos.error(error) else Avisos.exito("Reporte eliminado.")
                 }
             },
             onCancelar = { reporteAEliminar = null }

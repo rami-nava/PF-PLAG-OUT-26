@@ -674,6 +674,7 @@ fun eliminarTerrenoEnCascada(
     terrenos.eliminarTerreno(terrenoId) {
         plantaciones.purgarPorTerreno(terrenoId)
         monitoreos.purgarPorTerreno(terrenoId)
+        Avisos.exito("Terreno eliminado.")
         onEliminado()
     }
 }
@@ -687,6 +688,7 @@ fun eliminarPlantacionEnCascada(
 ) {
     plantaciones.eliminarPlantacion(plantacionId) {
         monitoreos.purgarPorPlantacion(plantacionId)
+        Avisos.exito("Cultivo eliminado.")
         onEliminada()
     }
 }

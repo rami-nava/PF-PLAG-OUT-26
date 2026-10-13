@@ -67,8 +67,6 @@ fun MonitoreoDetalleScreen(
     onVerTerreno: (Int) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
     var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
     var notaAlFinalizar by remember { mutableStateOf("") }
     var mostrarDialogoEliminar by remember { mutableStateOf(false) }
@@ -86,7 +84,7 @@ fun MonitoreoDetalleScreen(
     }
 
     LaunchedEffect(state.error) {
-        state.error?.let { snackbarHostState.showSnackbar(it) }
+        state.error?.let { Avisos.error(it) }
     }
 
     val monitoreo = state.monitoreo
@@ -97,8 +95,7 @@ fun MonitoreoDetalleScreen(
 
     Scaffold(
         containerColor = PlagOutColors.Cream,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
             when {
@@ -126,7 +123,7 @@ fun MonitoreoDetalleScreen(
                     onVerInfoUmbral = { mostrarInfoUmbral = true },
                     finalizando = state.finalizando,
                     eliminando = state.eliminando,
-                    onRefresh = { viewModel.cargar(monitoreoId) },
+                    onRefresh = { viewModel.cargar(monitoreoId, refresco = true) },
                     onFinalizarClick = { mostrarDialogoFinalizar = true },
                     onEliminarClick = { mostrarDialogoEliminar = true }
                 )
@@ -157,7 +154,7 @@ fun MonitoreoDetalleScreen(
             onCancelar = { viewModel.cancelarEdicionUmbral() },
             onGuardar = {
                 viewModel.guardarUmbral {
-                    scope.launch { snackbarHostState.showSnackbar("Umbral actualizado") }
+                    Avisos.exito("Umbral actualizado.")
                 }
             }
         )
@@ -173,12 +170,12 @@ fun MonitoreoDetalleScreen(
             onCancelar = viewModel::cancelarEdicionUmbralMl,
             onGuardar = {
                 viewModel.guardarUmbralMl {
-                    scope.launch { snackbarHostState.showSnackbar("Threshold ML actualizado") }
+                    Avisos.exito("Threshold ML actualizado.")
                 }
             },
             onUsarRecomendado = {
                 viewModel.usarUmbralMlRecomendado {
-                    scope.launch { snackbarHostState.showSnackbar("Se usará el threshold recomendado") }
+                    Avisos.exito("Se usará el threshold recomendado.")
                 }
             }
         )
@@ -194,7 +191,7 @@ fun MonitoreoDetalleScreen(
             onCancelar = viewModel::cancelarEdicionObservaciones,
             onGuardar = {
                 viewModel.guardarObservaciones {
-                    scope.launch { snackbarHostState.showSnackbar("Nota guardada") }
+                    Avisos.exito("Nota guardada.")
                 }
             }
         )
@@ -220,7 +217,9 @@ fun MonitoreoDetalleScreen(
             tagCancelar = "btnCancelarFinalizar",
             onConfirmar = {
                 mostrarDialogoFinalizar = false
-                viewModel.finalizarMonitoreo(observaciones = notaAlFinalizar) {}
+                viewModel.finalizarMonitoreo(observaciones = notaAlFinalizar) {
+                    Avisos.exito("Monitoreo finalizado.")
+                }
             },
             onCancelar = { mostrarDialogoFinalizar = false }
         ) {
@@ -241,7 +240,10 @@ fun MonitoreoDetalleScreen(
             monitoreo = monitoreo,
             onConfirmar = {
                 mostrarDialogoEliminar = false
-                viewModel.eliminarMonitoreo(onEliminado)
+                viewModel.eliminarMonitoreo { id ->
+                    Avisos.exito("Monitoreo eliminado.")
+                    onEliminado(id)
+                }
             },
             onCancelar = { mostrarDialogoEliminar = false }
         )

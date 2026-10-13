@@ -4,7 +4,6 @@ import android.Manifest
 import android.net.ConnectivityManager
 import android.net.Network
 import android.os.Build
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -927,7 +926,6 @@ private fun DialogoEliminarCuenta(
     onEliminada: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
     var confirmacion by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var eliminando by remember { mutableStateOf(false) }
@@ -1011,7 +1009,7 @@ private fun DialogoEliminarCuenta(
                         eliminando = false
                         // Único momento para confirmarlo: enseguida se cierra sesión y se cae
                         // al login, donde ya no hay dónde mostrarlo.
-                        Toast.makeText(context, "Cuenta eliminada.", Toast.LENGTH_LONG).show()
+                        Avisos.exito("Cuenta eliminada.")
                         onEliminada()
                     },
                     onError = {
@@ -1190,7 +1188,7 @@ internal fun DialogoCambiarPassword(
                     onSuccess = {
                         enviando = false
                         onDismiss()
-                        Toast.makeText(context, "Contraseña actualizada.", Toast.LENGTH_SHORT).show()
+                        Avisos.exito("Contraseña actualizada.")
                     },
                     onError = {
                         enviando = false

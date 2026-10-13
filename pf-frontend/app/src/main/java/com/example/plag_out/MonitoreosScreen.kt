@@ -110,8 +110,6 @@ fun MonitoreosScreen(
     onMonitoreoEliminado: () -> Unit = {}
 ) {
     val state by monitoreosViewModel.state.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     var aEliminar by remember { mutableStateOf<MonitoreoResponse?>(null) }
 
     LaunchedEffect(Unit) {
@@ -142,7 +140,6 @@ fun MonitoreosScreen(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             var shown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { shown = true }
@@ -273,7 +270,7 @@ fun MonitoreosScreen(
                 aEliminar = null
                 monitoreosViewModel.eliminarMonitoreo(monitoreo.monitoreo_id) { error ->
                     if (error == null) onMonitoreoEliminado()
-                    scope.launch { snackbarHostState.showSnackbar(error ?: "Monitoreo eliminado") }
+                    if (error != null) Avisos.error(error) else Avisos.exito("Monitoreo eliminado.")
                 }
             },
             onCancelar = { aEliminar = null }
@@ -585,14 +582,13 @@ fun MonitoreosPorPlantacion(
 
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { 2 })
-    val snackbarHostState = remember { SnackbarHostState() }
     var aEliminar by remember { mutableStateOf<MonitoreoResponse?>(null) }
     var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
     var mostrarDialogoEliminar by remember { mutableStateOf(false) }
 
     LaunchedEffect(plantacionesState.error) {
         plantacionesState.error?.let {
-            snackbarHostState.showSnackbar(it)
+            Avisos.error(it)
             plantacionesViewModel.limpiarError()
         }
     }
@@ -600,7 +596,6 @@ fun MonitoreosPorPlantacion(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             AnimatedVisibility(
                 visible = pagerState.currentPage == PAGINA_MONITOREOS_PLANTACION && plantacion?.activa == true,
@@ -747,6 +742,7 @@ fun MonitoreosPorPlantacion(
                 mostrarDialogoFinalizar = false
                 plantacionesViewModel.finalizarPlantacion(plantacion.plantacion_id) {
                     viewModel.finalizarPorPlantacion(plantacion.plantacion_id)
+                    Avisos.exito("Cultivo finalizado.")
                 }
             },
             onCancelar = { mostrarDialogoFinalizar = false }
@@ -771,7 +767,7 @@ fun MonitoreosPorPlantacion(
                 aEliminar = null
                 viewModel.eliminarMonitoreo(monitoreo.monitoreo_id) { error ->
                     if (error == null) onMonitoreoEliminado()
-                    scope.launch { snackbarHostState.showSnackbar(error ?: "Monitoreo eliminado") }
+                    if (error != null) Avisos.error(error) else Avisos.exito("Monitoreo eliminado.")
                 }
             },
             onCancelar = { aEliminar = null }

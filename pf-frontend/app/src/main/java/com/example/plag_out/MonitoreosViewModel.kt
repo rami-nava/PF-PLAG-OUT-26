@@ -103,6 +103,7 @@ class MonitoreosViewModel(
                         isRefreshing = false,
                         datosDesactualizados = cachedMonitoreos.isNotEmpty()
                     )
+                    if (forzar) Avisos.error(errorDeRespuesta(response).mensaje)
                     Log.e("MONITOREOS", "Error: ${response.code()}")
                 }
             } catch (e: Exception) {
@@ -112,6 +113,7 @@ class MonitoreosViewModel(
                     isRefreshing = false,
                     datosDesactualizados = cachedMonitoreos.isNotEmpty()
                 )
+                if (forzar) Avisos.error(errorDeExcepcion(e).mensaje)
                 Log.e("MONITOREOS", "Error: ${e.message}")
             }
         }
@@ -222,14 +224,16 @@ class MonitoreosViewModel(
                 } else {
                     Log.e("MONITOREOS", "Error al eliminar $monitoreoId: ${response.code()}")
                     when (response.code()) {
-                        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
                         404, 405 -> "Eliminar monitoreos todavía no está disponible en el servidor."
-                        else -> "No se pudo eliminar el monitoreo. Intentá de nuevo."
+                        else -> errorDeCuerpo(
+                            response.code(), cuerpo,
+                            porCodigo = mapOf(500 to "No se pudo eliminar el monitoreo. Intentá de nuevo.")
+                        ).mensaje
                     }
                 }
             } catch (e: Exception) {
                 Log.e("MONITOREOS", "Error al eliminar $monitoreoId: ${e.message}")
-                "No se pudo eliminar el monitoreo. Revisá tu conexión."
+                errorDeExcepcion(e).mensaje
             }
             _state.value = _state.value.copy(eliminando = _state.value.eliminando - monitoreoId)
             onResultado(error)
