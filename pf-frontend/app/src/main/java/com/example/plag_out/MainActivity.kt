@@ -646,7 +646,7 @@ fun AppNavigation(
                     onPasswordRestablecida = {
                         authViewModel.limpiarEstadoRecuperacion()
                         authViewModel.avisarExitoLogin("¡Contraseña restablecida con éxito! Ya podés iniciar sesión.")
-                        Toast.makeText(context, "¡Contraseña restablecida con éxito! Ya podés iniciar sesión.", Toast.LENGTH_LONG).show()
+                        Avisos.exito( "¡Contraseña restablecida con éxito! Ya podés iniciar sesión.")
                         navController.navigate("logIn") {
                             popUpTo(0) { inclusive = true }
                             launchSingleTop = true
