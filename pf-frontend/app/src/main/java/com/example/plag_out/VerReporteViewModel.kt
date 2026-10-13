@@ -55,7 +55,7 @@ class VerReporteViewModel(
      *    [reporteJsonFallback] y usa [ReporteNavPayload.plaga_nombre] capturado en la UI.
      * 3. Si el JSON de fallback tambien es nulo/corrupto -> [VerReporteUiState.Error].
      */
-    fun cargar(reporteId: Int, reporteJsonFallback: String?) {
+    fun cargar(reporteId: Int, reporteJsonFallback: String?, ignorarLimite: Boolean = false) {
         viewModelScope.launch {
             _state.value = VerReporteUiState.Cargando
 
@@ -74,11 +74,18 @@ class VerReporteViewModel(
                                 val repLon = detalle.longitud
                                 var terrenosAfectados = emptyList<TerrenoConDistancia>()
                                 
-                                if (repLat != null && repLon != null) {
-                                    terrenosAfectados = terrenos.map { t ->
+                                if (repLat != null && repLon != null && terrenos.isNotEmpty()) {
+                                    val todosOrdenados = terrenos.map { t ->
                                         val distKm = calcularDistanciaKm(repLat, repLon, t.terreno_latitud.toDouble(), t.terreno_longitud.toDouble())
                                         TerrenoConDistancia(t.terreno_id, t.terreno_nombre, distKm)
-                                    }.filter { it.distanciaKm < 150f }.sortedBy { it.distanciaKm }
+                                    }.sortedBy { it.distanciaKm }
+
+                                    val menores150 = todosOrdenados.filter { it.distanciaKm < 150f }
+                                    terrenosAfectados = if (menores150.isNotEmpty()) {
+                                        menores150
+                                    } else {
+                                        todosOrdenados.take(1)
+                                    }
                                 }
                                 
                                 if (terrenosAfectados.isNotEmpty()) {
@@ -87,7 +94,17 @@ class VerReporteViewModel(
                                     terrenoRef = terrenos.find { it.terreno_id == detalle.terreno_mas_cercano_id }
                                 }
                                 
-                                _state.value = VerReporteUiState.Exito(detalle, terrenoRef, terrenosAfectados)
+                                val detalleActualizado = if (detalle.terreno_nombre.isNullOrBlank() && terrenoRef != null) {
+                                    detalle.copy(
+                                        terreno_nombre = terrenoRef.terreno_nombre,
+                                        terreno_mas_cercano_id = terrenoRef.terreno_id,
+                                        distancia_km = terrenosAfectados.firstOrNull()?.distanciaKm ?: detalle.distancia_km
+                                    )
+                                } else {
+                                    detalle
+                                }
+
+                                _state.value = VerReporteUiState.Exito(detalleActualizado, terrenoRef, terrenosAfectados)
                                 return@launch
                             }
                         } catch (e: Exception) {
@@ -105,7 +122,7 @@ class VerReporteViewModel(
 
             // Intento 2: fallback JSON de navegacion
             // plaga_nombre aqui siempre proviene de CrearReporteUIState.plagaSeleccionada.nombre
-            usarFallback(reporteJsonFallback)
+            usarFallback(reporteJsonFallback, ignorarLimite)
         }
     }
 
@@ -154,24 +171,73 @@ class VerReporteViewModel(
         }
     }
 
-    private fun usarFallback(reporteJsonFallback: String?) {
+    private suspend fun usarFallback(reporteJsonFallback: String?, ignorarLimite: Boolean = false) {
         if (reporteJsonFallback.isNullOrBlank()) {
             _state.value = VerReporteUiState.Error("No se pudieron cargar los datos del reporte.")
             return
         }
         try {
             val payload = com.google.gson.Gson().fromJson(reporteJsonFallback, ReporteNavPayload::class.java)
-            _state.value = VerReporteUiState.Exito(
-                ReporteDetalleResponse(
-                    id              = payload.id,
-                    plaga_id        = 0,
-                    plaga_nombre    = payload.plaga_nombre,
-                    nivel_severidad = payload.nivel_severidad,
-                    latitud         = payload.latitud,
-                    longitud        = payload.longitud,
-                    timestamp_ms    = payload.timestamp_ms
-                )
+            val detalleInicial = ReporteDetalleResponse(
+                id                     = payload.id,
+                plaga_id               = 0,
+                plaga_nombre           = payload.plaga_nombre,
+                nivel_severidad        = payload.nivel_severidad,
+                latitud                = payload.latitud,
+                longitud               = payload.longitud,
+                timestamp_ms           = payload.timestamp_ms,
+                es_propio              = payload.es_propio,
+                terreno_nombre         = payload.terreno_nombre,
+                terreno_mas_cercano_id = payload.terreno_mas_cercano_id,
+                distancia_km           = payload.distancia_km
             )
+
+            _state.value = VerReporteUiState.Exito(detalleInicial)
+
+            if (!detalleInicial.es_propio && detalleInicial.latitud != null && detalleInicial.longitud != null) {
+                try {
+                    val resTerrenos = withContext(Dispatchers.IO) { gddService.getTerrenos() }
+                    if (resTerrenos.isSuccessful && resTerrenos.body() != null) {
+                        val terrenos = resTerrenos.body()!!
+                        if (terrenos.isNotEmpty()) {
+                            val todosOrdenados = terrenos.map { t ->
+                                val distKm = calcularDistanciaKm(
+                                    detalleInicial.latitud,
+                                    detalleInicial.longitud,
+                                    t.terreno_latitud.toDouble(),
+                                    t.terreno_longitud.toDouble()
+                                )
+                                TerrenoConDistancia(t.terreno_id, t.terreno_nombre, distKm)
+                            }.sortedBy { it.distanciaKm }
+
+                            val menores150 = todosOrdenados.filter { it.distanciaKm < 150f }
+                            val terrenosAfectados = if (menores150.isNotEmpty()) {
+                                menores150
+                            } else {
+                                todosOrdenados.take(1)
+                            }
+
+                            val terrenoRef = if (terrenosAfectados.isNotEmpty()) {
+                                terrenos.find { it.terreno_id == terrenosAfectados.first().terrenoId }
+                            } else null
+
+                            val detalleFinal = if (detalleInicial.terreno_nombre.isNullOrBlank() && terrenoRef != null) {
+                                detalleInicial.copy(
+                                    terreno_nombre = terrenoRef.terreno_nombre,
+                                    terreno_mas_cercano_id = terrenoRef.terreno_id,
+                                    distancia_km = terrenosAfectados.firstOrNull()?.distanciaKm ?: detalleInicial.distancia_km
+                                )
+                            } else {
+                                detalleInicial
+                            }
+
+                            _state.value = VerReporteUiState.Exito(detalleFinal, terrenoRef, terrenosAfectados)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w("VER_REPORTE", "No se pudo obtener terrenos para enriquecer fallback: ${e.message}")
+                }
+            }
         } catch (e: Exception) {
             Log.e("VER_REPORTE", "Error deserializando fallback JSON: ${e.message}")
             _state.value = VerReporteUiState.Error("No se pudieron cargar los datos del reporte.")

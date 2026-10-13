@@ -146,4 +146,51 @@ class VerReporteViewModelTest {
         assertTrue(estadoFinal.errorEliminacion != null)
         assertEquals(1, gddService.vecesLlamado("deleteReporte"))
     }
+
+    @Test
+    fun `reporte comunitario con terrenos a mas de 150km solo incluye el terreno mas cercano`() {
+        val detalleMock = Fixtures.reporteDetalle(
+            id = 50,
+            plagaNombre = "Roya",
+            esPropio = false,
+            latitud = -34.6037, // Buenos Aires
+            longitud = -58.3816
+        )
+        val terrenoCercano = Fixtures.terreno(id = 1, nombre = "Córdoba", latitud = -31.4201f, longitud = -64.1888f) // ~650km
+        val terrenoLejano = Fixtures.terreno(id = 2, nombre = "Jujuy", latitud = -24.1858f, longitud = -65.2995f) // ~1300km
+
+        gddService.getReporteResult = { Response.success(detalleMock) }
+        gddService.getTerrenosResult = { Response.success(listOf(terrenoLejano, terrenoCercano)) }
+
+        viewModel.cargar(reporteId = 50, reporteJsonFallback = null, ignorarLimite = true)
+
+        val estado = esperarEstado(viewModel.state) { it is VerReporteUiState.Exito } as VerReporteUiState.Exito
+        assertEquals(1, estado.terrenosAfectados.size)
+        assertEquals(1, estado.terrenosAfectados.first().terrenoId)
+        assertEquals("Córdoba", estado.terrenosAfectados.first().terrenoNombre)
+        assertTrue(estado.terrenosAfectados.first().distanciaKm >= 150f)
+    }
+
+    @Test
+    fun `reporte comunitario con terrenos a menos de 150km incluye solo los menores a 150km`() {
+        val detalleMock = Fixtures.reporteDetalle(
+            id = 51,
+            plagaNombre = "Roya",
+            esPropio = false,
+            latitud = -34.6037,
+            longitud = -58.3816
+        )
+        val terrenoCercano = Fixtures.terreno(id = 1, nombre = "Avellaneda", latitud = -34.66f, longitud = -58.36f) // ~7km
+        val terrenoMedio = Fixtures.terreno(id = 2, nombre = "La Plata", latitud = -34.92f, longitud = -57.95f) // ~55km
+        val terrenoMuyLejano = Fixtures.terreno(id = 3, nombre = "Mendoza", latitud = -32.89f, longitud = -68.84f) // ~980km
+
+        gddService.getReporteResult = { Response.success(detalleMock) }
+        gddService.getTerrenosResult = { Response.success(listOf(terrenoMuyLejano, terrenoMedio, terrenoCercano)) }
+
+        viewModel.cargar(reporteId = 51, reporteJsonFallback = null, ignorarLimite = true)
+
+        val estado = esperarEstado(viewModel.state) { it is VerReporteUiState.Exito } as VerReporteUiState.Exito
+        assertEquals(2, estado.terrenosAfectados.size)
+        assertEquals(listOf(1, 2), estado.terrenosAfectados.map { it.terrenoId })
+    }
 }

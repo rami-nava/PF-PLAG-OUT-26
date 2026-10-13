@@ -135,7 +135,11 @@ fun AdminCuentaScreen(
     }
 
     if (mostrarCambiarPassword) {
-        DialogoCambiarPassword(authViewModel = authViewModel, onDismiss = { mostrarCambiarPassword = false })
+        DialogoCambiarPassword(
+            authViewModel = authViewModel,
+            emailUsuario = usuario?.email,
+            onDismiss = { mostrarCambiarPassword = false }
+        )
     }
     if (confirmarCierre) {
         DialogoCerrarSesion(

@@ -103,6 +103,7 @@ import java.util.Locale
 fun VerReporteScreen(
     reporteId: Int,
     reporteJsonFallback: String?,
+    ignorarLimite: Boolean = false,
     viewModel: VerReporteViewModel,
     onBack: () -> Unit,
     onVerTerreno: (Int) -> Unit
@@ -110,7 +111,7 @@ fun VerReporteScreen(
     val state by viewModel.state.collectAsState()
 
     LaunchedEffect(reporteId) {
-        viewModel.cargar(reporteId, reporteJsonFallback)
+        viewModel.cargar(reporteId, reporteJsonFallback, ignorarLimite)
     }
 
     Scaffold(
@@ -371,6 +372,10 @@ private fun ContenidoVerReporte(
                             }
                         }
                     } else {
+                        val distanciaMasCercano = terrenosAfectados.firstOrNull()?.distanciaKm ?: detalle.distancia_km
+                        val sobrepasa150 = distanciaMasCercano != null && distanciaMasCercano >= 150f
+                        val tituloSeccion = if (sobrepasa150) "Terreno más cercano" else "Terrenos afectados"
+
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -383,7 +388,7 @@ private fun ContenidoVerReporte(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Text(
-                                    "Terrenos afectados",
+                                    tituloSeccion,
                                     fontSize = 14.sp,
                                     color = PlagOutColors.TextSecondary,
                                     fontWeight = FontWeight.SemiBold
@@ -391,7 +396,19 @@ private fun ContenidoVerReporte(
                             }
                             Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(start = 26.dp)) {
                                 if (terrenosAfectados.isEmpty()) {
-                                    Text("Sin terrenos cercanos", fontSize = 14.sp, color = PlagOutColors.TextMain)
+                                    if (!detalle.terreno_nombre.isNullOrBlank()) {
+                                        val distText = if (detalle.distancia_km != null) {
+                                            if (detalle.distancia_km < 1f) " · a ${(detalle.distancia_km * 1000).toInt()} m"
+                                            else String.format(Locale.getDefault(), " · a %.1f km", detalle.distancia_km)
+                                        } else ""
+                                        val sufijoMasCercano = if (sobrepasa150) "" else " (más cercano)"
+                                        FilaContextoNav(
+                                            titulo = "${detalle.terreno_nombre}$distText$sufijoMasCercano",
+                                            onClick = if (detalle.terreno_mas_cercano_id != null) { { onVerTerreno(detalle.terreno_mas_cercano_id) } } else null
+                                        )
+                                    } else {
+                                        Text("Sin terrenos cercanos", fontSize = 14.sp, color = PlagOutColors.TextMain)
+                                    }
                                 } else {
                                     terrenosAfectados.forEachIndexed { index, ta ->
                                         val textDist = if (ta.distanciaKm < 1f) {
@@ -399,7 +416,9 @@ private fun ContenidoVerReporte(
                                         } else {
                                             String.format(Locale.getDefault(), "%.1f km", ta.distanciaKm)
                                         }
-                                        val titulo = if (index == 0) {
+                                        val titulo = if (sobrepasa150) {
+                                            "${ta.terrenoNombre} · a $textDist"
+                                        } else if (index == 0) {
                                             "${ta.terrenoNombre} · a $textDist (más cercano)"
                                         } else {
                                             "${ta.terrenoNombre} · a $textDist"
@@ -777,7 +796,7 @@ private fun HeaderVerReporte(onBack: () -> Unit, acciones: @Composable () -> Uni
         label = "escalaDecorativaVerReporte"
     )
 
-    val forma = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
+    val forma = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -787,7 +806,6 @@ private fun HeaderVerReporte(onBack: () -> Unit, acciones: @Composable () -> Uni
                 shape = forma
             )
             .clip(forma)
-            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         // Decoración animada
         Box(
@@ -802,7 +820,7 @@ private fun HeaderVerReporte(onBack: () -> Unit, acciones: @Composable () -> Uni
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 22.dp),
+                .padding(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(

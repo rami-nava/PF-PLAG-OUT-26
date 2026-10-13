@@ -59,10 +59,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.plag_out.Service.FcmTokenRegistrar
 import com.example.plag_out.Service.PlagOutMessagingService
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.plag_out.AlmacenamientoLocal.AppDatabase
 import com.example.plag_out.AlmacenamientoLocal.PreferenciasUsuario
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
@@ -70,6 +72,10 @@ import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
 import com.example.plag_out.AlmacenamientoLocal.UsuarioRepository
 import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionRepository
+import io.github.jan.supabase.auth.handleDeeplinks
+import io.github.jan.supabase.auth.user.UserSession
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.example.plag_out.Service.RetrofitClient
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.PlagasGDDTheme
@@ -90,12 +96,24 @@ class MainActivity : ComponentActivity() {
     private val deepLinkPlantacionId = mutableStateOf<String?>(null)
     private val deepLinkCicloId = mutableStateOf<String?>(null)
     private val deepLinkPrediccionId = mutableStateOf<String?>(null)
+    private val deepLinkRecuperarPassword = mutableStateOf(false)
+    private val deepLinkRecuperarPasswordError = mutableStateOf<String?>(null)
+    private val deepLinkRecoverySession = mutableStateOf<UserSession?>(null)
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         configurarOsmdroid(applicationContext)
         
+        SupabaseProvider.client.handleDeeplinks(
+            intent = intent,
+            onSessionSuccess = { userSession ->
+                android.util.Log.d("MainActivity", "handleDeeplinks exitoso. Usuario: ${userSession.user?.email}")
+            },
+            onError = { error ->
+                android.util.Log.e("MainActivity", "handleDeeplinks falló al procesar enlace", error)
+            }
+        )
         leerDeepLink(intent)
         setContent {
             PlagasGDDTheme {
@@ -104,6 +122,14 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     AppNavigation(
+                        deepLinkRecuperarPassword = deepLinkRecuperarPassword.value,
+                        deepLinkRecuperarPasswordError = deepLinkRecuperarPasswordError.value,
+                        deepLinkRecoverySession = deepLinkRecoverySession.value,
+                        onDeepLinkRecuperarPasswordConsumido = {
+                            deepLinkRecuperarPassword.value = false
+                            deepLinkRecuperarPasswordError.value = null
+                            deepLinkRecoverySession.value = null
+                        },
                         deepLinkMonitoreoId = deepLinkMonitoreoId.value,
                         onDeepLinkMonitoreoConsumido = { deepLinkMonitoreoId.value = null },
                         deepLinkReporteId = deepLinkReporteId.value,
@@ -124,11 +150,70 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        SupabaseProvider.client.handleDeeplinks(
+            intent = intent,
+            onSessionSuccess = { userSession ->
+                android.util.Log.d("MainActivity", "onNewIntent handleDeeplinks exitoso. Usuario: ${userSession.user?.email}")
+            },
+            onError = { error ->
+                android.util.Log.e("MainActivity", "onNewIntent handleDeeplinks falló al procesar enlace", error)
+            }
+        )
         leerDeepLink(intent)
     }
 
     private fun leerDeepLink(intent: Intent?) {
         intent ?: return
+        val uri = intent.data ?: return
+        val uriStr = uri.toString().lowercase()
+        val esResetPassword = (uri.scheme == "plagout" && uri.host == "reset-password") ||
+            (uri.scheme == "http" && uri.host == "localhost" && uri.port == 3000)
+
+        if (esResetPassword) {
+            val fragment = uri.fragment ?: ""
+            val fragmentParams = if (fragment.isNotBlank()) {
+                fragment.split("&").associate {
+                    val kv = it.split("=", limit = 2)
+                    kv[0] to (kv.getOrNull(1) ?: "")
+                }
+            } else emptyMap()
+
+            val error = uri.getQueryParameter("error") ?: fragmentParams["error"]
+            val errorDesc = uri.getQueryParameter("error_description") ?: fragmentParams["error_description"]
+            val esError = !error.isNullOrBlank() || !errorDesc.isNullOrBlank() || uriStr.contains("otp_expired")
+
+            if (esError) {
+                deepLinkRecuperarPasswordError.value = "El enlace de recuperación ya fue utilizado o ha expirado. Por favor, solicitá uno nuevo."
+                deepLinkRecuperarPassword.value = true
+                return
+            }
+
+            val accessToken = fragmentParams["access_token"]
+            val refreshToken = fragmentParams["refresh_token"]
+            if (!accessToken.isNullOrBlank()) {
+                val expiresIn = fragmentParams["expires_in"]?.toLongOrNull() ?: 3600L
+                val tokenType = fragmentParams["token_type"]?.takeIf { it.isNotBlank() } ?: "bearer"
+                val session = UserSession(
+                    accessToken = accessToken,
+                    refreshToken = refreshToken ?: "",
+                    expiresIn = expiresIn,
+                    tokenType = tokenType,
+                    user = null
+                )
+                deepLinkRecoverySession.value = session
+                lifecycleScope.launch {
+                    try {
+                        SupabaseProvider.client.auth.importSession(session)
+                        android.util.Log.d("MainActivity", "Sesión de recuperación importada manualmente desde fragment.")
+                    } catch (e: Exception) {
+                        android.util.Log.e("MainActivity", "Error al importar UserSession manualmente", e)
+                    }
+                }
+            }
+
+            deepLinkRecuperarPassword.value = true
+            return
+        }
         val destino = destinoDePush(
             cicloId = intent.getStringExtra("ciclo_id"),
             tipo = intent.getStringExtra(PlagOutMessagingService.EXTRA_TIPO),
@@ -152,6 +237,10 @@ class MainActivity : ComponentActivity() {
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavigation(
+    deepLinkRecuperarPassword: Boolean = false,
+    deepLinkRecuperarPasswordError: String? = null,
+    deepLinkRecoverySession: UserSession? = null,
+    onDeepLinkRecuperarPasswordConsumido: () -> Unit = {},
     deepLinkCicloId: String? = null,
     onDeepLinkCicloConsumido: () -> Unit = {},
     deepLinkMonitoreoId: String? = null,
@@ -242,11 +331,29 @@ fun AppNavigation(
     // El rol guardado en el último login decide de qué lado de la app se arranca: las cuentas
     // admin solo ven el panel de administración.
     val startDestination = remember {
-        if (sessionStatus is SessionStatus.Authenticated) homePara(PreferenciasUsuario.rol(context)) else "logIn"
+        if (deepLinkRecuperarPassword) "recuperarPassword"
+        else if (sessionStatus is SessionStatus.Authenticated) homePara(PreferenciasUsuario.rol(context))
+        else "logIn"
     }
 
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
+
+    // Manejo de Deep link para restablecimiento de contraseña
+    LaunchedEffect(deepLinkRecuperarPassword, deepLinkRecuperarPasswordError) {
+        if (deepLinkRecuperarPassword) {
+            authViewModel.activarModoRestablecerPassword(
+                errorInicial = deepLinkRecuperarPasswordError,
+                recoverySession = deepLinkRecoverySession
+            )
+            if (navController.currentBackStackEntry?.destination?.route != "recuperarPassword") {
+                navController.navigate("recuperarPassword") {
+                    launchSingleTop = true
+                }
+            }
+            onDeepLinkRecuperarPasswordConsumido()
+        }
+    }
 
     // Pedir permiso de notificaciones (Android 13+). Debajo de API 33 es implícito.
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -287,7 +394,8 @@ fun AppNavigation(
     LaunchedEffect(sessionStatus) {
         val currentRoute = navBackStackEntry?.destination?.route
         if (sessionStatus is SessionStatus.Authenticated && currentRoute == "logIn" &&
-            !authViewModel.loginState.value.cargando
+            !authViewModel.loginState.value.cargando &&
+            !authViewModel.recuperarPasswordState.value.sesionDeRecuperacionActiva
         ) {
             navController.navigate(homePara(PreferenciasUsuario.rol(context))) {
                 popUpTo("logIn") { inclusive = true }
@@ -304,7 +412,7 @@ fun AppNavigation(
         val rol = usuario.rol ?: ROL_USUARIO
         PreferenciasUsuario.guardarRol(context, rol)
         val ruta = navController.currentBackStackEntry?.destination?.route ?: return@LaunchedEffect
-        if (ruta == "logIn" || ruta == "crearCuenta") return@LaunchedEffect
+        if (ruta == "logIn" || ruta == "crearCuenta" || ruta == "recuperarPassword") return@LaunchedEffect
         if ((rol == ROL_ADMIN) != esRutaAdmin(ruta)) {
             navController.navigate(homePara(rol)) { popUpTo(0) { inclusive = true } }
         }
@@ -390,7 +498,7 @@ fun AppNavigation(
         }
     }
 
-    val fullBleedScreens = listOf("logIn", "crearCuenta", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}", "mapa_reportes")
+    val fullBleedScreens = listOf("logIn", "crearCuenta", "recuperarPassword", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "mapa_reportes")
     val rutaActual = navBackStackEntry?.destination?.route
 
     // Cerrar sesión: AuthViewModel borra el almacenamiento local (token, Room,
@@ -510,18 +618,41 @@ fun AppNavigation(
         ) {
             composable("logIn") {
                 LoginScreen(
-                    authViewModel,
+                    authViewModel = authViewModel,
                     // Vaciar el back stack: "atrás" desde home no debe volver al login
-                    { rol ->
+                    onLoginSuccess = { rol ->
                         navController.navigate(homePara(rol)) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
-                    { navController.navigate("crearCuenta") }
+                    onCrearCuenta = { navController.navigate("crearCuenta") },
+                    onRecuperarPassword = { navController.navigate("recuperarPassword") }
                 )
             }
             composable("crearCuenta") {
                 CrearCuentaScreen(authViewModel,{navController.popBackStack()},{navController.popBackStack()})
+            }
+            composable("recuperarPassword") {
+                RecuperarPasswordScreen(
+                    authViewModel = authViewModel,
+                    onBack = {
+                        if (!navController.popBackStack()) {
+                            navController.navigate("logIn") {
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                    onPasswordRestablecida = {
+                        authViewModel.limpiarEstadoRecuperacion()
+                        authViewModel.avisarExitoLogin("¡Contraseña restablecida con éxito! Ya podés iniciar sesión.")
+                        Toast.makeText(context, "¡Contraseña restablecida con éxito! Ya podés iniciar sesión.", Toast.LENGTH_LONG).show()
+                        navController.navigate("logIn") {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
             }
             composable("monitoreos") {
                 MonitoreosScreen(
@@ -735,28 +866,43 @@ fun AppNavigation(
                     }
                 )
             }
-            composable("ver_reporte/{reporte_id}") { backStackEntry ->
+            composable("ver_reporte/{reporte_id}?ignorar_limite={ignorar_limite}",
+                arguments = listOf(
+                    navArgument("reporte_id") { type = NavType.StringType },
+                    navArgument("ignorar_limite") { type = NavType.BoolType; defaultValue = false }
+                )
+            ) { backStackEntry ->
                 val reporteId = backStackEntry.arguments?.getString("reporte_id")?.toIntOrNull() ?: 0
+                val ignorarLimite = backStackEntry.arguments?.getBoolean("ignorar_limite") ?: false
                 val verReporteViewModel: VerReporteViewModel = viewModel(
                     factory = VerReporteViewModelFactory()
                 )
                 VerReporteScreen(
                     reporteId = reporteId,
                     reporteJsonFallback = null,
+                    ignorarLimite = ignorarLimite,
                     viewModel = verReporteViewModel,
                     onBack = { navController.popBackStack() },
                     onVerTerreno = { tId -> navController.navigate("terreno/$tId") }
                 )
             }
-            composable("ver_reporte/{reporte_id}/{reporte_json}") { backStackEntry ->
+            composable("ver_reporte/{reporte_id}/{reporte_json}?ignorar_limite={ignorar_limite}",
+                arguments = listOf(
+                    navArgument("reporte_id") { type = NavType.StringType },
+                    navArgument("reporte_json") { type = NavType.StringType },
+                    navArgument("ignorar_limite") { type = NavType.BoolType; defaultValue = false }
+                )
+            ) { backStackEntry ->
                 val reporteId = backStackEntry.arguments?.getString("reporte_id")?.toIntOrNull() ?: 0
                 val reporteJson = backStackEntry.arguments?.getString("reporte_json")
+                val ignorarLimite = backStackEntry.arguments?.getBoolean("ignorar_limite") ?: false
                 val verReporteViewModel: VerReporteViewModel = viewModel(
                     factory = VerReporteViewModelFactory()
                 )
                 VerReporteScreen(
                     reporteId = reporteId,
                     reporteJsonFallback = reporteJson,
+                    ignorarLimite = ignorarLimite,
                     viewModel = verReporteViewModel,
                     onBack = { navController.popBackStack() },
                     onVerTerreno = { tId -> navController.navigate("terreno/$tId") }
@@ -1004,7 +1150,7 @@ private fun PantallaCargandoSesion(esperaAgotada: Boolean, onIrAlLogin: () -> Un
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo", "agregar_monitoreo/{plantacion_id}", "logIn", "crearCuenta", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "crear_reporte", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}", "mapa_reportes")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo", "agregar_monitoreo/{plantacion_id}", "logIn", "crearCuenta", "recuperarPassword", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "crear_reporte", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}", "mapa_reportes")
     return !screensWithoutNavBar.contains(currentScreen)
 }
 
@@ -1012,6 +1158,6 @@ fun shouldShowBottomBar(navController: NavController): Boolean {
 fun shouldShowTopBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("logIn","crearCuenta","perfil","editarPerfil","monitoreo/{monitoreo_id}","prediccion/{prediccion_id}","ver_reporte/{reporte_id}","ver_reporte/{reporte_id}/{reporte_json}","mapa_reportes")
+    val screensWithoutNavBar = listOf("logIn","crearCuenta","recuperarPassword","perfil","editarPerfil","monitoreo/{monitoreo_id}","prediccion/{prediccion_id}","mapa_reportes")
     return !screensWithoutNavBar.contains(currentScreen)
 }
