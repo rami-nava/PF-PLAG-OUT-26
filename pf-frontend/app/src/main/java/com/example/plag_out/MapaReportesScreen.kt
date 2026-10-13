@@ -591,7 +591,7 @@ private fun HojaFiltrosMapa(
                     tag = "Cultivo"
                 ) {
                     GrillaFiltro(
-                        columnas = 2,
+                        columnas = 3,
                         celdas = cultivosDisponibles.map { nombre ->
                             CeldaFiltro(
                                 etiqueta = nombre,
