@@ -304,6 +304,9 @@ fun AppNavigation(
     val adminUsuariosViewModel: AdminUsuariosViewModel = viewModel(
         factory = remember { AdminUsuariosViewModelFactory() }
     )
+    val adminMetricasViewModel: AdminMetricasViewModel = viewModel(
+        factory = remember { AdminMetricasViewModelFactory() }
+    )
 
     // Supabase restaura la sesión guardada al iniciar (y renueva el token si hace
     // falta). Mientras tanto el estado es Initializing: mostramos un splash y recién
@@ -519,6 +522,7 @@ fun AppNavigation(
             misReportesViewModel.limpiar()
             adminPlagasViewModel.limpiar()
             adminUsuariosViewModel.limpiar()
+            adminMetricasViewModel.limpiar()
             navController.navigate("logIn") {
                 popUpTo(0) { inclusive = true }
             }
@@ -974,7 +978,7 @@ fun AppNavigation(
                 }
             }
             composable(RUTA_ADMIN_METRICAS) {
-                SoloAdmin(navController) { AdminMetricasScreen() }
+                SoloAdmin(navController) { AdminMetricasScreen(viewModel = adminMetricasViewModel) }
             }
             composable(RUTA_ADMIN_CUENTA) {
                 SoloAdmin(navController) {

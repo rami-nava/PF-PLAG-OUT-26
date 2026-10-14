@@ -1,0 +1,132 @@
+package com.example.plag_out
+
+import android.util.Log
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.example.plag_out.Service.GDDService
+import com.example.plag_out.Service.RetrofitClient
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+class AdminMetricasViewModel(
+    private val gddService: GDDService = RetrofitClient.gddService,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+) : ViewModel() {
+
+    private val _state = MutableStateFlow(AdminMetricasUIState())
+    val state: StateFlow<AdminMetricasUIState> = _state.asStateFlow()
+
+    private var cargaJob: Job? = null
+
+    fun cargar(forzar: Boolean = false) {
+        if (!forzar && (_state.value.campañas.isNotEmpty() || _state.value.isLoading)) return
+
+        cargaJob?.cancel()
+        cargaJob = viewModelScope.launch {
+            _state.value = _state.value.copy(
+                isLoading = !forzar && _state.value.campañas.isEmpty(),
+                isRefreshing = forzar,
+                error = null
+            )
+
+            try {
+                val (respMonitoreos, respTerrenos) = withContext(ioDispatcher) {
+                    val deferredMonitoreos = async { gddService.getMonitoreos() }
+                    val deferredTerrenos = async { gddService.getTerrenos() }
+                    Pair(deferredMonitoreos.await(), deferredTerrenos.await())
+                }
+
+                if (!respMonitoreos.isSuccessful) {
+                    val fallo = falloDeRespuesta(respMonitoreos)
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        error = fallo.mensaje
+                    )
+                    return@launch
+                }
+
+                val monitoreos = respMonitoreos.body().orEmpty()
+                val terrenos = if (respTerrenos.isSuccessful) respTerrenos.body().orEmpty() else emptyList()
+
+                val agrupadas = agruparPorCampaña(monitoreos, terrenos)
+
+                // Selección por defecto: mantener la seleccionada si existe o tomar la más reciente
+                val seleccionadaActual = _state.value.campañaSeleccionada?.nombre
+                val nuevaSeleccionada = agrupadas.firstOrNull { it.nombre == seleccionadaActual }
+                    ?: agrupadas.firstOrNull()
+
+                // Hectáreas totales monitoreadas históricamente
+                val terrenosMap = terrenos.associateBy { it.terreno_id }
+                val totalHectareas = monitoreos
+                    .map { it.terreno_id }
+                    .distinct()
+                    .mapNotNull { terrenosMap[it]?.terreno_area }
+                    .sum()
+
+                // Plaga líder de todos los tiempos
+                val plagaLider = monitoreos
+                    .groupBy { it.plaga_nombre.trim() }
+                    .maxByOrNull { it.value.size }
+                    ?.key
+
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    isRefreshing = false,
+                    campañas = agrupadas,
+                    campañaSeleccionada = nuevaSeleccionada,
+                    totalHectareasHistoricas = totalHectareas,
+                    totalMonitoreosHistoricos = monitoreos.size,
+                    plagaHistoricaLider = plagaLider,
+                    error = null
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("ADMIN_METRICAS", "Error cargando métricas históricas", e)
+                val fallo = falloDeExcepcion(e)
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    isRefreshing = false,
+                    error = fallo.mensaje
+                )
+            }
+        }
+    }
+
+    fun refrescar() = cargar(forzar = true)
+
+    fun seleccionarCampaña(nombreCampaña: String) {
+        val encontrada = _state.value.campañas.firstOrNull { it.nombre == nombreCampaña }
+        if (encontrada != null) {
+            _state.value = _state.value.copy(campañaSeleccionada = encontrada)
+        }
+    }
+
+    fun descartarError() {
+        _state.value = _state.value.copy(error = null)
+    }
+
+    fun limpiar() {
+        cargaJob?.cancel()
+        _state.value = AdminMetricasUIState()
+    }
+}
+
+class AdminMetricasViewModelFactory(
+    private val gddService: GDDService = RetrofitClient.gddService,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T =
+        AdminMetricasViewModel(gddService, ioDispatcher) as T
+}

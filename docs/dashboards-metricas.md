@@ -2,7 +2,7 @@
 
 **Proyecto:** PF-PLAG-OUT-26 (Plag-Out)  
 **Rama de desarrollo:** `feature/dashboards-metricas`  
-**Estado:** Propuesta Inicial / Documento de Diseño
+**Estado:** En Desarrollo (Fase 1: Histórico de Campañas Agrícolas y Plagas Predominantes implementada)
 
 ---
 
@@ -38,32 +38,76 @@ Desarrollar un panel de control analítico y visualización de datos (Dashboards
 
 ---
 
-## 3. Componentes Visuales Propuestos (Jetpack Compose)
+## 3. Métrica Implementada: Histórico de Campañas Agrícolas y Plagas Predominantes
 
-1. **Cabecera de Tarjetas KPI (Summary Cards):**
-   * Superficie total monitoreada (ha).
-   * Monitoreos activos totales.
-   * Monitoreos en alerta crítica.
-   * Alertas ML activas en la semana.
-2. **Gráfico de Estado de Riesgo (Donut / Semicírculo):**
-   * Proporción de lotes según su nivel IRA (Verde / Amarillo / Rojo) utilizando los tokens de `PlagOutColors`.
-3. **Gráfico de Barras Horizontales:**
-   * Incidencia de plagas principales en relación con los cultivos afectados.
-4. **Línea Temporal de Severidad:**
-   * Evolución de reportes cargados en los últimos 7, 14 o 30 días.
-5. **Panel de Alertas Recientes y Focos Críticos:**
-   * Listado rápido con acceso directo al monitoreo o predicción en riesgo.
+### 3.1. Concepto y Ciclo de Campaña Agrícola
+En la agronomía regional e institucional (INTA, Bolsas de Cereales), las campañas agrícolas no coinciden con el año calendario (enero a diciembre), sino con el ciclo biológico y de rotación de cultivos, establecido formalmente del **1 de julio de un año al 30 de junio del año siguiente** (ejemplo: *Campaña 2025/2026*, *Campaña 2026/2027*).
+
+El sistema clasifica automáticamente cada monitoreo registrado (activo o archivado) dentro de su respectiva campaña utilizando su fecha de inicio o última actualización:
+$$\text{Campaña}(F) = \begin{cases} 
+\text{Año}(F)/\text{Año}(F)+1 & \text{si Mes}(F) \ge 7 \\ 
+\text{Año}(F)-1/\text{Año}(F) & \text{si Mes}(F) < 7 
+\end{cases}$$
+
+### 3.2. Indicadores Calculados por Campaña
+
+1. **Plaga Predominante (Líder de Campaña):**
+   * Plaga con mayor cantidad de monitoreos registrados en el ciclo.
+   * **Incidencia Relativa:**
+     $$\text{Incidencia}(\%) = \frac{\text{Monitoreos de la plaga}}{\text{Total de monitoreos de la campaña}} \times 100$$
+   * **Tasa de Riesgo Alto / Alerta Crítica:**
+     $$\text{Tasa Riesgo Alto}(\%) = \frac{\text{Monitoreos de la plaga con Nivel Alerta } \ge 2}{\text{Total de monitoreos de la plaga}} \times 100$$
+   * **Nivel de Severidad Ponderado:** Promedio del nivel de alerta biológico (0 = Bajo, 1 = Moderado, 2 = Alto).
+
+2. **Prevalencia y Ranking Relativo de Plagas:**
+   * Comparativa visual de todas las especies monitoreadas durante la campaña.
+   * Barra de proporción normalizada respecto al volumen total de la campaña.
+   * Alertas tempranas indicando cuántos lotes entraron en zona de riesgo fitosanitario.
+
+3. **Perfil de Riesgo Ambiental (IRA):**
+   * Barra horizontal segmentada y continua que visualiza la proporción de lotes según la presión térmica (GDD acumulados y eclosión):
+     * **Bajo ($IRA < 30\%$):** Nivel 0 — Condición controlada.
+     * **Moderado ($30\% \le IRA < 70\%$):** Nivel 1 — Ventana de monitoreo intensivo.
+     * **Alto / Crítico ($IRA \ge 70\%$):** Nivel 2 o 3 — Superación de umbral fenológico y riesgo de daño económico.
+
+4. **Cobertura Territorial:**
+   * Sumatoria de la superficie (en hectáreas) de los terrenos únicos monitoreados en la campaña, vinculando `terreno_id` con el catastro agronómico del productor.
 
 ---
 
-## 4. Fuentes de Datos y Estrategia Técnica
+## 4. Arquitectura y Componentes Técnicos
 
-* **Fase 1 (Frontend Driven):**
-  * Consumir los endpoints actuales ya expuestos en `GDDService`:
-    * `GET /monitoreos`: Para calcular totales, GDD acumulados, progreso, niveles de alerta y plagas.
-    * `GET /reportes`: Para estadísticas de focos de infección y niveles de severidad.
-    * `GET /admin/usuarios`: Para métricas de adopción y cuentas.
-    * `GET /admin/plagas`: Para constantes térmicas y catálogo.
-  * Agregar y procesar la información en el `DashboardViewModel` con corrutinas (`Dispatchers.Default`).
-* **Fase 2 (Optimizaciones Backend):**
-  * Evaluación de un endpoint específico `GET /admin/metricas` en el backend FastAPI que entregue agregaciones precalculadas si el volumen de datos crece.
+El desarrollo sigue rigurosamente los estándares del proyecto (Clean Architecture, MVVM, Jetpack Compose Material 3, UDF):
+
+* **Modelos (`AdminMetricasModel.kt`):**
+  * `ResumenPlagaCampaña`: Datos agregados por especie de plaga (nombre común, científico, incidencia, casos en alerta alta, promedio).
+  * `CampañaHistorica`: Entidad que agrupa las plagas, totales, hectáreas y distribución de riesgo IRA.
+  * `AdminMetricasUIState`: Estado reactivo inmutable consumido por la UI.
+  * Funciones puras testeadas: `determinarCampaña(fecha)`, `agruparPorCampaña(monitoreos, terrenos)`.
+
+* **ViewModel (`AdminMetricasViewModel.kt`):**
+  * Recuperación concurrente no bloqueante (`async`/`await` sobre `Dispatchers.IO`) de monitoreos y terrenos desde `GDDService`.
+  * Agrupación automática en segundo plano y selección reactiva de campañas.
+  * Manejo estandarizado de fallos de red (`falloDeRespuesta`, `falloDeExcepcion`) y ciclo de vida de sesión (`limpiar()`).
+
+* **Interfaz de Usuario (`AdminMetricasScreen.kt`):**
+  * Integrada en la barra de navegación del Administrador (`RUTA_ADMIN_METRICAS`).
+  * Soporte de pull-to-refresh (`PullToRefreshBox`).
+  * Selector interactivo de chips horizontales (`FiltroChipsRow`).
+  * Tokens de color y átomos compartidos de `PlagOutColors` y `CampoUI.kt`.
+  * Shimmer de carga (`SkeletonCargando`) y animaciones de conteo (`contadorAnimado`).
+
+* **Tests Unitarios (`AdminMetricasModelTest.kt`):**
+  * Cobertura de la regla agronómica de corte de campaña (1 de julio).
+  * Verificación de agregación de plagas predominantes, cálculo de hectáreas sin duplicación y distribución de riesgo ambiental.
+
+---
+
+## 5. Próximos Pasos en el Tablero de Dashboards
+
+1. **Evolución Temporal de Reportes y Focos Fitosanitarios:**
+   * Gráfico de dispersión/barras temporales por semana/mes para monitorear la curva de infestación de las plagas líderes.
+2. **Monitoreo de Eficacia de Tratamientos:**
+   * Comparación de GDD antes y después de la finalización/archivado de ciclos de monitoreo.
+3. **Métricas de Adopción y Actividad de Productores:**
+   * KPIs de retención, cobertura por departamento/región y tiempos de respuesta ante alertas de Machine Learning.
