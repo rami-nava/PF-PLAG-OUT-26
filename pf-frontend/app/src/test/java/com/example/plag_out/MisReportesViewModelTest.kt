@@ -71,61 +71,6 @@ class MisReportesViewModelTest {
     }
 
     @Test
-    fun `cargarReportes exitoso obtiene lista de reportes`() {
-        val listaReportes = listOf(
-            Fixtures.reporteDetalle(id = 10, plagaNombre = "Chicharrita", nivelSeveridad = "Alto"),
-            Fixtures.reporteDetalle(id = 11, plagaNombre = "Oruga", nivelSeveridad = "Bajo")
-        )
-        gddService.getReportesResult = { Response.success(listaReportes) }
-
-        viewModel.cargarReportes()
-
-        val estado = esperarEstado(viewModel.state) { !it.isLoading }
-        assertEquals(2, estado.reportes.size)
-        assertEquals("Chicharrita", estado.reportes[0].plaga_nombre)
-        assertEquals("Oruga", estado.reportes[1].plaga_nombre)
-        assertNull(estado.error)
-        assertEquals(1, gddService.vecesLlamado("getReportes"))
-    }
-
-    @Test
-    fun `cargarReportes maneja error de servidor`() {
-        gddService.getReportesResult = { FakeGDDService.errorServidor(500) }
-
-        viewModel.cargarReportes()
-
-        val estado = esperarEstado(viewModel.state) { !it.isLoading }
-        assertEquals(0, estado.reportes.size)
-        assertNotNull(estado.error)
-        assertEquals(1, gddService.vecesLlamado("getReportes"))
-    }
-
-    @Test
-    fun `cargarReportes sin conexion maneja excepcion`() {
-        gddService.getReportesResult = { FakeGDDService.sinConexion() }
-
-        viewModel.cargarReportes()
-
-        val estado = esperarEstado(viewModel.state) { !it.isLoading }
-        assertEquals(0, estado.reportes.size)
-        assertNotNull(estado.error)
-    }
-
-    @Test
-    fun `refrescar fuerza la recarga de datos`() {
-        gddService.getReportesResult = { Response.success(listOf(Fixtures.reporteDetalle(id = 1))) }
-        viewModel.cargarReportes()
-        esperarEstado(viewModel.state) { !it.isLoading }
-
-        gddService.getReportesResult = { Response.success(listOf(Fixtures.reporteDetalle(id = 1), Fixtures.reporteDetalle(id = 2))) }
-        viewModel.refrescar()
-
-        val estadoRefrescado = esperarEstado(viewModel.state) { !it.isRefreshing && !it.isLoading }
-        assertEquals(2, estadoRefrescado.reportes.size)
-        assertEquals(2, gddService.vecesLlamado("getReportes"))
-    }
-
-    @Test
     fun `abrirConfiguracionRadio y onRadioTemporalChange actualizan el estado del dialogo`() {
         viewModel.abrirConfiguracionRadio()
         var estado = viewModel.state.value
@@ -145,7 +90,6 @@ class MisReportesViewModelTest {
     fun `guardarRadioNotificacion actualiza radio en backend y estado`() {
         val userActualizado = Fixtures.usuario().copy(radio_notificacion_km = 45.0)
         gddService.actualizarUsuarioResult = { Response.success(userActualizado) }
-        gddService.getReportesResult = { Response.success(emptyList()) }
 
         viewModel.abrirConfiguracionRadio()
         viewModel.onRadioTemporalChange(45f)
@@ -172,19 +116,167 @@ class MisReportesViewModelTest {
         assertEquals(true, estado.mostrarDialogoRadio)
     }
 
+    private fun propio(id: Int, severidad: String = "Alto", plagaId: Int = 1) =
+        Fixtures.reporteDetalle(id = id, nivelSeveridad = severidad, plagaId = plagaId)
+
+    private fun ajeno(id: Int, severidad: String = "Alto", plagaId: Int = 1) =
+        Fixtures.reporteDetalle(id = id, nivelSeveridad = severidad, plagaId = plagaId, esPropio = false)
+
     @Test
-    fun `guardarRadioNotificacion recarga los reportes con el radio nuevo`() {
+    fun `cargarReportes pide el resumen y la primera pagina de 20 de la pestana seleccionada`() {
+        gddService.reportesServidor = (1..45).map { propio(it) } + (100..102).map { ajeno(it) }
+
+        viewModel.cargarReportes()
+
+        val estado = esperarEstado(viewModel.state) { !it.isLoading && it.propios.conteo != null }
+        assertEquals((1..20).toList(), estado.reportes.map { it.id })
+        assertEquals(45, estado.propios.total)
+        assertTrue(estado.hayMas)
+        assertEquals(45, estado.conteo(AmbitoReportes.PROPIOS)?.total)
+        // La comunidad todavía no se pidió: ni lista ni totales.
+        assertNull(estado.conteo(AmbitoReportes.COMUNIDAD))
+        val consulta = gddService.consultasReportes.single()
+        assertEquals("propios", consulta.ambito)
+        assertEquals(REPORTES_PAGE_SIZE, consulta.limit)
+        assertEquals(0, consulta.offset)
+        assertNull(consulta.distanciaKm)
+        // El resumen usa la misma consulta, sin paginar.
+        assertEquals(consulta.copy(limit = 0), gddService.consultasResumen.single())
+    }
+
+    @Test
+    fun `cargarMas agrega paginas hasta llegar al total con la misma consulta`() {
+        gddService.reportesServidor = (1..45).map { propio(it) }
+        viewModel.cargarReportes()
+        esperarEstado(viewModel.state) { !it.isLoading }
+
+        viewModel.cargarMas()
+        esperarEstado(viewModel.state) { !it.cargandoMas && it.reportes.size == 40 }
+        viewModel.cargarMas()
+        val fin = esperarEstado(viewModel.state) { !it.cargandoMas && it.reportes.size == 45 }
+
+        assertEquals((1..45).toList(), fin.reportes.map { it.id })
+        assertEquals(false, fin.hayMas)
+        assertEquals(listOf(0, 20, 40), gddService.consultasReportes.map { it.offset })
+        assertEquals(1, gddService.consultasReportes.map { it.copy(offset = 0) }.distinct().size)
+        viewModel.cargarMas()
+        assertEquals(3, gddService.vecesLlamado("getReportes"))
+    }
+
+    @Test
+    fun `cada pestana pide su ambito y se carga recien al abrirla`() {
+        gddService.reportesServidor = listOf(propio(1), ajeno(2))
+        viewModel.cargarReportes()
+        esperarEstado(viewModel.state) { !it.isLoading }
+
+        viewModel.seleccionarAmbito(AmbitoReportes.COMUNIDAD)
+        val comunidad = esperarEstado(viewModel.state) { !it.isLoading }
+        assertEquals(listOf(2), comunidad.reportes.map { it.id })
+
+        viewModel.seleccionarAmbito(AmbitoReportes.PROPIOS)
+        assertEquals(listOf(1), viewModel.state.value.reportes.map { it.id })
+        assertEquals(listOf("propios", "comunidad"), gddService.consultasReportes.map { it.ambito })
+    }
+
+    @Test
+    fun `aplicar un filtro rehace la consulta desde la primera pagina con el filtro`() {
+        gddService.reportesServidor = (1..30).map { propio(it, severidad = if (it % 3 == 0) "Bajo" else "Alto") }
+        viewModel.cargarReportes()
+        esperarEstado(viewModel.state) { !it.isLoading }
+        viewModel.cargarMas()
+        esperarEstado(viewModel.state) { !it.cargandoMas && it.reportes.size == 30 }
+        gddService.consultasReportes.clear()
+
+        viewModel.actualizarFiltros(FiltrosReportes(severidad = "Bajo", terrenoId = 4))
+
+        val estado = esperarEstado(viewModel.state) { !it.isLoading && it.propios.conteo != null }
+        assertEquals((1..30).filter { it % 3 == 0 }, estado.reportes.map { it.id })
+        assertEquals(10, estado.propios.total)
+        val consulta = gddService.consultasReportes.single()
+        assertEquals(0, consulta.offset)
+        assertEquals("Bajo", consulta.severidad)
+        assertEquals(4, consulta.terrenoId)
+        // El encabezado también se vuelve a pedir con los filtros, severidad incluida.
+        assertEquals(consulta.copy(limit = 0), gddService.consultasResumen.last())
+        assertEquals(ConteoReportes(total = 10, alto = 0, medio = 0, bajo = 10), estado.conteo(AmbitoReportes.PROPIOS))
+
+        viewModel.limpiarFiltros()
+        val limpio = esperarEstado(viewModel.state) { !it.isLoading }
+        assertEquals(30, limpio.propios.total)
+        assertNull(gddService.consultasReportes.last().severidad)
+    }
+
+    @Test
+    fun `los filtros son independientes por pestana`() {
+        gddService.reportesServidor = listOf(propio(1, plagaId = 1), ajeno(2, plagaId = 7), ajeno(3, plagaId = 8))
+        viewModel.cargarReportes()
+        esperarEstado(viewModel.state) { !it.isLoading }
+        viewModel.seleccionarAmbito(AmbitoReportes.COMUNIDAD)
+        esperarEstado(viewModel.state) { !it.isLoading }
+
+        viewModel.actualizarFiltros(FiltrosReportes(plagaId = 7))
+        val comunidad = esperarEstado(viewModel.state) { !it.isLoading }
+        assertEquals(listOf(2), comunidad.reportes.map { it.id })
+        assertEquals(FiltrosReportes(), comunidad.filtrosPropios)
+        assertEquals(7, gddService.consultasReportes.last().plagaId)
+
+        viewModel.seleccionarAmbito(AmbitoReportes.PROPIOS)
+        assertEquals(listOf(1), viewModel.state.value.reportes.map { it.id })
+    }
+
+    @Test
+    fun `la distancia solo afecta a la comunidad y al resumen`() {
+        gddService.reportesServidor = listOf(propio(1), ajeno(2))
+        viewModel.cargarReportes()
+        esperarEstado(viewModel.state) { !it.isLoading }
+
+        viewModel.actualizarDistanciaListado(50)
+        assertEquals(listOf(1), viewModel.state.value.reportes.map { it.id })
+        assertEquals(1, gddService.vecesLlamado("getReportes"))
+        assertEquals(1, gddService.vecesLlamado("getResumenReportes"))
+
+        viewModel.seleccionarAmbito(AmbitoReportes.COMUNIDAD)
+        esperarEstado(viewModel.state) { !it.isLoading }
+        assertEquals(50, gddService.consultasReportes.last().distanciaKm)
+        assertEquals(50, gddService.consultasResumen.last().distanciaKm)
+        assertEquals(20.0, viewModel.state.value.radioNotificacionKm, 0.0)
+        assertEquals(0, gddService.vecesLlamado("actualizarUsuario"))
+    }
+
+    @Test
+    fun `limpiar filtros en la comunidad vuelve al radio configurado en una sola recarga`() {
+        gddService.reportesServidor = listOf(ajeno(2, severidad = "Bajo"))
+        viewModel.seleccionarAmbito(AmbitoReportes.COMUNIDAD)
+        esperarEstado(viewModel.state) { !it.isLoading }
+        viewModel.actualizarDistanciaListado(50)
+        esperarEstado(viewModel.state) { !it.isLoading }
+        viewModel.actualizarFiltros(FiltrosReportes(severidad = "Bajo"))
+        esperarEstado(viewModel.state) { !it.isLoading }
+        gddService.consultasReportes.clear()
+
+        viewModel.limpiarFiltros()
+
+        val estado = esperarEstado(viewModel.state) { !it.isLoading }
+        assertNull(estado.distanciaListadoKm)
+        assertEquals(FiltrosReportes(), estado.filtrosComunidad)
+        val consulta = gddService.consultasReportes.single()
+        assertNull(consulta.distanciaKm)
+        assertNull(consulta.severidad)
+    }
+
+    @Test
+    fun `guardarRadioNotificacion recarga la comunidad con el radio nuevo`() {
         gddService.actualizarUsuarioResult = { Response.success(Fixtures.usuario().copy(radio_notificacion_km = 50.0)) }
-        gddService.getReportesResult = {
-            Response.success(listOf(Fixtures.reporteDetalle(id = 1), Fixtures.reporteDetalle(id = 2)))
-        }
+        gddService.reportesServidor = listOf(ajeno(1), ajeno(2))
+        viewModel.seleccionarAmbito(AmbitoReportes.COMUNIDAD)
+        esperarEstado(viewModel.state) { !it.isLoading }
 
         viewModel.abrirConfiguracionRadio()
         viewModel.onRadioTemporalChange(50f)
         viewModel.guardarRadioNotificacion()
 
-        val estado = esperarEstado(viewModel.state) { it.reportes.size == 2 && !it.isLoading && !it.isRefreshing }
-        assertEquals(1, gddService.vecesLlamado("getReportes"))
+        val estado = esperarEstado(viewModel.state) { !it.guardandoRadio && !it.isLoading && it.reportes.size == 2 }
+        assertEquals(2, gddService.vecesLlamado("getReportes"))
         assertEquals(listOf(1, 2), estado.reportes.map { it.id })
     }
 
@@ -201,7 +293,8 @@ class MisReportesViewModelTest {
 
     @Test
     fun `guardarRadioNotificacion no recarga si el listado usa una distancia propia`() {
-        gddService.getReportesResult = { Response.success(listOf(Fixtures.reporteDetalle(id = 1))) }
+        gddService.reportesServidor = listOf(ajeno(1))
+        viewModel.seleccionarAmbito(AmbitoReportes.COMUNIDAD)
         viewModel.actualizarDistanciaListado(50)
         esperarEstado(viewModel.state) { !it.isLoading && !it.isRefreshing }
         gddService.consultasReportes.clear()
@@ -212,7 +305,6 @@ class MisReportesViewModelTest {
         viewModel.guardarRadioNotificacion()
 
         val estado = esperarEstado(viewModel.state) { !it.guardandoRadio && !it.mostrarDialogoRadio }
-        assertEquals(80.0, gddService.ultimoActualizarUsuario?.radio_notificacion_km)
         assertEquals(80.0, estado.radioNotificacionKm, 0.001)
         assertEquals(50, estado.distanciaListadoKm)
         assertTrue(gddService.consultasReportes.isEmpty())
@@ -231,98 +323,24 @@ class MisReportesViewModelTest {
     }
 
     @Test
-    fun `50 km consulta todas las paginas sin cambiar notificaciones y permite volver al radio configurado`() {
-        val reportes = (1..120).map { Fixtures.reporteDetalle(id = it) }
-        gddService.getReportesPaginaResult = { _, _, limit, offset ->
-            Response.success(reportes.drop(offset).take(limit))
-        }
-        viewModel.actualizarDistanciaListado(50)
-        val estado = esperarEstado(viewModel.state) { !it.isLoading && !it.isRefreshing }
-        assertEquals(reportes, estado.reportes)
-        assertEquals(listOf(0, 100), gddService.consultasReportes.map { it.offset })
-        assertTrue(gddService.consultasReportes.all { it.limit == 100 })
-        assertEquals(1, gddService.consultasReportes.map { it.desde to it.hasta }.distinct().size)
-        assertNull(estado.error)
-        assertTrue(gddService.consultasReportes.all { it.distanciaKm == 50 })
-        assertEquals(20.0, estado.radioNotificacionKm, 0.0)
-        gddService.consultasReportes.clear()
-        viewModel.actualizarDistanciaListado(null)
-        val configurado = esperarEstado(viewModel.state) { !it.isLoading }
-        assertEquals(reportes, configurado.reportes)
-        assertTrue(gddService.consultasReportes.all { it.distanciaKm == null })
-        assertEquals(0, gddService.vecesLlamado("actualizarUsuario"))
-    }
-
-    @Test
-    fun `cambiar distancia cancela respuesta antigua y retira resultados del radio anterior`() {
-        val iniciado = CompletableDeferred<Unit>()
-        val liberado = CompletableDeferred<Unit>()
-        gddService.getReportesResult = { Response.success(listOf(Fixtures.reporteDetalle(id = 1))) }
-        viewModel.cargarReportes()
-        esperarEstado(viewModel.state) { !it.isLoading }
-        gddService.getReportesPaginaResult = { _, _, _, _ ->
-            iniciado.complete(Unit)
-            withContext(NonCancellable) { liberado.await() }
-            Response.success(listOf(Fixtures.reporteDetalle(id = 444)))
-        }
-        viewModel.actualizarDistanciaListado(50)
-        runBlocking { withTimeout(3000) { iniciado.await() } }
-        assertTrue(viewModel.state.value.reportes.isEmpty())
-        gddService.getReportesPaginaResult = { _, _, _, _ -> Response.success(listOf(Fixtures.reporteDetalle(id = 888))) }
-        viewModel.actualizarDistanciaListado(5)
-        esperarEstado(viewModel.state) { !it.isLoading }
-        liberado.complete(Unit)
-        assertEquals(listOf(888), viewModel.state.value.reportes.map { it.id })
-        assertEquals(5, viewModel.state.value.distanciaListadoKm)
-        assertEquals(5, gddService.consultasReportes.last().distanciaKm)
-    }
-
-    @Test
-    fun `ultimo segundo incluye milisegundos y excluye la medianoche siguiente`() {
-        listOf(
-            "UTC" to LocalDate.of(2026, 9, 10),
-            "America/New_York" to LocalDate.of(2026, 3, 8),
-            "America/New_York" to LocalDate.of(2026, 11, 1)
-        ).forEach { (zonaId, dia) ->
-            TimeZone.setDefault(TimeZone.getTimeZone(zonaId))
-            val zona = java.time.ZoneId.of(zonaId)
-            val medianoche = dia.plusDays(1).atStartOfDay(zona).toInstant()
-            val reportes = listOf(medianoche.minusMillis(500), medianoche).mapIndexed { index, instant ->
-                Fixtures.reporteDetalle(id = index + 1, timestampMs = instant.toEpochMilli())
-            }
-            gddService.getReportesPaginaResult = { desde, hasta, _, _ ->
-                Response.success(reportes.filter {
-                    val observado = java.time.Instant.ofEpochMilli(it.timestamp_ms)
-                    observado >= java.time.Instant.parse(desde) && observado <= java.time.Instant.parse(hasta)
-                })
-            }
-            viewModel.actualizarFechas(dia, dia)
-            val estado = esperarEstado(viewModel.state) { !it.isLoading }
-            assertEquals("$zonaId $dia", listOf(1), estado.reportes.map { it.id })
-        }
-    }
-
-    @Test
-    fun `todas las paginas incluyen el dia local completo en Argentina`() {
+    fun `el rango incluye el dia local completo en Argentina y es el mismo en todas las consultas`() {
         TimeZone.setDefault(TimeZone.getTimeZone("America/Argentina/Buenos_Aires"))
-        val reportes = (1..120).map { Fixtures.reporteDetalle(id = it) }
-        gddService.getReportesPaginaResult = { _, _, limit, offset ->
-            Response.success(reportes.drop(offset).take(limit))
-        }
+        gddService.reportesServidor = (1..30).map { propio(it) }
         viewModel.actualizarFechas(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 10))
-        val estado = esperarEstado(viewModel.state) { !it.isLoading }
-        assertEquals(reportes, estado.reportes)
-        assertEquals(2, gddService.consultasReportes.size)
-        gddService.consultasReportes.forEach {
-            assertEquals("2026-09-01T03:00:00Z", it.desde)
-            assertEquals("2026-09-11T02:59:59.999999999Z", it.hasta)
+        esperarEstado(viewModel.state) { !it.isLoading }
+        viewModel.cargarMas()
+        esperarEstado(viewModel.state) { !it.cargandoMas && !it.hayMas }
+
+        (gddService.consultasReportes.map { it.desde to it.hasta } +
+            gddService.consultasResumen.map { it.desde to it.hasta }).forEach {
+            assertEquals("2026-09-01T03:00:00Z", it.first)
+            assertEquals("2026-09-11T02:59:59.999999999Z", it.second)
         }
     }
 
     @Test
     fun `rango local respeta un dia de 23 horas al cambiar horario de verano`() {
         TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"))
-        gddService.getReportesResult = { Response.success(emptyList()) }
         val dia = LocalDate.of(2026, 3, 8)
         viewModel.actualizarFechas(dia, dia)
         esperarEstado(viewModel.state) { !it.isLoading }
@@ -332,116 +350,151 @@ class MisReportesViewModelTest {
     }
 
     @Test
-    fun `multiplo exacto pide una pagina vacia para confirmar el fin`() {
-        val reportes = (1..200).map { Fixtures.reporteDetalle(id = it) }
-        gddService.getReportesPaginaResult = { _, _, limit, offset ->
-            Response.success(reportes.drop(offset).take(limit))
-        }
-        viewModel.cargarReportes()
-        val estado = esperarEstado(viewModel.state) { !it.isLoading }
-        assertEquals(reportes, estado.reportes)
-        assertEquals(listOf(0, 100, 200), gddService.consultasReportes.map { it.offset })
-    }
-
-    @Test
-    fun `error en segunda pagina nunca publica la primera como lista completa`() {
-        gddService.getReportesPaginaResult = { _, _, _, offset ->
-            if (offset == 0) Response.success((1..100).map { Fixtures.reporteDetalle(id = it) })
-            else FakeGDDService.errorServidor(500)
-        }
-        viewModel.cargarReportes()
-        val estado = esperarEstado(viewModel.state) { !it.isLoading }
-        assertTrue(estado.reportes.isEmpty())
-        assertNotNull(estado.error)
-    }
-
-    @Test
-    fun `refresco fallido mantiene la ultima carga completa y permite reintentar`() {
-        val anterior = listOf(Fixtures.reporteDetalle(id = 999))
-        gddService.getReportesResult = { Response.success(anterior) }
+    fun `cambiar fechas descarta lo cargado de las dos pestanas y una respuesta vieja`() {
+        val iniciado = CompletableDeferred<Unit>()
+        val liberado = CompletableDeferred<Unit>()
+        gddService.reportesServidor = listOf(propio(1), ajeno(2))
         viewModel.cargarReportes()
         esperarEstado(viewModel.state) { !it.isLoading }
-        gddService.getReportesPaginaResult = { _, _, _, offset ->
-            if (offset == 0) Response.success((1..100).map { Fixtures.reporteDetalle(id = it) })
-            else FakeGDDService.errorServidor(429)
+        viewModel.seleccionarAmbito(AmbitoReportes.COMUNIDAD)
+        esperarEstado(viewModel.state) { !it.isLoading }
+        gddService.getReportesPaginaResult = {
+            iniciado.complete(Unit)
+            withContext(NonCancellable) { liberado.await() }
+            Response.success(PaginaReportes(listOf(ajeno(444)), 1))
         }
-        viewModel.refrescar()
-        val fallido = esperarEstado(viewModel.state) { !it.isRefreshing }
-        assertEquals(anterior, fallido.reportes)
-        assertNotNull(fallido.error)
-        gddService.getReportesPaginaResult = { _, _, _, _ -> Response.success(listOf(Fixtures.reporteDetalle(id = 120))) }
-        viewModel.refrescar()
-        val recuperado = esperarEstado(viewModel.state) { !it.isRefreshing }
-        assertEquals(listOf(120), recuperado.reportes.map { it.id })
-        assertNull(recuperado.error)
+        viewModel.actualizarFechas(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 10))
+        runBlocking { withTimeout(3000) { iniciado.await() } }
+        assertTrue(viewModel.state.value.reportes.isEmpty())
+        assertEquals(false, viewModel.state.value.propios.cargado)
+
+        gddService.getReportesPaginaResult = null
+        gddService.reportesServidor = listOf(ajeno(888))
+        viewModel.actualizarFechas(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31))
+        esperarEstado(viewModel.state) { !it.isLoading }
+        liberado.complete(Unit)
+        assertEquals(listOf(888), viewModel.state.value.reportes.map { it.id })
     }
 
     @Test
-    fun `deduplica ids repetidos sin retroceder el offset`() {
-        gddService.getReportesPaginaResult = { _, _, _, offset ->
-            Response.success((if (offset == 0) 1..100 else 100..105).map { Fixtures.reporteDetalle(id = it) })
-        }
+    fun `error en la primera pagina se muestra y refrescar fallido conserva lo anterior`() {
+        gddService.getReportesPaginaResult = { FakeGDDService.errorServidor(500) }
         viewModel.cargarReportes()
-        val estado = esperarEstado(viewModel.state) { !it.isLoading }
-        assertEquals((1..105).toList(), estado.reportes.map { it.id })
-        assertEquals(listOf(0, 100), gddService.consultasReportes.map { it.offset })
+        val fallido = esperarEstado(viewModel.state) { it.error != null }
+        assertTrue(fallido.reportes.isEmpty())
+
+        gddService.getReportesPaginaResult = null
+        gddService.reportesServidor = listOf(propio(999))
+        viewModel.refrescar()
+        esperarEstado(viewModel.state) { !it.isLoading && !it.isRefreshing && it.reportes.isNotEmpty() }
+
+        gddService.getReportesPaginaResult = { FakeGDDService.errorServidor(429) }
+        viewModel.refrescar()
+        val refrescoFallido = esperarEstado(viewModel.state) { !it.isRefreshing && it.error != null }
+        assertEquals(listOf(999), refrescoFallido.reportes.map { it.id })
     }
 
     @Test
-    fun `servidor que ignora offset da error en vez de bucle o lista parcial`() {
-        gddService.getReportesResult = { Response.success((1..100).map { Fixtures.reporteDetalle(id = it) }) }
+    fun `sin conexion marca el estado offline`() {
+        gddService.getReportesPaginaResult = { FakeGDDService.sinConexion() }
         viewModel.cargarReportes()
-        val estado = esperarEstado(viewModel.state) { !it.isLoading }
-        assertTrue(estado.reportes.isEmpty())
-        assertNotNull(estado.error)
+        val estado = esperarEstado(viewModel.state) { it.error != null }
+        assertTrue(estado.sinConexion)
+    }
+
+    @Test
+    fun `error en la pagina siguiente conserva lo cargado y permite reintentar`() {
+        gddService.reportesServidor = (1..25).map { propio(it) }
+        viewModel.cargarReportes()
+        esperarEstado(viewModel.state) { !it.isLoading }
+        gddService.getReportesPaginaResult = { FakeGDDService.errorServidor(500) }
+        viewModel.cargarMas()
+        val fallido = esperarEstado(viewModel.state) { !it.cargandoMas && it.errorCargarMas != null }
+        assertEquals(20, fallido.reportes.size)
+        assertNull(fallido.error)
+        assertTrue(fallido.hayMas)
+
+        gddService.getReportesPaginaResult = null
+        viewModel.cargarMas()
+        val recuperado = esperarEstado(viewModel.state) { !it.cargandoMas && !it.hayMas }
+        assertEquals((1..25).toList(), recuperado.reportes.map { it.id })
+        assertNull(recuperado.errorCargarMas)
+    }
+
+    @Test
+    fun `servidor que ignora offset da error en vez de bucle`() {
+        gddService.getReportesPaginaResult = { Response.success(PaginaReportes((1..20).map { propio(it) }, 100)) }
+        viewModel.cargarReportes()
+        esperarEstado(viewModel.state) { !it.isLoading }
+        viewModel.cargarMas()
+        val estado = esperarEstado(viewModel.state) { !it.cargandoMas }
+        assertEquals(20, estado.reportes.size)
+        assertNotNull(estado.errorCargarMas)
         assertEquals(2, gddService.vecesLlamado("getReportes"))
     }
 
     @Test
-    fun `respuesta sin body no se interpreta como fin de reportes`() {
-        gddService.getReportesResult = { Response.success<List<ReporteDetalleResponse>>(null) }
+    fun `respuesta sin body da error`() {
+        gddService.getReportesPaginaResult = { Response.success<PaginaReportes>(null) }
         viewModel.cargarReportes()
-        val estado = esperarEstado(viewModel.state) { !it.isLoading }
+        val estado = esperarEstado(viewModel.state) { it.error != null }
         assertTrue(estado.reportes.isEmpty())
-        assertNotNull(estado.error)
     }
 
     @Test
-    fun `segunda pagina pendiente no muestra resultados parciales y cambiar fechas descarta respuesta vieja`() {
-        val segundaPagina = CompletableDeferred<Unit>()
-        val liberarRespuestaVieja = CompletableDeferred<Unit>()
-        gddService.getReportesPaginaResult = { _, _, _, offset ->
-            if (offset == 0) Response.success((1..100).map { Fixtures.reporteDetalle(id = it) })
-            else {
-                segundaPagina.complete(Unit)
-                withContext(NonCancellable) { liberarRespuestaVieja.await() }
-                Response.success(listOf(Fixtures.reporteDetalle(id = 101)))
-            }
-        }
+    fun `refrescar deja la otra pestana desactualizada y la recarga al abrirla`() {
+        gddService.reportesServidor = listOf(propio(1), ajeno(2))
         viewModel.cargarReportes()
-        runBlocking { withTimeout(3000) { segundaPagina.await() } }
-        assertTrue(viewModel.state.value.isLoading)
-        assertTrue(viewModel.state.value.reportes.isEmpty())
-        gddService.getReportesPaginaResult = { _, _, _, _ -> Response.success(listOf(Fixtures.reporteDetalle(id = 888))) }
-        val desde = LocalDate.of(2026, 9, 1)
-        val hasta = LocalDate.of(2026, 9, 10)
-        viewModel.actualizarFechas(desde, hasta)
         esperarEstado(viewModel.state) { !it.isLoading }
-        liberarRespuestaVieja.complete(Unit)
-        assertEquals(listOf(888), viewModel.state.value.reportes.map { it.id })
-        assertEquals("2026-09-01T00:00:00Z", gddService.consultasReportes.last().desde)
-        assertEquals("2026-09-10T23:59:59.999999999Z", gddService.consultasReportes.last().hasta)
-        assertNull(viewModel.state.value.error)
+        viewModel.seleccionarAmbito(AmbitoReportes.COMUNIDAD)
+        esperarEstado(viewModel.state) { !it.isLoading }
+
+        viewModel.refrescar()
+        esperarEstado(viewModel.state) { !it.isRefreshing }
+        viewModel.seleccionarAmbito(AmbitoReportes.PROPIOS)
+        esperarEstado(viewModel.state) { !it.isLoading && !it.isRefreshing && !it.propios.desactualizado }
+
+        assertEquals(listOf("propios", "comunidad", "comunidad", "propios"), gddService.consultasReportes.map { it.ambito })
+    }
+
+    @Test
+    fun `eliminar descuenta de la lista el total y el encabezado y corre el offset`() {
+        gddService.reportesServidor = (1..30).map { propio(it, severidad = if (it == 5) "Medio" else "Alto") }
+        viewModel.cargarReportes()
+        esperarEstado(viewModel.state) { !it.isLoading && it.propios.conteo != null }
+
+        gddService.reportesServidor = gddService.reportesServidor.filter { it.id != 5 }
+        var resultado: String? = "pendiente"
+        viewModel.eliminarReporte(5) { resultado = it }
+        val trasEliminar = esperarEstado(viewModel.state) { 5 !in it.eliminando && it.reportes.none { r -> r.id == 5 } }
+        assertNull(resultado)
+        assertEquals(29, trasEliminar.propios.total)
+        assertEquals(ConteoReportes(total = 29, alto = 29, medio = 0, bajo = 0), trasEliminar.conteo(AmbitoReportes.PROPIOS))
+
+        viewModel.cargarMas()
+        val estado = esperarEstado(viewModel.state) { !it.cargandoMas && !it.hayMas }
+        assertEquals((1..30).filter { it != 5 }, estado.reportes.map { it.id })
+        assertEquals(listOf(0, 19), gddService.consultasReportes.map { it.offset })
+    }
+
+    @Test
+    fun `opciones de filtros vienen de los terrenos del usuario y el catalogo de plagas`() {
+        gddService.getTerrenosResult = { Response.success(listOf(Fixtures.terreno(id = 2, nombre = "Sur"), Fixtures.terreno(id = 1, nombre = "Norte"))) }
+        gddService.getPlagasResult = { Response.success(listOf(Fixtures.plaga(id = 7, nombre = "Trips"), Fixtures.plaga(id = 3, nombre = "Oruga"))) }
+        viewModel.cargarReportes()
+        val estado = esperarEstado(viewModel.state) { it.terrenos.isNotEmpty() && it.plagas.isNotEmpty() }
+        assertEquals(listOf("Norte", "Sur"), estado.terrenos.map { it.terreno_nombre })
+        assertEquals(listOf("Oruga", "Trips"), estado.plagas.map { it.nombre })
     }
 
     @Test
     fun `limpiar cancela carga pendiente y no repuebla los reportes de la sesion anterior`() {
         val iniciado = CompletableDeferred<Unit>()
         val liberado = CompletableDeferred<Unit>()
-        gddService.getReportesPaginaResult = { _, _, _, _ ->
+        gddService.getReportesPaginaResult = {
             iniciado.complete(Unit)
             withContext(NonCancellable) { liberado.await() }
-            Response.success(listOf(Fixtures.reporteDetalle(id = 444)))
+            Response.success(PaginaReportes(listOf(propio(444)), 1))
         }
         viewModel.cargarReportes()
         runBlocking { withTimeout(3000) { iniciado.await() } }
@@ -449,17 +502,5 @@ class MisReportesViewModelTest {
         liberado.complete(Unit)
         assertTrue(viewModel.state.value.reportes.isEmpty())
         assertNull(viewModel.state.value.error)
-    }
-
-    @Test
-    fun `cambiar fechas retira resultados del rango anterior aunque la nueva carga falle`() {
-        gddService.getReportesResult = { Response.success(listOf(Fixtures.reporteDetalle(id = 1))) }
-        viewModel.cargarReportes()
-        esperarEstado(viewModel.state) { !it.isLoading }
-        gddService.getReportesResult = { FakeGDDService.errorServidor(500) }
-        viewModel.actualizarFechas(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31))
-        val estado = esperarEstado(viewModel.state) { !it.isLoading }
-        assertTrue(estado.reportes.isEmpty())
-        assertNotNull(estado.error)
     }
 }

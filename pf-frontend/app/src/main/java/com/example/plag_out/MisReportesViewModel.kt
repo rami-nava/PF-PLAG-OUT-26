@@ -22,14 +22,44 @@ import java.time.LocalDate
 import java.time.ZoneId
 import retrofit2.HttpException
 
-private const val REPORTES_PAGE_SIZE = 100
+const val REPORTES_PAGE_SIZE = 20
+
+enum class AmbitoReportes(val valor: String) { PROPIOS("propios"), COMUNIDAD("comunidad") }
+
+
+data class FiltrosReportes(
+    val severidad: String? = null,
+    val terrenoId: Int? = null,
+    val plagaId: Int? = null
+) {
+    val activos: Boolean get() = severidad != null || terrenoId != null || plagaId != null
+}
+
+/** Lo cargado de una pestaña: cada una pagina por separado y se pide la primera vez que se abre. */
+data class ListadoReportes(
+    val reportes: List<ReporteDetalleResponse> = emptyList(),
+    val total: Int? = null,
+    val conteo: ConteoReportes? = null,
+    val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
+    val cargandoMas: Boolean = false,
+    val error: String? = null,
+    val errorCargarMas: String? = null,
+    val sinConexion: Boolean = false,
+    val desactualizado: Boolean = false
+) {
+    val cargado: Boolean get() = total != null
+    val hayMas: Boolean get() = total != null && reportes.size < total
+}
 
 data class MisReportesUiState(
-    val isLoading: Boolean = true,
-    val isRefreshing: Boolean = false,
-    val reportes: List<ReporteDetalleResponse> = emptyList(),
-    val error: String? = null,
-    val sinConexion: Boolean = false,
+    val ambito: AmbitoReportes = AmbitoReportes.PROPIOS,
+    val propios: ListadoReportes = ListadoReportes(),
+    val comunidad: ListadoReportes = ListadoReportes(),
+    val filtrosPropios: FiltrosReportes = FiltrosReportes(),
+    val filtrosComunidad: FiltrosReportes = FiltrosReportes(),
+    val terrenos: List<TerrenoResponse> = emptyList(),
+    val plagas: List<PlagaResponse> = emptyList(),
     val fechaDesde: LocalDate = LocalDate.now().minusMonths(1),
     val fechaHasta: LocalDate = LocalDate.now(),
     val distanciaListadoKm: Int? = null,
@@ -38,7 +68,27 @@ data class MisReportesUiState(
     val radioTemporalKm: Float = 20f,
     val guardandoRadio: Boolean = false,
     val eliminando: Set<Int> = emptySet()
-)
+) {
+    fun listado(ambito: AmbitoReportes): ListadoReportes =
+        if (ambito == AmbitoReportes.PROPIOS) propios else comunidad
+
+    fun filtros(ambito: AmbitoReportes): FiltrosReportes =
+        if (ambito == AmbitoReportes.PROPIOS) filtrosPropios else filtrosComunidad
+
+    fun conteo(ambito: AmbitoReportes): ConteoReportes? = listado(ambito).conteo
+
+    // Atajos a la pestaña seleccionada.
+    val actual: ListadoReportes get() = listado(ambito)
+    val filtrosActuales: FiltrosReportes get() = filtros(ambito)
+    val reportes: List<ReporteDetalleResponse> get() = actual.reportes
+    val isLoading: Boolean get() = actual.isLoading || !actual.cargado && actual.error == null
+    val isRefreshing: Boolean get() = actual.isRefreshing
+    val hayMas: Boolean get() = actual.hayMas
+    val cargandoMas: Boolean get() = actual.cargandoMas
+    val error: String? get() = actual.error
+    val errorCargarMas: String? get() = actual.errorCargarMas
+    val sinConexion: Boolean get() = actual.sinConexion
+}
 
 class MisReportesViewModel(
     private val gddService: GDDService = RetrofitClient.gddService,
@@ -48,7 +98,11 @@ class MisReportesViewModel(
 
     private val _state = MutableStateFlow(MisReportesUiState())
     val state: StateFlow<MisReportesUiState> = _state.asStateFlow()
-    private var cargaReportes: Job? = null
+    private val cargas = mutableMapOf<AmbitoReportes, Job>()
+    private val consultas = mutableMapOf<AmbitoReportes, ConsultaReportes>()
+    private val siguienteOffset = mutableMapOf<AmbitoReportes, Int>()
+    private val cargasResumen = mutableMapOf<AmbitoReportes, Job>()
+    private var cargaOpciones: Job? = null
 
     init {
         cargarRadioNotificacion()
@@ -130,7 +184,7 @@ class MisReportesViewModel(
                     // Sin distancia elegida en el listado, el backend filtra los reportes de la
                     // comunidad con este radio: sin recargar, seguirían los del radio anterior.
                     if (radioFinal != radioAnterior && _state.value.distanciaListadoKm == null) {
-                        cargarReportes(forzar = true)
+                        reiniciarComunidad()
                     }
                     Avisos.exito("Radio de notificación actualizado.")
                     onSuccess?.invoke()
@@ -151,74 +205,246 @@ class MisReportesViewModel(
         }
     }
 
+
     fun cargarReportes(forzar: Boolean = false, avisarSiFalla: Boolean = false) {
-        if (!forzar && cargaReportes?.isActive == true) return
-        cargaReportes?.cancel()
-        // Todos los requests de una carga usan el mismo rango, incluso si el usuario lo cambia.
-        val zona = ZoneId.systemDefault()
-        val desdeStr = _state.value.fechaDesde.atStartOfDay(zona).toInstant().toString()
-        val hastaStr = _state.value.fechaHasta.plusDays(1).atStartOfDay(zona)
-            .toInstant().minusNanos(1).toString()
-        val distanciaKm = _state.value.distanciaListadoKm
-        val hayResultadosAnteriores = _state.value.reportes.isNotEmpty()
-        _state.value = _state.value.copy(
-            isLoading = !hayResultadosAnteriores,
-            isRefreshing = hayResultadosAnteriores,
-            error = null
-        )
-        cargaReportes = viewModelScope.launch {
+        val ambito = _state.value.ambito
+        if (forzar || !_state.value.listado(ambito).cargado && cargas[ambito]?.isActive != true) {
+            cargarPrimeraPagina(ambito, avisarSiFalla)
+        }
+        if (cargaOpciones == null) cargarOpcionesFiltros()
+    }
+
+    fun seleccionarAmbito(ambito: AmbitoReportes) {
+        if (_state.value.ambito == ambito) return
+        _state.value = _state.value.copy(ambito = ambito)
+        val listado = _state.value.listado(ambito)
+        if ((!listado.cargado || listado.desactualizado) && cargas[ambito]?.isActive != true) {
+            cargarPrimeraPagina(ambito, avisarSiFalla = false)
+        }
+    }
+
+
+    fun refrescar() {
+        val ambito = _state.value.ambito
+        val otro = if (ambito == AmbitoReportes.PROPIOS) AmbitoReportes.COMUNIDAD else AmbitoReportes.PROPIOS
+        if (_state.value.listado(otro).cargado) actualizar(otro) { it.copy(desactualizado = true) }
+        cargarPrimeraPagina(ambito, avisarSiFalla = true)
+        cargarOpcionesFiltros()
+    }
+
+
+    fun actualizarFiltros(filtros: FiltrosReportes) {
+        val ambito = _state.value.ambito
+        if (_state.value.filtros(ambito) == filtros) return
+        _state.value = if (ambito == AmbitoReportes.PROPIOS) {
+            _state.value.copy(filtrosPropios = filtros)
+        } else {
+            _state.value.copy(filtrosComunidad = filtros)
+        }
+        cargas[ambito]?.cancel()
+        actualizar(ambito) { ListadoReportes() }
+        cargarPrimeraPagina(ambito, avisarSiFalla = false)
+    }
+
+
+    fun limpiarFiltros() {
+        val ambito = _state.value.ambito
+        if (ambito == AmbitoReportes.COMUNIDAD && _state.value.distanciaListadoKm != null) {
+            _state.value = _state.value.copy(distanciaListadoKm = null, filtrosComunidad = FiltrosReportes())
+            reiniciarComunidad()
+        } else {
+            actualizarFiltros(FiltrosReportes())
+        }
+    }
+
+    private fun cargarPrimeraPagina(ambito: AmbitoReportes, avisarSiFalla: Boolean) {
+        cargas[ambito]?.cancel()
+        // Las páginas siguientes usan la misma consulta aunque el usuario cambie algo: cambiarla
+        // vuelve a empezar desde la primera.
+        val consulta = consultaActual(ambito)
+        consultas[ambito] = consulta
+        val hayResultadosAnteriores = _state.value.listado(ambito).reportes.isNotEmpty()
+        actualizar(ambito) {
+            it.copy(
+                isLoading = !hayResultadosAnteriores,
+                isRefreshing = hayResultadosAnteriores,
+                cargandoMas = false,
+                error = null,
+                errorCargarMas = null
+            )
+        }
+        cargarConteo(consulta)
+        cargas[ambito] = viewModelScope.launch {
             try {
-                val reportes = withContext(reportesDispatcher) {
-                    val completos = linkedMapOf<Int, ReporteDetalleResponse>()
-                    var offset = 0
-                    while (true) {
-                        val response = gddService.getReportes(
-                            fechaDesde = desdeStr,
-                            fechaHasta = hastaStr,
-                            limit = REPORTES_PAGE_SIZE,
-                            offset = offset,
-                            distanciaKm = distanciaKm
-                        )
-                        if (!response.isSuccessful) throw HttpException(response)
-                        val pagina = response.body() ?: throw IllegalStateException("Report response has no body")
-                        if (pagina.size > REPORTES_PAGE_SIZE ||
-                            (pagina.isNotEmpty() && pagina.none { it.id !in completos })) {
-                            throw IllegalStateException("Report pagination did not advance")
-                        }
-                        pagina.forEach { completos[it.id] = it }
-                        if (pagina.size < REPORTES_PAGE_SIZE) break
-                        // Avanzar por filas recibidas, no por IDs únicos: pueden repetirse entre páginas.
-                        offset = Math.addExact(offset, pagina.size)
-                    }
-                    completos.values.toList()
+                val pagina = pedirPagina(consulta, offset = 0)
+                val items = pagina.items.orEmpty()
+                siguienteOffset[ambito] = items.size
+                actualizar(ambito) {
+                    it.copy(
+                        reportes = items.distinctBy { r -> r.id },
+                        total = pagina.total,
+                        isLoading = false,
+                        isRefreshing = false,
+                        error = null,
+                        sinConexion = false,
+                        desactualizado = false
+                    )
                 }
-                // Publicar únicamente una carga completa; nunca reemplazarla con una página parcial.
-                _state.value = _state.value.copy(
-                    isLoading = false,
-                    isRefreshing = false,
-                    reportes = reportes,
-                    error = null,
-                    sinConexion = false
-                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e("MIS_REPORTES", "No se pudo completar la carga de reportes", e)
-                val fallo = (e as? HttpException)?.response()?.let { errorDeRespuesta(it) } ?: errorDeExcepcion(e)
-                _state.value = _state.value.copy(
-                    isLoading = false,
-                    isRefreshing = false,
-                    error = fallo.mensaje,
-                    sinConexion = e is IOException || e is HttpRequestException
-                )
+                Log.e("MIS_REPORTES", "No se pudo cargar la primera página de ${ambito.valor}", e)
+                val fallo = falloDeCarga(e)
+                // Un refresco fallido deja la lista anterior tal cual.
+                actualizar(ambito) {
+                    it.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        error = fallo.mensaje,
+                        sinConexion = e is IOException || e is HttpRequestException
+                    )
+                }
                 if (avisarSiFalla) Avisos.error(fallo.mensaje)
             }
         }
     }
 
-    fun refrescar() {
-        cargarReportes(forzar = true, avisarSiFalla = true)
+    fun cargarMas() {
+        val ambito = _state.value.ambito
+        val actual = _state.value.listado(ambito)
+        if (!actual.hayMas || actual.cargandoMas || actual.isLoading || actual.isRefreshing ||
+            cargas[ambito]?.isActive == true
+        ) return
+        val consulta = consultas[ambito] ?: return
+        val offset = siguienteOffset[ambito] ?: 0
+        actualizar(ambito) { it.copy(cargandoMas = true, errorCargarMas = null) }
+        cargas[ambito] = viewModelScope.launch {
+            try {
+                val pagina = pedirPagina(consulta, offset)
+                val items = pagina.items.orEmpty()
+                val cargados = _state.value.listado(ambito).reportes
+                val ids = cargados.mapTo(HashSet()) { it.id }
+                val nuevos = items.filterNot { it.id in ids }.distinctBy { it.id }
+                // Una página llena sin nada nuevo es un servidor que ignora el offset: seguir
+                // pidiendo sería un bucle. Se corta con error y queda el reintento manual.
+                if (items.size == REPORTES_PAGE_SIZE && nuevos.isEmpty()) {
+                    throw IllegalStateException("Report pagination did not advance")
+                }
+                // Avanzar por filas recibidas, no por IDs únicos: pueden repetirse entre páginas.
+                // Se suma sobre el valor actual para conservar el corrimiento de un borrado en curso.
+                siguienteOffset[ambito] = Math.addExact(siguienteOffset[ambito] ?: 0, items.size)
+                actualizar(ambito) {
+                    it.copy(
+                        reportes = it.reportes + nuevos,
+                        // Si el servidor se quedó sin filas antes de llegar al total, no hay más.
+                        total = if (items.size < REPORTES_PAGE_SIZE) it.reportes.size + nuevos.size else pagina.total,
+                        cargandoMas = false
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("MIS_REPORTES", "No se pudo cargar la página de ${ambito.valor} en $offset", e)
+                actualizar(ambito) {
+                    it.copy(
+                        cargandoMas = false,
+                        errorCargarMas = falloDeCarga(e).mensaje,
+                        sinConexion = e is IOException || e is HttpRequestException
+                    )
+                }
+            }
+        }
     }
+
+    private suspend fun pedirPagina(consulta: ConsultaReportes, offset: Int): PaginaReportes =
+        withContext(reportesDispatcher) {
+            val response = gddService.getReportes(
+                ambito = consulta.ambito.valor,
+                fechaDesde = consulta.desde,
+                fechaHasta = consulta.hasta,
+                limit = REPORTES_PAGE_SIZE,
+                offset = offset,
+                distanciaKm = consulta.distanciaKm,
+                severidad = consulta.filtros.severidad,
+                terrenoId = consulta.filtros.terrenoId,
+                plagaId = consulta.filtros.plagaId
+            )
+            if (!response.isSuccessful) throw HttpException(response)
+            val pagina = response.body() ?: throw IllegalStateException("Report response has no body")
+            if (pagina.items.orEmpty().size > REPORTES_PAGE_SIZE) {
+                throw IllegalStateException("Report page exceeds the limit")
+            }
+            pagina
+        }
+
+
+    private fun cargarConteo(consulta: ConsultaReportes) {
+        val ambito = consulta.ambito
+        // Al refrescar se muestran los totales anteriores hasta que lleguen los nuevos.
+        cargasResumen[ambito]?.cancel()
+        cargasResumen[ambito] = viewModelScope.launch {
+            try {
+                val response = withContext(reportesDispatcher) {
+                    gddService.getResumenReportes(
+                        ambito = ambito.valor,
+                        fechaDesde = consulta.desde,
+                        fechaHasta = consulta.hasta,
+                        distanciaKm = consulta.distanciaKm,
+                        severidad = consulta.filtros.severidad,
+                        terrenoId = consulta.filtros.terrenoId,
+                        plagaId = consulta.filtros.plagaId
+                    )
+                }
+                if (response.isSuccessful) actualizar(ambito) { it.copy(conteo = response.body()) }
+                else Log.w("MIS_REPORTES", "Resumen de ${ambito.valor} respondió ${response.code()}")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("MIS_REPORTES", "No se pudo cargar el resumen de ${ambito.valor}: ${e.message}")
+            }
+        }
+    }
+
+    private fun cargarOpcionesFiltros() {
+        cargaOpciones?.cancel()
+        cargaOpciones = viewModelScope.launch {
+            val terrenos = runCatching {
+                withContext(reportesDispatcher) { gddService.getTerrenos() }.body()
+            }.onFailure { if (it is CancellationException) throw it }.getOrNull()
+            val plagas = runCatching {
+                withContext(reportesDispatcher) { gddService.getPlagas() }.body()
+            }.onFailure { if (it is CancellationException) throw it }.getOrNull()
+            _state.value = _state.value.copy(
+                terrenos = terrenos.orEmpty().sortedBy { it.terreno_nombre.lowercase() },
+                plagas = plagas.orEmpty().sortedBy { it.nombre.lowercase() }
+            )
+        }
+    }
+
+    private fun consultaActual(ambito: AmbitoReportes): ConsultaReportes {
+        val zona = ZoneId.systemDefault()
+        val estado = _state.value
+        return ConsultaReportes(
+            ambito = ambito,
+            desde = estado.fechaDesde.atStartOfDay(zona).toInstant().toString(),
+            hasta = estado.fechaHasta.plusDays(1).atStartOfDay(zona).toInstant().minusNanos(1).toString(),
+            // La distancia filtra los reportes de otros productores; los propios van todos.
+            distanciaKm = if (ambito == AmbitoReportes.COMUNIDAD) estado.distanciaListadoKm else null,
+            filtros = estado.filtros(ambito)
+        )
+    }
+
+    private fun actualizar(ambito: AmbitoReportes, cambio: (ListadoReportes) -> ListadoReportes) {
+        val estado = _state.value
+        _state.value = if (ambito == AmbitoReportes.PROPIOS) {
+            estado.copy(propios = cambio(estado.propios))
+        } else {
+            estado.copy(comunidad = cambio(estado.comunidad))
+        }
+    }
+
+    private fun falloDeCarga(e: Exception) =
+        (e as? HttpException)?.response()?.let { errorDeRespuesta(it) } ?: errorDeExcepcion(e)
 
     fun eliminarReporte(reporteId: Int, onResultado: (error: String?) -> Unit) {
         if (reporteId in _state.value.eliminando) return
@@ -227,7 +453,7 @@ class MisReportesViewModel(
             val error = try {
                 val response = withContext(reportesDispatcher) { gddService.deleteReporte(reporteId) }
                 if (response.isSuccessful) {
-                    _state.value = _state.value.copy(reportes = _state.value.reportes.filter { it.id != reporteId })
+                    quitarReporteEliminado(reporteId)
                     null
                 } else {
                     Log.e("MIS_REPORTES", "Error al eliminar el reporte $reporteId: ${response.code()}")
@@ -250,27 +476,76 @@ class MisReportesViewModel(
         }
     }
 
+
+    private fun quitarReporteEliminado(reporteId: Int) {
+        val ambito = AmbitoReportes.PROPIOS
+        val eliminado = _state.value.propios.reportes.firstOrNull { it.id == reporteId } ?: return
+        // En el servidor los siguientes se corren un lugar: sin esto, la próxima página salta uno.
+        // Si alguno se repite, lo descarta la deduplicación por id.
+        siguienteOffset[ambito] = ((siguienteOffset[ambito] ?: 0) - 1).coerceAtLeast(0)
+        val nivel = eliminado.nivel_severidad.lowercase()
+        fun menosUno(valor: Int, de: String) = if (nivel == de) (valor - 1).coerceAtLeast(0) else valor
+        actualizar(ambito) {
+            it.copy(
+                reportes = it.reportes.filter { r -> r.id != reporteId },
+                total = it.total?.let { t -> (t - 1).coerceAtLeast(0) },
+                conteo = it.conteo?.let { c ->
+                    c.copy(
+                        total = (c.total - 1).coerceAtLeast(0),
+                        alto = menosUno(c.alto, "alto"),
+                        medio = menosUno(c.medio, "medio"),
+                        bajo = menosUno(c.bajo, "bajo")
+                    )
+                }
+            )
+        }
+    }
+
     fun actualizarDistanciaListado(distanciaKm: Int?) {
         if (_state.value.distanciaListadoKm == distanciaKm) return
-        _state.value = _state.value.copy(distanciaListadoKm = distanciaKm, reportes = emptyList())
-        cargarReportes(forzar = true)
+        _state.value = _state.value.copy(distanciaListadoKm = distanciaKm)
+        reiniciarComunidad()
+    }
+
+    private fun reiniciarComunidad() {
+        cargas[AmbitoReportes.COMUNIDAD]?.cancel()
+        cargasResumen[AmbitoReportes.COMUNIDAD]?.cancel()
+        _state.value = _state.value.copy(comunidad = ListadoReportes())
+        if (_state.value.ambito == AmbitoReportes.COMUNIDAD) {
+            cargarPrimeraPagina(AmbitoReportes.COMUNIDAD, avisarSiFalla = false)
+        }
     }
 
     fun limpiar() {
-        cargaReportes?.cancel()
-        cargaReportes = null
+        cargas.values.forEach { it.cancel() }
+        cargas.clear()
+        cargasResumen.values.forEach { it.cancel() }
+        cargasResumen.clear()
+        cargaOpciones?.cancel()
+        cargaOpciones = null
         _state.value = MisReportesUiState()
     }
-    
+
     fun actualizarFechas(desde: LocalDate, hasta: LocalDate) {
+        cargas.values.forEach { it.cancel() }
+        cargasResumen.values.forEach { it.cancel() }
         _state.value = _state.value.copy(
             fechaDesde = desde,
             fechaHasta = hasta,
-            reportes = emptyList()
+            propios = ListadoReportes(),
+            comunidad = ListadoReportes()
         )
-        cargarReportes(forzar = true)
+        cargarPrimeraPagina(_state.value.ambito, avisarSiFalla = false)
     }
 }
+
+private data class ConsultaReportes(
+    val ambito: AmbitoReportes,
+    val desde: String,
+    val hasta: String,
+    val distanciaKm: Int?,
+    val filtros: FiltrosReportes
+)
 
 class MisReportesViewModelFactory(
     private val gddService: GDDService = RetrofitClient.gddService,
