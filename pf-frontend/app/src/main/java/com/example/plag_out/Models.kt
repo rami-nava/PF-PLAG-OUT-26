@@ -662,7 +662,12 @@ data class ReporteDetalleResponse(
 )
 
 
-//Una página del listado de reportes. `total` cuenta todos los que cumplen los filtros, no solo la página.
+
+data class PaginaMonitoreos(
+    @SerializedName("items") val items: List<MonitoreoResponse>? = null,
+    @SerializedName("total") val total: Int = 0
+)
+
 data class PaginaReportes(
     @SerializedName("items") val items: List<ReporteDetalleResponse>? = null,
     @SerializedName("total") val total: Int = 0

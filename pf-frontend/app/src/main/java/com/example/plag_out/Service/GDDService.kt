@@ -26,6 +26,7 @@ import com.example.plag_out.NotificacionResponse
 import com.example.plag_out.CreateReporteRequest
 import com.example.plag_out.ReporteResponse
 import com.example.plag_out.ReporteDetalleResponse
+import com.example.plag_out.PaginaMonitoreos
 import com.example.plag_out.PaginaReportes
 import com.example.plag_out.ReportesMapaResponse
 import com.example.plag_out.ConteoReportes
@@ -53,7 +54,10 @@ interface GDDService {
     suspend fun simulateDay(@Body data: GDDSimulationRequest): Response<GDDSimulationResponse>
     */
     @GET("/monitoreos")
-    suspend fun getMonitoreos(): Response<List<MonitoreoResponse>>
+    suspend fun getMonitoreos(
+        @Query("limit") limit: Int,
+        @Query("offset") offset: Int
+    ): Response<PaginaMonitoreos>
 
     @GET("/terrenos")
     suspend fun getTerrenos(): Response<List<TerrenoResponse>>

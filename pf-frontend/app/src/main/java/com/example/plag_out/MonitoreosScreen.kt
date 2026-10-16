@@ -211,7 +211,7 @@ fun MonitoreosScreen(
             Box(modifier = Modifier.weight(1f)) {
                 AnimatedContent(
                     targetState = when {
-                        state.isLoading -> "cargando"
+                        state.isLoading || (state.cargandoMas && filtrados.isEmpty()) -> "cargando"
                         activos.isEmpty() && filtro != FILTRO_FINALIZADOS -> "vacio"
                         filtrados.isEmpty() -> "sin-resultados"
                         else -> "lista-$filtro"

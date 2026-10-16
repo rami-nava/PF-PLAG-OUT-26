@@ -41,7 +41,7 @@ class MonitoreoRepository(
         monitoreoDao.insertAll(monitoreos)
     }
 
-    /** GET /monitoreos devuelve la lista completa (activos y finalizados), así que el caché se reemplaza tal cual. */
+    // Con todas las páginas de GET /monitoreos (activos y finalizados) el caché se reemplaza tal cual
     suspend fun reemplazarMonitoreos(monitoreos: List<MonitoreoResponse>) {
         monitoreoDao.deleteAll()
         monitoreoDao.insertAll(monitoreos)

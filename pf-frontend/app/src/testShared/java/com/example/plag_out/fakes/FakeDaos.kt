@@ -94,7 +94,11 @@ class FakeMonitoreoDao(inicial: List<MonitoreoResponse> = emptyList()) : Monitor
     }
 
     override suspend fun insertAll(monitoreos: List<MonitoreoResponse>) {
-        operaciones += "insertAll"; filas += monitoreos
+        // Un id repetido reemplaza la fila
+        operaciones += "insertAll"
+        val ids = monitoreos.map { it.monitoreo_id }.toSet()
+        filas.removeAll { it.monitoreo_id in ids }
+        filas += monitoreos
     }
 
     override suspend fun insert(monitoreo: MonitoreoResponse) {
