@@ -165,6 +165,9 @@ class MisReportesViewModel(
                 if (response.isSuccessful) {
                     val usuarioActualizado = response.body()
                     val radioFinal = usuarioActualizado?.radio_notificacion_km ?: nuevoRadio
+                    if (radioFinal != radioAnterior && _state.value.distanciaListadoKm == null) {
+                        reiniciarComunidad()
+                    }
                     _state.value = _state.value.copy(
                         radioNotificacionKm = radioFinal,
                         radioTemporalKm = radioFinal.toFloat(),
@@ -180,11 +183,6 @@ class MisReportesViewModel(
                                 usuarioRepository?.guardarUsuario(local.copy(radio_notificacion_km = radioFinal))
                             }
                         }
-                    }
-                    // Sin distancia elegida en el listado, el backend filtra los reportes de la
-                    // comunidad con este radio: sin recargar, seguirían los del radio anterior.
-                    if (radioFinal != radioAnterior && _state.value.distanciaListadoKm == null) {
-                        reiniciarComunidad()
                     }
                     Avisos.exito("Radio de notificación actualizado.")
                     onSuccess?.invoke()
