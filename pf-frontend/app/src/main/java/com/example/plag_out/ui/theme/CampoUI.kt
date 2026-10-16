@@ -644,7 +644,13 @@ fun EstadoVacioFlotante(icono: ImageVector, titulo: String, subtitulo: String) {
             }
         }
         Spacer(Modifier.height(24.dp))
-        Text(titulo, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+        Text(
+            titulo,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = PlagOutColors.TextMain,
+            textAlign = TextAlign.Center
+        )
         Text(
             subtitulo,
             textAlign = TextAlign.Center,
