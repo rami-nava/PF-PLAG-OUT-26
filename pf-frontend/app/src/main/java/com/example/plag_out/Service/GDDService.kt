@@ -26,7 +26,9 @@ import com.example.plag_out.NotificacionResponse
 import com.example.plag_out.CreateReporteRequest
 import com.example.plag_out.ReporteResponse
 import com.example.plag_out.ReporteDetalleResponse
+import com.example.plag_out.PaginaReportes
 import com.example.plag_out.ReportesMapaResponse
+import com.example.plag_out.ConteoReportes
 import com.example.plag_out.PrediccionConfirmacionRequest
 import com.example.plag_out.PrediccionConfirmacionResponse
 import com.example.plag_out.PrediccionDetalleResponse
@@ -158,12 +160,27 @@ interface GDDService {
 
     @GET("/reportes")
     suspend fun getReportes(
-        @retrofit2.http.Query("fecha_desde") fechaDesde: String? = null,
-        @retrofit2.http.Query("fecha_hasta") fechaHasta: String? = null,
-        @retrofit2.http.Query("limit") limit: Int = 100,
-        @retrofit2.http.Query("offset") offset: Int = 0,
-        @retrofit2.http.Query("distancia_km") distanciaKm: Int? = null
-    ): Response<List<ReporteDetalleResponse>>
+        @Query("ambito") ambito: String,
+        @Query("fecha_desde") fechaDesde: String? = null,
+        @Query("fecha_hasta") fechaHasta: String? = null,
+        @Query("limit") limit: Int = 20,
+        @Query("offset") offset: Int = 0,
+        @Query("distancia_km") distanciaKm: Int? = null,
+        @Query("severidad") severidad: String? = null,
+        @Query("terreno_id") terrenoId: Int? = null,
+        @Query("plaga_id") plagaId: Int? = null
+    ): Response<PaginaReportes>
+
+    @GET("/reportes/resumen")
+    suspend fun getResumenReportes(
+        @Query("ambito") ambito: String,
+        @Query("fecha_desde") fechaDesde: String? = null,
+        @Query("fecha_hasta") fechaHasta: String? = null,
+        @Query("distancia_km") distanciaKm: Int? = null,
+        @Query("severidad") severidad: String? = null,
+        @Query("terreno_id") terrenoId: Int? = null,
+        @Query("plaga_id") plagaId: Int? = null
+    ): Response<ConteoReportes>
 
     @GET("/mapa/reportes")
     suspend fun getReportesMapa(

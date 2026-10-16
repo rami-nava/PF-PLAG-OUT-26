@@ -26,6 +26,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.foundation.BorderStroke
@@ -116,75 +117,18 @@ fun MisReportesScreen(
         viewModel.cargarReportes()
     }
 
-    var tabSeleccionado by rememberSaveable { mutableIntStateOf(TAB_PROPIOS) }
+    // La pestaña y los filtros viven en el ViewModel: cada pestaña tiene su propia consulta paginada
+    // y los filtros los resuelve el servidor.
+    val tabSeleccionado = if (state.ambito == AmbitoReportes.COMUNIDAD) TAB_COMUNIDAD else TAB_PROPIOS
     var filtrosExpandidos by rememberSaveable { mutableStateOf(false) }
 
-    // Filtros separados por ámbito: si se compartieran, cambiar de pestaña dejaría
-    // aplicado un filtro que ahí no significa nada y la lista aparecería vacía.
-    var filtroSeveridadPropios by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
-    var filtroTerreno by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
-    var filtroSeveridadComunidad by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
+    val esComunidad = state.ambito == AmbitoReportes.COMUNIDAD
+    val filtros = state.filtrosActuales
+    val filtroSeveridad = filtros.severidad ?: FILTRO_TODOS
     val filtroDistancia = state.distanciaListadoKm ?: DISTANCIA_TODAS
-    var filtroPlaga by rememberSaveable { mutableStateOf(FILTRO_TODOS) }
+    val reportesFiltrados = state.reportes
 
-    val reportesPropios = remember(state.reportes) { state.reportes.filter { it.es_propio } }
-    val reportesComunidad = remember(state.reportes) { state.reportes.filterNot { it.es_propio } }
-
-    val esComunidad = tabSeleccionado == TAB_COMUNIDAD
-    val reportesAmbito = if (esComunidad) reportesComunidad else reportesPropios
-    val filtroSeveridad = if (esComunidad) filtroSeveridadComunidad else filtroSeveridadPropios
-
-    val terrenosDisponibles = remember(reportesPropios) {
-        reportesPropios.map { it.terreno_nombre ?: "Sin terreno" }.filter { it.isNotBlank() }.distinct().sorted()
-    }
-    val plagasDisponibles = remember(reportesComunidad) {
-        reportesComunidad.map { it.plaga_nombre }.filter { it.isNotBlank() }.distinct().sorted()
-    }
-
-    LaunchedEffect(state.reportes, state.isLoading, state.isRefreshing, state.error) {
-        if (!state.isLoading && !state.isRefreshing && state.error == null) {
-            if (filtroTerreno != FILTRO_TODOS && terrenosDisponibles.none { it.equals(filtroTerreno, ignoreCase = true) }) {
-                filtroTerreno = FILTRO_TODOS
-            }
-            if (filtroPlaga != FILTRO_TODOS && plagasDisponibles.none { it.equals(filtroPlaga, ignoreCase = true) }) {
-                filtroPlaga = FILTRO_TODOS
-            }
-        }
-    }
-
-    val reportesFiltrados = remember(
-        reportesAmbito, esComunidad, filtroSeveridad, filtroTerreno, filtroDistancia, filtroPlaga
-    ) {
-        reportesAmbito.filter { r ->
-            val coincideSeveridad =
-                filtroSeveridad == FILTRO_TODOS || r.nivel_severidad.equals(filtroSeveridad, ignoreCase = true)
-            val coincideAmbito = if (esComunidad) {
-                val coincideDistancia = filtroDistancia == DISTANCIA_TODAS || dentroDelRadio(r, filtroDistancia)
-                val coincidePlaga = filtroPlaga == FILTRO_TODOS || r.plaga_nombre.equals(filtroPlaga, ignoreCase = true)
-                coincideDistancia && coincidePlaga
-            } else {
-                filtroTerreno == FILTRO_TODOS || (r.terreno_nombre ?: "Sin terreno").equals(filtroTerreno, ignoreCase = true)
-            }
-            coincideSeveridad && coincideAmbito
-        }
-    }
-
-    val hayFiltroActivo = if (esComunidad) {
-        filtroSeveridadComunidad != FILTRO_TODOS || filtroDistancia != DISTANCIA_TODAS || filtroPlaga != FILTRO_TODOS
-    } else {
-        filtroSeveridadPropios != FILTRO_TODOS || filtroTerreno != FILTRO_TODOS
-    }
-
-    val limpiarFiltrosDelAmbito = {
-        if (esComunidad) {
-            filtroSeveridadComunidad = FILTRO_TODOS
-            viewModel.actualizarDistanciaListado(null)
-            filtroPlaga = FILTRO_TODOS
-        } else {
-            filtroSeveridadPropios = FILTRO_TODOS
-            filtroTerreno = FILTRO_TODOS
-        }
-    }
+    val hayFiltroActivo = filtros.activos || (esComunidad && state.distanciaListadoKm != null)
 
     Scaffold(
         containerColor = PlagOutColors.Cream,
@@ -228,9 +172,10 @@ fun MisReportesScreen(
             Column(modifier = Modifier.fillMaxSize()) {
                 PanelHeaderReportes(
                     tabSeleccionado = tabSeleccionado,
-                    onTabChange = { tabSeleccionado = it },
-                    reportesPropios = reportesPropios,
-                    reportesComunidad = reportesComunidad,
+                    onTabChange = {
+                        viewModel.seleccionarAmbito(if (it == TAB_COMUNIDAD) AmbitoReportes.COMUNIDAD else AmbitoReportes.PROPIOS)
+                    },
+                    conteo = state.conteo(state.ambito) ?: ConteoReportes(),
                     radioNotificacionKm = state.radioNotificacionKm,
                     onAbrirConfiguracionRadio = { viewModel.abrirConfiguracionRadio() },
                     onVerMapa = { navController.navigate("mapa_reportes") }
@@ -244,8 +189,8 @@ fun MisReportesScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
-                val totalOriginal = reportesAmbito.size
-                val totalFiltrados = reportesFiltrados.size
+                val cargados = state.reportes.size
+                val total = state.actual.total ?: 0
                 AnimatedVisibility(
                     visible = true,
                     enter = slideInVertically(animationSpec = tween(250, easing = LinearOutSlowInEasing)) { -it } + fadeIn(tween(250)),
@@ -256,12 +201,13 @@ fun MisReportesScreen(
                             onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
                             hayFiltroActivo = hayFiltroActivo,
                             etiquetaAbrir = if (esComunidad) "Filtrar reportes cercanos" else "Filtrar mis reportes",
-                            resumen = if (hayFiltroActivo) {
-                                "Mostrando $totalFiltrados de $totalOriginal (Filtros activos)"
-                            } else {
-                                "Mostrando $totalOriginal ${if (totalOriginal == 1) "reporte" else "reportes"}"
+                            resumen = buildString {
+                                append("Mostrando ")
+                                append(if (cargados < total) "$cargados de $total" else "$total")
+                                append(if (total == 1) " reporte" else " reportes")
+                                if (hayFiltroActivo) append(" (Filtros activos)")
                             },
-                            onLimpiar = limpiarFiltrosDelAmbito
+                            onLimpiar = viewModel::limpiarFiltros
                         ) {
                             EncabezadoGrupoFiltro(Icons.Outlined.AccessTime, "RANGO DE FECHAS")
                             FiltroFechas(
@@ -272,30 +218,24 @@ fun MisReportesScreen(
 
                             // --- Categoría común: Nivel de Severidad ---
                             GrupoFiltroSeveridad(
-                                reportes = reportesAmbito,
                                 seleccionado = filtroSeveridad,
                                 onSeleccion = { nivel ->
-                                    if (esComunidad) filtroSeveridadComunidad = nivel else filtroSeveridadPropios = nivel
+                                    viewModel.actualizarFiltros(filtros.copy(severidad = nivel.takeUnless { it == FILTRO_TODOS }))
                                 }
                             )
 
                             if (esComunidad) {
                                 EncabezadoGrupoFiltro(Icons.Outlined.Explore, "CERCANÍA")
 
-                                val opcionesDistancia = remember(reportesComunidad, state.radioNotificacionKm) {
-                                    val list = mutableListOf(
+                                val opcionesDistancia = remember(state.radioNotificacionKm) {
+                                    listOf(
                                         OpcionFiltro(
-                                            DISTANCIA_TODAS, "Radio configurado: ${state.radioNotificacionKm.roundToInt()} km", reportesComunidad.size,
-                                            Icons.Outlined.Explore, AzulComunidad
+                                            DISTANCIA_TODAS, "Radio configurado: ${state.radioNotificacionKm.roundToInt()} km",
+                                            icono = Icons.Outlined.Explore, colorIcono = AzulComunidad
                                         )
-                                    )
-                                    RADIOS_KM.forEach { radio ->
-                                        val cant = reportesComunidad.count { dentroDelRadio(it, radio) }
-                                        list.add(
-                                            OpcionFiltro(radio, "Hasta $radio km", cant, Icons.Outlined.NearMe, AzulComunidad)
-                                        )
+                                    ) + RADIOS_KM.map { radio ->
+                                        OpcionFiltro(radio, "Hasta $radio km", icono = Icons.Outlined.NearMe, colorIcono = AzulComunidad)
                                     }
-                                    list
                                 }
                                 FiltroChipsRow(
                                     opciones = opcionesDistancia,
@@ -305,57 +245,32 @@ fun MisReportesScreen(
                                 )
 
 
-                                if (plagasDisponibles.size > 1) {
+                                if (state.plagas.isNotEmpty()) {
                                     EncabezadoGrupoFiltro(Icons.Outlined.BugReport, "PLAGA")
-
-                                    val opcionesPlagas = remember(reportesComunidad, plagasDisponibles) {
-                                        val list = mutableListOf(
-                                            OpcionFiltro(
-                                                -1, "Plagas: Todas", reportesComunidad.size,
-                                                Icons.Outlined.BugReport, PlagOutColors.Forest
-                                            )
-                                        )
-                                        plagasDisponibles.forEachIndexed { index, plaga ->
-                                            val cant = reportesComunidad.count { it.plaga_nombre == plaga }
-                                            list.add(
-                                                OpcionFiltro(index, plaga, cant, Icons.Outlined.BugReport, PlagOutColors.Forest)
-                                            )
-                                        }
-                                        list
+                                    val opcionesPlagas = remember(state.plagas) {
+                                        listOf(OpcionFiltro(-1, "Plagas: Todas", icono = Icons.Outlined.BugReport, colorIcono = PlagOutColors.Forest)) +
+                                            state.plagas.map { OpcionFiltro(it.id, it.nombre, icono = Icons.Outlined.BugReport, colorIcono = PlagOutColors.Forest) }
                                     }
-                                    val chipPlagaSeleccionadaId =
-                                        if (filtroPlaga == FILTRO_TODOS) -1 else plagasDisponibles.indexOf(filtroPlaga)
                                     FiltroChipsRow(
                                         opciones = opcionesPlagas,
-                                        seleccionado = chipPlagaSeleccionadaId,
-                                        onSeleccion = { id ->
-                                            filtroPlaga = if (id in plagasDisponibles.indices) plagasDisponibles[id] else FILTRO_TODOS
-                                        },
+                                        seleccionado = filtros.plagaId ?: -1,
+                                        onSeleccion = { id -> viewModel.actualizarFiltros(filtros.copy(plagaId = id.takeUnless { it == -1 })) },
                                         modifier = Modifier.padding(vertical = 4.dp)
                                     )
                                 }
-                            } else if (terrenosDisponibles.isNotEmpty()) {
+                            } else if (state.terrenos.isNotEmpty()) {
                                 // --- Terreno / Lugar: sólo tiene sentido sobre los propios ---
                                 EncabezadoGrupoFiltro(Icons.Outlined.Landscape, "TERRENO / LUGAR")
-
-                                val opcionesTerrenos = remember(reportesPropios, terrenosDisponibles) {
-                                    val list = mutableListOf(
-                                        OpcionFiltro(-1, "Terrenos: Todos", reportesPropios.size, Icons.Outlined.Landscape, PlagOutColors.Forest)
-                                    )
-                                    terrenosDisponibles.forEachIndexed { index, terreno ->
-                                        val cant = reportesPropios.count { (it.terreno_nombre ?: "Sin terreno") == terreno }
-                                        list.add(OpcionFiltro(index, terreno, cant, Icons.Outlined.Landscape, PlagOutColors.Forest))
-                                    }
-                                    list
+                                val opcionesTerrenos = remember(state.terrenos) {
+                                    listOf(OpcionFiltro(-1, "Terrenos: Todos", icono = Icons.Outlined.Landscape, colorIcono = PlagOutColors.Forest)) +
+                                        state.terrenos.map {
+                                            OpcionFiltro(it.terreno_id, it.terreno_nombre, icono = Icons.Outlined.Landscape, colorIcono = PlagOutColors.Forest)
+                                        }
                                 }
-                                val chipTerrenoSeleccionadoId =
-                                    if (filtroTerreno == FILTRO_TODOS) -1 else terrenosDisponibles.indexOf(filtroTerreno)
                                 FiltroChipsRow(
                                     opciones = opcionesTerrenos,
-                                    seleccionado = chipTerrenoSeleccionadoId,
-                                    onSeleccion = { id ->
-                                        filtroTerreno = if (id in terrenosDisponibles.indices) terrenosDisponibles[id] else FILTRO_TODOS
-                                    },
+                                    seleccionado = filtros.terrenoId ?: -1,
+                                    onSeleccion = { id -> viewModel.actualizarFiltros(filtros.copy(terrenoId = id.takeUnless { it == -1 })) },
                                     modifier = Modifier.padding(vertical = 4.dp)
                                 )
                             }
@@ -367,9 +282,9 @@ fun MisReportesScreen(
                         targetState = when {
                             state.isLoading -> "cargando"
                             state.error != null && state.reportes.isEmpty() -> "error"
-                            reportesAmbito.isEmpty() -> "vacio-$tabSeleccionado"
+                            reportesFiltrados.isEmpty() && !hayFiltroActivo -> "vacio-$tabSeleccionado"
                             reportesFiltrados.isEmpty() -> "sin-resultados-$tabSeleccionado"
-                            else -> "lista-$tabSeleccionado-$filtroSeveridad-$filtroTerreno-$filtroDistancia-$filtroPlaga"
+                            else -> "lista-$tabSeleccionado-$filtros-$filtroDistancia"
                         },
                         transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(180)) },
                         label = "reportesContent"
@@ -426,19 +341,39 @@ fun MisReportesScreen(
                                             if (isNotEmpty()) append(" y ")
                                             append("a menos de $filtroDistancia km")
                                         }
-                                        if (filtroPlaga != FILTRO_TODOS) {
+                                        state.plagas.firstOrNull { it.id == filtros.plagaId }?.let {
                                             if (isNotEmpty()) append(" y ")
-                                            append("plaga '$filtroPlaga'")
+                                            append("plaga '${it.nombre}'")
                                         }
-                                    } else if (filtroTerreno != FILTRO_TODOS) {
-                                        if (isNotEmpty()) append(" y ")
-                                        append("terreno '$filtroTerreno'")
+                                    } else {
+                                        state.terrenos.firstOrNull { it.terreno_id == filtros.terrenoId }?.let {
+                                            if (isNotEmpty()) append(" y ")
+                                            append("terreno '${it.terreno_nombre}'")
+                                        }
                                     }
                                 }
                                 EstadoSinResultados(subtitulo = "No hay reportes con $detalleFiltro.")
                             }
 
-                            else -> LazyColumn(
+                            else -> {
+                                val listState = rememberLazyListState()
+                                // Scroll infinito: al acercarse al final de lo cargado se pide la página siguiente.
+                                val cercaDelFinal by remember {
+                                    derivedStateOf {
+                                        // Solo después de que el usuario scrollee hacia abajo: mientras las
+                                        // tarjetas aparecen escalonadas miden 0 de alto y entrarían todas en
+                                        // pantalla, pidiendo la página siguiente sin que nadie la busque.
+                                        if (!listState.lastScrolledForward) return@derivedStateOf false
+                                        val info = listState.layoutInfo
+                                        val ultimoVisible = info.visibleItemsInfo.lastOrNull()?.index ?: return@derivedStateOf false
+                                        ultimoVisible >= info.totalItemsCount - 4
+                                    }
+                                }
+                                LaunchedEffect(cercaDelFinal, state.reportes.size) {
+                                    if (cercaDelFinal) viewModel.cargarMas()
+                                }
+                                LazyColumn(
+                                state = listState,
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
                                 verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -456,7 +391,8 @@ fun MisReportesScreen(
                                         val jsonEncoded = Uri.encode(Gson().toJson(payload))
                                         navController.navigate("ver_reporte/${reporte.id}/$jsonEncoded")
                                     }
-                                    StaggeredAppear(index = index) {
+                                    // Las páginas nuevas entran escalonadas desde su propio primer ítem.
+                                    StaggeredAppear(index = index % REPORTES_PAGE_SIZE) {
                                         // Solo se puede eliminar lo propio: los de la comunidad no se deslizan.
                                         if (reporte.es_propio) {
                                             DeslizableParaEliminar(
@@ -469,6 +405,32 @@ fun MisReportesScreen(
                                             TarjetaReporteItem(reporte = reporte, onClick = abrirReporte)
                                         }
                                     }
+                                }
+                                when {
+                                    state.cargandoMas -> item(key = "cargandoMas") {
+                                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                            CircularProgressIndicator(color = PlagOutColors.Forest, modifier = Modifier.size(26.dp))
+                                        }
+                                    }
+                                    state.errorCargarMas != null -> item(key = "errorCargarMas") {
+                                        ErrorCargaReportes(
+                                            mensaje = state.errorCargarMas!!,
+                                            onReintentar = viewModel::cargarMas,
+                                            sinConexion = state.sinConexion
+                                        )
+                                    }
+                                    // Si todo entra en pantalla no hay scroll que dispare la carga.
+                                    state.hayMas -> item(key = "verMas") {
+                                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                            TextButton(
+                                                onClick = viewModel::cargarMas,
+                                                modifier = Modifier.testTag("btnVerMasReportes")
+                                            ) {
+                                                Text("Ver más reportes", color = PlagOutColors.Forest, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                }
                                 }
                             }
                         }
@@ -505,12 +467,6 @@ fun MisReportesScreen(
 }
 
 
-private fun dentroDelRadio(reporte: ReporteDetalleResponse, radioKm: Int): Boolean {
-    val dist = reporte.distancia_km ?: return false
-    return dist <= radioKm
-}
-
-
 private fun formatearKm(km: Float): String {
     return if (km < 1.0f) {
         "${(km * 1000).toInt()} m"
@@ -524,18 +480,17 @@ private fun formatearKm(km: Float): String {
 
 @Composable
 private fun GrupoFiltroSeveridad(
-    reportes: List<ReporteDetalleResponse>,
     seleccionado: String,
     onSeleccion: (String) -> Unit
 ) {
     EncabezadoGrupoFiltro(Icons.Outlined.Shield, "NIVEL DE SEVERIDAD")
 
-    val opcionesSeveridad = remember(reportes) {
+    val opcionesSeveridad = remember {
         listOf(
-            OpcionFiltro(-1, "Severidad: Todas", reportes.size, Icons.Outlined.FilterList),
-            OpcionFiltro(0, "Alto", reportes.count { it.nivel_severidad.equals("Alto", ignoreCase = true) }, Icons.Default.ErrorOutline, Color(0xFFC62828)),
-            OpcionFiltro(1, "Medio", reportes.count { it.nivel_severidad.equals("Medio", ignoreCase = true) }, Icons.Default.WarningAmber, Color(0xFFEF6C00)),
-            OpcionFiltro(2, "Bajo", reportes.count { it.nivel_severidad.equals("Bajo", ignoreCase = true) }, Icons.Default.CheckCircle, Color(0xFF2E7D32))
+            OpcionFiltro(-1, "Severidad: Todas", icono = Icons.Outlined.FilterList),
+            OpcionFiltro(0, "Alto", icono = Icons.Default.ErrorOutline, colorIcono = Color(0xFFC62828)),
+            OpcionFiltro(1, "Medio", icono = Icons.Default.WarningAmber, colorIcono = Color(0xFFEF6C00)),
+            OpcionFiltro(2, "Bajo", icono = Icons.Default.CheckCircle, colorIcono = Color(0xFF2E7D32))
         )
     }
     val chipSeveridadSeleccionadoId = when (seleccionado) {
@@ -565,8 +520,7 @@ private fun GrupoFiltroSeveridad(
 private fun PanelHeaderReportes(
     tabSeleccionado: Int,
     onTabChange: (Int) -> Unit,
-    reportesPropios: List<ReporteDetalleResponse>,
-    reportesComunidad: List<ReporteDetalleResponse>,
+    conteo: ConteoReportes,
     radioNotificacionKm: Double,
     onAbrirConfiguracionRadio: () -> Unit,
     onVerMapa: () -> Unit
@@ -579,12 +533,11 @@ private fun PanelHeaderReportes(
         label = "escalaDecorativa"
     )
 
-    val reportes = if (tabSeleccionado == TAB_COMUNIDAD) reportesComunidad else reportesPropios
-    val totalReportes = reportes.size
-
-    val conteoAlto = remember(reportes) { reportes.count { it.nivel_severidad.equals("Alto", ignoreCase = true) } }
-    val conteoMedio = remember(reportes) { reportes.count { it.nivel_severidad.equals("Medio", ignoreCase = true) } }
-    val conteoBajo = remember(reportes) { reportes.count { it.nivel_severidad.equals("Bajo", ignoreCase = true) } }
+    // Totales del servidor para la pestaña, sin los filtros de la lista.
+    val totalReportes = conteo.total
+    val conteoAlto = conteo.alto
+    val conteoMedio = conteo.medio
+    val conteoBajo = conteo.bajo
 
     val formaHeader = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
     Box(
@@ -723,9 +676,7 @@ private fun PanelHeaderReportes(
 
             SelectorAmbito(
                 tabSeleccionado = tabSeleccionado,
-                onTabChange = onTabChange,
-                cantidadPropios = reportesPropios.size,
-                cantidadComunidad = reportesComunidad.size
+                onTabChange = onTabChange
             )
         }
     }
@@ -734,9 +685,7 @@ private fun PanelHeaderReportes(
 @Composable
 private fun SelectorAmbito(
     tabSeleccionado: Int,
-    onTabChange: (Int) -> Unit,
-    cantidadPropios: Int,
-    cantidadComunidad: Int
+    onTabChange: (Int) -> Unit
 ) {
     Surface(
         color = PlagOutColors.TextOnDark.copy(alpha = 0.14f),
@@ -764,7 +713,6 @@ private fun SelectorAmbito(
                     activo = tabSeleccionado == TAB_PROPIOS,
                     icono = Icons.Outlined.Person,
                     etiqueta = "Míos",
-                    cantidad = cantidadPropios,
                     onClick = { onTabChange(TAB_PROPIOS) },
                     modifier = Modifier.testTag("tabReportesPropios")
                 )
@@ -772,7 +720,6 @@ private fun SelectorAmbito(
                     activo = tabSeleccionado == TAB_COMUNIDAD,
                     icono = Icons.Filled.Group,
                     etiqueta = "Comunidad",
-                    cantidad = cantidadComunidad,
                     onClick = { onTabChange(TAB_COMUNIDAD) },
                     modifier = Modifier.testTag("tabReportesComunidad")
                 )
@@ -786,7 +733,6 @@ private fun RowScope.SegmentoAmbito(
     activo: Boolean,
     icono: ImageVector,
     etiqueta: String,
-    cantidad: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -807,8 +753,6 @@ private fun RowScope.SegmentoAmbito(
         Icon(icono, contentDescription = null, tint = tinta, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(7.dp))
         Text(etiqueta, color = tinta, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.width(6.dp))
-        Text("$cantidad", color = tinta.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
 
