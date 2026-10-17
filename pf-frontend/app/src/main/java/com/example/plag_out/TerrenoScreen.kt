@@ -212,7 +212,8 @@ fun TerrenoScreen(
             Box(modifier = Modifier.weight(1f)) {
                 AnimatedContent(
                     targetState = when {
-                        state.isLoading -> "cargando"
+                        // Con páginas pendientes, "vacío" todavía no es definitivo
+                        state.isLoading || (state.cargandoMas && filtrados.isEmpty()) -> "cargando"
                         state.terrenos.isEmpty() -> "vacio"
                         filtrados.isEmpty() -> "sin-resultados"
                         else -> "lista-$filtro"

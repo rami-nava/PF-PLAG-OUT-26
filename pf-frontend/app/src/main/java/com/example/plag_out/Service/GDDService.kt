@@ -26,7 +26,7 @@ import com.example.plag_out.NotificacionResponse
 import com.example.plag_out.CreateReporteRequest
 import com.example.plag_out.ReporteResponse
 import com.example.plag_out.ReporteDetalleResponse
-import com.example.plag_out.PaginaMonitoreos
+import com.example.plag_out.Pagina
 import com.example.plag_out.PaginaReportes
 import com.example.plag_out.ReportesMapaResponse
 import com.example.plag_out.ConteoReportes
@@ -57,10 +57,14 @@ interface GDDService {
     suspend fun getMonitoreos(
         @Query("limit") limit: Int,
         @Query("offset") offset: Int
-    ): Response<PaginaMonitoreos>
+    ): Response<Pagina<MonitoreoResponse>>
+
 
     @GET("/terrenos")
-    suspend fun getTerrenos(): Response<List<TerrenoResponse>>
+    suspend fun getTerrenos(
+        @Query("limit") limit: Int,
+        @Query("offset") offset: Int
+    ): Response<Pagina<TerrenoResponse>>
 
     @GET("/plantaciones")
     suspend fun getPlantaciones(): Response<List<PlantacionesResponse>>

@@ -123,7 +123,7 @@ class MonitoreosViewModelTest {
         val vm = MonitoreosViewModel(context, MonitoreoRepository(dao), gddService)
         gddService.getMonitoreosPaginaResult = { limit, offset ->
             if (offset > 0) FakeGDDService.sinConexion()
-            Response.success(PaginaMonitoreos((1..limit).map { Fixtures.monitoreo(id = it) }, 40))
+            Response.success(Pagina((1..limit).map { Fixtures.monitoreo(id = it) }, 40))
         }
 
         vm.getMonitoreos()

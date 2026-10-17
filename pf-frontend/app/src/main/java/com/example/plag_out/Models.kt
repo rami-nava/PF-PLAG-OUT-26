@@ -663,8 +663,8 @@ data class ReporteDetalleResponse(
 
 
 
-data class PaginaMonitoreos(
-    @SerializedName("items") val items: List<MonitoreoResponse>? = null,
+data class Pagina<T>(
+    @SerializedName("items") val items: List<T>? = null,
     @SerializedName("total") val total: Int = 0
 )
 

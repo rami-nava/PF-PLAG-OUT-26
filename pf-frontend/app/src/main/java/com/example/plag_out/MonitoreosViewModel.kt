@@ -12,6 +12,7 @@ import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
+import com.example.plag_out.Service.traerTodasLasPaginas
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -99,32 +100,24 @@ class MonitoreosViewModel(
                 recibidos.values.toList() + cachedMonitoreos.filterNot { it.monitoreo_id in recibidos }
 
             try {
-                var offset = 0
-                var limite = MONITOREOS_PRIMERA_PAGINA
-                while (true) {
-                    val response = withContext(Dispatchers.IO) {
-                        gddService.getMonitoreos(limit = limite, offset = offset)
+                val error = traerTodasLasPaginas(
+                    recibidos,
+                    id = { it.monitoreo_id },
+                    alQuedarPaginas = {
+                        _state.value = _state.value.copy(
+                            monitoreos = conCacheRestante(),
+                            isLoading = false,
+                            cargandoMas = true
+                        )
                     }
-                    if (!response.isSuccessful) {
-                        cargaIncompleta(recibidos.values.toList(), conCacheRestante())
-                        if (forzar) Avisos.error(errorDeRespuesta(response).mensaje)
-                        Log.e("MONITOREOS", "Error: ${response.code()}")
-                        return@launch
-                    }
-
-                    val pagina = response.body()
-                    val items = pagina?.items.orEmpty()
-                    items.forEach { recibidos[it.monitoreo_id] = it }
-                    offset += items.size
-                    // Sin items no hay forma de avanzar: se corta aunque `total` diga que faltan
-                    if (items.isEmpty() || offset >= (pagina?.total ?: 0)) break
-
-                    _state.value = _state.value.copy(
-                        monitoreos = conCacheRestante(),
-                        isLoading = false,
-                        cargandoMas = true
-                    )
-                    limite = MONITOREOS_PAGINA_SIGUIENTE
+                ) { limit, offset ->
+                    withContext(Dispatchers.IO) { gddService.getMonitoreos(limit, offset) }
+                }
+                if (error != null) {
+                    cargaIncompleta(recibidos.values.toList(), conCacheRestante())
+                    if (forzar) Avisos.error(errorDeRespuesta(error).mensaje)
+                    Log.e("MONITOREOS", "Error: ${error.code()}")
+                    return@launch
                 }
 
                 val monitoreosResponse = recibidos.values.toList()

@@ -11,7 +11,7 @@ import com.example.plag_out.DispositivoRequest
 import com.example.plag_out.DispositivoResponse
 import com.example.plag_out.ConteoReportes
 import com.example.plag_out.MarcarLeidaResponse
-import com.example.plag_out.PaginaMonitoreos
+import com.example.plag_out.Pagina
 import com.example.plag_out.PaginaReportes
 import com.example.plag_out.MonitoreoRequest
 import com.example.plag_out.MonitoreoResponse
@@ -62,15 +62,19 @@ class FakeGDDService : GDDService {
     fun vecesLlamado(endpoint: String): Int = llamadas.count { it == endpoint }
 
     var getMonitoreosResult: () -> Response<List<MonitoreoResponse>> = { noDeclarado("getMonitoreos") }
-    var getMonitoreosPaginaResult: (limit: Int, offset: Int) -> Response<PaginaMonitoreos> = { limit, offset ->
-        val r = getMonitoreosResult()
-        if (r.isSuccessful) {
-            val todos = r.body().orEmpty()
-            Response.success(PaginaMonitoreos(todos.drop(offset).take(limit), todos.size))
-        } else Response.error(r.code(), r.errorBody()!!)
-    }
+    var getMonitoreosPaginaResult: (limit: Int, offset: Int) -> Response<Pagina<MonitoreoResponse>> =
+        { limit, offset -> paginar(getMonitoreosResult(), limit, offset) }
     val paginasMonitoreos = mutableListOf<Pair<Int, Int>>()
     var getTerrenosResult: () -> Response<List<TerrenoResponse>> = { noDeclarado("getTerrenos") }
+    var getTerrenosPaginaResult: (limit: Int, offset: Int) -> Response<Pagina<TerrenoResponse>> =
+        { limit, offset -> paginar(getTerrenosResult(), limit, offset) }
+    val paginasTerrenos = mutableListOf<Pair<Int, Int>>()
+
+    private fun <T> paginar(r: Response<List<T>>, limit: Int, offset: Int): Response<Pagina<T>> =
+        if (r.isSuccessful) {
+            val todos = r.body().orEmpty()
+            Response.success(Pagina(todos.drop(offset).take(limit), todos.size))
+        } else Response.error(r.code(), r.errorBody()!!)
     var getPlantacionesResult: () -> Response<List<PlantacionesResponse>> = { noDeclarado("getPlantaciones") }
     var createTerrenoResult: () -> Response<TerrenoCreateResponse> = { noDeclarado("createTerreno") }
     var actualizarTerrenoResult: () -> Response<TerrenoResponse> = { noDeclarado("actualizarTerreno") }
@@ -138,13 +142,14 @@ class FakeGDDService : GDDService {
     var confirmarPrediccionResult: () -> Response<PrediccionConfirmacionResponse> = { noDeclarado("confirmarPrediccion") }
     var healthResult: () -> Response<Unit> = { noDeclarado("health") }
 
-    override suspend fun getMonitoreos(limit: Int, offset: Int): Response<PaginaMonitoreos> {
+    override suspend fun getMonitoreos(limit: Int, offset: Int): Response<Pagina<MonitoreoResponse>> {
         llamadas += "getMonitoreos"; paginasMonitoreos += limit to offset
         return getMonitoreosPaginaResult(limit, offset)
     }
 
-    override suspend fun getTerrenos(): Response<List<TerrenoResponse>> {
-        llamadas += "getTerrenos"; return getTerrenosResult()
+    override suspend fun getTerrenos(limit: Int, offset: Int): Response<Pagina<TerrenoResponse>> {
+        llamadas += "getTerrenos"; paginasTerrenos += limit to offset
+        return getTerrenosPaginaResult(limit, offset)
     }
 
     override suspend fun getPlantaciones(): Response<List<PlantacionesResponse>> {

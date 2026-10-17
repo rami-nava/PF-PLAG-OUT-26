@@ -27,7 +27,11 @@ class FakeTerrenoDao(inicial: List<TerrenoResponse> = emptyList()) : TerrenoDao 
     }
 
     override suspend fun insertAll(terrenos: List<TerrenoResponse>) {
-        operaciones += "insertAll"; filas += terrenos
+        // un id repetido reemplaza la fila
+        operaciones += "insertAll"
+        val ids = terrenos.map { it.terreno_id }.toSet()
+        filas.removeAll { it.terreno_id in ids }
+        filas += terrenos
     }
 
     override suspend fun insert(terreno: TerrenoResponse) {
