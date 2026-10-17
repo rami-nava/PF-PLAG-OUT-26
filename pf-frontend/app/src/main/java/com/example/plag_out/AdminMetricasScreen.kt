@@ -29,7 +29,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.LocalFlorist
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.ShieldAlert
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -491,8 +491,13 @@ private fun ItemFilaLoteCritico(lote: LoteEnRiesgoCritico) {
                         )
                     }
                 }
+                val infoCultivo = if (lote.diasDesdeSiembra != null) {
+                    "${lote.cultivoNombre} (${lote.diasDesdeSiembra} días) • ${lote.plagaNombre}"
+                } else {
+                    "${lote.cultivoNombre} • ${lote.plagaNombre}"
+                }
                 Text(
-                    "${lote.cultivoNombre} • ${lote.plagaNombre}",
+                    infoCultivo,
                     fontSize = 12.sp,
                     color = PlagOutColors.TextSecondary
                 )
@@ -1252,7 +1257,7 @@ private fun TarjetaPerfilRiesgoAmbiental(campaña: CampañaHistorica) {
     ) {
         Column(Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.ShieldAlert, contentDescription = null, tint = PlagOutColors.Terracotta, modifier = Modifier.size(20.dp))
+                Icon(Icons.Outlined.Shield, contentDescription = null, tint = PlagOutColors.Terracotta, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text("Perfil de Riesgo Ambiental (IRA)", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)

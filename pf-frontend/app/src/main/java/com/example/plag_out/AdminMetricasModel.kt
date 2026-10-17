@@ -212,9 +212,9 @@ fun agruparPorCampaña(
         val resumenPlagas = porPlaga.map { (nombrePlaga, items) ->
             val totalPlaga = items.size
             val incidencia = if (totalCampaña > 0) (totalPlaga * 100f / totalCampaña) else 0f
-            val enAlto = items.count { it.nivel_alerta >= 2 }
+            val enAlto = items.count { nivelAlertaResuelto(it) >= 2 }
             val pctAlto = if (totalPlaga > 0) (enAlto * 100f / totalPlaga) else 0f
-            val promedioNivel = if (totalPlaga > 0) items.map { it.nivel_alerta.coerceAtLeast(0) }.average().toFloat() else 0f
+            val promedioNivel = if (totalPlaga > 0) items.map { nivelAlertaResuelto(it).coerceAtLeast(0) }.average().toFloat() else 0f
             val nombreCientifico = items.firstNotNullOfOrNull { it.plaga_nombre_cientifico }
 
             ResumenPlagaCampaña(
@@ -230,9 +230,9 @@ fun agruparPorCampaña(
 
         val plagaLider = resumenPlagas.firstOrNull()
 
-        val rBajo = listaMonitoreos.count { it.nivel_alerta == 0 }
-        val rModerado = listaMonitoreos.count { it.nivel_alerta == 1 }
-        val rAlto = listaMonitoreos.count { it.nivel_alerta >= 2 }
+        val rBajo = listaMonitoreos.count { nivelAlertaResuelto(it) <= 0 }
+        val rModerado = listaMonitoreos.count { nivelAlertaResuelto(it) == 1 }
+        val rAlto = listaMonitoreos.count { nivelAlertaResuelto(it) >= 2 }
 
         CampañaHistorica(
             nombre = nombreCampaña,
@@ -259,7 +259,7 @@ fun calcularSemaforoHectareas(
     val terrenosMap = terrenos.associateBy { it.terreno_id }
 
     val alertaPorTerreno = activos.groupBy { it.terreno_id }
-        .mapValues { (_, ms) -> ms.maxOfOrNull { it.nivel_alerta } ?: 0 }
+        .mapValues { (_, ms) -> ms.maxOfOrNull { nivelAlertaResuelto(it) } ?: 0 }
 
     var haVerde = 0f
     var haAmarillo = 0f
@@ -315,22 +315,27 @@ fun calcularPlagasPorCultivo(
     val terrenosMap = terrenos.associateBy { it.terreno_id }
     val plantacionesPorCultivo = plantaciones.groupBy { it.cultivo_nombre.trim() }
 
-    val porCultivo = monitoreos.groupBy { it.cultivo_nombre.trim() }
+    // Preferir monitoreos activos de la campaña en curso
+    val monitoreosParaAnalisis = monitoreos.filter { it.activo }.ifEmpty { monitoreos }
+    val porCultivo = monitoreosParaAnalisis.groupBy { it.cultivo_nombre.trim() }
 
     return porCultivo.map { (cultivo, lista) ->
         val lotesUnicos = lista.map { it.terreno_id }.distinct()
         val totalHa = lotesUnicos.mapNotNull { terrenosMap[it]?.terreno_area }.sum()
         val totalLotes = lotesUnicos.size
 
-        val plantacionInfo = plantacionesPorCultivo[cultivo]?.firstOrNull()
-        val fechaSiembra = plantacionesPorCultivo[cultivo]?.map { it.fecha_siembra }?.maxOrNull()
+        val plantacionesDelCultivo = plantacionesPorCultivo[cultivo].orEmpty()
+        val plantacionInfo = plantacionesDelCultivo.firstOrNull()
+        val plantacionesActivas = plantacionesDelCultivo.filter { it.activa }
+        val fechaSiembra = plantacionesActivas.map { it.fecha_siembra }.minOrNull()
+            ?: plantacionesDelCultivo.map { it.fecha_siembra }.maxOrNull()
         val diasSiembra = fechaSiembra?.let { ChronoUnit.DAYS.between(it, fechaReferencia).coerceAtLeast(0) }
 
         val porPlaga = lista.groupBy { it.plaga_nombre.trim() }
         val plagasDesglose = porPlaga.map { (plaga, items) ->
             val lotesPlaga = items.map { it.terreno_id }.distinct().size
             val pct = if (totalLotes > 0) (lotesPlaga * 100f / totalLotes) else 0f
-            val enAlerta = items.count { it.nivel_alerta >= 2 }
+            val enAlerta = items.count { nivelAlertaResuelto(it) >= 2 }
             val cientifico = items.firstNotNullOfOrNull { it.plaga_nombre_cientifico }
 
             ParPlagaFrecuencia(
@@ -343,7 +348,7 @@ fun calcularPlagasPorCultivo(
         }.sortedByDescending { it.totalLotes }
 
         val plagaLider = plagasDesglose.firstOrNull()?.plagaNombre
-        val enAlertaTotal = lista.count { it.nivel_alerta >= 2 }
+        val enAlertaTotal = lista.count { nivelAlertaResuelto(it) >= 2 }
 
         ResumenCultivoPlagas(
             cultivoNombre = cultivo,
@@ -379,10 +384,14 @@ fun calcularRankingLotesCriticos(
             ChronoUnit.DAYS.between(it, fechaReferencia).coerceAtLeast(0)
         }
 
+        val nivelAlerta = nivelAlertaResuelto(m)
+        val progreso = progresoResuelto(m)
+        val gddAcumulado = gddAcumuladoResuelto(m)
+
         val urgencia = when {
-            m.nivel_alerta >= 2 -> "⚠️ Superó umbral - Aplicar / Revisar hoy"
-            m.progreso >= 80f -> "👀 Eclosión inminente (${m.progreso.toInt()}% térmico)"
-            m.progreso >= 45f -> "🌱 Ventana activa de desarrollo"
+            nivelAlerta >= 2 -> "⚠️ Superó umbral - Aplicar / Revisar hoy"
+            progreso >= 80f -> "👀 Eclosión inminente (${progreso.toInt()}% térmico)"
+            progreso >= 45f -> "🌱 Ventana activa de desarrollo"
             else -> "✅ Población controlada"
         }
 
@@ -394,9 +403,9 @@ fun calcularRankingLotesCriticos(
             cultivoNombre = m.cultivo_nombre,
             plagaNombre = m.plaga_nombre,
             plagaCientifico = m.plaga_nombre_cientifico,
-            nivelAlerta = m.nivel_alerta,
-            progresoGdd = m.progreso,
-            gddAcumulado = m.gdd_acumulado,
+            nivelAlerta = nivelAlerta,
+            progresoGdd = progreso,
+            gddAcumulado = gddAcumulado,
             gddObjetivo = m.gdd_objetivo,
             urgenciaAccion = urgencia,
             diasDesdeSiembra = diasSiembra
@@ -416,17 +425,19 @@ fun calcularVentanasControlAgronomo(
     val activos = monitoreos.filter { it.activo }
 
     return activos.map { m ->
-        val cicloActivo = m.ciclos?.lastOrNull()
+        val progreso = progresoResuelto(m)
+        val cicloActivo = m.ciclos?.firstOrNull { it.estado.equals("activo", ignoreCase = true) }
+            ?: m.ciclos?.lastOrNull()
         val estadioReal = cicloActivo?.estadio_biologico?.takeIf { it.isNotBlank() }
 
         val (estadio, estado, recomendacion, enOptima) = when {
-            m.progreso < 40f -> Quad(
+            progreso < 40f -> Quad(
                 estadioReal ?: "Incubación (Huevo)",
                 EstadoVentanaControl.INCUBACION_ESPERA,
                 "No pulverizar aún: plaga en fase de huevo o no susceptible.",
                 false
             )
-            m.progreso <= 85f -> Quad(
+            progreso <= 85f -> Quad(
                 estadioReal ?: "Larva chica (L1 - L3)",
                 EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA,
                 "Ventana óptima de control: máxima susceptibilidad a insecticidas y biológicos.",
@@ -446,7 +457,7 @@ fun calcularVentanasControlAgronomo(
             cultivoNombre = m.cultivo_nombre,
             plagaNombre = m.plaga_nombre,
             plagaCientifico = m.plaga_nombre_cientifico,
-            progresoGdd = m.progreso,
+            progresoGdd = progreso,
             estadioEstimado = estadio,
             enVentanaOptima = enOptima,
             estadoVentana = estado,
@@ -474,7 +485,7 @@ fun calcularEficaciaTratamientos(
         archivados += ciclosArchivados.size
 
         if (ciclosArchivados.isNotEmpty()) {
-            if (m.nivel_alerta < 2) {
+            if (nivelAlertaResuelto(m) < 2) {
                 exitosos += ciclosArchivados.size
             } else {
                 rebrotes++
@@ -490,6 +501,33 @@ fun calcularEficaciaTratamientos(
         tasaEficaciaPorcentaje = tasa,
         monitoreosConRebrote = rebrotes
     )
+}
+
+/**
+ * Extrae el nivel de alerta real de un monitoreo a partir de su ciclo activo o archivado más reciente.
+ */
+fun nivelAlertaResuelto(monitoreo: MonitoreoResponse): Int {
+    val ciclo = monitoreo.ciclos?.firstOrNull { it.estado.equals("activo", ignoreCase = true) }
+        ?: monitoreo.ciclos?.lastOrNull()
+    return ciclo?.nivel_alerta ?: monitoreo.nivel_alerta
+}
+
+/**
+ * Extrae el porcentaje de progreso térmico real del monitoreo a partir de su ciclo activo o archivado.
+ */
+fun progresoResuelto(monitoreo: MonitoreoResponse): Float {
+    val ciclo = monitoreo.ciclos?.firstOrNull { it.estado.equals("activo", ignoreCase = true) }
+        ?: monitoreo.ciclos?.lastOrNull()
+    return ciclo?.progreso ?: monitoreo.progreso
+}
+
+/**
+ * Extrae el acumulado térmico GDD real del monitoreo a partir de su ciclo activo o archivado.
+ */
+fun gddAcumuladoResuelto(monitoreo: MonitoreoResponse): Float {
+    val ciclo = monitoreo.ciclos?.firstOrNull { it.estado.equals("activo", ignoreCase = true) }
+        ?: monitoreo.ciclos?.lastOrNull()
+    return ciclo?.gdd_acumulado ?: monitoreo.gdd_acumulado
 }
 
 private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
