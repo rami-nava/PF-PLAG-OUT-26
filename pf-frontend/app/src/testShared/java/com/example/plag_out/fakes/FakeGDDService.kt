@@ -76,6 +76,9 @@ class FakeGDDService : GDDService {
             Response.success(Pagina(todos.drop(offset).take(limit), todos.size))
         } else Response.error(r.code(), r.errorBody()!!)
     var getPlantacionesResult: () -> Response<List<PlantacionesResponse>> = { noDeclarado("getPlantaciones") }
+    var getPlantacionesPaginaResult: (limit: Int, offset: Int) -> Response<Pagina<PlantacionesResponse>> =
+        { limit, offset -> paginar(getPlantacionesResult(), limit, offset) }
+    val paginasPlantaciones = mutableListOf<Pair<Int, Int>>()
     var createTerrenoResult: () -> Response<TerrenoCreateResponse> = { noDeclarado("createTerreno") }
     var actualizarTerrenoResult: () -> Response<TerrenoResponse> = { noDeclarado("actualizarTerreno") }
     var eliminarTerrenoResult: () -> Response<Unit> = { noDeclarado("eliminarTerreno") }
@@ -152,8 +155,9 @@ class FakeGDDService : GDDService {
         return getTerrenosPaginaResult(limit, offset)
     }
 
-    override suspend fun getPlantaciones(): Response<List<PlantacionesResponse>> {
-        llamadas += "getPlantaciones"; return getPlantacionesResult()
+    override suspend fun getPlantaciones(limit: Int, offset: Int): Response<Pagina<PlantacionesResponse>> {
+        llamadas += "getPlantaciones"; paginasPlantaciones += limit to offset
+        return getPlantacionesPaginaResult(limit, offset)
     }
 
     override suspend fun createTerreno(data: CreateTerrenoRequest): Response<TerrenoCreateResponse> {

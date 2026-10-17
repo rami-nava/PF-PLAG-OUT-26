@@ -1,6 +1,7 @@
 package com.example.plag_out.Service
 
 import com.example.plag_out.Pagina
+import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
 import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.Response
@@ -35,9 +36,19 @@ suspend fun <K, T> traerTodasLasPaginas(
     }
 }
 
-suspend fun GDDService.todosLosTerrenos(): Response<List<TerrenoResponse>> {
-    val recibidos = LinkedHashMap<Int, TerrenoResponse>()
-    val error = traerTodasLasPaginas(recibidos, { it.terreno_id }, pedir = ::getTerrenos)
+suspend fun GDDService.todosLosTerrenos(): Response<List<TerrenoResponse>> =
+    todasLasPaginas({ it.terreno_id }, ::getTerrenos)
+
+suspend fun GDDService.todasLasPlantaciones(): Response<List<PlantacionesResponse>> =
+    todasLasPaginas({ it.plantacion_id }, ::getPlantaciones)
+
+// Lista completa como un único Response: si una página falla, devuelve ese error.
+private suspend fun <T> todasLasPaginas(
+    id: (T) -> Int,
+    pedir: suspend (limit: Int, offset: Int) -> Response<Pagina<T>>
+): Response<List<T>> {
+    val recibidos = LinkedHashMap<Int, T>()
+    val error = traerTodasLasPaginas(recibidos, id, pedir = pedir)
         ?: return Response.success(recibidos.values.toList())
     return Response.error(error.errorBody() ?: "".toResponseBody(), error.raw())
 }

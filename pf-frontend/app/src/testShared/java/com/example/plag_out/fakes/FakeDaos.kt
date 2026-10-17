@@ -58,7 +58,11 @@ class FakePlantacionDao(inicial: List<PlantacionesResponse> = emptyList()) : Pla
     }
 
     override suspend fun insertAll(plantaciones: List<PlantacionesResponse>) {
-        operaciones += "insertAll"; filas += plantaciones
+        // un id repetido reemplaza la fila
+        operaciones += "insertAll"
+        val ids = plantaciones.map { it.plantacion_id }.toSet()
+        filas.removeAll { it.plantacion_id in ids }
+        filas += plantaciones
     }
 
     override suspend fun insert(plantacion: PlantacionesResponse) {

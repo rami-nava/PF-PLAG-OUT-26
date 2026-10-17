@@ -67,7 +67,10 @@ interface GDDService {
     ): Response<Pagina<TerrenoResponse>>
 
     @GET("/plantaciones")
-    suspend fun getPlantaciones(): Response<List<PlantacionesResponse>>
+    suspend fun getPlantaciones(
+        @Query("limit") limit: Int,
+        @Query("offset") offset: Int
+    ): Response<Pagina<PlantacionesResponse>>
 
     @POST("/terrenos")
     suspend fun createTerreno(@Body data: CreateTerrenoRequest): Response<TerrenoCreateResponse>

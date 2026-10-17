@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
+import com.example.plag_out.Service.todasLasPlantaciones
 import com.example.plag_out.Service.todosLosTerrenos
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.async
@@ -66,7 +67,7 @@ class CrearReporteViewModel(
                 coroutineScope {
                     val service = gddService ?: RetrofitClient.gddService
                     val deferredTerrenos = async { service.todosLosTerrenos() }
-                    val deferredPlantaciones = async { service.getPlantaciones() }
+                    val deferredPlantaciones = async { service.todasLasPlantaciones() }
                     val deferredPlagas = async { service.getPlagas() }
 
                     val resTerrenos = deferredTerrenos.await()
