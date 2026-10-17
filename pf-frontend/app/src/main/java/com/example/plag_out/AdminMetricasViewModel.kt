@@ -39,10 +39,11 @@ class AdminMetricasViewModel(
             )
 
             try {
-                val (respMonitoreos, respTerrenos) = withContext(ioDispatcher) {
+                val (respMonitoreos, respTerrenos, respPlantaciones) = withContext(ioDispatcher) {
                     val deferredMonitoreos = async { gddService.getMonitoreos() }
                     val deferredTerrenos = async { gddService.getTerrenos() }
-                    Pair(deferredMonitoreos.await(), deferredTerrenos.await())
+                    val deferredPlantaciones = async { gddService.getPlantaciones() }
+                    Triple(deferredMonitoreos.await(), deferredTerrenos.await(), deferredPlantaciones.await())
                 }
 
                 if (!respMonitoreos.isSuccessful) {
@@ -57,15 +58,14 @@ class AdminMetricasViewModel(
 
                 val monitoreos = respMonitoreos.body().orEmpty()
                 val terrenos = if (respTerrenos.isSuccessful) respTerrenos.body().orEmpty() else emptyList()
+                val plantaciones = if (respPlantaciones.isSuccessful) respPlantaciones.body().orEmpty() else emptyList()
 
+                // 1. Perspectiva Histórica / Campañas
                 val agrupadas = agruparPorCampaña(monitoreos, terrenos)
-
-                // Selección por defecto: mantener la seleccionada si existe o tomar la más reciente
                 val seleccionadaActual = _state.value.campañaSeleccionada?.nombre
                 val nuevaSeleccionada = agrupadas.firstOrNull { it.nombre == seleccionadaActual }
                     ?: agrupadas.firstOrNull()
 
-                // Hectáreas totales monitoreadas históricamente
                 val terrenosMap = terrenos.associateBy { it.terreno_id }
                 val totalHectareas = monitoreos
                     .map { it.terreno_id }
@@ -73,11 +73,19 @@ class AdminMetricasViewModel(
                     .mapNotNull { terrenosMap[it]?.terreno_area }
                     .sum()
 
-                // Plaga líder de todos los tiempos
                 val plagaLider = monitoreos
                     .groupBy { it.plaga_nombre.trim() }
                     .maxByOrNull { it.value.size }
                     ?.key
+
+                // 2. Perspectiva Productor (Operativa & Campo)
+                val semaforoHa = calcularSemaforoHectareas(monitoreos, terrenos)
+                val plagasCultivo = calcularPlagasPorCultivo(monitoreos, terrenos, plantaciones)
+                val rankingCriticos = calcularRankingLotesCriticos(monitoreos, terrenos, plantaciones)
+
+                // 3. Perspectiva Agrónomo (Fenología, GDD & Eficacia)
+                val ventanas = calcularVentanasControlAgronomo(monitoreos)
+                val eficacia = calcularEficaciaTratamientos(monitoreos)
 
                 _state.value = _state.value.copy(
                     isLoading = false,
@@ -87,12 +95,17 @@ class AdminMetricasViewModel(
                     totalHectareasHistoricas = totalHectareas,
                     totalMonitoreosHistoricos = monitoreos.size,
                     plagaHistoricaLider = plagaLider,
+                    semaforoHectareas = semaforoHa,
+                    plagasPorCultivo = plagasCultivo,
+                    lotesCriticos = rankingCriticos,
+                    ventanasControl = ventanas,
+                    eficaciaTratamientos = eficacia,
                     error = null
                 )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e("ADMIN_METRICAS", "Error cargando métricas históricas", e)
+                Log.e("ADMIN_METRICAS", "Error cargando métricas", e)
                 val fallo = falloDeExcepcion(e)
                 _state.value = _state.value.copy(
                     isLoading = false,
@@ -104,6 +117,10 @@ class AdminMetricasViewModel(
     }
 
     fun refrescar() = cargar(forzar = true)
+
+    fun cambiarPestaña(pestaña: PestañaDashboard) {
+        _state.value = _state.value.copy(pestañaActual = pestaña)
+    }
 
     fun seleccionarCampaña(nombreCampaña: String) {
         val encontrada = _state.value.campañas.firstOrNull { it.nombre == nombreCampaña }

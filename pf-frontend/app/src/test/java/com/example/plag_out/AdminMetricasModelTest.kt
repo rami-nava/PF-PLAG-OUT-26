@@ -1,6 +1,7 @@
 package com.example.plag_out
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -55,7 +56,6 @@ class AdminMetricasModelTest {
         )
 
         val monitoreos = listOf(
-            // Campaña 2025/2026: 3 monitoreos (2 de Oruga cogollera, 1 de Barrenador)
             MonitoreoResponse(
                 monitoreo_id = 1,
                 plantacion_id = 1,
@@ -68,7 +68,7 @@ class AdminMetricasModelTest {
                 gdd_acumulado = 150f,
                 gdd_objetivo = 300f,
                 progreso = 50f,
-                nivel_alerta = 2, // Alto
+                nivel_alerta = 2,
                 fecha_actualizacion = LocalDate.of(2025, 11, 10)
             ),
             MonitoreoResponse(
@@ -83,7 +83,7 @@ class AdminMetricasModelTest {
                 gdd_acumulado = 80f,
                 gdd_objetivo = 300f,
                 progreso = 26f,
-                nivel_alerta = 0, // Bajo
+                nivel_alerta = 0,
                 fecha_actualizacion = LocalDate.of(2025, 12, 5)
             ),
             MonitoreoResponse(
@@ -98,10 +98,9 @@ class AdminMetricasModelTest {
                 gdd_acumulado = 220f,
                 gdd_objetivo = 300f,
                 progreso = 73f,
-                nivel_alerta = 1, // Moderado
+                nivel_alerta = 1,
                 fecha_actualizacion = LocalDate.of(2026, 2, 14)
             ),
-            // Campaña 2024/2025: 1 monitoreo
             MonitoreoResponse(
                 monitoreo_id = 4,
                 plantacion_id = 1,
@@ -113,7 +112,7 @@ class AdminMetricasModelTest {
                 gdd_acumulado = 290f,
                 gdd_objetivo = 300f,
                 progreso = 96f,
-                nivel_alerta = 2, // Alto
+                nivel_alerta = 2,
                 fecha_actualizacion = LocalDate.of(2024, 11, 20)
             )
         )
@@ -122,13 +121,11 @@ class AdminMetricasModelTest {
 
         assertEquals(2, resultado.size)
 
-        // Campaña 2025/2026 (más reciente primero)
         val c2025 = resultado[0]
         assertEquals("2025/2026", c2025.nombre)
         assertEquals(3, c2025.totalMonitoreos)
-        assertEquals(80.0f, c2025.hectareasMonitoreadas, 0.01f) // Terreno 1 (50) + Terreno 2 (30)
+        assertEquals(80.0f, c2025.hectareasMonitoreadas, 0.01f)
 
-        // Plaga líder de la campaña
         assertNotNull(c2025.plagaPredominante)
         assertEquals("Oruga cogollera", c2025.plagaPredominante?.plagaNombre)
         assertEquals("Spodoptera frugiperda", c2025.plagaPredominante?.plagaCientifico)
@@ -136,7 +133,6 @@ class AdminMetricasModelTest {
         assertEquals(66.66f, c2025.plagaPredominante?.porcentajeIncidencia ?: 0f, 0.1f)
         assertEquals(1, c2025.plagaPredominante?.enRiesgoAlto)
 
-        // Distribución de riesgo en la campaña 2025/2026: 1 bajo, 1 moderado, 1 alto
         assertEquals(1, c2025.riesgoBajo)
         assertEquals(1, c2025.riesgoModerado)
         assertEquals(1, c2025.riesgoAlto)
@@ -144,12 +140,128 @@ class AdminMetricasModelTest {
         assertEquals(33.33f, c2025.porcentajeRiesgoModerado, 0.1f)
         assertEquals(33.33f, c2025.porcentajeRiesgoAlto, 0.1f)
 
-        // Campaña 2024/2025
         val c2024 = resultado[1]
         assertEquals("2024/2025", c2024.nombre)
         assertEquals(1, c2024.totalMonitoreos)
         assertEquals(50.0f, c2024.hectareasMonitoreadas, 0.01f)
         assertEquals("Gusano cogollero", c2024.plagaPredominante?.plagaNombre)
         assertEquals(1, c2024.riesgoAlto)
+    }
+
+    @Test
+    fun `calcularSemaforoHectareas clasifica la superficie segun el peor estado de cada lote`() {
+        val terreno1 = TerrenoResponse(1, "Lote 1", -31.4f, -64.1f, 100f) // Alerta alta (Rojo)
+        val terreno2 = TerrenoResponse(2, "Lote 2", -31.5f, -64.2f, 50f)  // Alerta moderada (Amarillo)
+        val terreno3 = TerrenoResponse(3, "Lote 3", -31.6f, -64.3f, 30f)  // Alerta baja (Verde)
+
+        val monitoreos = listOf(
+            MonitoreoResponse(
+                monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
+                cultivo_nombre = "Maíz", plaga_nombre = "Oruga", gdd_diario = 10f, gdd_acumulado = 50f,
+                gdd_objetivo = 100f, progreso = 50f, nivel_alerta = 2, fecha_actualizacion = LocalDate.now(), activo = true
+            ),
+            MonitoreoResponse(
+                monitoreo_id = 2, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
+                cultivo_nombre = "Maíz", plaga_nombre = "Chinche", gdd_diario = 10f, gdd_acumulado = 20f,
+                gdd_objetivo = 100f, progreso = 20f, nivel_alerta = 0, fecha_actualizacion = LocalDate.now(), activo = true
+            ),
+            MonitoreoResponse(
+                monitoreo_id = 3, plantacion_id = 2, terreno_id = 2, terreno_nombre = "Lote 2",
+                cultivo_nombre = "Soja", plaga_nombre = "Barrenador", gdd_diario = 10f, gdd_acumulado = 60f,
+                gdd_objetivo = 100f, progreso = 60f, nivel_alerta = 1, fecha_actualizacion = LocalDate.now(), activo = true
+            ),
+            MonitoreoResponse(
+                monitoreo_id = 4, plantacion_id = 3, terreno_id = 3, terreno_nombre = "Lote 3",
+                cultivo_nombre = "Trigo", plaga_nombre = "Pulgón", gdd_diario = 10f, gdd_acumulado = 10f,
+                gdd_objetivo = 100f, progreso = 10f, nivel_alerta = 0, fecha_actualizacion = LocalDate.now(), activo = true
+            )
+        )
+
+        val semaforo = calcularSemaforoHectareas(monitoreos, listOf(terreno1, terreno2, terreno3))
+
+        assertEquals(180f, semaforo.totalHectareas, 0.01f)
+        assertEquals(100f, semaforo.hectareasRojo, 0.01f)
+        assertEquals(50f, semaforo.hectareasAmarillo, 0.01f)
+        assertEquals(30f, semaforo.hectareasVerde, 0.01f)
+
+        assertEquals(1, semaforo.lotesRojo)
+        assertEquals(1, semaforo.lotesAmarillo)
+        assertEquals(1, semaforo.lotesVerde)
+        assertEquals(3, semaforo.totalLotes)
+
+        assertEquals(55.55f, semaforo.porcentajeRojo, 0.1f)
+        assertEquals(27.77f, semaforo.porcentajeAmarillo, 0.1f)
+        assertEquals(16.66f, semaforo.porcentajeVerde, 0.1f)
+    }
+
+    @Test
+    fun `calcularPlagasPorCultivo agrupa incidencia de plagas y fechas de siembra`() {
+        val terreno = TerrenoResponse(1, "Lote 1", -31.4f, -64.1f, 80f)
+        val plantacion = PlantacionesResponse(
+            plantacion_id = 1,
+            terreno_id = 1,
+            terreno_nombre = "Lote 1",
+            cultivo_id = 1,
+            cultivo_nombre = "Maíz",
+            cultivo_nombre_cientifico = "Zea mays",
+            fecha_siembra = LocalDate.of(2026, 10, 1),
+            activa = true
+        )
+
+        val monitoreos = listOf(
+            MonitoreoResponse(
+                monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
+                cultivo_nombre = "Maíz", plaga_nombre = "Oruga cogollera", gdd_diario = 10f, gdd_acumulado = 80f,
+                gdd_objetivo = 100f, progreso = 80f, nivel_alerta = 2, fecha_actualizacion = LocalDate.now(), activo = true
+            )
+        )
+
+        val fechaHoy = LocalDate.of(2026, 10, 17)
+        val resultado = calcularPlagasPorCultivo(monitoreos, listOf(terreno), listOf(plantacion), fechaReferencia = fechaHoy)
+
+        assertEquals(1, resultado.size)
+        val maiz = resultado[0]
+        assertEquals("Maíz", maiz.cultivoNombre)
+        assertEquals(80f, maiz.totalHectareas, 0.01f)
+        assertEquals(1, maiz.totalLotes)
+        assertEquals("Oruga cogollera", maiz.plagaMasFrecuente)
+        assertEquals(16L, maiz.diasDesdeSiembra)
+    }
+
+    @Test
+    fun `calcularVentanasControlAgronomo detecta fases biologicas segun acumulacion termica`() {
+        val monitoreos = listOf(
+            MonitoreoResponse(
+                monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
+                cultivo_nombre = "Maíz", plaga_nombre = "Oruga 1", gdd_diario = 10f, gdd_acumulado = 20f,
+                gdd_objetivo = 100f, progreso = 20f, nivel_alerta = 0, fecha_actualizacion = LocalDate.now(), activo = true
+            ),
+            MonitoreoResponse(
+                monitoreo_id = 2, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
+                cultivo_nombre = "Maíz", plaga_nombre = "Oruga 2", gdd_diario = 10f, gdd_acumulado = 60f,
+                gdd_objetivo = 100f, progreso = 60f, nivel_alerta = 1, fecha_actualizacion = LocalDate.now(), activo = true
+            ),
+            MonitoreoResponse(
+                monitoreo_id = 3, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
+                cultivo_nombre = "Maíz", plaga_nombre = "Oruga 3", gdd_diario = 10f, gdd_acumulado = 95f,
+                gdd_objetivo = 100f, progreso = 95f, nivel_alerta = 2, fecha_actualizacion = LocalDate.now(), activo = true
+            )
+        )
+
+        val ventanas = calcularVentanasControlAgronomo(monitoreos)
+
+        assertEquals(3, ventanas.size)
+        // El lote con ventana óptima abierta queda primero por orden de prioridad
+        val optima = ventanas.first { it.monitoreoId == 2 }
+        assertTrue(optima.enVentanaOptima)
+        assertEquals(EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA, optima.estadoVentana)
+
+        val espera = ventanas.first { it.monitoreoId == 1 }
+        assertFalse(espera.enVentanaOptima)
+        assertEquals(EstadoVentanaControl.INCUBACION_ESPERA, espera.estadoVentana)
+
+        val cerrado = ventanas.first { it.monitoreoId == 3 }
+        assertFalse(cerrado.enVentanaOptima)
+        assertEquals(EstadoVentanaControl.VENTANA_CERRADA_AVANZADO, cerrado.estadoVentana)
     }
 }
