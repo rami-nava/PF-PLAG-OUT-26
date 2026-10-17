@@ -259,8 +259,8 @@ interface GDDService {
     suspend fun adminGetUsuarios(
         @Query("q") q: String? = null,
         @Query("activo") activo: Boolean? = null,
-        @Query("pagina") pagina: Int = 1,
-        @Query("tamanio") tamanio: Int = 20
+        @Query("limit") limit: Int = 20,
+        @Query("offset") offset: Int = 0
     ): Response<Pagina<UsuarioAdmin>>
 
     @POST("/admin/usuarios/{id}/suspender")

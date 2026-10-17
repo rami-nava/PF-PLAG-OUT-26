@@ -55,17 +55,17 @@ class AdminUsuariosViewModelTest {
 
         val estado = esperarEstado(viewModel.state) { it.usuarios.size == 25 && !it.cargandoMas }
         assertFalse(estado.hayMas)
-        assertEquals(2, gddService.ultimaBusquedaUsuarios?.second)
+        assertEquals(20, gddService.ultimaBusquedaUsuarios?.second)
     }
 
     @Test
-    fun `buscar reinicia en la pagina 1 con el texto`() {
+    fun `buscar reinicia desde el offset 0 con el texto`() {
         gddService.adminGetUsuariosResult = { Response.success(pagina(0, 1, total = 1)) }
 
         viewModel.buscar("  ana ")
 
         esperarEstado(viewModel.state) { it.cargado && !it.isLoading }
-        assertEquals("ana" to 1, gddService.ultimaBusquedaUsuarios)
+        assertEquals("ana" to 0, gddService.ultimaBusquedaUsuarios)
     }
 
     @Test
@@ -113,29 +113,24 @@ class AdminUsuariosViewModelTest {
     }
 
     @Test
-    fun `eliminar vuelve a pedir la pagina actual para recuperar al que se corrio`() {
+    fun `eliminar pide desde lo que queda en el servidor para recuperar al que se corrio`() {
         gddService.adminGetUsuariosResult = { Response.success(pagina(0, 20, total = 25)) }
         viewModel.cargar()
         esperarEstado(viewModel.state) { it.cargado && !it.isLoading }
         gddService.adminEliminarUsuarioResult = {
             Response.success(AccountDeletionResponse(deleted = true, auth_identity_deleted = true, retained_reports = 0))
         }
-        // En el servidor u5 ya no está: la página 1 ahora termina en u20
-        gddService.adminGetUsuariosResult = {
-            Response.success(Pagina(
-                items = (0..20).filter { it != 5 }.map { usuario(it) },
-                total = 24
-            ))
-        }
+        // En el servidor u5 ya no está: desde el offset 19 siguen u20..u24
+        gddService.adminGetUsuariosResult = { Response.success(pagina(20, 5, total = 24)) }
 
         viewModel.eliminar("u5") {}
 
         val estado = esperarEstado(viewModel.state) { it.usuarios.any { u -> u.id == "u20" } && !it.cargandoMas }
-        assertEquals(1, gddService.ultimaBusquedaUsuarios?.second)
-        assertEquals(20, estado.usuarios.size)
-        assertEquals(20, estado.usuarios.map { it.id }.distinct().size)
-        assertEquals(1, estado.pagina)
+        assertEquals(19, gddService.ultimaBusquedaUsuarios?.second)
+        assertEquals(24, estado.usuarios.size)
+        assertEquals(24, estado.usuarios.map { it.id }.distinct().size)
         assertEquals(24, estado.total)
+        assertFalse(estado.hayMas)
     }
 
     @Test
@@ -144,12 +139,7 @@ class AdminUsuariosViewModelTest {
         viewModel.cambiarFiltro(FiltroUsuarios.ACTIVOS)
         esperarEstado(viewModel.state) { it.cargado && !it.isLoading }
         gddService.adminSuspenderUsuarioResult = { Response.success(usuario(3, activo = false)) }
-        gddService.adminGetUsuariosResult = {
-            Response.success(Pagina(
-                items = (0..20).filter { it != 3 }.map { usuario(it) },
-                total = 24
-            ))
-        }
+        gddService.adminGetUsuariosResult = { Response.success(pagina(20, 4, total = 24)) }
 
         viewModel.suspender("u3")
 
@@ -157,7 +147,8 @@ class AdminUsuariosViewModelTest {
             it.usuarios.any { u -> u.id == "u20" } && !it.cargandoMas && it.procesando == null
         }
         assertFalse(viewModel.usuario("u3")!!.estaActivo)
-        assertEquals(20, estado.usuariosVisibles.size)
+        assertEquals(19, gddService.ultimaBusquedaUsuarios?.second)
+        assertEquals(23, estado.usuariosVisibles.size)
         assertTrue(estado.hayMas)
     }
 

@@ -423,9 +423,9 @@ class FakeGDDService : GDDService {
         return adminDesactivarPlagaResult()
     }
 
-    override suspend fun adminGetUsuarios(q: String?, activo: Boolean?, pagina: Int, tamanio: Int): Response<Pagina<UsuarioAdmin>> {
+    override suspend fun adminGetUsuarios(q: String?, activo: Boolean?, limit: Int, offset: Int): Response<Pagina<UsuarioAdmin>> {
         llamadas += "adminGetUsuarios"
-        ultimaBusquedaUsuarios = q to pagina
+        ultimaBusquedaUsuarios = q to offset
         return adminGetUsuariosResult()
     }
 
