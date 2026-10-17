@@ -194,7 +194,8 @@ fun HeaderDetalleAdmin(
     etiqueta: String,
     titulo: String,
     onBack: () -> Unit,
-    contenidoExtra: @Composable ColumnScope.() -> Unit = {}
+    modifier: Modifier = Modifier,
+    contenidoExtra: @Composable () -> Unit = {}
 ) {
     val respiracion = rememberInfiniteTransition(label = "respiracionHeaderAdmin")
     val escalaDecorativa by respiracion.animateFloat(
@@ -206,47 +207,64 @@ fun HeaderDetalleAdmin(
 
     val forma = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .background(
                 brush = Brush.verticalGradient(listOf(PlagOutColors.Forest, PlagOutColors.Leaf)),
                 shape = forma
             )
             .clip(forma)
+            // El degradado se dibuja detrás de la status bar; el contenido queda debajo
+            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Box(
             Modifier
                 .align(Alignment.TopEnd)
                 .offset(x = 50.dp, y = (-40).dp)
-                .size(150.dp)
+                .size(50.dp)
                 .graphicsLayer { scaleX = escalaDecorativa; scaleY = escalaDecorativa }
                 .background(PlagOutColors.TextOnDark.copy(alpha = 0.06f), CircleShape)
         )
 
-        Column(Modifier.padding(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 22.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack, modifier = Modifier.testTag("btnVolverAdmin")) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = PlagOutColors.TextOnDark)
-                }
-                Column(Modifier.weight(1f)) {
+        Row(
+            modifier = Modifier.padding(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 22.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack, modifier = Modifier.testTag("btnVolverAdmin")) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Volver",
+                    tint = PlagOutColors.TextOnDark
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                if (etiqueta.isNotBlank()) {
                     Text(
                         etiqueta,
                         color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        letterSpacing = 0.3.sp
+                        letterSpacing = 0.3.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
                         titulo,
                         color = PlagOutColors.TextOnDark,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.ExtraBold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
+                    contenidoExtra()
                 }
             }
-            Column(Modifier.padding(start = 12.dp), content = contenidoExtra)
         }
     }
 }

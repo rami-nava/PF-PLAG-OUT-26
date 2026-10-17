@@ -300,12 +300,11 @@ fun PlagaFormScreen(
             .imePadding()
     ) {
         HeaderDetalleAdmin(
-            etiqueta = if (original == null) "Catálogo de plagas" else "Editar plaga",
-            titulo = if (original == null) "Nueva plaga" else original.nombre,
+            etiqueta = if (original == null) "Catálogo de plagas" else original.nombre,
+            titulo = if (original == null) "Nueva Plaga" else "Editar Plaga",
             onBack = onBack
         ) {
             if (original != null && !original.estaActiva) {
-                Spacer(Modifier.height(6.dp))
                 PastillaEstado("DADA DE BAJA", PlagOutColors.Sun)
             }
         }
@@ -459,7 +458,11 @@ fun PlagaFormScreen(
             }
         }
 
-        Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp)) {
+        Column(
+            Modifier
+                .navigationBarsPadding()
+                .padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
+        ) {
             BannerErrorAdmin(
                 mensaje = state.errorAccion,
                 onCerrar = viewModel::descartarErrorAccion,
