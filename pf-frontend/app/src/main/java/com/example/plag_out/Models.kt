@@ -599,17 +599,6 @@ data class UsuarioAdmin(
             .ifEmpty { email }
 }
 
-data class PaginaUsuarios(
-    @SerializedName("items")
-    val items: List<UsuarioAdmin>? = null,
-    @SerializedName("total")
-    val total: Int = 0,
-    @SerializedName("pagina")
-    val pagina: Int = 1,
-    @SerializedName("tamanio")
-    val tamanio: Int = 20
-)
-
 @Serializable
 data class CreateReporteRequest(
     @SerializedName("plantacion_id")
@@ -665,11 +654,6 @@ data class ReporteDetalleResponse(
 
 data class Pagina<T>(
     @SerializedName("items") val items: List<T>? = null,
-    @SerializedName("total") val total: Int = 0
-)
-
-data class PaginaReportes(
-    @SerializedName("items") val items: List<ReporteDetalleResponse>? = null,
     @SerializedName("total") val total: Int = 0
 )
 

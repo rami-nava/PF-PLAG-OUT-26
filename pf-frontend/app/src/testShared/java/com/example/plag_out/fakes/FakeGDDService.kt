@@ -12,7 +12,6 @@ import com.example.plag_out.DispositivoResponse
 import com.example.plag_out.ConteoReportes
 import com.example.plag_out.MarcarLeidaResponse
 import com.example.plag_out.Pagina
-import com.example.plag_out.PaginaReportes
 import com.example.plag_out.MonitoreoRequest
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.NotificacionResponse
@@ -35,7 +34,6 @@ import com.example.plag_out.PrediccionConfirmacionResponse
 import com.example.plag_out.PrediccionDetalleResponse
 import com.example.plag_out.ConsentimientoModeloRequest
 import com.example.plag_out.ConsentimientoModeloResponse
-import com.example.plag_out.PaginaUsuarios
 import com.example.plag_out.PlagaAdmin
 import com.example.plag_out.PlagaAdminRequest
 import com.example.plag_out.UsuarioAdmin
@@ -107,7 +105,7 @@ class FakeGDDService : GDDService {
     var getReporteResult: () -> Response<ReporteDetalleResponse> = { noDeclarado("getReporte") }
 
     var reportesServidor: List<ReporteDetalleResponse> = emptyList()
-    var getReportesPaginaResult: (suspend (ConsultaReportes) -> Response<PaginaReportes>)? = null
+    var getReportesPaginaResult: (suspend (ConsultaReportes) -> Response<Pagina<ReporteDetalleResponse>>)? = null
     data class ConsultaReportes(
         val ambito: String,
         val desde: String?,
@@ -135,9 +133,9 @@ class FakeGDDService : GDDService {
         return ConteoReportes(filtrados.size, cuantos("Alto"), cuantos("Medio"), cuantos("Bajo"))
     }
 
-    fun paginaServidor(consulta: ConsultaReportes): Response<PaginaReportes> {
+    fun paginaServidor(consulta: ConsultaReportes): Response<Pagina<ReporteDetalleResponse>> {
         val filtrados = filtrarServidor(consulta)
-        return Response.success(PaginaReportes(filtrados.drop(consulta.offset).take(consulta.limit), filtrados.size))
+        return Response.success(Pagina(filtrados.drop(consulta.offset).take(consulta.limit), filtrados.size))
     }
     var getReportesMapaResult: () -> Response<ReportesMapaResponse> = { noDeclarado("getReportesMapa") }
     var deleteReporteResult: () -> Response<Unit> = { Response.success(Unit) }
@@ -280,7 +278,7 @@ class FakeGDDService : GDDService {
         severidad: String?,
         terrenoId: Int?,
         plagaId: Int?
-    ): Response<PaginaReportes> {
+    ): Response<Pagina<ReporteDetalleResponse>> {
         llamadas += "getReportes"
         ultimoFechaDesdeReportes = fechaDesde
         ultimoFechaHastaReportes = fechaHasta
@@ -393,7 +391,7 @@ class FakeGDDService : GDDService {
     var adminCrearPlagaResult: () -> Response<PlagaAdmin> = { noDeclarado("adminCrearPlaga") }
     var adminActualizarPlagaResult: () -> Response<PlagaAdmin> = { noDeclarado("adminActualizarPlaga") }
     var adminDesactivarPlagaResult: () -> Response<PlagaAdmin> = { noDeclarado("adminDesactivarPlaga") }
-    var adminGetUsuariosResult: () -> Response<PaginaUsuarios> = { noDeclarado("adminGetUsuarios") }
+    var adminGetUsuariosResult: () -> Response<Pagina<UsuarioAdmin>> = { noDeclarado("adminGetUsuarios") }
     var adminSuspenderUsuarioResult: () -> Response<UsuarioAdmin> = { noDeclarado("adminSuspenderUsuario") }
     var adminReactivarUsuarioResult: () -> Response<UsuarioAdmin> = { noDeclarado("adminReactivarUsuario") }
     var adminEliminarUsuarioResult: () -> Response<AccountDeletionResponse> = { noDeclarado("adminEliminarUsuario") }
@@ -425,7 +423,7 @@ class FakeGDDService : GDDService {
         return adminDesactivarPlagaResult()
     }
 
-    override suspend fun adminGetUsuarios(q: String?, activo: Boolean?, pagina: Int, tamanio: Int): Response<PaginaUsuarios> {
+    override suspend fun adminGetUsuarios(q: String?, activo: Boolean?, pagina: Int, tamanio: Int): Response<Pagina<UsuarioAdmin>> {
         llamadas += "adminGetUsuarios"
         ultimaBusquedaUsuarios = q to pagina
         return adminGetUsuariosResult()

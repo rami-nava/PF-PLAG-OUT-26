@@ -27,7 +27,6 @@ import com.example.plag_out.CreateReporteRequest
 import com.example.plag_out.ReporteResponse
 import com.example.plag_out.ReporteDetalleResponse
 import com.example.plag_out.Pagina
-import com.example.plag_out.PaginaReportes
 import com.example.plag_out.ReportesMapaResponse
 import com.example.plag_out.ConteoReportes
 import com.example.plag_out.PrediccionConfirmacionRequest
@@ -35,7 +34,6 @@ import com.example.plag_out.PrediccionConfirmacionResponse
 import com.example.plag_out.PrediccionDetalleResponse
 import com.example.plag_out.ConsentimientoModeloRequest
 import com.example.plag_out.ConsentimientoModeloResponse
-import com.example.plag_out.PaginaUsuarios
 import com.example.plag_out.PlagaAdmin
 import com.example.plag_out.PlagaAdminRequest
 import com.example.plag_out.UsuarioAdmin
@@ -180,7 +178,7 @@ interface GDDService {
         @Query("severidad") severidad: String? = null,
         @Query("terreno_id") terrenoId: Int? = null,
         @Query("plaga_id") plagaId: Int? = null
-    ): Response<PaginaReportes>
+    ): Response<Pagina<ReporteDetalleResponse>>
 
     @GET("/reportes/resumen")
     suspend fun getResumenReportes(
@@ -263,7 +261,7 @@ interface GDDService {
         @Query("activo") activo: Boolean? = null,
         @Query("pagina") pagina: Int = 1,
         @Query("tamanio") tamanio: Int = 20
-    ): Response<PaginaUsuarios>
+    ): Response<Pagina<UsuarioAdmin>>
 
     @POST("/admin/usuarios/{id}/suspender")
     suspend fun adminSuspenderUsuario(@Path("id") id: String): Response<UsuarioAdmin>

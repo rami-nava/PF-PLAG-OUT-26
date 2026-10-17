@@ -355,7 +355,7 @@ class MisReportesViewModel(
         }
     }
 
-    private suspend fun pedirPagina(consulta: ConsultaReportes, offset: Int): PaginaReportes =
+    private suspend fun pedirPagina(consulta: ConsultaReportes, offset: Int): Pagina<ReporteDetalleResponse> =
         withContext(reportesDispatcher) {
             val response = gddService.getReportes(
                 ambito = consulta.ambito.valor,
