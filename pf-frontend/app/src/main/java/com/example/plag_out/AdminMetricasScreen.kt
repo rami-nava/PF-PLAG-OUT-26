@@ -1341,3 +1341,154 @@ private fun ItemLeyendaRiesgo(color: Color, titulo: String, cantidad: Int, porce
         Text("$cantidad (${porcentaje.toInt()}%)", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = color, modifier = Modifier.padding(start = 13.dp))
     }
 }
+
+// ── Previews para Android Studio (Diseño interactivo sin backend) ────────────
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, widthDp = 390, heightDp = 800)
+@Composable
+fun PreviewVistaDashboardProductor() {
+    val semaforoEjemplo = SemaforoHectareas(
+        hectareasVerde = 120f,
+        hectareasAmarillo = 50f,
+        hectareasRojo = 30f,
+        totalHectareas = 200f,
+        lotesVerde = 3,
+        lotesAmarillo = 2,
+        lotesRojo = 1,
+        totalLotes = 6
+    )
+
+    val lotesCriticosEjemplo = listOf(
+        LoteEnRiesgoCritico(
+            monitoreoId = 1,
+            terrenoId = 1,
+            terrenoNombre = "Lote Norte",
+            terrenoArea = 80f,
+            cultivoNombre = "Maíz tardío",
+            plagaNombre = "Oruga cogollera",
+            plagaCientifico = "Spodoptera frugiperda",
+            nivelAlerta = 2,
+            progresoGdd = 88f,
+            gddAcumulado = 265f,
+            gddObjetivo = 300f,
+            urgenciaAccion = "⚠️ Superó umbral - Aplicar / Revisar hoy",
+            diasDesdeSiembra = 35
+        ),
+        LoteEnRiesgoCritico(
+            monitoreoId = 2,
+            terrenoId = 2,
+            terrenoNombre = "Bajo Cañada",
+            terrenoArea = 50f,
+            cultivoNombre = "Soja 1ra",
+            plagaNombre = "Barrenador del tallo",
+            plagaCientifico = "Diatraea saccharalis",
+            nivelAlerta = 1,
+            progresoGdd = 55f,
+            gddAcumulado = 165f,
+            gddObjetivo = 300f,
+            urgenciaAccion = "🌱 Ventana activa de desarrollo",
+            diasDesdeSiembra = 22
+        )
+    )
+
+    val plagasCultivoEjemplo = listOf(
+        ResumenCultivoPlagas(
+            cultivoNombre = "Maíz",
+            cultivoCientifico = "Zea mays",
+            totalLotes = 4,
+            totalHectareas = 130f,
+            plagas = listOf(
+                ParPlagaFrecuencia("Oruga cogollera", "Spodoptera frugiperda", 3, 75f, 1),
+                ParPlagaFrecuencia("Chicharrita del maíz", "Dalbulus maidis", 1, 25f, 0)
+            ),
+            plagaMasFrecuente = "Oruga cogollera",
+            lotesEnRiesgoAlto = 1,
+            diasDesdeSiembra = 35
+        ),
+        ResumenCultivoPlagas(
+            cultivoNombre = "Soja",
+            cultivoCientifico = "Glycine max",
+            totalLotes = 2,
+            totalHectareas = 70f,
+            plagas = listOf(
+                ParPlagaFrecuencia("Barrenador del tallo", "Diatraea saccharalis", 2, 100f, 0)
+            ),
+            plagaMasFrecuente = "Barrenador del tallo",
+            lotesEnRiesgoAlto = 0,
+            diasDesdeSiembra = 22
+        )
+    )
+
+    val stateMock = AdminMetricasUIState(
+        pestañaActual = PestañaDashboard.PRODUCTOR,
+        semaforoHectareas = semaforoEjemplo,
+        lotesCriticos = lotesCriticosEjemplo,
+        plagasPorCultivo = plagasCultivoEjemplo
+    )
+
+    MaterialTheme {
+        VistaDashboardProductor(state = stateMock)
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, widthDp = 390, heightDp = 800)
+@Composable
+fun PreviewVistaDashboardAgronomo() {
+    val ventanasEjemplo = listOf(
+        VentanaControlBiologico(
+            monitoreoId = 1,
+            terrenoNombre = "Lote Norte",
+            cultivoNombre = "Maíz",
+            plagaNombre = "Oruga cogollera",
+            plagaCientifico = "Spodoptera frugiperda",
+            progresoGdd = 65f,
+            estadioEstimado = "Larva chica (L1 - L3)",
+            enVentanaOptima = true,
+            estadoVentana = EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA,
+            recomendacionTecnica = "Ventana óptima de control: máxima susceptibilidad a insecticidas y biológicos."
+        ),
+        VentanaControlBiologico(
+            monitoreoId = 2,
+            terrenoNombre = "Lote Sur",
+            cultivoNombre = "Soja",
+            plagaNombre = "Barrenador",
+            plagaCientifico = null,
+            progresoGdd = 25f,
+            estadioEstimado = "Incubación (Huevo)",
+            enVentanaOptima = false,
+            estadoVentana = EstadoVentanaControl.INCUBACION_ESPERA,
+            recomendacionTecnica = "No pulverizar aún: plaga en fase de huevo o no susceptible."
+        )
+    )
+
+    val eficaciaMock = EficaciaTratamientos(
+        totalTratamientosArchivados = 8,
+        tratamientosExitosos = 7,
+        tasaEficaciaPorcentaje = 87.5f,
+        monitoreosConRebrote = 1
+    )
+
+    val campañaMock = CampañaHistorica(
+        nombre = "2025/2026",
+        añoInicio = 2025,
+        totalMonitoreos = 10,
+        hectareasMonitoreadas = 200f,
+        plagaPredominante = null,
+        plagas = emptyList(),
+        riesgoBajo = 6,
+        riesgoModerado = 3,
+        riesgoAlto = 1
+    )
+
+    val stateMock = AdminMetricasUIState(
+        pestañaActual = PestañaDashboard.AGRONOMO,
+        ventanasControl = ventanasEjemplo,
+        eficaciaTratamientos = eficaciaMock,
+        campañaSeleccionada = campañaMock
+    )
+
+    MaterialTheme {
+        VistaDashboardAgronomo(state = stateMock)
+    }
+}
+
