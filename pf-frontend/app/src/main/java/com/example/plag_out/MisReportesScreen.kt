@@ -189,8 +189,6 @@ fun MisReportesScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
-                val cargados = state.reportes.size
-                val total = state.actual.total ?: 0
                 AnimatedVisibility(
                     visible = true,
                     enter = slideInVertically(animationSpec = tween(250, easing = LinearOutSlowInEasing)) { -it } + fadeIn(tween(250)),
@@ -201,12 +199,7 @@ fun MisReportesScreen(
                             onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
                             hayFiltroActivo = hayFiltroActivo,
                             etiquetaAbrir = if (esComunidad) "Filtrar reportes cercanos" else "Filtrar mis reportes",
-                            resumen = buildString {
-                                append("Mostrando ")
-                                append(if (cargados < total) "$cargados de $total" else "$total")
-                                append(if (total == 1) " reporte" else " reportes")
-                                if (hayFiltroActivo) append(" (Filtros activos)")
-                            },
+                            resumen = if (hayFiltroActivo) "Filtros activos" else null,
                             onLimpiar = viewModel::limpiarFiltros
                         ) {
                             EncabezadoGrupoFiltro(Icons.Outlined.AccessTime, "RANGO DE FECHAS")
