@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
+import com.example.plag_out.Service.todosLosTerrenos
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -67,7 +68,7 @@ class VerReporteViewModel(
                     var terrenoRef: TerrenoResponse? = null
                     if (!detalle.es_propio) {
                         try {
-                            val resTerrenos = withContext(Dispatchers.IO) { gddService.getTerrenos() }
+                            val resTerrenos = withContext(Dispatchers.IO) { gddService.todosLosTerrenos() }
                             if (resTerrenos.isSuccessful && resTerrenos.body() != null) {
                                 val terrenos = resTerrenos.body()!!
                                 val repLat = detalle.latitud
@@ -196,7 +197,7 @@ class VerReporteViewModel(
 
             if (!detalleInicial.es_propio && detalleInicial.latitud != null && detalleInicial.longitud != null) {
                 try {
-                    val resTerrenos = withContext(Dispatchers.IO) { gddService.getTerrenos() }
+                    val resTerrenos = withContext(Dispatchers.IO) { gddService.todosLosTerrenos() }
                     if (resTerrenos.isSuccessful && resTerrenos.body() != null) {
                         val terrenos = resTerrenos.body()!!
                         if (terrenos.isNotEmpty()) {

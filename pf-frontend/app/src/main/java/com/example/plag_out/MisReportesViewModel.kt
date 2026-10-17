@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.plag_out.AlmacenamientoLocal.UsuarioRepository
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
+import com.example.plag_out.Service.todosLosTerrenos
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -354,7 +355,7 @@ class MisReportesViewModel(
         }
     }
 
-    private suspend fun pedirPagina(consulta: ConsultaReportes, offset: Int): PaginaReportes =
+    private suspend fun pedirPagina(consulta: ConsultaReportes, offset: Int): Pagina<ReporteDetalleResponse> =
         withContext(reportesDispatcher) {
             val response = gddService.getReportes(
                 ambito = consulta.ambito.valor,
@@ -407,7 +408,7 @@ class MisReportesViewModel(
         cargaOpciones?.cancel()
         cargaOpciones = viewModelScope.launch {
             val terrenos = runCatching {
-                withContext(reportesDispatcher) { gddService.getTerrenos() }.body()
+                withContext(reportesDispatcher) { gddService.todosLosTerrenos() }.body()
             }.onFailure { if (it is CancellationException) throw it }.getOrNull()
             val plagas = runCatching {
                 withContext(reportesDispatcher) { gddService.getPlagas() }.body()

@@ -599,17 +599,6 @@ data class UsuarioAdmin(
             .ifEmpty { email }
 }
 
-data class PaginaUsuarios(
-    @SerializedName("items")
-    val items: List<UsuarioAdmin>? = null,
-    @SerializedName("total")
-    val total: Int = 0,
-    @SerializedName("pagina")
-    val pagina: Int = 1,
-    @SerializedName("tamanio")
-    val tamanio: Int = 20
-)
-
 @Serializable
 data class CreateReporteRequest(
     @SerializedName("plantacion_id")
@@ -662,9 +651,9 @@ data class ReporteDetalleResponse(
 )
 
 
-//Una página del listado de reportes. `total` cuenta todos los que cumplen los filtros, no solo la página.
-data class PaginaReportes(
-    @SerializedName("items") val items: List<ReporteDetalleResponse>? = null,
+
+data class Pagina<T>(
+    @SerializedName("items") val items: List<T>? = null,
     @SerializedName("total") val total: Int = 0
 )
 

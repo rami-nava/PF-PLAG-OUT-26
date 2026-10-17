@@ -361,7 +361,7 @@ class MisReportesViewModelTest {
         gddService.getReportesPaginaResult = {
             iniciado.complete(Unit)
             withContext(NonCancellable) { liberado.await() }
-            Response.success(PaginaReportes(listOf(ajeno(444)), 1))
+            Response.success(Pagina(listOf(ajeno(444)), 1))
         }
         viewModel.actualizarFechas(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 10))
         runBlocking { withTimeout(3000) { iniciado.await() } }
@@ -423,7 +423,7 @@ class MisReportesViewModelTest {
 
     @Test
     fun `servidor que ignora offset da error en vez de bucle`() {
-        gddService.getReportesPaginaResult = { Response.success(PaginaReportes((1..20).map { propio(it) }, 100)) }
+        gddService.getReportesPaginaResult = { Response.success(Pagina((1..20).map { propio(it) }, 100)) }
         viewModel.cargarReportes()
         esperarEstado(viewModel.state) { !it.isLoading }
         viewModel.cargarMas()
@@ -435,7 +435,7 @@ class MisReportesViewModelTest {
 
     @Test
     fun `respuesta sin body da error`() {
-        gddService.getReportesPaginaResult = { Response.success<PaginaReportes>(null) }
+        gddService.getReportesPaginaResult = { Response.success<Pagina<ReporteDetalleResponse>>(null) }
         viewModel.cargarReportes()
         val estado = esperarEstado(viewModel.state) { it.error != null }
         assertTrue(estado.reportes.isEmpty())
@@ -494,7 +494,7 @@ class MisReportesViewModelTest {
         gddService.getReportesPaginaResult = {
             iniciado.complete(Unit)
             withContext(NonCancellable) { liberado.await() }
-            Response.success(PaginaReportes(listOf(propio(444)), 1))
+            Response.success(Pagina(listOf(propio(444)), 1))
         }
         viewModel.cargarReportes()
         runBlocking { withTimeout(3000) { iniciado.await() } }

@@ -11,7 +11,10 @@ import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
+import com.example.plag_out.Service.traerTodasLasPaginas
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +25,7 @@ data class PlantacionUIState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val plantaciones: List<PlantacionesResponse> = emptyList(),
+    val cargandoMas: Boolean = false,
     val procesando: Boolean = false,
     val error: String? = null
 )
@@ -36,18 +40,26 @@ class PlantacionesViewModel(
     val state: StateFlow<PlantacionUIState> = _state.asStateFlow()
     val plantacionRepository = repository
     val context = context
+    private var carga: Job? = null
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun refrescar() = getPlantaciones(forzar = true)
 
     /** Cierre de sesión: descarta en memoria los datos del usuario anterior. */
     fun limpiar() {
+        carga?.cancel()
         _state.value = PlantacionUIState()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun getPlantaciones(forzar: Boolean = false) {
-        viewModelScope.launch {
+        // Varias pantallas lo piden al entrar: si ya hay una carga en curso, esa alcanza. Un
+        // refresco manual la reemplaza para no mezclar páginas de dos recorridos distintos.
+        if (carga?.isActive == true) {
+            if (!forzar) return
+            carga?.cancel()
+        }
+        carga = viewModelScope.launch {
             // Mostrar el caché al instante (si existe)
             val cachedPlantaciones = withContext(Dispatchers.IO) {
                 plantacionRepository.obtenerPlantaciones()
@@ -69,37 +81,69 @@ class PlantacionesViewModel(
                 _state.value = _state.value.copy(isLoading = true)
             }
 
+            val recibidas = LinkedHashMap<Int, PlantacionesResponse>()
+            fun conCacheRestante() =
+                recibidas.values.toList() + cachedPlantaciones.filterNot { it.plantacion_id in recibidas }
+
             try {
-                val response = withContext(Dispatchers.IO) {
-                    gddService.getPlantaciones()
-                }
-
-                if (response.isSuccessful) {
-                    val plantacionesResponse = response.body() ?: emptyList()
-
-                    _state.value = _state.value.copy(
-                        plantaciones = plantacionesResponse,
-                        isLoading = false,
-                        isRefreshing = false
-                    )
-
-                    withContext(Dispatchers.IO) {
-                        plantacionRepository.reemplazarPlantaciones(plantacionesResponse)
+                val error = traerTodasLasPaginas(
+                    recibidas,
+                    id = { it.plantacion_id },
+                    alQuedarPaginas = {
+                        _state.value = _state.value.copy(
+                            plantaciones = conCacheRestante(),
+                            isLoading = false,
+                            cargandoMas = true
+                        )
                     }
-                    CacheTracker.marcarConsultado(context, CacheTracker.PLANTACIONES)
-                } else {
-                    // TODO AGREGAR WARNING DE VALORES DESACTUALIZADOS
-                    _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
-                    if (forzar) Avisos.error(errorDeRespuesta(response).mensaje)
-                    Log.e("CULTIVOS", "Error: ${response.code()}")
+                ) { limit, offset ->
+                    withContext(Dispatchers.IO) { gddService.getPlantaciones(limit, offset) }
                 }
+                if (error != null) {
+                    cargaIncompleta(recibidas.values.toList(), conCacheRestante())
+                    if (forzar) Avisos.error(errorDeRespuesta(error).mensaje)
+                    Log.e("CULTIVOS", "Error: ${error.code()}")
+                    return@launch
+                }
+
+                val plantacionesResponse = recibidas.values.toList()
+                _state.value = _state.value.copy(
+                    plantaciones = plantacionesResponse,
+                    isLoading = false,
+                    isRefreshing = false,
+                    cargandoMas = false
+                )
+
+                withContext(Dispatchers.IO) {
+                    plantacionRepository.reemplazarPlantaciones(plantacionesResponse)
+                }
+                CacheTracker.marcarConsultado(context, CacheTracker.PLANTACIONES)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                // Sin conexión: se queda con el caché ya mostrado
-                _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                // Sin conexión: se queda con el caché ya mostrado más lo que se llegó a recibir
+                cargaIncompleta(recibidas.values.toList(), conCacheRestante())
                 if (forzar) Avisos.error(errorDeExcepcion(e).mensaje)
                 Log.e("CULTIVOS", "Error: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Una página falló a mitad de la carga: el caché no se reemplaza (quedaría sin las plantaciones
+     * que faltaron), solo se actualizan las que sí llegaron. No se marca consultado, así que la
+     * próxima entrada vuelve a intentar la carga completa.
+     */
+    private suspend fun cargaIncompleta(recibidas: List<PlantacionesResponse>, mostradas: List<PlantacionesResponse>) {
+        if (recibidas.isNotEmpty()) {
+            withContext(Dispatchers.IO) { plantacionRepository.guardarPlantaciones(recibidas) }
+        }
+        _state.value = _state.value.copy(
+            plantaciones = mostradas,
+            isLoading = false,
+            isRefreshing = false,
+            cargandoMas = false
+        )
     }
 
     /** Cierre irreversible de plantación, monitoreos y ciclos; conserva el historial. */

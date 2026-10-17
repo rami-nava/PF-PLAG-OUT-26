@@ -100,6 +100,42 @@ class MonitoreosViewModelTest {
         assertEquals(listOf(5), estado.monitoreos.map { it.monitoreo_id })
     }
 
+    // ---------- paginación ----------
+
+    @Test
+    fun `trae todas las paginas y reemplaza el cache con el total`() {
+        val dao = FakeMonitoreoDao(inicial = listOf(Fixtures.monitoreo(id = 999)))
+        val vm = MonitoreosViewModel(context, MonitoreoRepository(dao), gddService)
+        gddService.getMonitoreosResult = { Response.success((1..130).map { Fixtures.monitoreo(id = it) }) }
+
+        vm.getMonitoreos(forzar = true)
+
+        val estado = esperarEstado(vm.state) { !it.isRefreshing && !it.cargandoMas && it.monitoreos.size == 130 }
+        assertEquals(listOf(20 to 0, 100 to 20, 100 to 120), gddService.paginasMonitoreos)
+        assertEquals((1..130).toList(), estado.monitoreos.map { it.monitoreo_id })
+        assertEquals((1..130).toList(), runBlocking { dao.getAll() }.map { it.monitoreo_id }.sorted())
+        assertTrue(CacheTracker.consultadoTrasUltimaActualizacion(context, CacheTracker.MONITOREOS))
+    }
+
+    @Test
+    fun `si falla una pagina intermedia no pierde el cache offline`() {
+        val dao = FakeMonitoreoDao(inicial = listOf(Fixtures.monitoreo(id = 1), Fixtures.monitoreo(id = 50)))
+        val vm = MonitoreosViewModel(context, MonitoreoRepository(dao), gddService)
+        gddService.getMonitoreosPaginaResult = { limit, offset ->
+            if (offset > 0) FakeGDDService.sinConexion()
+            Response.success(Pagina((1..limit).map { Fixtures.monitoreo(id = it) }, 40))
+        }
+
+        vm.getMonitoreos()
+
+        val estado = esperarEstado(vm.state) { !it.isLoading && !it.cargandoMas && it.monitoreos.size == 21 }
+        // Las 20 recibidas más la que solo estaba en caché
+        assertEquals((1..20).toList() + 50, estado.monitoreos.map { it.monitoreo_id })
+        assertTrue(estado.datosDesactualizados)
+        assertEquals((1..20).toList() + 50, runBlocking { dao.getAll() }.map { it.monitoreo_id }.sorted())
+        assertTrue(!CacheTracker.yaConsultado(context, CacheTracker.MONITOREOS))
+    }
+
     // ---------- limpieza de biofix en cola ----------
 
     private fun pendiente(monitoreoId: Int) = BiofixPendiente("usuario-1", monitoreoId, "{}")

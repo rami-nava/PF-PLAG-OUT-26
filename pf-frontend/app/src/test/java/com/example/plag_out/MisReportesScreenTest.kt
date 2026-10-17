@@ -61,13 +61,14 @@ class MisReportesScreenTest {
         // Las pastillas no llevan cantidad: el total está en el encabezado, que viene del resumen.
         compose.onNodeWithTag("tabReportesPropios").assertTextEquals("Míos")
         compose.onNodeWithTag("tabReportesComunidad").assertTextEquals("Comunidad")
-        compose.onNodeWithText("Mostrando 20 de 25 reportes").assertExists()
+        compose.onNodeWithText("Mostrando", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Filtros activos").assertDoesNotExist()
         compose.onNodeWithText("25").assertExists()
 
         // Un filtro rehace la consulta y el total pasa a ser el filtrado.
         compose.onNodeWithTag("btnToggleFiltros").performClick()
         compose.onNode(hasText("Bajo") and hasAnyAncestor(hasTestTag("panelFiltros"))).performClick()
-        compose.onNodeWithText("Mostrando 5 reportes (Filtros activos)").assertExists()
+        compose.onNodeWithText("Filtros activos").assertExists()
         compose.runOnIdle {
             assertEquals("Bajo", service.consultasReportes.last().severidad)
             assertEquals("Bajo", service.consultasResumen.last().severidad)
@@ -81,7 +82,7 @@ class MisReportesScreenTest {
 
         // La comunidad tiene su propia consulta y sus propios filtros.
         cambiarPestana("tabReportesComunidad")
-        compose.onNodeWithText("Mostrando 1 reporte").assertExists()
+        compose.onNodeWithText("Filtros activos").assertDoesNotExist()
         compose.runOnIdle {
             val ultima = service.consultasReportes.last()
             assertEquals("comunidad", ultima.ambito)
@@ -89,11 +90,12 @@ class MisReportesScreenTest {
         }
         compose.onNode(hasText("Plaga A") and hasAnyAncestor(hasTestTag("panelFiltros"))).performClick()
         compose.runOnIdle { assertEquals(7, service.consultasReportes.last().plagaId) }
-        compose.onNodeWithText("Mostrando 1 reporte (Filtros activos)").assertExists()
+        compose.onNodeWithText("Filtros activos").assertExists()
 
         cambiarPestana("tabReportesPropios")
-        compose.onNodeWithText("Mostrando 5 reportes (Filtros activos)").assertExists()
+        compose.onNodeWithText("Filtros activos").assertExists()
         compose.onNodeWithTag("btnLimpiarFiltros").performClick()
-        compose.onNodeWithText("Mostrando 20 de 25 reportes").assertExists()
+        compose.onNodeWithText("Filtros activos").assertDoesNotExist()
+        compose.onNodeWithText("25").assertExists()
     }
 }

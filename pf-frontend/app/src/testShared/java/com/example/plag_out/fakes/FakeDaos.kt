@@ -27,7 +27,11 @@ class FakeTerrenoDao(inicial: List<TerrenoResponse> = emptyList()) : TerrenoDao 
     }
 
     override suspend fun insertAll(terrenos: List<TerrenoResponse>) {
-        operaciones += "insertAll"; filas += terrenos
+        // un id repetido reemplaza la fila
+        operaciones += "insertAll"
+        val ids = terrenos.map { it.terreno_id }.toSet()
+        filas.removeAll { it.terreno_id in ids }
+        filas += terrenos
     }
 
     override suspend fun insert(terreno: TerrenoResponse) {
@@ -54,7 +58,11 @@ class FakePlantacionDao(inicial: List<PlantacionesResponse> = emptyList()) : Pla
     }
 
     override suspend fun insertAll(plantaciones: List<PlantacionesResponse>) {
-        operaciones += "insertAll"; filas += plantaciones
+        // un id repetido reemplaza la fila
+        operaciones += "insertAll"
+        val ids = plantaciones.map { it.plantacion_id }.toSet()
+        filas.removeAll { it.plantacion_id in ids }
+        filas += plantaciones
     }
 
     override suspend fun insert(plantacion: PlantacionesResponse) {
@@ -94,7 +102,11 @@ class FakeMonitoreoDao(inicial: List<MonitoreoResponse> = emptyList()) : Monitor
     }
 
     override suspend fun insertAll(monitoreos: List<MonitoreoResponse>) {
-        operaciones += "insertAll"; filas += monitoreos
+        // Un id repetido reemplaza la fila
+        operaciones += "insertAll"
+        val ids = monitoreos.map { it.monitoreo_id }.toSet()
+        filas.removeAll { it.monitoreo_id in ids }
+        filas += monitoreos
     }
 
     override suspend fun insert(monitoreo: MonitoreoResponse) {
