@@ -32,9 +32,9 @@ class AdminUsuariosViewModelTest {
     private fun usuario(n: Int, activo: Boolean = true) =
         UsuarioAdmin(id = "u$n", email = "u$n@campo.com", nombre = "Usuario", apellido = "$n", activo = activo)
 
-    private fun pagina(desde: Int, cantidad: Int, total: Int, pagina: Int) = PaginaUsuarios(
+    private fun pagina(desde: Int, cantidad: Int, total: Int) = Pagina(
         items = (desde until desde + cantidad).map { usuario(it) },
-        total = total, pagina = pagina, tamanio = AdminUsuariosViewModel.TAMANIO_PAGINA
+        total = total
     )
 
     @Before
@@ -45,12 +45,12 @@ class AdminUsuariosViewModelTest {
 
     @Test
     fun `cargar y cargarMas acumulan paginas hasta el total`() {
-        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 20, total = 25, pagina = 1)) }
+        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 20, total = 25)) }
         viewModel.cargar()
         esperarEstado(viewModel.state) { it.cargado && !it.isLoading }
         assertTrue(viewModel.state.value.hayMas)
 
-        gddService.adminGetUsuariosResult = { Response.success(pagina(20, 5, total = 25, pagina = 2)) }
+        gddService.adminGetUsuariosResult = { Response.success(pagina(20, 5, total = 25)) }
         viewModel.cargarMas()
 
         val estado = esperarEstado(viewModel.state) { it.usuarios.size == 25 && !it.cargandoMas }
@@ -60,7 +60,7 @@ class AdminUsuariosViewModelTest {
 
     @Test
     fun `buscar reinicia en la pagina 1 con el texto`() {
-        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 1, total = 1, pagina = 1)) }
+        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 1, total = 1)) }
 
         viewModel.buscar("  ana ")
 
@@ -83,7 +83,7 @@ class AdminUsuariosViewModelTest {
 
     @Test
     fun `suspender reemplaza al usuario con la respuesta`() {
-        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 2, total = 2, pagina = 1)) }
+        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 2, total = 2)) }
         viewModel.cargar()
         esperarEstado(viewModel.state) { it.cargado && !it.isLoading }
         gddService.adminSuspenderUsuarioResult = { Response.success(usuario(1, activo = false)) }
@@ -98,7 +98,7 @@ class AdminUsuariosViewModelTest {
 
     @Test
     fun `operar sobre un admin muestra el error del backend`() {
-        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 1, total = 1, pagina = 1)) }
+        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 1, total = 1)) }
         viewModel.cargar()
         esperarEstado(viewModel.state) { it.cargado && !it.isLoading }
         gddService.adminSuspenderUsuarioResult = {
@@ -114,7 +114,7 @@ class AdminUsuariosViewModelTest {
 
     @Test
     fun `eliminar vuelve a pedir la pagina actual para recuperar al que se corrio`() {
-        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 20, total = 25, pagina = 1)) }
+        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 20, total = 25)) }
         viewModel.cargar()
         esperarEstado(viewModel.state) { it.cargado && !it.isLoading }
         gddService.adminEliminarUsuarioResult = {
@@ -122,9 +122,9 @@ class AdminUsuariosViewModelTest {
         }
         // En el servidor u5 ya no está: la página 1 ahora termina en u20
         gddService.adminGetUsuariosResult = {
-            Response.success(PaginaUsuarios(
+            Response.success(Pagina(
                 items = (0..20).filter { it != 5 }.map { usuario(it) },
-                total = 24, pagina = 1, tamanio = AdminUsuariosViewModel.TAMANIO_PAGINA
+                total = 24
             ))
         }
 
@@ -140,14 +140,14 @@ class AdminUsuariosViewModelTest {
 
     @Test
     fun `suspender con el filtro de activos completa la pagina sin sacarlo del detalle`() {
-        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 20, total = 25, pagina = 1)) }
+        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 20, total = 25)) }
         viewModel.cambiarFiltro(FiltroUsuarios.ACTIVOS)
         esperarEstado(viewModel.state) { it.cargado && !it.isLoading }
         gddService.adminSuspenderUsuarioResult = { Response.success(usuario(3, activo = false)) }
         gddService.adminGetUsuariosResult = {
-            Response.success(PaginaUsuarios(
+            Response.success(Pagina(
                 items = (0..20).filter { it != 3 }.map { usuario(it) },
-                total = 24, pagina = 1, tamanio = AdminUsuariosViewModel.TAMANIO_PAGINA
+                total = 24
             ))
         }
 
@@ -163,7 +163,7 @@ class AdminUsuariosViewModelTest {
 
     @Test
     fun `eliminar saca al usuario de la lista y baja el total`() {
-        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 2, total = 2, pagina = 1)) }
+        gddService.adminGetUsuariosResult = { Response.success(pagina(0, 2, total = 2)) }
         viewModel.cargar()
         esperarEstado(viewModel.state) { it.cargado && !it.isLoading }
         gddService.adminEliminarUsuarioResult = {
