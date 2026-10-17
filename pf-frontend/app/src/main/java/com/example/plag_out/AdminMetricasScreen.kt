@@ -153,21 +153,21 @@ private fun SelectorPerspectivaDashboard(
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         ItemBotonPerspectiva(
-            titulo = "Productor",
+            titulo = "Lotes",
             icono = Icons.Outlined.Agriculture,
             activo = pestañaActual == PestañaDashboard.PRODUCTOR,
             onClick = { onSeleccionar(PestañaDashboard.PRODUCTOR) },
             modifier = Modifier.weight(1f)
         )
         ItemBotonPerspectiva(
-            titulo = "Agrónomo",
+            titulo = "Control",
             icono = Icons.Outlined.Schedule,
             activo = pestañaActual == PestañaDashboard.AGRONOMO,
             onClick = { onSeleccionar(PestañaDashboard.AGRONOMO) },
             modifier = Modifier.weight(1f)
         )
         ItemBotonPerspectiva(
-            titulo = "Histórico",
+            titulo = "Campañas",
             icono = Icons.Outlined.CalendarMonth,
             activo = pestañaActual == PestañaDashboard.HISTORICO,
             onClick = { onSeleccionar(PestañaDashboard.HISTORICO) },
