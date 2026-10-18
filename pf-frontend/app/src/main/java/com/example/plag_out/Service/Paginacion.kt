@@ -1,5 +1,6 @@
 package com.example.plag_out.Service
 
+import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.Pagina
 import com.example.plag_out.PlantacionesResponse
 import com.example.plag_out.TerrenoResponse
@@ -35,6 +36,9 @@ suspend fun <K, T> traerTodasLasPaginas(
         limite = PAGINA_SIGUIENTE
     }
 }
+
+suspend fun GDDService.todosLosMonitoreos(): Response<List<MonitoreoResponse>> =
+    todasLasPaginas({ it.monitoreo_id }, ::getMonitoreos)
 
 suspend fun GDDService.todosLosTerrenos(): Response<List<TerrenoResponse>> =
     todasLasPaginas({ it.terreno_id }, ::getTerrenos)

@@ -5,3 +5,7 @@
 # Ignorar el entorno virtual de Python
 venv/
 .venv/
+
+# IDE y workspaces
+.idea/
+*.code-workspace
