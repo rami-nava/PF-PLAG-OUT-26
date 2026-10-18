@@ -304,6 +304,9 @@ fun AppNavigation(
     val adminUsuariosViewModel: AdminUsuariosViewModel = viewModel(
         factory = remember { AdminUsuariosViewModelFactory() }
     )
+    val adminMetricasViewModel: AdminMetricasViewModel = viewModel(
+        factory = remember { AdminMetricasViewModelFactory() }
+    )
 
     // Supabase restaura la sesión guardada al iniciar (y renueva el token si hace
     // falta). Mientras tanto el estado es Initializing: mostramos un splash y recién
@@ -501,7 +504,7 @@ fun AppNavigation(
     val fullBleedScreens = listOf(
         "logIn", "crearCuenta", "recuperarPassword", "editarPerfil",
         "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "mapa_reportes",
-        RUTA_ADMIN_PLAGA_NUEVA, RUTA_ADMIN_PLAGA, RUTA_ADMIN_USUARIO
+        "tableros_control", RUTA_ADMIN_PLAGA_NUEVA, RUTA_ADMIN_PLAGA, RUTA_ADMIN_USUARIO
     )
     val rutaActual = navBackStackEntry?.destination?.route
 
@@ -523,6 +526,7 @@ fun AppNavigation(
             misReportesViewModel.limpiar()
             adminPlagasViewModel.limpiar()
             adminUsuariosViewModel.limpiar()
+            adminMetricasViewModel.limpiar()
             navController.navigate("logIn") {
                 popUpTo(0) { inclusive = true }
             }
@@ -978,7 +982,13 @@ fun AppNavigation(
                 }
             }
             composable(RUTA_ADMIN_METRICAS) {
-                SoloAdmin(navController) { AdminMetricasScreen() }
+                SoloAdmin(navController) { AdminMetricasScreen(viewModel = adminMetricasViewModel) }
+            }
+            composable("tableros_control") {
+                AdminMetricasScreen(
+                    viewModel = adminMetricasViewModel,
+                    onVolver = { navController.popBackStack() }
+                )
             }
             composable(RUTA_ADMIN_CUENTA) {
                 SoloAdmin(navController) {
@@ -1154,7 +1164,7 @@ private fun PantallaCargandoSesion(esperaAgotada: Boolean, onIrAlLogin: () -> Un
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo", "agregar_monitoreo/{plantacion_id}", "logIn", "crearCuenta", "recuperarPassword", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "crear_reporte", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}", "mapa_reportes")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo", "agregar_monitoreo/{plantacion_id}", "logIn", "crearCuenta", "recuperarPassword", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "crear_reporte", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}", "mapa_reportes", "tableros_control")
     return !screensWithoutNavBar.contains(currentScreen)
 }
 
@@ -1162,6 +1172,6 @@ fun shouldShowBottomBar(navController: NavController): Boolean {
 fun shouldShowTopBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("logIn","crearCuenta","recuperarPassword","perfil","editarPerfil","monitoreo/{monitoreo_id}","prediccion/{prediccion_id}","mapa_reportes")
+    val screensWithoutNavBar = listOf("logIn","crearCuenta","recuperarPassword","perfil","editarPerfil","monitoreo/{monitoreo_id}","prediccion/{prediccion_id}","mapa_reportes","tableros_control")
     return !screensWithoutNavBar.contains(currentScreen)
 }
