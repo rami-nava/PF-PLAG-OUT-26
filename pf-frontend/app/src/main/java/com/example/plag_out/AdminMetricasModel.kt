@@ -446,7 +446,7 @@ fun calcularVentanasControlAgronomo(
             else -> Quad(
                 estadioReal ?: "Larva avanzada / Adulto",
                 EstadoVentanaControl.VENTANA_CERRADA_AVANZADO,
-                "Ventana en cierre: riesgo de daño económico consolidado en el cultivo.",
+                "Ventana en cierre: superó el umbral térmico de eclosión y la plaga está en fase avanzada.",
                 false
             )
         }

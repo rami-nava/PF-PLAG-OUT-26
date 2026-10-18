@@ -264,4 +264,147 @@ class AdminMetricasModelTest {
         assertFalse(cerrado.enVentanaOptima)
         assertEquals(EstadoVentanaControl.VENTANA_CERRADA_AVANZADO, cerrado.estadoVentana)
     }
+
+    @Test
+    fun `nivelAlertaResuelto y progresoResuelto priorizan ciclos activos sobre el valor base`() {
+        // Monitoreo sin ciclos usa valores base
+        val mSinCiclos = MonitoreoResponse(
+            monitoreo_id = 10, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote Base",
+            cultivo_nombre = "Soja", plaga_nombre = "Oruga", gdd_diario = 5f, gdd_acumulado = 50f,
+            gdd_objetivo = 100f, progreso = 50f, nivel_alerta = 1, fecha_actualizacion = LocalDate.now(),
+            ciclos = emptyList()
+        )
+        assertEquals(1, nivelAlertaResuelto(mSinCiclos))
+        assertEquals(50f, progresoResuelto(mSinCiclos), 0.01f)
+        assertEquals(50f, gddAcumuladoResuelto(mSinCiclos), 0.01f)
+
+        // Monitoreo con ciclo activo toma los datos del ciclo
+        val cicloActivo = GddCicloResponse(
+            id = 1,
+            monitoreo_id = 10,
+            fecha_biofix = "2026-10-01",
+            estado = "activo",
+            fecha_actualizacion = "2026-10-10",
+            gdd_acumulado = 85f,
+            gdd_diario = 5f,
+            gdd_eclosion = 100f,
+            gdd_generacion = 350f,
+            progreso = 85f,
+            estadio_biologico = "Larva L2",
+            nivel_alerta = 2,
+            dias_pendientes = 3
+        )
+        val mConCiclo = mSinCiclos.copy(ciclos = listOf(cicloActivo))
+        assertEquals(2, nivelAlertaResuelto(mConCiclo))
+        assertEquals(85f, progresoResuelto(mConCiclo), 0.01f)
+        assertEquals(85f, gddAcumuladoResuelto(mConCiclo), 0.01f)
+    }
+
+    @Test
+    fun `calcularEficaciaTratamientos distingue tratamientos exitosos de rebrotes`() {
+        val cicloArchivado = GddCicloResponse(
+            id = 2,
+            monitoreo_id = 1,
+            fecha_biofix = "2026-09-01",
+            estado = "archivado",
+            fecha_actualizacion = "2026-09-20",
+            gdd_acumulado = 100f,
+            gdd_diario = 5f,
+            gdd_eclosion = 100f,
+            gdd_generacion = 350f,
+            progreso = 100f,
+            estadio_biologico = "Controlado",
+            nivel_alerta = 0,
+            dias_pendientes = 0
+        )
+
+        // Monitoreo 1: ciclo archivado y nivel actual controlado (alerta 0) -> Exitoso
+        val m1 = MonitoreoResponse(
+            monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
+            cultivo_nombre = "Maíz", plaga_nombre = "Oruga", gdd_diario = 10f, gdd_acumulado = 20f,
+            gdd_objetivo = 100f, progreso = 20f, nivel_alerta = 0, fecha_actualizacion = LocalDate.now(),
+            ciclos = listOf(cicloArchivado)
+        )
+
+        // Monitoreo 2: ciclo previo archivado pero nuevo ciclo activo con rebrote en alerta alta -> Rebrote
+        val cicloRebroteActivo = GddCicloResponse(
+            id = 3,
+            monitoreo_id = 2,
+            fecha_biofix = "2026-10-01",
+            estado = "activo",
+            fecha_actualizacion = "2026-10-15",
+            gdd_acumulado = 90f,
+            gdd_diario = 12f,
+            gdd_eclosion = 100f,
+            gdd_generacion = 350f,
+            progreso = 90f,
+            estadio_biologico = "Larva L3",
+            nivel_alerta = 2,
+            dias_pendientes = 1
+        )
+        val m2 = MonitoreoResponse(
+            monitoreo_id = 2, plantacion_id = 2, terreno_id = 2, terreno_nombre = "Lote 2",
+            cultivo_nombre = "Soja", plaga_nombre = "Chinche", gdd_diario = 12f, gdd_acumulado = 90f,
+            gdd_objetivo = 100f, progreso = 90f, nivel_alerta = 2, fecha_actualizacion = LocalDate.now(),
+            ciclos = listOf(cicloArchivado, cicloRebroteActivo)
+        )
+
+        val eficacia = calcularEficaciaTratamientos(listOf(m1, m2))
+
+        assertEquals(2, eficacia.totalTratamientosArchivados)
+        assertEquals(1, eficacia.tratamientosExitosos)
+        assertEquals(1, eficacia.monitoreosConRebrote)
+        assertEquals(50f, eficacia.tasaEficaciaPorcentaje, 0.01f)
+    }
+
+    @Test
+    fun `calcularRankingLotesCriticos ordena por nivel de alerta descendente y progreso termico`() {
+        val terreno1 = TerrenoResponse(1, "Lote Norte", -31.4f, -64.1f, 120f)
+        val terreno2 = TerrenoResponse(2, "Lote Sur", -31.5f, -64.2f, 80f)
+        val plantacion1 = PlantacionesResponse(
+            plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote Norte",
+            cultivo_id = 1, cultivo_nombre = "Maíz", cultivo_nombre_cientifico = "Zea mays",
+            fecha_siembra = LocalDate.of(2026, 10, 1), activa = true
+        )
+
+        val mBajo = MonitoreoResponse(
+            monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote Norte",
+            cultivo_nombre = "Maíz", plaga_nombre = "Chinche", gdd_diario = 5f, gdd_acumulado = 30f,
+            gdd_objetivo = 100f, progreso = 30f, nivel_alerta = 0, fecha_actualizacion = LocalDate.now(), activo = true
+        )
+        val mAlto = MonitoreoResponse(
+            monitoreo_id = 2, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote Norte",
+            cultivo_nombre = "Maíz", plaga_nombre = "Oruga", gdd_diario = 12f, gdd_acumulado = 92f,
+            gdd_objetivo = 100f, progreso = 92f, nivel_alerta = 2, fecha_actualizacion = LocalDate.now(), activo = true
+        )
+        val mMedio = MonitoreoResponse(
+            monitoreo_id = 3, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote Norte",
+            cultivo_nombre = "Maíz", plaga_nombre = "Barrenador", gdd_diario = 8f, gdd_acumulado = 65f,
+            gdd_objetivo = 100f, progreso = 65f, nivel_alerta = 1, fecha_actualizacion = LocalDate.now(), activo = true
+        )
+
+        val hoy = LocalDate.of(2026, 10, 17)
+        val ranking = calcularRankingLotesCriticos(
+            monitoreos = listOf(mBajo, mAlto, mMedio),
+            terrenos = listOf(terreno1, terreno2),
+            plantaciones = listOf(plantacion1),
+            fechaReferencia = hoy
+        )
+
+        assertEquals(3, ranking.size)
+        // Primero el de alerta 2
+        assertEquals(2, ranking[0].monitoreoId)
+        assertEquals(2, ranking[0].nivelAlerta)
+        assertTrue(ranking[0].urgenciaAccion.contains("Superó umbral"))
+        assertEquals(16L, ranking[0].diasDesdeSiembra)
+
+        // Segundo el de alerta 1
+        assertEquals(3, ranking[1].monitoreoId)
+        assertEquals(1, ranking[1].nivelAlerta)
+
+        // Tercero el de alerta 0
+        assertEquals(1, ranking[2].monitoreoId)
+        assertEquals(0, ranking[2].nivelAlerta)
+    }
 }
+
