@@ -726,15 +726,6 @@ private fun VistaDashboardAgronomo(state: AdminMetricasUIState) {
                 }
             }
         }
-
-        // 3. Distribución de Riesgo Ambiental IRA
-        state.campañaSeleccionada?.let { camp ->
-            item {
-                StaggeredAppear(index = 2) {
-                    TarjetaPerfilRiesgoAmbiental(campaña = camp)
-                }
-            }
-        }
     }
 }
 
