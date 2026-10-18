@@ -28,9 +28,8 @@ suspend fun <K, T> traerTodasLasPaginas(
         val pagina = response.body()
         val items = pagina?.items.orEmpty()
         items.forEach { recibidos[id(it)] = it }
-        offset += items.size
-        // Sin items no hay forma de avanzar: se corta aunque `total` diga que faltan
-        if (items.isEmpty() || offset >= (pagina?.total ?: 0)) return null
+        // Sin items o si la página vino incompleta no hay más por pedir
+        if (items.isEmpty() || items.size < limite || offset >= (pagina?.total ?: 0)) return null
 
         alQuedarPaginas()
         limite = PAGINA_SIGUIENTE
