@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Agriculture
 import androidx.compose.material.icons.outlined.Assessment
 import androidx.compose.material.icons.outlined.BugReport
@@ -66,7 +67,8 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminMetricasScreen(
-    viewModel: AdminMetricasViewModel
+    viewModel: AdminMetricasViewModel,
+    onVolver: (() -> Unit)? = null
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -75,14 +77,50 @@ fun AdminMetricasScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        EncabezadoSeccionAdmin(
-            titulo = "Tableros de Control",
-            subtitulo = when (state.pestañaActual) {
-                PestañaDashboard.PRODUCTOR -> "Monitoreo operativo de lotes, cultivos y superficie en riesgo"
-                PestañaDashboard.AGRONOMO -> "Ventana óptima de control, estadios biológicos (GDD) y eficacia"
-                PestañaDashboard.HISTORICO -> "Evolución histórica y prevalencia de plagas por campaña agrícola"
+        if (onVolver != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(start = 8.dp, end = 20.dp, top = 10.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onVolver) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Volver",
+                        tint = PlagOutColors.Forest
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Tableros de Control",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = PlagOutColors.TextMain
+                    )
+                    Text(
+                        when (state.pestañaActual) {
+                            PestañaDashboard.PRODUCTOR -> "Monitoreo operativo de lotes, cultivos y superficie en riesgo"
+                            PestañaDashboard.AGRONOMO -> "Ventana óptima de control, estadios biológicos (GDD) y eficacia"
+                            PestañaDashboard.HISTORICO -> "Evolución histórica y prevalencia de plagas por campaña agrícola"
+                        },
+                        fontSize = 12.sp,
+                        color = PlagOutColors.TextSecondary,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
             }
-        )
+        } else {
+            EncabezadoSeccionAdmin(
+                titulo = "Tableros de Control",
+                subtitulo = when (state.pestañaActual) {
+                    PestañaDashboard.PRODUCTOR -> "Monitoreo operativo de lotes, cultivos y superficie en riesgo"
+                    PestañaDashboard.AGRONOMO -> "Ventana óptima de control, estadios biológicos (GDD) y eficacia"
+                    PestañaDashboard.HISTORICO -> "Evolución histórica y prevalencia de plagas por campaña agrícola"
+                }
+            )
+        }
 
         // Selector principal de perspectiva de dashboard
         SelectorPerspectivaDashboard(
@@ -446,7 +484,7 @@ private fun TarjetaRankingLotesCriticos(lotes: List<LoteEnRiesgoCritico>) {
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text("Prioridad de Acción por Lote", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
-                    Text("Ordenados por nivel de urgencia y daño fitosanitario", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
+                    Text("Ordenados por nivel de urgencia y nivel de alerta del lote", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
 
@@ -1296,7 +1334,7 @@ private fun TarjetaPerfilRiesgoAmbiental(campaña: CampañaHistorica) {
                 Icon(Icons.Outlined.Info, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "El Índice de Riesgo Ambiental (IRA) pondera la acumulación térmica (GDD), el progreso fenológico del ciclo biológico y la proximidad a los umbrales de daño económico.",
+                    "El Índice de Riesgo Ambiental (IRA) pondera la acumulación térmica (GDD), el progreso fenológico del ciclo biológico y la proximidad a los umbrales de alerta y eclosión.",
                     fontSize = 11.sp,
                     color = PlagOutColors.TextSecondary,
                     lineHeight = 15.sp
