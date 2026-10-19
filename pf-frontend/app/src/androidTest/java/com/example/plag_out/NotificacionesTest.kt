@@ -101,6 +101,24 @@ class NotificacionesTest {
     }
 
     @Test
+    fun tocar_una_alerta_ml_la_marca_leida_y_navega_a_su_prediccion() {
+        val alertaMl = Fixtures.notificacion(tipo = "ALERTA_ML_RIESGO", entidadId = 41)
+        var marcada: NotificacionResponse? = null
+        var destino: String? = null
+        composeRule.setContent {
+            NotificacionesSheet(
+                state = NotificacionesUIState(notificaciones = listOf(alertaMl)),
+                onMarcarLeida = { marcada = it },
+                onNavegar = { destino = it },
+                onDismiss = {}
+            )
+        }
+        composeRule.onNodeWithText(alertaMl.titulo).performClick()
+        assertEquals(alertaMl.id, marcada?.id)
+        assertEquals("prediccion/41", destino)
+    }
+
+    @Test
     fun deslizar_una_notificacion_la_marca_leida() {
         var marcada: NotificacionResponse? = null
 
