@@ -103,6 +103,9 @@ private const val TAB_COMUNIDAD = 1
 
 private val AzulComunidad = Color(0xFF1565C0)
 
+/** Alto del botón flotante más su margen: los estados vacíos se centran por encima. */
+private val ESPACIO_BOTON_FLOTANTE = 88.dp
+
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -137,7 +140,8 @@ fun MisReportesScreen(
             var shown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { shown = true }
             val fabScale by animateFloatAsState(
-                targetValue = if (shown) 1f else 0f,
+                // Con los filtros abiertos se esconde: tapaba la última fila de chips.
+                targetValue = if (shown && !filtrosExpandidos) 1f else 0f,
                 animationSpec = tween(360, easing = FastOutSlowInEasing),
                 label = "fabScaleReportes"
             )
@@ -303,7 +307,9 @@ fun MisReportesScreen(
                             target.startsWith("vacio") -> Box(
                                 Modifier
                                     .fillMaxSize()
-                                    .verticalScroll(rememberScrollState()),
+                                    .verticalScroll(rememberScrollState())
+                                    // Deja libre la franja del botón flotante para que no tape el texto.
+                                    .padding(bottom = ESPACIO_BOTON_FLOTANTE),
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (esComunidad) {
@@ -316,7 +322,7 @@ fun MisReportesScreen(
                                     EstadoVacioFlotante(
                                         icono = Icons.Outlined.BugReport,
                                         titulo = "No tenés reportes cargados",
-                                        subtitulo = "Presioná el botón flotante '+' para registrar la presencia de plagas en tus terrenos."
+                                        subtitulo = "Tocá «Nuevo Reporte» para registrar la presencia de plagas en tus terrenos."
                                     )
                                 }
                             }
@@ -324,7 +330,9 @@ fun MisReportesScreen(
                             target.startsWith("sin-resultados") -> Box(
                                 Modifier
                                     .fillMaxSize()
-                                    .verticalScroll(rememberScrollState()),
+                                    .verticalScroll(rememberScrollState())
+                                    // Deja libre la franja del botón flotante para que no tape el texto.
+                                    .padding(bottom = ESPACIO_BOTON_FLOTANTE),
                                 contentAlignment = Alignment.Center
                             ) {
                                 val detalleFiltro = buildString {

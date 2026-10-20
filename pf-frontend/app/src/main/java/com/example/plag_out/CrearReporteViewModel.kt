@@ -44,6 +44,10 @@ data class CrearReporteUIState(
 
 private val ETAPAS_BIOLOGICAS = listOf("HUEVO", "NINFA", "LARVA", "ADULTO")
 
+/** Nombre legible de una etapa del contrato ("LARVA" -> "Larva"); los reportes viejos pueden traer "PUPA". */
+fun etiquetaEtapa(codigo: String): String =
+    codigo.trim().lowercase().replaceFirstChar { it.uppercase() }
+
 class CrearReporteViewModel(
     private val context: Context,
     private val gddService: GDDService? = null,
@@ -174,12 +178,11 @@ class CrearReporteViewModel(
         // Solo plagas del cultivo elegido.
         if (_state.value.plagasDisponibles.none { it.id == plaga.id }) return
 
-        val etapas = obtenerEtapasParaPlaga(plaga)
-        val etapaInicial = etapas.firstOrNull() ?: ""
+        // La etapa no se preselecciona: define el momento de aplicar y la tiene que elegir quien vio la plaga.
         _state.value = _state.value.copy(
             plagaSeleccionada = plaga,
-            etapasDisponibles = etapas,
-            etapaBiologica = etapaInicial,
+            etapasDisponibles = obtenerEtapasParaPlaga(plaga),
+            etapaBiologica = "",
             error = null
         )
     }
@@ -228,6 +231,11 @@ class CrearReporteViewModel(
             return
         }
 
+        if (currentState.etapaBiologica.isBlank()) {
+            _state.value = _state.value.copy(error = "Elegí la etapa biológica en la que viste la plaga")
+            return
+        }
+
         val owner = currentOwner()
         if (owner == null || (reportOwner != null && reportOwner != owner)) {
             _state.value = _state.value.copy(error = "La sesión cambió. Iniciá un nuevo reporte con tu cuenta actual.")
@@ -238,7 +246,7 @@ class CrearReporteViewModel(
 
         viewModelScope.launch {
             try {
-                val etapaStr = currentState.etapaBiologica.ifBlank { null }
+                val etapaStr = currentState.etapaBiologica
                 val request = CreateReporteRequest(
                     plantacion_id = plantacion.plantacion_id,
                     plaga_id = plaga.id,

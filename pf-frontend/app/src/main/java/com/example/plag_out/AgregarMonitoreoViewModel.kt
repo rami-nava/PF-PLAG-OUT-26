@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
@@ -138,9 +139,11 @@ class AgregarMonitoreoViewModel(
     }
 
     suspend fun cargarTerrenos(){
-        _state.value = _state.value.copy(
-            terrenos = terrenoRepository.obtenerTerrenos()
-        )
+        // Primero la lectura y después el estado: copiar `_state.value` antes de suspender en Room
+        // pisaba con un estado viejo las plagas que llegaban mientras tanto, y la pantalla quedaba
+        // cargando para siempre.
+        val terrenos = terrenoRepository.obtenerTerrenos()
+        _state.update { it.copy(terrenos = terrenos) }
     }
 
 

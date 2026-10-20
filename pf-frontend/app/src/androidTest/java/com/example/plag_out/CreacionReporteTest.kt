@@ -103,9 +103,14 @@ class CreacionReporteTest {
         composeRule.onNodeWithTag("txtTipoPlaga").performClick()
         composeRule.onNodeWithText("Gusano cogollero").assertDoesNotExist()
 
-        // Caso 5: elegida la plaga, la etapa se autocompleta y el formulario queda válido
+        // Caso 5: elegida la plaga, la etapa no viene puesta: hasta elegirla no se puede enviar
         composeRule.onNodeWithText("Roya amarilla").performClick()
         composeRule.onNodeWithTag("txtEtapaBiologica").assertIsEnabled()
+        composeRule.onNodeWithTag("btnGuardarReporte").assertIsNotEnabled()
+
+        // Caso 6: con la etapa elegida el formulario queda válido
+        composeRule.onNodeWithTag("txtEtapaBiologica").performClick()
+        composeRule.onNodeWithTag("optEtapa_LARVA").performClick()
         composeRule.onNodeWithTag("btnGuardarReporte").assertIsEnabled()
     }
 }

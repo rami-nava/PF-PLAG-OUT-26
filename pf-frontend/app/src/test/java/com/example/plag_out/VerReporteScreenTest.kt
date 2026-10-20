@@ -43,6 +43,6 @@ class VerReporteScreenTest {
         }
 
         compose.onNodeWithText("Maíz").performScrollTo().assertExists()
-        compose.onNodeWithText("HUEVO").performScrollTo().assertExists()
+        compose.onNodeWithText("Huevo").performScrollTo().assertExists()
     }
 }

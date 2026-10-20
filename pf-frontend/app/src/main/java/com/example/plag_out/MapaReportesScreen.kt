@@ -220,6 +220,22 @@ fun MapaReportesScreen(
         if (vigente != null && clusters.none { it.id == vigente }) seleccion = null
     }
 
+    // Al abrir, el mapa arranca sobre los lotes del usuario y no sobre todo el país; después
+    // queda donde el usuario lo deje (también al volver de otra pantalla).
+    var encuadreInicialHecho by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(mapaRef.value, terrenos) {
+        val mapa = mapaRef.value ?: return@LaunchedEffect
+        if (!encuadreInicialHecho && terrenos.isNotEmpty()) {
+            encuadreInicialHecho = true
+            // Encuadrar una caja exige que el mapa ya esté medido.
+            val lotes = terrenos
+            mapa.post {
+                encuadrar(mapa, emptyList(), lotes)
+                zoom = mapa.zoomLevelDouble
+            }
+        }
+    }
+
     // La pantalla es el mapa: todo lo demás flota encima. Sin reportes el mapa igual se ve
     Box(
         modifier = Modifier

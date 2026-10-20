@@ -72,7 +72,7 @@ fun AyudaRapidaSheet(onDismiss: () -> Unit, onVerGuiaCompleta: () -> Unit) {
                 color = PlagOutColors.TextMain
             )
             Text(
-                "El recorrido completo, en cinco pasos",
+                "El recorrido completo, en seis pasos",
                 fontSize = 12.sp,
                 color = PlagOutColors.TextSecondary,
                 modifier = Modifier.padding(top = 4.dp)

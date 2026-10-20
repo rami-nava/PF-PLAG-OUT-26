@@ -32,6 +32,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -554,9 +557,14 @@ fun PanelFiltrosPlegable(
             enter = expandVertically() + fadeIn(tween(220)),
             exit = shrinkVertically() + fadeOut(tween(180))
         ) {
+            // Con muchos grupos (Comunidad) los filtros no entran: se desplazan dentro de un
+            // tope de altura en vez de aplastar la última fila de chips.
+            val alturaMaxima = (LocalConfiguration.current.screenHeightDp * 0.45f).dp
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = alturaMaxima)
+                    .verticalScroll(rememberScrollState())
                     .padding(bottom = 6.dp)
                     .testTag("panelFiltros"),
                 content = contenido

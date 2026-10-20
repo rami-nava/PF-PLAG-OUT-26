@@ -68,6 +68,19 @@ class CrearReporteViewModelTest {
     }
 
     @Test
+    fun `sin etapa elegida el reporte no se envia`() {
+        esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
+        viewModel.seleccionarTerreno(Fixtures.terreno(id = 1))
+        viewModel.seleccionarPlantacion(Fixtures.plantacion(id = 10, terrenoId = 1))
+        viewModel.seleccionarPlaga(Fixtures.plaga(id = 5, nombre = "Oruga"))
+
+        viewModel.guardarReporte {}
+
+        assertEquals("Elegí la etapa biológica en la que viste la plaga", viewModel.state.value.error)
+        assertEquals(0, gddService.vecesLlamado("createReporte"))
+    }
+
+    @Test
     fun `guardarReporte con datos validos realiza POST exitoso`() {
         val t = Fixtures.terreno(id = 1)
         val p = Fixtures.plantacion(id = 10, terrenoId = 1)
@@ -77,6 +90,7 @@ class CrearReporteViewModelTest {
         viewModel.seleccionarTerreno(t)
         viewModel.seleccionarPlantacion(p)
         viewModel.seleccionarPlaga(plaga)
+        viewModel.seleccionarEtapaBiologica("LARVA")
 
         gddService.createReporteResult = {
             Response.success(
@@ -114,6 +128,7 @@ class CrearReporteViewModelTest {
         esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
         viewModel.seleccionarTerreno(Fixtures.terreno(id = 1))
         viewModel.seleccionarPlaga(Fixtures.plaga(id = 5, nombre = "Oruga"))
+        viewModel.seleccionarEtapaBiologica("LARVA")
     }
 
     private fun reporteGuardado() = ReporteResponse(
@@ -211,11 +226,13 @@ class CrearReporteViewModelTest {
 
         viewModel.seleccionarPlaga(oruga)
         assertEquals(listOf("HUEVO", "LARVA", "ADULTO"), viewModel.state.value.etapasDisponibles)
-        assertEquals("HUEVO", viewModel.state.value.etapaBiologica)
+        // Ninguna etapa viene elegida: la tiene que marcar quien vio la plaga.
+        assertEquals("", viewModel.state.value.etapaBiologica)
 
+        viewModel.seleccionarEtapaBiologica("LARVA")
         viewModel.seleccionarPlaga(chicharrita)
         assertEquals(listOf("HUEVO", "NINFA", "ADULTO"), viewModel.state.value.etapasDisponibles)
-        assertEquals("HUEVO", viewModel.state.value.etapaBiologica)
+        assertEquals("", viewModel.state.value.etapaBiologica)
 
         viewModel.seleccionarPlaga(sinDato)
         assertEquals(listOf("HUEVO", "NINFA", "LARVA", "ADULTO"), viewModel.state.value.etapasDisponibles)

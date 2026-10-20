@@ -910,6 +910,13 @@ private fun TarjetaZonaPeligro(onEliminarCuenta: () -> Unit) {
                 acento = PlagOutColors.RiskDanger,
                 onClick = onEliminarCuenta
             )
+            // La barra de navegación de la app flota por encima del menú: sin este espacio
+            // tapaba las últimas acciones.
+            Spacer(
+                Modifier
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .height(96.dp)
+            )
         }
     }
 }
