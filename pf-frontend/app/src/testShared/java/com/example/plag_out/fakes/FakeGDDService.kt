@@ -11,6 +11,7 @@ import com.example.plag_out.DispositivoRequest
 import com.example.plag_out.DispositivoResponse
 import com.example.plag_out.ConteoReportes
 import com.example.plag_out.MarcarLeidaResponse
+import com.example.plag_out.MetricasAdmin
 import com.example.plag_out.Pagina
 import com.example.plag_out.MonitoreoRequest
 import com.example.plag_out.MonitoreoResponse
@@ -395,6 +396,7 @@ class FakeGDDService : GDDService {
     var adminSuspenderUsuarioResult: () -> Response<UsuarioAdmin> = { noDeclarado("adminSuspenderUsuario") }
     var adminReactivarUsuarioResult: () -> Response<UsuarioAdmin> = { noDeclarado("adminReactivarUsuario") }
     var adminEliminarUsuarioResult: () -> Response<AccountDeletionResponse> = { noDeclarado("adminEliminarUsuario") }
+    var adminGetMetricasResult: () -> Response<MetricasAdmin> = { noDeclarado("adminGetMetricas") }
 
     var ultimaPlagaEnviada: PlagaAdminRequest? = null
         private set
@@ -442,6 +444,11 @@ class FakeGDDService : GDDService {
     override suspend fun adminEliminarUsuario(id: String): Response<AccountDeletionResponse> {
         llamadas += "adminEliminarUsuario"
         return adminEliminarUsuarioResult()
+    }
+
+    override suspend fun adminGetMetricas(): Response<MetricasAdmin> {
+        llamadas += "adminGetMetricas"
+        return adminGetMetricasResult()
     }
 
     private fun <T> noDeclarado(endpoint: String): Response<T> =

@@ -68,12 +68,14 @@ import kotlin.math.roundToInt
 @Composable
 fun AdminMetricasScreen(
     viewModel: AdminMetricasViewModel,
-    onVolver: (() -> Unit)? = null
+    onVolver: (() -> Unit)? = null,
+    // true en el panel admin: tableros de todos los productores, con lotes anónimos.
+    global: Boolean = false
 ) {
     val state by viewModel.state.collectAsState()
 
-    LaunchedEffect(Unit) {
-        viewModel.cargar()
+    LaunchedEffect(global) {
+        viewModel.cargar(global = global)
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -891,7 +893,7 @@ private fun TarjetaEficaciaTratamientos(eficacia: EficaciaTratamientos) {
             ) {
                 Column {
                     Text(
-                        String.format(LocalConfiguration.current.locales[0], "%.0f%%", eficacia.tasaEficaciaPorcentaje),
+                        eficacia.tasaEficaciaPorcentaje?.let { String.format(LocalConfiguration.current.locales[0], "%.0f%%", it) } ?: "—",
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Black,
                         color = PlagOutColors.RiskOk

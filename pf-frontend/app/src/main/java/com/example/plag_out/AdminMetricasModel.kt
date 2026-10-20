@@ -135,7 +135,8 @@ data class VentanaControlBiologico(
 data class EficaciaTratamientos(
     val totalTratamientosArchivados: Int,
     val tratamientosExitosos: Int,
-    val tasaEficaciaPorcentaje: Float,
+    // null: sin ciclos archivados la tasa es desconocida (solo en las métricas globales).
+    val tasaEficaciaPorcentaje: Float?,
     val monitoreosConRebrote: Int
 )
 
@@ -388,12 +389,15 @@ fun calcularRankingLotesCriticos(
         val progreso = progresoResuelto(m)
         val gddAcumulado = gddAcumuladoResuelto(m)
 
-        val urgencia = when {
-            nivelAlerta >= 2 -> "⚠️ Superó umbral - Aplicar / Revisar hoy"
-            progreso >= 80f -> "👀 Eclosión inminente (${progreso.toInt()}% térmico)"
-            progreso >= 45f -> "🌱 Ventana activa de desarrollo"
-            else -> "✅ Población controlada"
-        }
+        val urgencia = textoUrgencia(
+            when {
+                nivelAlerta >= 2 -> "supero_umbral"
+                progreso >= 80f -> "eclosion_inminente"
+                progreso >= 45f -> "ventana_activa"
+                else -> "controlada"
+            },
+            progreso
+        )
 
         LoteEnRiesgoCritico(
             monitoreoId = m.monitoreo_id,
@@ -434,19 +438,19 @@ fun calcularVentanasControlAgronomo(
             progreso < 40f -> Quad(
                 estadioReal ?: "Incubación (Huevo)",
                 EstadoVentanaControl.INCUBACION_ESPERA,
-                "No pulverizar aún: plaga en fase de huevo o no susceptible.",
+                recomendacion(EstadoVentanaControl.INCUBACION_ESPERA),
                 false
             )
             progreso <= 85f -> Quad(
                 estadioReal ?: "Larva chica (L1 - L3)",
                 EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA,
-                "Ventana óptima de control: máxima susceptibilidad a insecticidas y biológicos.",
+                recomendacion(EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA),
                 true
             )
             else -> Quad(
                 estadioReal ?: "Larva avanzada / Adulto",
                 EstadoVentanaControl.VENTANA_CERRADA_AVANZADO,
-                "Ventana en cierre: superó el umbral térmico de eclosión y la plaga está en fase avanzada.",
+                recomendacion(EstadoVentanaControl.VENTANA_CERRADA_AVANZADO),
                 false
             )
         }
@@ -528,6 +532,141 @@ fun gddAcumuladoResuelto(monitoreo: MonitoreoResponse): Float {
     val ciclo = monitoreo.ciclos?.firstOrNull { it.estado.equals("activo", ignoreCase = true) }
         ?: monitoreo.ciclos?.lastOrNull()
     return ciclo?.gdd_acumulado ?: monitoreo.gdd_acumulado
+}
+
+// ── Métricas globales del admin (GET /admin/metricas) ───────────────────────
+// El backend ya las calcula sobre todos los productores; acá solo se pasan a los modelos
+// de la pantalla. Los lotes llegan anónimos, así que se numeran en el orden del ranking.
+
+fun textoUrgencia(urgencia: String, progreso: Float): String = when (urgencia) {
+    "supero_umbral" -> "⚠️ Superó umbral - Aplicar / Revisar hoy"
+    "eclosion_inminente" -> "👀 Eclosión inminente (${progreso.toInt()}% térmico)"
+    "ventana_activa" -> "🌱 Ventana activa de desarrollo"
+    else -> "✅ Población controlada"
+}
+
+private fun estadoVentana(estado: String): EstadoVentanaControl = when (estado) {
+    "ventana_optima" -> EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA
+    "ventana_cerrada" -> EstadoVentanaControl.VENTANA_CERRADA_AVANZADO
+    else -> EstadoVentanaControl.INCUBACION_ESPERA
+}
+
+private fun recomendacion(estado: EstadoVentanaControl): String = when (estado) {
+    EstadoVentanaControl.INCUBACION_ESPERA ->
+        "No pulverizar aún: plaga en fase de huevo o no susceptible."
+    EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA ->
+        "Ventana óptima de control: máxima susceptibilidad a insecticidas y biológicos."
+    EstadoVentanaControl.VENTANA_CERRADA_AVANZADO ->
+        "Ventana en cierre: superó el umbral térmico de eclosión y la plaga está en fase avanzada."
+}
+
+private fun nombreLoteAnonimo(posicion: Int) = "Lote anónimo ${posicion + 1}"
+
+fun AdminMetricasUIState.conMetricasGlobales(metricas: MetricasAdmin): AdminMetricasUIState {
+    val campañas = metricas.campanias.map { campaña ->
+        val plagas = campaña.plagas.map { plaga ->
+            ResumenPlagaCampaña(
+                plagaNombre = plaga.plaga,
+                plagaCientifico = plaga.plaga_cientifico,
+                totalMonitoreos = plaga.monitoreos,
+                porcentajeIncidencia = plaga.incidencia,
+                enRiesgoAlto = plaga.riesgo_alto,
+                // Sin monitoreos medidos no hay porcentaje: se muestra 0.
+                porcentajeRiesgoAlto = plaga.porcentaje_riesgo_alto ?: 0f,
+                nivelRiesgoPromedio = plaga.nivel_promedio ?: 0f
+            )
+        }
+        CampañaHistorica(
+            nombre = campaña.nombre,
+            añoInicio = campaña.anio_inicio,
+            totalMonitoreos = campaña.monitoreos,
+            hectareasMonitoreadas = campaña.hectareas,
+            plagaPredominante = plagas.firstOrNull(),
+            plagas = plagas,
+            riesgoBajo = campaña.riesgo_bajo,
+            riesgoModerado = campaña.riesgo_moderado,
+            riesgoAlto = campaña.riesgo_alto
+        )
+    }
+    val semaforo = metricas.semaforo
+    return copy(
+        campañas = campañas,
+        campañaSeleccionada = campañas.firstOrNull { it.nombre == campañaSeleccionada?.nombre }
+            ?: campañas.firstOrNull(),
+        totalHectareasHistoricas = metricas.historico.hectareas,
+        totalMonitoreosHistoricos = metricas.historico.monitoreos,
+        plagaHistoricaLider = metricas.historico.plaga_lider,
+        semaforoHectareas = SemaforoHectareas(
+            hectareasVerde = semaforo.verde.hectareas,
+            hectareasAmarillo = semaforo.amarillo.hectareas,
+            hectareasRojo = semaforo.rojo.hectareas,
+            totalHectareas = semaforo.total_hectareas,
+            lotesVerde = semaforo.verde.lotes,
+            lotesAmarillo = semaforo.amarillo.lotes,
+            lotesRojo = semaforo.rojo.lotes,
+            totalLotes = semaforo.total_lotes
+        ),
+        plagasPorCultivo = metricas.cultivos.map { cultivo ->
+            ResumenCultivoPlagas(
+                cultivoNombre = cultivo.cultivo,
+                cultivoCientifico = cultivo.cultivo_cientifico,
+                totalLotes = cultivo.lotes,
+                totalHectareas = cultivo.hectareas,
+                plagas = cultivo.plagas.map { plaga ->
+                    ParPlagaFrecuencia(
+                        plagaNombre = plaga.plaga,
+                        plagaCientifico = plaga.plaga_cientifico,
+                        totalLotes = plaga.lotes,
+                        porcentaje = plaga.porcentaje,
+                        casosAlerta = plaga.casos_alerta
+                    )
+                },
+                plagaMasFrecuente = cultivo.plaga_mas_frecuente,
+                lotesEnRiesgoAlto = cultivo.monitoreos_riesgo_alto,
+                fechaSiembraReciente = cultivo.fecha_siembra,
+                diasDesdeSiembra = cultivo.dias_desde_siembra
+            )
+        },
+        lotesCriticos = metricas.lotes_criticos.mapIndexed { posicion, lote ->
+            LoteEnRiesgoCritico(
+                // Sin ids reales: los lotes son anónimos. Negativos para no chocar con ninguno.
+                monitoreoId = -(posicion + 1),
+                terrenoId = -(posicion + 1),
+                terrenoNombre = nombreLoteAnonimo(posicion),
+                terrenoArea = lote.hectareas,
+                cultivoNombre = lote.cultivo,
+                plagaNombre = lote.plaga,
+                plagaCientifico = lote.plaga_cientifico,
+                nivelAlerta = lote.nivel_alerta,
+                progresoGdd = lote.progreso,
+                gddAcumulado = lote.gdd_acumulado,
+                gddObjetivo = lote.gdd_objetivo,
+                urgenciaAccion = textoUrgencia(lote.urgencia, lote.progreso),
+                diasDesdeSiembra = lote.dias_desde_siembra
+            )
+        },
+        ventanasControl = metricas.ventanas.mapIndexed { posicion, ventana ->
+            val estado = estadoVentana(ventana.estado)
+            VentanaControlBiologico(
+                monitoreoId = -(posicion + 1),
+                terrenoNombre = "Lote anónimo",
+                cultivoNombre = ventana.cultivo,
+                plagaNombre = ventana.plaga,
+                plagaCientifico = ventana.plaga_cientifico,
+                progresoGdd = ventana.progreso,
+                estadioEstimado = ventana.estadio,
+                enVentanaOptima = estado == EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA,
+                estadoVentana = estado,
+                recomendacionTecnica = recomendacion(estado)
+            )
+        },
+        eficaciaTratamientos = EficaciaTratamientos(
+            totalTratamientosArchivados = metricas.eficacia.ciclos_archivados,
+            tratamientosExitosos = metricas.eficacia.exitosos,
+            tasaEficaciaPorcentaje = metricas.eficacia.tasa,
+            monitoreosConRebrote = metricas.eficacia.monitoreos_con_rebrote
+        )
+    )
 }
 
 private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

@@ -93,3 +93,17 @@ El desarrollo respeta la arquitectura y tokens del proyecto:
   * Shimmer de carga (`SkeletonCargando`) y animaciones fluidas con `AnimatedContent`.
 * **Tests Unitarios (`AdminMetricasModelTest.kt`):**
   * Cobertura de clasificación de hectáreas en semáforo, agrupación de plagas por cultivo, cálculo de días desde siembra, ventanas térmicas GDD y corte de campañas.
+
+---
+
+## 5. Métricas globales del administrador
+
+Un admin no tiene lotes propios: con `/monitoreos`, `/terrenos` y `/plantaciones` (que la base filtra por dueño) sus tableros quedaban vacíos. Desde el panel admin, la pantalla ahora lee `GET /admin/metricas`, que calcula los mismos tableros en el backend sobre todos los productores (`AdminMetricasScreen(global = true)`). El productor sigue calculando los suyos en la app.
+
+- **Lotes anónimos:** el backend no manda dueño, nombre de terreno ni ubicación. La app los muestra como "Lote anónimo 1, 2…" en el orden del ranking.
+- **Diferencias con el cálculo local**, documentadas en `docs/admin-metrics.md` del backend:
+  - un monitoreo sin ciclo GDD (esperando biofix) no cuenta como riesgo moderado y queda fuera del semáforo;
+  - el ciclo que describe un monitoreo es el activo o, si no hay, el de biofix más reciente;
+  - sin ciclos archivados la tasa de eficacia es desconocida (se muestra "—") y no 100 %.
+- El mapeo del contrato a los modelos de la pantalla está en `conMetricasGlobales` (`AdminMetricasModel.kt`) y se prueba en `AdminMetricasGlobalesTest.kt`.
+- El panel web de administración muestra los mismos tableros y los exporta a PDF y Excel.

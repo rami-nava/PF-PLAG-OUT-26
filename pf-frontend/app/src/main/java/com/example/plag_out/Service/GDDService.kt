@@ -22,6 +22,7 @@ import com.example.plag_out.UpdateUserRequest
 import com.example.plag_out.DispositivoRequest
 import com.example.plag_out.DispositivoResponse
 import com.example.plag_out.MarcarLeidaResponse
+import com.example.plag_out.MetricasAdmin
 import com.example.plag_out.NotificacionResponse
 import com.example.plag_out.CreateReporteRequest
 import com.example.plag_out.ReporteResponse
@@ -271,4 +272,9 @@ interface GDDService {
 
     @DELETE("/admin/usuarios/{id}")
     suspend fun adminEliminarUsuario(@Path("id") id: String): Response<AccountDeletionResponse>
+
+    // Tableros de todos los productores, con lotes anónimos. Los productores calculan los
+    // suyos en la app a partir de /monitoreos, /terrenos y /plantaciones.
+    @GET("/admin/metricas")
+    suspend fun adminGetMetricas(): Response<MetricasAdmin>
 }

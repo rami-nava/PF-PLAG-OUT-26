@@ -354,7 +354,7 @@ class AdminMetricasModelTest {
         assertEquals(2, eficacia.totalTratamientosArchivados)
         assertEquals(1, eficacia.tratamientosExitosos)
         assertEquals(1, eficacia.monitoreosConRebrote)
-        assertEquals(50f, eficacia.tasaEficaciaPorcentaje, 0.01f)
+        assertEquals(50f, eficacia.tasaEficaciaPorcentaje!!, 0.01f)
     }
 
     @Test

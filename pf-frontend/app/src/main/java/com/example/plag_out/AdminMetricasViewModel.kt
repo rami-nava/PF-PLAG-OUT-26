@@ -30,7 +30,17 @@ class AdminMetricasViewModel(
 
     private var cargaJob: Job? = null
 
-    fun cargar(forzar: Boolean = false) {
+    // true: tableros de todos los productores (admin, GET /admin/metricas).
+    // false: los del propio productor, calculados en la app con sus monitoreos.
+    private var global = false
+
+    fun cargar(forzar: Boolean = false, global: Boolean = this.global) {
+        if (global != this.global) {
+            // Otra fuente de datos: lo cargado antes no sirve.
+            cargaJob?.cancel()
+            this.global = global
+            _state.value = AdminMetricasUIState(pestañaActual = _state.value.pestañaActual)
+        }
         if (!forzar && (_state.value.campañas.isNotEmpty() || _state.value.isLoading)) return
 
         cargaJob?.cancel()
@@ -40,6 +50,11 @@ class AdminMetricasViewModel(
                 isRefreshing = forzar,
                 error = null
             )
+
+            if (global) {
+                cargarGlobales()
+                return@launch
+            }
 
             try {
                 val (respMonitoreos, respTerrenos, respPlantaciones) = withContext(ioDispatcher) {
@@ -119,6 +134,27 @@ class AdminMetricasViewModel(
         }
     }
 
+    private suspend fun cargarGlobales() {
+        try {
+            val respuesta = withContext(ioDispatcher) { gddService.adminGetMetricas() }
+            val metricas = respuesta.body()
+            _state.value = if (respuesta.isSuccessful && metricas != null) {
+                _state.value.conMetricasGlobales(metricas).copy(isLoading = false, isRefreshing = false, error = null)
+            } else {
+                _state.value.copy(isLoading = false, isRefreshing = false, error = falloDeRespuesta(respuesta).mensaje)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("ADMIN_METRICAS", "Error cargando métricas globales", e)
+            _state.value = _state.value.copy(
+                isLoading = false,
+                isRefreshing = false,
+                error = falloDeExcepcion(e).mensaje
+            )
+        }
+    }
+
     fun refrescar() = cargar(forzar = true)
 
     fun cambiarPestaña(pestaña: PestañaDashboard) {
@@ -138,6 +174,7 @@ class AdminMetricasViewModel(
 
     fun limpiar() {
         cargaJob?.cancel()
+        global = false
         _state.value = AdminMetricasUIState()
     }
 }
