@@ -126,9 +126,13 @@ fun objetivoDelCiclo(ciclo: GddCicloResponse, objetivoMonitoreo: Float?): Float?
 }
 
 
-fun acumuladoVisibleDelCiclo(ciclo: GddCicloResponse, objetivo: Float?): Float =
-    if (objetivo != null && ciclo.progreso >= 100f) ciclo.gdd_acumulado.coerceAtMost(objetivo)
-    else ciclo.gdd_acumulado
+/** Lo acumulado hacia la eclosión: el huevo tiene su propio acumulador. */
+fun acumuladoHuevoDelCiclo(ciclo: GddCicloResponse): Float = ciclo.gdd_acumulado_huevo ?: ciclo.gdd_acumulado
+
+fun acumuladoVisibleDelCiclo(ciclo: GddCicloResponse, objetivo: Float?): Float {
+    val huevo = acumuladoHuevoDelCiclo(ciclo)
+    return if (objetivo != null && ciclo.progreso >= 100f) huevo.coerceAtMost(objetivo) else huevo
+}
 
 @RequiresApi(Build.VERSION_CODES.O)
 fun fechaDeCiclo(valor: String?): LocalDate? =
@@ -146,13 +150,13 @@ private fun ritmoDiarioDelCiclo(ciclo: GddCicloResponse): Float {
     val biofix = fechaDeCiclo(ciclo.fecha_biofix) ?: return ciclo.gdd_diario
     val actualizacion = fechaDeCiclo(ciclo.fecha_actualizacion) ?: return ciclo.gdd_diario
     val dias = ChronoUnit.DAYS.between(biofix, actualizacion)
-    return if (dias > 0) ciclo.gdd_acumulado / dias else ciclo.gdd_diario
+    return if (dias > 0) acumuladoHuevoDelCiclo(ciclo) / dias else ciclo.gdd_diario
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
 fun diasEstimadosDelCiclo(ciclo: GddCicloResponse, objetivoMonitoreo: Float?): Int? {
     val objetivo = objetivoDelCiclo(ciclo, objetivoMonitoreo) ?: return null
-    val restante = objetivo - ciclo.gdd_acumulado
+    val restante = objetivo - acumuladoHuevoDelCiclo(ciclo)
     if (restante <= 0f || ciclo.progreso >= 100f) return null
     val ritmo = ritmoDiarioDelCiclo(ciclo)
     return if (ritmo > 0f) ceil(restante / ritmo).toInt() else null

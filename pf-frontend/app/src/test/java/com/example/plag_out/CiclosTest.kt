@@ -87,6 +87,23 @@ class CiclosTest {
     }
 
     @Test
+    fun `la eclosion se mide con el acumulador del huevo`() {
+        // El huevo tiene su propia base: 80 GD en 10 dias (8/dia); el desarrollo lleva 150.
+        // Faltan 40 hasta 120 -> 5 dias, y la barra muestra 80, no 150.
+        val ciclo = Fixtures.ciclo(
+            fechaBiofix = "2026-01-01",
+            fechaActualizacion = "2026-01-11",
+            gddAcumulado = 150f,
+            gddAcumuladoHuevo = 80f,
+            gddEclosion = 120f,
+            progreso = 66f
+        )
+
+        assertEquals(5, diasEstimadosDelCiclo(ciclo, objetivoMonitoreo = null))
+        assertEquals(80f, acumuladoVisibleDelCiclo(ciclo, 120f))
+    }
+
+    @Test
     fun `redondea hacia arriba los dias al objetivo`() {
         // 10 dias, 100 acumulados -> 10/dia; faltan 95 -> 9,5 dias -> 10.
         val ciclo = Fixtures.ciclo(

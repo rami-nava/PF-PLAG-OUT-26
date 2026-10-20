@@ -230,14 +230,23 @@ private fun TarjetaPlagaAdmin(plaga: PlagaAdmin, cultivos: List<CultivoResponse>
                 ) {
                     EtiquetaInfo(Icons.Outlined.Thermostat, rangoTermico(plaga), PlagOutColors.Terracotta)
                     plaga.gdd_eclosion?.let {
-                        EtiquetaInfo(Icons.Outlined.Egg, "Eclosión ${formatearNumero(it)} GDD", PlagOutColors.Bark)
+                        EtiquetaInfo(Icons.Outlined.Egg, "Huevo ${formatearNumero(it)} GDD", PlagOutColors.Bark)
                     }
                     plaga.gdd_generacion?.let {
-                        EtiquetaInfo(Icons.Outlined.Loop, "Generación ${formatearNumero(it)} GDD", PlagOutColors.Bark)
+                        EtiquetaInfo(Icons.Outlined.Loop, "Adulto ${formatearNumero(it)} GDD", PlagOutColors.Bark)
                     }
                     if (nombresCultivos.isNotEmpty()) {
                         EtiquetaInfo(Icons.Outlined.Grass, nombresCultivos.joinToString(", "), PlagOutColors.Leaf)
                     }
+                }
+                avisoDeFuente(plaga)?.let { aviso ->
+                    Text(
+                        aviso,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = PlagOutColors.Terracotta,
+                        modifier = Modifier.padding(top = 6.dp).testTag("avisoFuente_${plaga.id}")
+                    )
                 }
                 val monitoreos = plaga.monitoreos_activos
                 if (monitoreos != null && monitoreos > 0) {
@@ -257,6 +266,16 @@ private fun TarjetaPlagaAdmin(plaga: PlagaAdmin, cultivos: List<CultivoResponse>
             )
         }
     }
+}
+
+/** Aviso cuando la plaga no tiene modelo citado o una edición la apartó de su fuente. */
+fun avisoDeFuente(plaga: PlagaAdmin): String? {
+    val referencia = plaga.referencia_termica ?: return null
+    if (!referencia.validada) return "Sin modelo térmico validado: no admite monitoreos nuevos"
+    val difiere = referencia.difiere.orEmpty()
+    return if (difiere.isEmpty()) null
+    else if (difiere.size == 1) "Un parámetro difiere de su fuente citada"
+    else "${difiere.size} parámetros difieren de su fuente citada"
 }
 
 private fun rangoTermico(plaga: PlagaAdmin): String {
@@ -378,13 +397,13 @@ fun PlagaFormScreen(
 
             SeccionFormulario(
                 titulo = "Grados-día del ciclo",
-                subtitulo = "GDD acumulados desde el biofix hasta cada evento biológico."
+                subtitulo = "GDD del huevo hasta la eclosión y GDD hasta el adulto. La base propia del huevo y la fuente citada se ven en el panel web."
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
                     CampoFormularioAdmin(
                         valor = form.gddEclosion,
                         onCambio = { nuevo -> if (esNumeroPlaga(nuevo)) form = form.copy(gddEclosion = nuevo) },
-                        etiqueta = "Eclosión",
+                        etiqueta = "Huevo",
                         unidad = "GDD",
                         error = errorDe(CampoPlaga.GDD_ECLOSION),
                         tag = "txtGddEclosion",
@@ -395,7 +414,7 @@ fun PlagaFormScreen(
                     CampoFormularioAdmin(
                         valor = form.gddGeneracion,
                         onCambio = { nuevo -> if (esNumeroPlaga(nuevo)) form = form.copy(gddGeneracion = nuevo) },
-                        etiqueta = "Generación",
+                        etiqueta = "Hasta el adulto",
                         unidad = "GDD",
                         error = errorDe(CampoPlaga.GDD_GENERACION),
                         tag = "txtGddGeneracion",
