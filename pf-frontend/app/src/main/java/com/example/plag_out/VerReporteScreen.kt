@@ -72,6 +72,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -160,6 +161,7 @@ private fun ContenidoVerReporte(
     onVerTerreno: (Int) -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val locale = LocalConfiguration.current.locales[0]
     var mostrarDialogoConfirmacion by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -300,7 +302,7 @@ private fun ContenidoVerReporte(
                     )
 
                     // Fecha y hora
-                    val sdf = SimpleDateFormat("dd/MM/yyyy  HH:mm", androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
+                    val sdf = SimpleDateFormat("dd/MM/yyyy  HH:mm", locale)
                     val fechaStr = sdf.format(Date(detalle.timestamp_ms))
                     FilaDato(
                         icono = Icons.Outlined.AccessTime,
@@ -399,7 +401,7 @@ private fun ContenidoVerReporte(
                                     if (!detalle.terreno_nombre.isNullOrBlank()) {
                                         val distText = if (detalle.distancia_km != null) {
                                             if (detalle.distancia_km < 1f) " · a ${(detalle.distancia_km * 1000).toInt()} m"
-                                            else String.format(Locale.getDefault(), " · a %.1f km", detalle.distancia_km)
+                                            else String.format(locale, " · a %.1f km", detalle.distancia_km)
                                         } else ""
                                         val sufijoMasCercano = if (sobrepasa150) "" else " (más cercano)"
                                         FilaContextoNav(
@@ -414,7 +416,7 @@ private fun ContenidoVerReporte(
                                         val textDist = if (ta.distanciaKm < 1f) {
                                             "${(ta.distanciaKm * 1000).toInt()} m"
                                         } else {
-                                            String.format(Locale.getDefault(), "%.1f km", ta.distanciaKm)
+                                            String.format(locale, "%.1f km", ta.distanciaKm)
                                         }
                                         val titulo = if (sobrepasa150) {
                                             "${ta.terrenoNombre} · a $textDist"

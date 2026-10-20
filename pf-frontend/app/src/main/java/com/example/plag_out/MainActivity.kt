@@ -3,6 +3,7 @@ package com.example.plag_out
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -164,7 +165,7 @@ class MainActivity : ComponentActivity() {
 
     private fun leerDeepLink(intent: Intent?) {
         intent ?: return
-        val uri = intent.data ?: return
+        val uri = intent.data ?: Uri.EMPTY
         val uriStr = uri.toString().lowercase()
         val esResetPassword = (uri.scheme == "plagout" && uri.host == "reset-password") ||
             (uri.scheme == "http" && uri.host == "localhost" && uri.port == 3000)

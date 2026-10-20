@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -61,7 +62,6 @@ import com.example.plag_out.ui.theme.SkeletonCargando
 import com.example.plag_out.ui.theme.StaggeredAppear
 import com.example.plag_out.ui.theme.contadorAnimado
 import com.example.plag_out.ui.theme.estiloDeNivel
-import java.util.Locale
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -326,7 +326,7 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        String.format(Locale.getDefault(), "%.0f ha", semaforo.totalHectareas),
+                        String.format(LocalConfiguration.current.locales[0], "%.0f ha", semaforo.totalHectareas),
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Black,
                         color = PlagOutColors.TextMain
@@ -455,7 +455,7 @@ private fun ItemDesgloseSemaforo(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                String.format(Locale.getDefault(), "%.1f ha", hectareas),
+                String.format(LocalConfiguration.current.locales[0], "%.1f ha", hectareas),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = PlagOutColors.TextMain
@@ -522,7 +522,7 @@ private fun ItemFilaLoteCritico(lote: LoteEnRiesgoCritico) {
                     if (lote.terrenoArea > 0f) {
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            String.format(Locale.getDefault(), "· %.0f ha", lote.terrenoArea),
+                            String.format(LocalConfiguration.current.locales[0], "· %.0f ha", lote.terrenoArea),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = PlagOutColors.TextSecondary
@@ -891,7 +891,7 @@ private fun TarjetaEficaciaTratamientos(eficacia: EficaciaTratamientos) {
             ) {
                 Column {
                     Text(
-                        String.format(Locale.getDefault(), "%.0f%%", eficacia.tasaEficaciaPorcentaje),
+                        String.format(LocalConfiguration.current.locales[0], "%.0f%%", eficacia.tasaEficaciaPorcentaje),
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Black,
                         color = PlagOutColors.RiskOk
@@ -1036,7 +1036,7 @@ private fun TarjetaResumenGlobal(
                 ItemMetricaCompacta(etiqueta = "Monitoreos", valor = "${contadorAnimado(totalMonitoreos)}", icono = Icons.Outlined.BugReport, modifier = Modifier.weight(1f))
                 ItemMetricaCompacta(
                     etiqueta = "Hectáreas",
-                    valor = if (totalHectareas > 0f) String.format(Locale.getDefault(), "%.1f ha", totalHectareas) else "0 ha",
+                    valor = if (totalHectareas > 0f) String.format(LocalConfiguration.current.locales[0], "%.1f ha", totalHectareas) else "0 ha",
                     icono = Icons.Outlined.Agriculture,
                     modifier = Modifier.weight(1f)
                 )
@@ -1125,7 +1125,7 @@ private fun TarjetaPlagaPredominanteCampaña(campaña: CampañaHistorica) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    MiniIndicador(titulo = "Incidencia", valor = String.format(Locale.getDefault(), "%.1f%%", lider.porcentajeIncidencia), detalle = "del total monitoreado", color = PlagOutColors.Forest, modifier = Modifier.weight(1f))
+                    MiniIndicador(titulo = "Incidencia", valor = String.format(LocalConfiguration.current.locales[0], "%.1f%%", lider.porcentajeIncidencia), detalle = "del total monitoreado", color = PlagOutColors.Forest, modifier = Modifier.weight(1f))
                     MiniIndicador(titulo = "Casos en Alerta", valor = "${lider.enRiesgoAlto}", detalle = "${lider.porcentajeRiesgoAlto.toInt()}% con riesgo alto", color = if (lider.enRiesgoAlto > 0) PlagOutColors.RiskDanger else PlagOutColors.RiskOk, modifier = Modifier.weight(1f))
                     val estiloSeveridad = estiloDeNivel(lider.nivelRiesgoPromedio.roundToInt())
                     MiniIndicador(titulo = "Severidad Media", valor = estiloSeveridad.etiqueta, detalle = "índice ponderado", color = estiloSeveridad.color, modifier = Modifier.weight(1f))
@@ -1148,7 +1148,7 @@ private fun MiniIndicador(titulo: String, valor: String, detalle: String, color:
             Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.Start
         ) {
-            Text(titulo.uppercase(Locale.getDefault()), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = color, letterSpacing = 0.4.sp)
+            Text(titulo.uppercase(LocalConfiguration.current.locales[0]), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = color, letterSpacing = 0.4.sp)
             Spacer(Modifier.height(4.dp))
             Text(valor, fontSize = 16.sp, fontWeight = FontWeight.Black, color = PlagOutColors.TextMain)
             Spacer(Modifier.height(2.dp))
@@ -1229,7 +1229,7 @@ private fun FilaPlagaPrevalencia(posicion: Int, plaga: ResumenPlagaCampaña) {
             }
 
             Column(horizontalAlignment = Alignment.End) {
-                Text(String.format(Locale.getDefault(), "%.1f%%", plaga.porcentajeIncidencia), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.Forest)
+                Text(String.format(LocalConfiguration.current.locales[0], "%.1f%%", plaga.porcentajeIncidencia), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.Forest)
                 Text("${plaga.totalMonitoreos} ${if (plaga.totalMonitoreos == 1) "lote" else "lotes"}", fontSize = 11.sp, color = PlagOutColors.TextSecondary)
             }
         }
