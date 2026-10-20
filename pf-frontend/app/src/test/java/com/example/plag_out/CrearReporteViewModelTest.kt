@@ -193,7 +193,7 @@ class CrearReporteViewModelTest {
     fun `seleccionarPlaga ofrece las etapas que el backend define para la plaga`() {
         val oruga = Fixtures.plaga(
             id = 1, nombre = "Oruga Cogollera", nombreCientifico = "Spodoptera frugiperda",
-            etapas = listOf("HUEVO", "LARVA", "PUPA", "ADULTO")
+            etapas = listOf("HUEVO", "LARVA", "ADULTO")
         )
         val chicharrita = Fixtures.plaga(
             id = 2, nombre = "Chicharrita", nombreCientifico = "Dalbulus maidis",
@@ -210,7 +210,7 @@ class CrearReporteViewModelTest {
         viewModel.seleccionarPlantacion(Fixtures.plantacion(id = 10, terrenoId = 1))
 
         viewModel.seleccionarPlaga(oruga)
-        assertEquals(listOf("HUEVO", "LARVA", "PUPA", "ADULTO"), viewModel.state.value.etapasDisponibles)
+        assertEquals(listOf("HUEVO", "LARVA", "ADULTO"), viewModel.state.value.etapasDisponibles)
         assertEquals("HUEVO", viewModel.state.value.etapaBiologica)
 
         viewModel.seleccionarPlaga(chicharrita)
@@ -218,7 +218,7 @@ class CrearReporteViewModelTest {
         assertEquals("HUEVO", viewModel.state.value.etapaBiologica)
 
         viewModel.seleccionarPlaga(sinDato)
-        assertEquals(listOf("HUEVO", "NINFA", "LARVA", "PUPA", "ADULTO"), viewModel.state.value.etapasDisponibles)
+        assertEquals(listOf("HUEVO", "NINFA", "LARVA", "ADULTO"), viewModel.state.value.etapasDisponibles)
     }
 
     @Test

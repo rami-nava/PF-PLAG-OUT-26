@@ -42,7 +42,7 @@ data class CrearReporteUIState(
     val reporteNavPayload: ReporteNavPayload? = null
 )
 
-private val ETAPAS_BIOLOGICAS = listOf("HUEVO", "NINFA", "LARVA", "PUPA", "ADULTO")
+private val ETAPAS_BIOLOGICAS = listOf("HUEVO", "NINFA", "LARVA", "ADULTO")
 
 class CrearReporteViewModel(
     private val context: Context,
