@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PLAG-OUT - Demostración de Producto (20 Minutos)</title>
+  <title>PLAG-OUT - Demostración de Producto (20 Min) + Apéndice Técnico</title>
   <style>
     :root {
       --bg-dark: #0B1711;
@@ -16,7 +16,9 @@
       --text-muted: #9EBAAB;
       --highlight: #5CE698;
       --danger: #E85D5D;
+      --blue: #5CADE6;
       --border: rgba(255, 255, 255, 0.1);
+      --border-accent: rgba(92, 230, 152, 0.3);
     }
 
     * {
@@ -35,9 +37,10 @@
       overflow-x: hidden;
     }
 
+    /* TOP BAR */
     header {
       background: rgba(11, 23, 17, 0.95);
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(10px);
       border-bottom: 1px solid var(--border);
       padding: 10px 24px;
       display: flex;
@@ -70,17 +73,52 @@
       font-weight: 600;
     }
 
+    .nav-center {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .slide-badge {
+      font-size: 0.85rem;
+      color: var(--gold);
+      font-weight: 700;
+      background: rgba(242, 178, 62, 0.12);
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(242, 178, 62, 0.3);
+    }
+
+    .timer-display {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-card);
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .timer-display span.time {
+      color: var(--highlight);
+      font-family: monospace;
+      font-size: 0.95rem;
+    }
+
     .controls {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
 
     .btn {
       background: var(--bg-card);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 7px 14px;
+      padding: 6px 12px;
       border-radius: 8px;
       font-size: 0.85rem;
       cursor: pointer;
@@ -88,6 +126,7 @@
       align-items: center;
       gap: 6px;
       transition: all 0.2s ease;
+      font-weight: 500;
     }
 
     .btn:hover {
@@ -106,25 +145,40 @@
       color: #0b1510;
     }
 
+    .btn-appendix {
+      background: rgba(92, 173, 230, 0.15);
+      border: 1px solid rgba(92, 173, 230, 0.4);
+      color: var(--blue);
+      font-weight: 600;
+    }
+
+    .btn-appendix:hover {
+      background: rgba(92, 173, 230, 0.3);
+      color: #fff;
+    }
+
+    /* PROGRESS BAR */
     .progress-bar-container {
       width: 100%;
       height: 4px;
       background: rgba(255, 255, 255, 0.08);
+      position: relative;
     }
 
     .progress-bar {
       height: 100%;
-      background: var(--highlight);
-      width: 11.11%;
+      background: linear-gradient(90deg, var(--highlight), var(--gold));
+      width: 5%;
       transition: width 0.3s ease;
     }
 
+    /* MAIN CONTAINER */
     main {
       flex: 1;
       display: flex;
       justify-content: center;
       align-items: center;
-      padding: 20px;
+      padding: 24px;
       max-width: 1440px;
       margin: 0 auto;
       width: 100%;
@@ -142,10 +196,10 @@
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 20px;
-      padding: 30px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      padding: 32px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6);
       animation: fadeIn 0.3s ease;
-      min-height: 650px;
+      min-height: 640px;
     }
 
     .slide.active {
@@ -155,651 +209,1549 @@
     .slide.single-col {
       grid-template-columns: 1fr;
       text-align: center;
-      padding: 40px 48px;
+      padding: 40px 50px;
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
+      from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Left Visual (Phone Screen) */
-    .slide-visual {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 18px;
-      padding: 14px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-    }
-
-    .slide-visual img {
-      max-height: 560px;
-      max-width: 100%;
-      border-radius: 28px;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7);
-      border: 3px solid rgba(255, 255, 255, 0.12);
-      object-fit: contain;
-    }
-
-    /* Right Explanation & Integrated Graphs */
-    .slide-content {
+    /* LEFT COLUMN (VISUAL / MOCKUP) */
+    .visual-col {
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      justify-content: flex-start;
-      text-align: left;
+      align-items: center;
+      justify-content: center;
+      position: relative;
     }
 
-    .slide-badge {
-      display: inline-flex;
+    .phone-mockup {
+      width: 100%;
+      max-width: 320px;
+      border: 10px solid #1a2a22;
+      border-radius: 36px;
+      overflow: hidden;
+      background: #000;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      position: relative;
+    }
+
+    .phone-mockup img {
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+
+    .phone-mockup:hover img {
+      transform: scale(1.02);
+    }
+
+    .image-tag {
+      margin-top: 12px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      display: flex;
       align-items: center;
       gap: 6px;
-      background: rgba(242, 178, 62, 0.15);
-      color: var(--gold);
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      width: fit-content;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
     }
 
+    /* RIGHT COLUMN (CONTENT) */
+    .content-col {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .badge-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    .badge-primary { background: rgba(92, 230, 152, 0.15); color: var(--highlight); }
+    .badge-gold { background: rgba(242, 178, 62, 0.15); color: var(--gold); }
+    .badge-danger { background: rgba(232, 93, 93, 0.15); color: var(--danger); }
+    .badge-blue { background: rgba(92, 173, 230, 0.15); color: var(--blue); }
+
     .slide-title {
-      font-size: 1.85rem;
+      font-size: 2rem;
       font-weight: 800;
+      color: var(--text);
       line-height: 1.2;
-      color: #fff;
+      margin-bottom: 8px;
     }
 
     .slide-subtitle {
       font-size: 1.05rem;
       color: var(--text-muted);
+      margin-bottom: 20px;
       line-height: 1.4;
     }
 
-    /* Technical Integration Boxes */
     .tech-box {
       background: var(--bg-card-alt);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px 18px;
+      border-left: 4px solid var(--highlight);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
     }
 
-    .tech-box-header {
+    .tech-box.gold { border-left-color: var(--gold); }
+    .tech-box.blue { border-left-color: var(--blue); }
+    .tech-box.danger { border-left-color: var(--danger); }
+
+    .tech-box h3 {
       font-size: 0.95rem;
-      font-weight: 800;
-      color: var(--gold);
-      margin-bottom: 8px;
+      color: var(--highlight);
+      margin-bottom: 6px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      font-weight: 700;
     }
 
+    .tech-box.gold h3 { color: var(--gold); }
+    .tech-box.blue h3 { color: var(--blue); }
+    .tech-box.danger h3 { color: var(--danger); }
+
     .tech-box p {
-      font-size: 0.92rem;
-      color: #d8e5dd;
+      font-size: 0.9rem;
+      color: var(--text);
       line-height: 1.45;
     }
 
-    /* Diagram Pill List */
-    .pill-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 6px;
+    .pills-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
     }
 
-    .pill-item {
+    .pill-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .pill-card h4 {
+      font-size: 0.8rem;
+      color: var(--gold);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .pill-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    .quote-box {
       background: rgba(0, 0, 0, 0.25);
-      border-left: 3px solid var(--highlight);
-      padding: 8px 12px;
-      border-radius: 0 8px 8px 0;
-      font-size: 0.88rem;
-      color: #e5eee8;
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-style: italic;
+      color: var(--text-muted);
+      font-size: 0.85rem;
       line-height: 1.4;
     }
 
-    .pill-item strong {
-      color: #fff;
+    .quote-box strong {
+      color: var(--highlight);
+      font-style: normal;
     }
 
-    /* Curve Visualization Box (Errar la ventana) */
-    .curve-box {
-      display: grid;
-      grid-template-columns: 1fr 1.3fr 1fr;
-      gap: 10px;
-      margin-top: 8px;
-    }
-
-    .curve-step {
-      background: rgba(0, 0, 0, 0.3);
-      padding: 10px 12px;
-      border-radius: 10px;
-      border-top: 3px solid var(--danger);
+    /* METRIC CARDS / HERO */
+    .hero-container {
+      max-width: 900px;
+      margin: 0 auto;
       text-align: center;
     }
 
-    .curve-step.optimal {
-      border-top-color: var(--highlight);
-      background: rgba(92, 230, 152, 0.1);
+    .hero-title {
+      font-size: 3.2rem;
+      font-weight: 900;
+      letter-spacing: -1px;
+      color: var(--text);
+      line-height: 1.1;
+      margin-bottom: 12px;
     }
 
-    .curve-step h5 {
-      font-size: 0.8rem;
-      color: #fff;
-      margin-bottom: 4px;
+    .hero-title span {
+      background: linear-gradient(135deg, var(--highlight), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
-    .curve-step .eff-val {
-      font-size: 1.15rem;
-      font-weight: 800;
-      margin-bottom: 2px;
-    }
-
-    .curve-step p {
-      font-size: 0.75rem;
+    .hero-subtitle {
+      font-size: 1.3rem;
       color: var(--text-muted);
-      line-height: 1.25;
+      margin-bottom: 32px;
+      line-height: 1.5;
     }
 
-    /* Formula Box */
-    .formula-tag {
-      background: rgba(92, 230, 152, 0.12);
-      border: 1px dashed var(--highlight);
+    .stat-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .stat-card h3 {
+      font-size: 2.2rem;
+      font-weight: 800;
       color: var(--highlight);
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-family: "Courier New", Courier, monospace;
-      font-size: 0.95rem;
-      font-weight: bold;
-      display: inline-block;
-      margin: 6px 0;
+      margin-bottom: 6px;
     }
 
-    /* Speaker Notes Box */
-    .speaker-box {
-      margin-top: auto;
-      background: rgba(0, 0, 0, 0.45);
-      border-left: 4px solid var(--highlight);
-      padding: 12px 16px;
-      border-radius: 0 12px 12px 0;
-      max-height: 140px;
-      overflow-y: auto;
+    .stat-card.danger h3 { color: var(--danger); }
+    .stat-card.gold h3 { color: var(--gold); }
+    .stat-card.blue h3 { color: var(--blue); }
+
+    .stat-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.35;
     }
 
-    .speaker-box-header {
-      font-size: 0.72rem;
+    /* APPENDIX GRID */
+    .appendix-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 24px;
+      text-align: left;
+    }
+
+    .appendix-card {
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .appendix-card:hover {
+      border-color: var(--blue);
+      transform: translateY(-2px);
+    }
+
+    .appendix-card .tag {
+      font-size: 0.7rem;
       font-weight: 700;
-      color: var(--highlight);
-      text-transform: uppercase;
+      color: var(--blue);
       margin-bottom: 4px;
-      display: flex;
-      justify-content: space-between;
     }
 
-    .speaker-script {
-      font-size: 0.88rem;
-      line-height: 1.45;
-      color: #e2ece6;
-      font-style: italic;
+    .appendix-card h4 {
+      font-size: 1rem;
+      color: #fff;
+      margin-bottom: 6px;
     }
 
-    footer {
-      padding: 10px 24px;
-      background: rgba(11, 23, 17, 0.95);
-      border-top: 1px solid var(--border);
+    .appendix-card p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* SPEAKER NOTES DRAWER */
+    .notes-drawer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(11, 23, 17, 0.98);
+      border-top: 2px solid var(--highlight);
+      padding: 16px 32px;
+      backdrop-filter: blur(12px);
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 200;
+      max-height: 250px;
+      overflow-y: auto;
+      box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.8);
+    }
+
+    .notes-drawer.open {
+      transform: translateY(0);
+    }
+
+    .notes-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: 8px;
     }
 
-    .nav-hints {
-      color: var(--text-muted);
-      font-size: 0.82rem;
+    .notes-header h4 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--gold);
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    kbd {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 0.75rem;
+    .notes-content {
+      font-size: 0.95rem;
+      line-height: 1.55;
+      color: #e5ece8;
     }
 
+    /* MODAL FOR APPENDIX DROPDOWN */
+    .dropdown-menu {
+      position: absolute;
+      top: 50px;
+      right: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 150;
+      min-width: 280px;
+    }
+
+    .dropdown-menu.show {
+      display: flex;
+    }
+
+    .dropdown-item {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.15s ease;
+    }
+
+    .dropdown-item:hover {
+      background: var(--bg-card-alt);
+      color: var(--highlight);
+    }
+
+    .dropdown-item span.cat {
+      font-size: 0.7rem;
+      color: var(--gold);
+      font-weight: 700;
+    }
+
+    /* RESPONSIVE */
     @media (max-width: 1024px) {
       .slide {
         grid-template-columns: 1fr;
+        gap: 20px;
       }
-      .slide-visual img {
-        max-height: 380px;
+      .phone-mockup {
+        max-width: 260px;
+      }
+      .stat-cards, .appendix-cards {
+        grid-template-columns: 1fr;
       }
     }
   </style>
 </head>
 <body>
 
+  <!-- TOP BAR -->
   <header>
     <div class="brand">
       <h1>PLAG-OUT</h1>
-      <span>DEMO EN VIVO (20 MIN)</span>
+      <span>Demo Oficial (20 min) + Apéndice</span>
     </div>
+
+    <div class="nav-center">
+      <div class="slide-badge" id="slideCounter">Diapositiva 1 / 20</div>
+      <div class="timer-display">
+        <span>⏱️</span>
+        <span class="time" id="timerValue">00:00</span>
+        <button class="btn" id="btnTimerToggle" style="padding: 2px 6px; font-size: 0.75rem;" title="Play / Pausa">⏯️</button>
+        <button class="btn" id="btnTimerReset" style="padding: 2px 6px; font-size: 0.75rem;" title="Reiniciar">🔄</button>
+      </div>
+    </div>
+
     <div class="controls">
-      <span id="timingIndicator" style="color: var(--gold); font-size: 0.88rem; font-weight: 700;">⏱️ 00:00 - 02:00</span>
-      <button class="btn" id="prevBtn" onclick="prevSlide()">◀ Anterior</button>
-      <span id="slideCounter" style="font-weight: 700; min-width: 60px; text-align: center;">1 / 9</span>
-      <button class="btn btn-primary" id="nextBtn" onclick="nextSlide()">Siguiente ▶</button>
-      <button class="btn" onclick="toggleNotes()">🎙️ Notas</button>
-      <button class="btn" onclick="toggleFullscreen()">⛶ Pantalla Completa</button>
+      <button class="btn" id="btnPrev" title="Anterior (Flecha Izquierda)">← Ant</button>
+      <button class="btn btn-primary" id="btnNext" title="Siguiente (Flecha Derecha o Espacio)">Sig →</button>
+      <button class="btn btn-appendix" id="btnAppendixToggle">📚 Apéndice Q&A ▼</button>
+      <button class="btn" id="btnNotesToggle" title="Notas del orador (Tecla N)">🎙️ Notas</button>
+      <button class="btn" id="btnFullscreen" title="Pantalla completa (Tecla F)">⛶</button>
     </div>
   </header>
 
+  <!-- APPENDIX DROPDOWN MENU -->
+  <div class="dropdown-menu" id="appendixMenu">
+    <div style="padding: 6px 12px; font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">
+      Saltar a Diapositiva de Soporte:
+    </div>
+    <div class="dropdown-item" onclick="goToSlide(14)">
+      <span>Slide 15: Dinámica & Fórmulas GDD</span>
+      <span class="cat">Biológico</span>
+    </div>
+    <div class="dropdown-item" onclick="goToSlide(15)">
+      <span>Slide 16: Modelos Plagas & Curva Eficacia</span>
+      <span class="cat">Biológico</span>
+    </div>
+    <div class="dropdown-item" onclick="goToSlide(16)">
+      <span>Slide 17: Arquitectura & Tolerancia Offline</span>
+      <span class="cat">Técnico</span>
+    </div>
+    <div class="dropdown-item" onclick="goToSlide(17)">
+      <span>Slide 18: Modelo ML para Biofix</span>
+      <span class="cat">Técnico</span>
+    </div>
+    <div class="dropdown-item" onclick="goToSlide(18)">
+      <span>Slide 19: Job Diario Batch & Push FCM</span>
+      <span class="cat">Técnico</span>
+    </div>
+    <div class="dropdown-item" onclick="goToSlide(19)">
+      <span>Slide 20: Geoprivacidad & Ley 25.326</span>
+      <span class="cat">Técnico</span>
+    </div>
+  </div>
+
+  <!-- PROGRESS BAR -->
   <div class="progress-bar-container">
     <div class="progress-bar" id="progressBar"></div>
   </div>
 
+  <!-- MAIN SLIDES CONTAINER -->
   <main>
     <div class="slide-deck">
 
-      <!-- SLIDE 1: APERTURA EXPRESS (00:00 - 02:00) -->
-      <div class="slide active single-col" data-time="00:00 - 02:00">
-        <div style="max-width: 900px; margin: 0 auto;">
-          <div class="slide-badge" style="margin: 0 auto 14px;">🌱 Apertura • UTN FRBA 2026</div>
-          <h1 style="font-size: 3.6rem; font-weight: 900; color: var(--highlight); letter-spacing: 1px; margin-bottom: 6px;">PLAG-OUT</h1>
-          <p style="font-size: 1.35rem; color: #fff; font-weight: 700; margin-bottom: 20px;">
-            Monitoreo inteligente de plagas para el campo argentino
+      <!-- =================================================================== -->
+      <!-- SLIDE 1: APERTURA EXPRESS & EL PROBLEMA (00:00 - 02:00) -->
+      <!-- =================================================================== -->
+      <div class="slide active single-col" data-timing="00:00 - 02:00" data-notes="Buenos días a la mesa evaluadora. En la última campaña agrícola, Argentina perdió más de 2.000 millones de dólares en maíz por la chicharrita. El sistema tradicional tiene un pecado de origen: llega tarde. Cuando se ve la larva grande o la hoja comida, el daño ya está hecho. Creamos PLAG-OUT para que la biología, el clima y la comunidad le avisen al productor cuándo va a nacer la plaga antes de que empiece a comer. Nuestro mantra es: 'La IA acota el riesgo, el campo confirma'.">
+        <div class="hero-container">
+          <div class="badge-row" style="justify-content: center;">
+            <span class="badge badge-gold">Trabajo Final de Grado • UTN FRBA 2026</span>
+            <span class="badge badge-primary">⏱️ Apertura Express (00:00 - 02:00)</span>
+          </div>
+
+          <h2 class="hero-title">PLAG-<span>OUT</span></h2>
+          <p class="hero-subtitle">
+            Monitoreo inteligente de plagas sincronizando biología, clima y comunidad.<br>
+            <strong>"La inteligencia artificial acota el riesgo; el campo confirma."</strong>
           </p>
 
-          <!-- Crisis and Solution Summary Grid -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; text-align: left;">
-            <div style="background: rgba(232, 93, 93, 0.12); border: 1px solid var(--danger); border-radius: 14px; padding: 20px;">
-              <span style="font-size: 0.8rem; font-weight: 800; color: var(--danger); text-transform: uppercase;">⚠️ El Dolor del Sector</span>
-              <div style="font-size: 2.2rem; font-weight: 900; color: #fff; margin: 6px 0;">-USD 2.000 M</div>
-              <p style="font-size: 0.92rem; color: #f0c5c5; line-height: 1.4;">
-                Campaña 23/24: la producción de maíz cayó de 59 a 47,5 M de toneladas por Chicharrita. El monitoreo actual <strong>llega tarde</strong>: pulverizaciones a destiempo y datos aislados.
-              </p>
+          <div class="stat-cards">
+            <div class="stat-card danger">
+              <h3>-USD 2.000M</h3>
+              <p>Pérdidas directas en maíz en la última campaña por <em>Dalbulus maidis</em> (chicharrita).</p>
             </div>
-
-            <div style="background: rgba(92, 230, 152, 0.12); border: 1px solid var(--highlight); border-radius: 14px; padding: 20px;">
-              <span style="font-size: 0.8rem; font-weight: 800; color: var(--highlight); text-transform: uppercase;">💡 La Respuesta de PLAG-OUT</span>
-              <div style="font-size: 1.4rem; font-weight: 900; color: #fff; margin: 6px 0;">Copiloto Fenológico</div>
-              <p style="font-size: 0.92rem; color: #d8e5dd; line-height: 1.4;">
-                Sincronización térmica con <strong>Grados Día (GDD)</strong>, alerta temprana comunitaria a 20 km y tableros de control ejecutivos.
-              </p>
-              <div style="margin-top: 8px; font-weight: 700; color: var(--gold); font-size: 0.9rem;">
-                Mantra: "La IA acota el riesgo. El campo confirma."
-              </div>
+            <div class="stat-card gold">
+              <h3>El Problema</h3>
+              <p>El monitoreo tradicional llega tarde: cuando la hoja está comida, pulverizar cuesta el doble y rinde 10-20%.</p>
+            </div>
+            <div class="stat-card">
+              <h3>La Solución</h3>
+              <p>Predecir el momento exacto de nacimiento integrando Grados Día (GDD), IA y red comunitaria.</p>
             </div>
           </div>
 
-          <div class="speaker-box" style="text-align: left;">
-            <div class="speaker-box-header">
-              <span>🗣️ Guión del Orador (Max 2 Minutos)</span>
-              <span>00:00 - 02:00</span>
-            </div>
-            <p class="speaker-script">
-              "Buenos días a todos. En la última campaña agrícola perdimos más de 2.000 millones de dólares en maíz por una sola plaga: la chicharrita. El problema de fondo es que el monitoreo tradicional llega tarde: cuando se detecta el daño foliar, pulverizar cuesta el doble y rinde la mitad. PLAG-OUT transforma este paradigma convirtiendo el celular en un copiloto fenológico predictivo. Pasemos directamente a ver el producto en funcionamiento."
-            </p>
+          <div class="quote-box" style="display: inline-block; max-width: 780px;">
+            Demostración funcional en 3 perspectivas: <strong>1. Alta y scouting de cero</strong> ➔ <strong>2. Campo activo con alertas en vivo</strong> ➔ <strong>3. Escalabilidad desde Admin</strong>.
           </div>
         </div>
       </div>
 
-      <!-- SLIDE 2: CAMPO Y VINCULO METEOROLOGICO (02:00 - 05:30) -->
-      <div class="slide" data-time="02:00 - 05:30">
-        <div class="slide-visual">
-          <img src="./img/01_gestion_terrenos.png" alt="Mis Terrenos">
+      <!-- =================================================================== -->
+      <!-- SLIDE 2: ONBOARDING: CUENTA NUEVA & GUÍAS (02:00 - 03:30) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="02:00 - 03:30" data-notes="Arrancamos creando una cuenta de cero. Registro rápido, pensado para el campo. Ni bien ingresa, el usuario tiene dos niveles de asistencia: la Guía Rápida desde el signo de pregunta con cinco pasos directos para quien está en la camioneta; y la Guía Completa desde Ajustes, donde explicamos con rigor qué son los Grados Día, qué es el Biofix y cómo se calcula el IRA. La app educa sin abrumar.">
+        <div class="visual-col">
+          <div class="phone-mockup">
+            <img src="img/01_gestion_terrenos.png" alt="Onboarding y Terrenos">
+          </div>
+          <div class="image-tag">📱 Pantalla de Bienvenida y Terrenos</div>
         </div>
-        <div class="slide-content">
-          <div class="slide-badge">📍 Módulo 1 • Estructura</div>
-          <h2 class="slide-title">Tu Campo, Ordenado y Vivo</h2>
-          <p class="slide-subtitle">Digitalización territorial con vínculo bioclimático local</p>
 
-          <div class="tech-box">
-            <div class="tech-box-header">
-              <span>🛰️ ¿Por qué georreferenciar cada lote?</span>
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-primary">Perspectiva 1 • Alta de Cero</span>
+              <span class="badge badge-gold">⏱️ 02:00 - 03:30</span>
             </div>
-            <p>
-              Los insectos no responden al promedio provincial: su tasa biológica depende del microclima local. 
-              Al registrar las coordenadas GPS, PLAG-OUT consulta la estación meteorológica más cercana para alimentar el motor de Grados Día.
-            </p>
-            <div class="pill-list">
-              <div class="pill-item">
-                <strong>Superficie Administrada:</strong> 114 ha consolidadas entre Buenos Aires (58 ha) y Jujuy.
+            <h2 class="slide-title">Creación de Cuenta y Onboarding</h2>
+            <p class="slide-subtitle">Diseño accesible para el entorno rural: dos niveles de guía según la necesidad.</p>
+
+            <div class="tech-box">
+              <h3>📘 Doble Nivel de Acompañamiento Pedagógico</h3>
+              <p>La aplicación resuelve tanto la urgencia operativa a campo como la profundización agronómica del ingeniero.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>❓ Guía Rápida (AppBar)</h4>
+                <p>5 pasos concretos para arrancar en minutos: Cargá lotes ➔ Sumá cultivos ➔ Monitoreá ➔ Confirmá biofix ➔ Reportá.</p>
               </div>
-              <div class="pill-item">
-                <strong>Estado '1 esperando biofix':</strong> Avisa qué potrero requiere marcar el hito biológico cero.
+              <div class="pill-card">
+                <h4>🔬 Guía Completa (Ajustes)</h4>
+                <p>Explicación científica: qué son los GDD, el biofix como punto cero, el Índice de Riesgo Ambiental (IRA) y los niveles del semáforo.</p>
               </div>
-              <div class="pill-item">
-                <strong>Arquitectura Offline-First:</strong> Consulta y carga en zonas rurales sin 4G mediante Room SQLite local.
+              <div class="pill-card">
+                <h4>🔐 Registro Seguro</h4>
+                <p>Autenticación con validación instantánea y tokens JWT con revocación automática.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🌾 Enfoque Práctico</h4>
+                <p>Textos directos en lenguaje agronómico argentino, sin tecnicismos informáticos vacíos.</p>
               </div>
             </div>
           </div>
 
-          <div class="speaker-box">
-            <div class="speaker-box-header">
-              <span>🗣️ Guión del Orador</span>
-              <span>02:00 - 05:30</span>
-            </div>
-            <p class="speaker-script">
-              "En 'Mis Terrenos' el productor digitaliza sus campos. Noten las 114 ha administradas. Cada lote tiene coordenadas GPS exactas porque el insecto no vive en un promedio: necesita la temperatura real del potrero. La etiqueta '1 esperando biofix' avisa qué potrero necesita marcar el punto cero. Todo funciona offline sin depender de señal 4G."
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- SLIDE 3: MOTOR BIOLOGICO Y GDD (05:30 - 09:30) -->
-      <div class="slide" data-time="05:30 - 09:30">
-        <div class="slide-visual">
-          <img src="./img/02_monitoreo_cultivos.png" alt="Mis Monitoreos">
-        </div>
-        <div class="slide-content">
-          <div class="slide-badge">🐛 Módulo 2 • Biología</div>
-          <h2 class="slide-title">Precisión Lote por Lote: El Reloj Térmico</h2>
-          <p class="slide-subtitle">Fisiología del insecto e integral térmica en tiempo real</p>
-
-          <div class="tech-box">
-            <div class="tech-box-header">
-              <span>🔬 Fundamento Científico: Ciclo Biológico y GDD</span>
-            </div>
-            <p>
-              El desarrollo del insecto no sigue el calendario, sino la acumulación térmica diaria por encima de la temperatura base:
-            </p>
-            <div class="formula-tag">
-              GDD = ((T_max + T_min) / 2) - T_base
-            </div>
-            <div class="pill-list">
-              <div class="pill-item">
-                <strong>Biofix (El Punto Cero):</strong> Fecha de primera captura en trampa de luz (ej: 03 sept).
-              </div>
-              <div class="pill-item">
-                <strong>Calibración INTA Argentina:</strong> Para <em>Anticarsia gemmatalis</em> en soja, T_base = 10°C y 420 GDD para eclosión.
-              </div>
-              <div class="pill-item">
-                <strong>Semáforo Operativo:</strong> Clasificación inmediata de potreros en bajo, moderado o alerta crítica.
-              </div>
-            </div>
-          </div>
-
-          <div class="speaker-box">
-            <div class="speaker-box-header">
-              <span>🗣️ Guión del Orador</span>
-              <span>05:30 - 09:30</span>
-            </div>
-            <p class="speaker-script">
-              "En 'Mis Monitoreos' seguimos la soja bajo ataque de Oruga de las leguminosas. Fijamos el Biofix como punto cero y el motor suma Grados Día automáticamente con la temperatura local. No contamos días de almanaque: medimos el desarrollo fisiológico real de la larva con modelos validados por el INTA."
-            </p>
+          <div class="quote-box">
+            <strong>Orador:</strong> <em>"No obligamos al productor a leer un manual de 50 páginas: la guía rápida lo sube al sistema en 2 minutos y la guía completa le fundamenta la ciencia cuando lo necesita."</em>
           </div>
         </div>
       </div>
 
-      <!-- SLIDE 4: RED COMUNITARIA (09:30 - 11:30) -->
-      <div class="slide" data-time="09:30 - 11:30">
-        <div class="slide-visual">
-          <img src="./img/03_alertas_comunitarias.png" alt="Alertas Comunitarias">
+      <!-- =================================================================== -->
+      <!-- SLIDE 3: CONFIGURACIÓN PRODUCTIVA (03:30 - 05:30) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="03:30 - 05:30" data-notes="Configuramos los activos productivos: creamos un Terreno con su delimitación GPS y hectáreas. ¿Por qué el GPS exacto? Porque el microclima cambia lote a lote y nos conectamos con la estación meteorológica local. Asociamos la Plantación de Soja con su fecha de siembra y el Monitoreo de Oruga con su umbral. El ciclo nace 'Esperando Biofix'. Y todo funciona Offline-First con Room si se corta internet.">
+        <div class="visual-col">
+          <div class="phone-mockup">
+            <img src="img/09_plantaciones_cultivos.png" alt="Plantaciones y Cultivos">
+          </div>
+          <div class="image-tag">📱 Mis Terrenos y Plantaciones (Room SQLite)</div>
         </div>
-        <div class="slide-content">
-          <div class="slide-badge">📡 Módulo 3 • Red Colaborativa</div>
-          <h2 class="slide-title">"Lo Que Ve Tu Vecino Te Sirve"</h2>
-          <p class="slide-subtitle">Detección temprana comunitaria y defensa perimetral</p>
 
-          <div class="tech-box">
-            <div class="tech-box-header">
-              <span>🛡️ El Concepto de 'Defensa en Anillo' (20 km)</span>
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-primary">Perspectiva 1 • Configuración</span>
+              <span class="badge badge-gold">⏱️ 03:30 - 05:30</span>
             </div>
-            <p>
-              Las plagas no conocen alambrados. PLAG-OUT crea un anillo de vigilancia espacial alrededor de los lotes propios:
-            </p>
-            <div class="pill-list">
-              <div class="pill-item">
-                <strong>Alerta Destacada:</strong> <em>'Chinche de la alfalfa - A 8.3 km de tus terrenos'</em>.
+            <h2 class="slide-title">Terrenos, Cultivos, Monitoreos y Ciclos</h2>
+            <p class="slide-subtitle">Estructuración jerárquica con anclaje bioclimático y arquitectura Offline-First.</p>
+
+            <div class="tech-box">
+              <h3>🌱 La Jerarquía Productiva en Campo</h3>
+              <p><strong>Terreno (Lote GPS + Ha)</strong> ➔ <strong>Plantación (Cultivo + Fecha Siembra)</strong> ➔ <strong>Monitoreo (Plaga + Umbral)</strong> ➔ <strong>Ciclos Térmicos</strong>.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>📍 Vínculo Bioclimático</h4>
+                <p>Coordenadas GPS exactas vinculadas a estaciones meteorológicas para tomar temperaturas locales reales.</p>
               </div>
-              <div class="pill-item">
-                <strong>Efecto de Red:</strong> +Usuarios ➔ +Reportes ➔ +Datos ➔ Alertas más tempranas.
+              <div class="pill-card">
+                <h4>⏳ Fecha de Siembra</h4>
+                <p>Cálculo de días transcurridos para correlacionar la fenología del cultivo con estadios de plagas.</p>
               </div>
-              <div class="pill-item">
-                <strong>Privacidad Garantizada:</strong> Cumplimiento de Ley 25.326: reportes 100% anonimizados por radio geográfico.
+              <div class="pill-card">
+                <h4>🎯 Umbral Personalizado</h4>
+                <p>El productor define a qué nivel de acumulación térmica o riesgo ambiental quiere ser alertado.</p>
+              </div>
+              <div class="pill-card">
+                <h4>📡 100% Offline-First</h4>
+                <p>Persistencia local con Room ORM. El agrónomo carga datos sin señal y se sincronizan al volver a tener 4G.</p>
               </div>
             </div>
           </div>
 
-          <div class="speaker-box">
-            <div class="speaker-box-header">
-              <span>🗣️ Guión del Orador</span>
-              <span>09:30 - 11:30</span>
-            </div>
-            <p class="speaker-script">
-              "Las plagas no respetan alambrados. En Reportes creamos una Defensa en Anillo de 20 km: la app avisa que a 8.3 km hay un foco de Chinche de la alfalfa. Sin salir al lote, el productor ya sabe qué potrero priorizar en su recorrida semanal."
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- SLIDE 5: MAPA GEORREFERENCIADO (11:30 - 13:30) -->
-      <div class="slide" data-time="11:30 - 13:30">
-        <div class="slide-visual">
-          <img src="./img/04_mapa_georreferenciado.png" alt="Mapa Georreferenciado">
-        </div>
-        <div class="slide-content">
-          <div class="slide-badge">🗺️ Módulo 4 • Espacio</div>
-          <h2 class="slide-title">Mapa de Presión y Densidad por Zona</h2>
-          <p class="slide-subtitle">Clusterización espacial de focos sobre OpenStreetMap</p>
-
-          <div class="tech-box">
-            <div class="tech-box-header">
-              <span>🧭 Inteligencia Geoespacial a Campo</span>
-            </div>
-            <p>
-              Comprensión visual inmediata para asesores técnicos que recorren grandes extensiones:
-            </p>
-            <div class="pill-list">
-              <div class="pill-item">
-                <strong>Clustering Inteligente:</strong> Nodo rojo crítico agrupando 11 reportes en la cuenca agrícola núcleo.
-              </div>
-              <div class="pill-item">
-                <strong>Ubicación de Lotes Propios:</strong> Señalizado con el ícono de casa para medir distancias relativas de avance.
-              </div>
-              <div class="pill-item">
-                <strong>Vistas Duales:</strong> Conmutación instantánea entre Puntos individuales y Mapa de Calor (Heatmap de densidad).
-              </div>
-            </div>
-          </div>
-
-          <div class="speaker-box">
-            <div class="speaker-box-header">
-              <span>🗣️ Guión del Orador</span>
-              <span>11:30 - 13:30</span>
-            </div>
-            <p class="speaker-script">
-              "El mapa interactivo georreferencia los focos. Vemos un cluster rojo de 11 reportes activos y la posición de nuestros lotes. Esto permite a agrónomos que recorren miles de hectáreas planificar rutas y anticipar corredores biológicos antes de que afecten el campo."
-            </p>
+          <div class="quote-box">
+            <strong>Orador:</strong> <em>"El potrero queda esperando su Biofix: la app no adivina fechas al azar, necesita anclar el cronómetro biológico."</em>
           </div>
         </div>
       </div>
 
-      <!-- SLIDE 6: TABLEROS - LOTES (13:30 - 15:00) -->
-      <div class="slide" data-time="13:30 - 15:00">
-        <div class="slide-visual">
-          <img src="./img/05_tablero_lotes.png" alt="Tablero Lotes">
+      <!-- =================================================================== -->
+      <!-- SLIDE 4: REPORTE & MODELO ML PARA BIOFIX (05:30 - 07:30) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="05:30 - 07:30" data-notes="Momento clave: el agrónomo camina el lote y genera un reporte: plaga, estadio biológico ninfa o adulto, severidad y fotos. Pero acá interviene nuestro modelo de Machine Learning: analiza 60 días de clima (temperaturas invernales, fotoperíodo) y predice una ventana de biofix con hasta 14 días de anticipación. El usuario confirma o ajusta la fecha; al confirmar, arranca el conteo térmico y se dispara la alerta comunitaria.">
+        <div class="visual-col">
+          <div class="phone-mockup">
+            <img src="img/08_nuevo_reporte.png" alt="Nuevo Reporte y ML Biofix">
+          </div>
+          <div class="image-tag">📱 Formulario de Reporte y Modelo ML</div>
         </div>
-        <div class="slide-content">
-          <div class="slide-badge">📊 Tableros de Control • Lotes</div>
-          <h2 class="slide-title">Semáforo de Superficie en Riesgo</h2>
-          <p class="slide-subtitle">Priorización algorítmica por hectáreas y días desde siembra</p>
 
-          <div class="tech-box">
-            <div class="tech-box-header">
-              <span>🚜 De Datos a Acciones Ejecutivas</span>
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-primary">Perspectiva 1 • Scouting & IA</span>
+              <span class="badge badge-gold">⏱️ 05:30 - 07:30</span>
             </div>
-            <p>
-              En lugar de listas desordenadas, el tablero resume la superficie productiva afectada:
-            </p>
-            <div class="pill-list">
-              <div class="pill-item">
-                <strong>Semáforo de Superficie:</strong> 58 ha bajo seguimiento (área bajo control vs alerta).
+            <h2 class="slide-title">Reporte a Campo & Machine Learning</h2>
+            <p class="slide-subtitle">Digitalización del scouting y predicción inteligente del biofix biológico.</p>
+
+            <div class="tech-box gold">
+              <h3>🤖 El Rol del Modelo de Machine Learning en el Biofix</h3>
+              <p>Analiza series de temperatura de los últimos 60 días, anomalías térmicas invernales y fotoperíodo para predecir la ventana de emergencia de adultos hasta 14 días antes.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>📸 Scouting Digital</h4>
+                <p>Registro de plaga, estadio (ninfa/adulto), severidad, fotos georreferenciadas y notas agronómicas.</p>
               </div>
-              <div class="pill-item">
-                <strong>Prioridad de Acción:</strong> Ordena de forma inteligente qué potrero visitar primero según riesgo.
+              <div class="pill-card">
+                <h4>🔄 Bucle de Feedback Activo</h4>
+                <p>La IA sugiere; el agrónomo confirma o refina la fecha en el lote. La retroalimentación recalibra el modelo.</p>
               </div>
-              <div class="pill-item">
-                <strong>Días desde la Siembra:</strong> <em>'Soja (87 días)'</em>: correlaciona la edad del cultivo con la susceptibilidad de llenado de grano (R3-R5).
+              <div class="pill-card">
+                <h4>⚡ Activación del Reloj Térmico</h4>
+                <p>Al confirmar el biofix, se inicia la acumulación diaria de GDD hacia el umbral de eclosión.</p>
+              </div>
+              <div class="pill-card">
+                <h4>📡 Disparo Comunitario</h4>
+                <p>El reporte confirmado se propaga en la red para advertir a los campos vecinos en el anillo.</p>
               </div>
             </div>
           </div>
 
-          <div class="speaker-box">
-            <div class="speaker-box-header">
-              <span>🗣️ Guión del Orador</span>
-              <span>13:30 - 15:00</span>
-            </div>
-            <p class="speaker-script">
-              "En los Tableros de Control pasamos a la gestión gerencial. El semáforo muestra 58 ha bajo seguimiento y la Prioridad de Acción ordena visitar primero la soja de 87 días con oruga moderada, ahorrando horas de planificación."
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- SLIDE 7: TABLEROS - CONTROL Y CURVA DE EFICACIA (15:00 - 16:30) -->
-      <div class="slide" data-time="15:00 - 16:30">
-        <div class="slide-visual">
-          <img src="./img/06_tablero_control.png" alt="Tablero Control">
-        </div>
-        <div class="slide-content">
-          <div class="slide-badge">🎯 Tableros de Control • Control</div>
-          <h2 class="slide-title">Ventana Óptima de Aplicación</h2>
-          <p class="slide-subtitle">Sincronización fenológica para no errar el tratamiento</p>
-
-          <div class="tech-box">
-            <div class="tech-box-header">
-              <span>📉 La Curva de Eficacia: "Errar la ventana se paga caro"</span>
-            </div>
-            <div class="curve-box">
-              <div class="curve-step">
-                <h5>1. Temprana</h5>
-                <div class="eff-val" style="color: var(--danger);">10% - 20%</div>
-                <p>Plaga en huevo. El químico se lava.</p>
-              </div>
-              <div class="curve-step optimal">
-                <h5>2. Ventana Útil</h5>
-                <div class="eff-val" style="color: var(--highlight);">90%</div>
-                <p>Eclosión y L1-L3. Máxima mortandad.</p>
-              </div>
-              <div class="curve-step">
-                <h5>3. Tardía</h5>
-                <div class="eff-val" style="color: var(--danger);">10% - 30%</div>
-                <p>Larva grande. Daño consumado.</p>
-              </div>
-            </div>
-
-            <div class="pill-list" style="margin-top: 10px;">
-              <div class="pill-item">
-                <strong>Aviso Disuasorio Real:</strong> Badge <em>'INCUBACIÓN (ESPERA) - No pulverizar aún'</em>. Evita gastar en huevos invulnerables.
-              </div>
-              <div class="pill-item">
-                <strong>Eficacia Auditada:</strong> Tasa del 100% en tratamientos que controlaron la población sin reinfestación.
-              </div>
-            </div>
-          </div>
-
-          <div class="speaker-box">
-            <div class="speaker-box-header">
-              <span>🗣️ Guión del Orador</span>
-              <span>15:00 - 16:30</span>
-            </div>
-            <p class="speaker-script">
-              "Esta solapa responde cuándo aplicar. Miren la curva: pulverizar temprano es tirar producto con 10% de eficacia; tarde es tratar larvas gigantes. La app muestra el badge 'INCUBACIÓN: No pulverizar aún'. Ese cartel evita un gasto de miles de dólares por lote y avisa cuando entra en L1-L3 con 90% de eficacia."
-            </p>
+          <div class="quote-box">
+            <strong>Orador:</strong> <em>"El agrónomo no pierde control: la IA acota la incertidumbre de cuándo empezó el ciclo y el campo valida la observación."</em>
           </div>
         </div>
       </div>
 
-      <!-- SLIDE 8: TABLEROS - CAMPAÑAS E HISTORICO (16:30 - 17:30) -->
-      <div class="slide" data-time="16:30 - 17:30">
-        <div class="slide-visual">
-          <img src="./img/07_tablero_campanas.png" alt="Tablero Campañas">
+      <!-- =================================================================== -->
+      <!-- SLIDE 5: CUENTA ACTIVA & ALERTA COMUNITARIA (07:30 - 09:00) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="07:30 - 09:00" data-notes="Cambiamos a la segunda cuenta: un productor vecino en la misma región. En este instante su celular recibe una notificación push: 'Alerta Comunitaria: Plaga reportada a 8.3 km de tus terrenos'. Esto es la Defensa en Anillo de 20 km: las plagas no respetan alambrados. Más usuarios monitoreando significan mejor cobertura para todos. Y respetamos estrictamente la Ley 25.326 de protección de datos: el reporte es 100% anónimo.">
+        <div class="visual-col">
+          <div class="phone-mockup">
+            <img src="img/03_alertas_comunitarias.png" alt="Alertas Comunitarias Push">
+          </div>
+          <div class="image-tag">📱 Tarjeta de Alerta Comunitaria (8.3 km)</div>
         </div>
-        <div class="slide-content">
-          <div class="slide-badge">📈 Tableros de Control • Campañas</div>
-          <h2 class="slide-title">Histórico Consolidado y Prevalencia</h2>
-          <p class="slide-subtitle">Inteligencia histórica interanual y rotación de insumos</p>
 
-          <div class="tech-box">
-            <div class="tech-box-header">
-              <span>🌾 Trazabilidad Estratégica Interanual</span>
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-primary">Perspectiva 2 • Campo en Marcha</span>
+              <span class="badge badge-gold">⏱️ 07:30 - 09:00</span>
             </div>
-            <p>
-              Auditoría histórica multicampaña (ciclos 2026/27, 2025, 2024...) para la toma de decisiones gerenciales:
-            </p>
-            <div class="pill-list">
-              <div class="pill-item">
-                <strong>Plaga Predominante de Campaña:</strong> Cálculo autónomo: Oruga de las leguminosas (50% de incidencia).
+            <h2 class="slide-title">Alerta Comunitaria en Tiempo Real</h2>
+            <p class="slide-subtitle">Defensa en anillo de 20 km y efecto de red colaborativo entre vecinos.</p>
+
+            <div class="tech-box danger">
+              <h3>🛡️ Principio de Defensa en Anillo (20 km)</h3>
+              <p>Los insectos se desplazan con el viento. Una detección a 8.3 km es el aviso anticipado de que la presión biológica regional aumentó.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>🔔 Notificación Push Inmediata</h4>
+                <p>Despacho directo por Firebase Cloud Messaging ni bien el vecino confirma el avistamiento.</p>
               </div>
-              <div class="pill-item">
-                <strong>Prevalencia Porcentual Comparativa:</strong> Gráfico de barras comparando Oruga vs Chicharrita.
+              <div class="pill-card">
+                <h4>🌐 Efecto de Red</h4>
+                <p>+Productores monitoreando ➔ +Datos georreferenciados ➔ Alertas más precisas para toda la cuenca.</p>
               </div>
-              <div class="pill-item">
-                <strong>Planificación IRAC:</strong> Base para rotar principios activos, evitar resistencias y comprar insumos con descuento.
+              <div class="pill-card">
+                <h4>🔒 Ley 25.326 de Protección de Datos</h4>
+                <p>Anonimización estricta: se informa la distancia radial difusa, protegiendo el catastro del vecino.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🚜 Coordinación Zonal</h4>
+                <p>Permite alertar a contratistas y acopios antes de que la plaga cruce el alambrado propio.</p>
               </div>
             </div>
           </div>
 
-          <div class="speaker-box">
-            <div class="speaker-box-header">
-              <span>🗣️ Guión del Orador</span>
-              <span>16:30 - 17:30</span>
-            </div>
-            <p class="speaker-script">
-              "La solapa Campañas consolida la historia: detecta que en 2026/27 la plaga predominante fue Anticarsia con 50% de incidencia. Esto le da al gerente agronómico datos objetivos para rotar modos de acción y comprar insumos anticipados con descuento."
-            </p>
+          <div class="quote-box">
+            <strong>Orador:</strong> <em>"Sin que el productor haya salido a recorrer hoy su campo, el sistema ya le avisó que su vecino detectó plaga a 8 kilómetros."</em>
           </div>
         </div>
       </div>
 
-      <!-- SLIDE 9: VALOR, DIFERENCIACION Y CIERRE (17:30 - 20:00) -->
-      <div class="slide single-col" data-time="17:30 - 20:00">
-        <div style="max-width: 950px; margin: 0 auto;">
-          <div class="slide-badge" style="margin: 0 auto 12px;">🏆 Valor, Retorno y Cierre</div>
-          <h2 style="font-size: 2.6rem; font-weight: 900; color: #fff; margin-bottom: 20px;">PLAG-OUT: Nosotros Anticipamos</h2>
+      <!-- =================================================================== -->
+      <!-- SLIDE 6: VALORES AVANZADOS GDD & MOTOR DIARIO (09:00 - 11:00) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="09:00 - 11:00" data-notes="Entramos al detalle de monitoreo: acá vemos los Grados Día de Desarrollo. La plaga es ectotérmica; para Anticarsia la temperatura base es 10°C según el INTA. La app acumula calor: GDD = (Tmax + Tmin)/2 - Tb. Para eclosión necesita 420 GDD. ¿Cómo se actualiza sin esfuerzo? Con el Job Diario: a las 03:00 AM el backend consulta Open-Meteo y SMN, suma los GDD y si superó el umbral, manda la notificación push al amanecer.">
+        <div class="visual-col">
+          <div class="phone-mockup">
+            <img src="img/02_monitoreo_cultivos.png" alt="Valores Avanzados de GDD">
+          </div>
+          <div class="image-tag">📱 Barra de Grados Día y Ciclo Biológico</div>
+        </div>
 
-          <!-- 3 ROI Pillars -->
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
-            <div style="background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 12px; padding: 18px; text-align: center;">
-              <div style="font-size: 2.2rem; font-weight: 900; color: var(--gold); margin-bottom: 4px;">Menos</div>
-              <strong style="color: #fff; font-size: 1.1rem; display: block; margin-bottom: 4px;">Aplicaciones</strong>
-              <p style="font-size: 0.85rem; color: var(--text-muted);">-25% de costos al no aplicar sobre estadios invulnerables.</p>
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-primary">Perspectiva 2 • Fisiología</span>
+              <span class="badge badge-gold">⏱️ 09:00 - 11:00</span>
             </div>
-            <div style="background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 12px; padding: 18px; text-align: center;">
-              <div style="font-size: 2.2rem; font-weight: 900; color: var(--highlight); margin-bottom: 4px;">+7 a 14</div>
-              <strong style="color: #fff; font-size: 1.1rem; display: block; margin-bottom: 4px;">Días Anticipación</strong>
-              <p style="font-size: 0.85rem; color: var(--text-muted);">Alerta temprana para coordinar contratistas y pulverizadoras.</p>
+            <h2 class="slide-title">Valores Avanzados de GDD & Motor Diario</h2>
+            <p class="slide-subtitle">El reloj biológico térmico lote por lote y el pipeline batch automatizado.</p>
+
+            <div class="tech-box">
+              <h3>🌡️ La Ecuación Fisiológica de Grados Día (GDD)</h3>
+              <p><strong>GDD = ((Tmax + Tmin) / 2) - Tb</strong> | Calibrada para Argentina: Tb = 10°C (Anticarsia/Dalbulus), eclosión a 420 GDD.</p>
             </div>
-            <div style="background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 12px; padding: 18px; text-align: center;">
-              <div style="font-size: 2.2rem; font-weight: 900; color: #6eb7ff; margin-bottom: 4px;">100%</div>
-              <strong style="color: #fff; font-size: 1.1rem; display: block; margin-bottom: 4px;">Registro Trazable</strong>
-              <p style="font-size: 0.85rem; color: var(--text-muted);">Digitalización completa para certificar Buenas Prácticas (BPA).</p>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>⚙️ Job Nocturno en Backend</h4>
+                <p>Batch autónomo que ejecuta a las 03:00 AM: consulta Open-Meteo y SMN por coordenadas de cada lote.</p>
+              </div>
+              <div class="pill-card">
+                <h4>📊 Integral Térmica Diaria</h4>
+                <p>Suma los GDD acumulados y recalcula el Índice de Riesgo Ambiental (IRA) de cada monitoreo.</p>
+              </div>
+              <div class="pill-card">
+                <h4>📲 Alertas Tempranas</h4>
+                <p>Si el lote cruza el umbral definido por el agrónomo, despacha notificación push a primera hora.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🔬 Calibración INTA</h4>
+                <p>Modelos ontogénicos validados con estaciones experimentales agropecuarias nacionales.</p>
+              </div>
             </div>
           </div>
 
-          <!-- Roadmap and Contact Compact -->
-          <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border); border-radius: 14px; padding: 16px 24px; margin-bottom: 20px; text-align: left;">
-            <div>
-              <span style="font-size: 0.8rem; color: var(--gold); font-weight: 800; text-transform: uppercase;">Próximos Pasos:</span>
-              <p style="font-size: 0.9rem; color: #d8e5dd;">Fin de prototipo (25/11/2026) ➔ Pilotos 26/27 en NOA y NEA ➔ Expansión 2028 (Brasil y Paraguay).</p>
+          <div class="quote-box">
+            <strong>Orador:</strong> <em>"El productor duerme y el backend calcula: a las 7 de la mañana ya sabe exactamente qué potreros están acumulando calor de riesgo."</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 7: MAPA GEORREFERENCIADO (11:00 - 12:30) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="11:00 - 12:30" data-notes="Pasamos al Mapa Georreferenciado sobre OpenStreetMap. Vemos clusters espaciales: un foco rojo con 11 reportes activos en zona núcleo y la casa que marca nuestro lote. Podemos pasar de la vista de puntos al mapa de densidad o calor para entender si la plaga avanza empujada por vientos y temperatura hacia nuestro campo.">
+        <div class="visual-col">
+          <div class="phone-mockup">
+            <img src="img/04_mapa_georreferenciado.png" alt="Mapa Georreferenciado OpenStreetMap">
+          </div>
+          <div class="image-tag">📱 OpenStreetMap con Cluster de 11 Reportes</div>
+        </div>
+
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-primary">Perspectiva 2 • Cartografía</span>
+              <span class="badge badge-gold">⏱️ 11:00 - 12:30</span>
             </div>
-            <div style="text-align: right;">
-              <span style="font-size: 0.8rem; color: var(--highlight); font-weight: 800; text-transform: uppercase;">Contacto:</span>
-              <p style="font-size: 0.9rem; color: #fff; font-weight: 700;">preguntas@plag-out.com.ar</p>
+            <h2 class="slide-title">Mapa de Presión por Zona</h2>
+            <p class="slide-subtitle">Cartografía espacial con clusterización de focos y mapa de calor de densidad.</p>
+
+            <div class="tech-box danger">
+              <h3>🗺️ Detección de Focos de Calor Epidemiológicos</h3>
+              <p>Clusterización nativa sobre OpenStreetMap (OSMDroid): agrupamiento dinámico que revela focos calientes en la cuenca agrícola.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>🔴 Cluster Zona Núcleo</h4>
+                <p>Identificación instantánea de 11 reportes activos agrupados a corta distancia del establecimiento propio.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🏠 Ubicación de Lote Propio</h4>
+                <p>Marcador de referencia territorial para medir el gradiente de proximidad del frente de plaga.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🔥 Puntos vs Mapa de Calor</h4>
+                <p>Conmutación en un toque entre marcadores individuales de scouting y mapa continuo de densidad poblacional.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🧭 Vector de Avance</h4>
+                <p>Correlación visual entre focos comunitarios y condiciones meteorológicas de dispersión.</p>
+              </div>
             </div>
           </div>
 
-          <div class="speaker-box" style="text-align: left;">
-            <div class="speaker-box-header">
-              <span>🗣️ Guión del Orador</span>
-              <span>17:30 - 20:00</span>
+          <div class="quote-box">
+            <strong>Orador:</strong> <em>"El mapa muestra la película completa de la región: el agrónomo ve si la presión viene subiendo desde los campos vecinos."</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 8: TABLEROS DE CONTROL EJECUTIVOS (12:30 - 15:00) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="12:30 - 15:00" data-notes="Llegamos a los Tableros de Control. Tres solapas: en Lotes, el semáforo donut clasifica las 58 hectáreas y el ranking prioriza qué potrero visitar hoy con los días desde siembra (Soja 87 días). En Control, la Curva de Eficacia: pulverizar en huevo tiene 10-20% de eficacia, en ventana útil L1-L3 tiene 90%, y tarde cae a 20%. Miren el cartel: 'INCUBACIÓN - No pulverizar aún'. Ese cartel ahorra 25 dólares por hectárea. Y en Campañas, histórico para rotar modos de acción IRAC.">
+        <div class="visual-col">
+          <div class="phone-mockup">
+            <img src="img/06_tablero_control.png" alt="Tablero de Control y Curva de Eficacia">
+          </div>
+          <div class="image-tag">📱 Curva de Eficacia y Estado de Incubación</div>
+        </div>
+
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-primary">Perspectiva 2 • Analítica</span>
+              <span class="badge badge-gold">⏱️ 12:30 - 15:00</span>
             </div>
-            <p class="speaker-script">
-              "Para cerrar: PLAG-OUT anticipa donde otros solo reaccionan post-daño. Ahorra un 25% en aplicaciones, brinda 7 a 14 días de anticipación y digitaliza el campo con ciencia argentina. Muchas gracias y el equipo queda a completa disposición para responder las preguntas de la mesa evaluadora."
+            <h2 class="slide-title">Tableros de Control Ejecutivos</h2>
+            <p class="slide-subtitle">Semáforo de superficie, la Curva de Eficacia fitosanitaria y memoria interanual.</p>
+
+            <div class="tech-box gold">
+              <h3>📉 "Errar la Ventana se Paga Caro" • Curva de Eficacia</h3>
+              <p><strong>Temprana (Huevo):</strong> 10-20% de eficacia (plata tirada) ➔ <strong>Ventana Útil (L1-L3):</strong> >90% de eficacia ➔ <strong>Tardía (L5/Adulto):</strong> 20-30% de eficacia (daño irreversible).</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>🟢 Solapa Lotes (Productor)</h4>
+                <p>Semáforo Donut (58 ha), ranking de criticidad y días desde siembra (ej. Soja 87 días en etapa sensible).</p>
+              </div>
+              <div class="pill-card">
+                <h4>🛡️ Badge Disuasorio</h4>
+                <p>Cartel <em>'INCUBACIÓN - No pulverizar aún'</em>: evita aplicaciones a destiempo que destruyen rinde y margen.</p>
+              </div>
+              <div class="pill-card">
+                <h4>📜 Solapa Campañas (Histórico)</h4>
+                <p>Auditoría interanual 2026/27: Oruga predominante (50%). Planificación de compras tempranas con descuento.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🧪 Rotación IRAC</h4>
+                <p>Datos objetivos para alternar modos de acción químicos y evitar la resistencia biológica en el lote.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="quote-box">
+            <strong>Orador:</strong> <em>"No pulverices hoy porque está en huevo y el producto se lava: esperá a la ventana L1-L3 donde con media dosis lográs 90% de control."</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 9: PERFIL, PERMISOS Y CONSENTIMIENTO ML (15:00 - 16:00) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="15:00 - 16:00" data-notes="En Perfil y Ajustes gestionamos notificaciones nativas con Firebase Cloud Messaging, permisos de ubicación GPS y el switch de Consentimiento ML. El productor decide con total transparencia si sus reportes anónimos pueden usarse para reentrenar modelos de predicción regional. Si lo apaga, sus datos quedan estrictamente aislados. Cumplimiento ético total.">
+        <div class="visual-col">
+          <div class="phone-mockup">
+            <img src="img/01_gestion_terrenos.png" alt="Perfil y Consentimiento ML">
+          </div>
+          <div class="image-tag">📱 Perfil, Permisos y Consentimiento ML</div>
+        </div>
+
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-primary">Perspectiva 2 • Gobernanza</span>
+              <span class="badge badge-gold">⏱️ 15:00 - 16:00</span>
+            </div>
+            <h2 class="slide-title">Perfil, Permisos y Consentimiento ML</h2>
+            <p class="slide-subtitle">Control ético de datos, soberanía del productor y permisos de sistema.</p>
+
+            <div class="tech-box blue">
+              <h3>🛡️ Transparencia y Consentimiento Informado</h3>
+              <p>El productor es el único dueño de su información agronómica. No entrenamos algoritmos a sus espaldas.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>🔔 Control de Notificaciones</h4>
+                <p>Switch nativo vinculado a Firebase Cloud Messaging para registrar o dar de baja el token FCM.</p>
+              </div>
+              <div class="pill-card">
+                <h4>📍 Permiso de Ubicación</h4>
+                <p>Monitoreo continuo de permisos de GPS en Android con revalidación y acceso directo a ajustes del sistema.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🤖 Switch Consentimiento ML</h4>
+                <p>Opt-in/Opt-out granular: el usuario autoriza o revoca el uso de sus reportes para calibrar modelos de IA.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🔒 Seguridad de Sesión</h4>
+                <p>Tokens JWT con cierre de sesión seguro y protección contra pérdida de credenciales.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="quote-box">
+            <strong>Orador:</strong> <em>"La confianza se construye con transparencia: si el productor no quiere compartir datos para los modelos de IA, con un switch apaga el consentimiento."</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 10: ESCALABILIDAD EN PANEL ADMIN (16:00 - 17:00) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="16:00 - 17:00" data-notes="Tercera perspectiva: Panel de Administrador. Mostramos cómo escala la plataforma. Muchas apps tienen las plagas cableadas en código. En PLAG-OUT, desde el panel de admin damos de alta una nueva plaga o cultivo en segundos: ingresamos nombre científico, temperatura base Tb, constantes térmicas K, umbrales y cultivos hospedantes. Se propaga al instante a todos los usuarios sin desplegar una nueva APK.">
+        <div class="visual-col">
+          <div class="phone-mockup">
+            <img src="img/05_tablero_lotes.png" alt="Panel Admin Catálogo Plagas">
+          </div>
+          <div class="image-tag">📱 Panel de Administración • Catálogo Biológico</div>
+        </div>
+
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-primary">Perspectiva 3 • Admin & Escala</span>
+              <span class="badge badge-gold">⏱️ 16:00 - 17:00</span>
+            </div>
+            <h2 class="slide-title">Escalabilidad del Catálogo Biológico</h2>
+            <p class="slide-subtitle">Alta dinámica de nuevas especies y cultivos sin dependencias de desarrollo.</p>
+
+            <div class="tech-box">
+              <h3>🧬 Extensibilidad Modular sin Despliegue de Código</h3>
+              <p>El catálogo biológico no está 'hardcodeado'. Nuevas plagas o biotipos resistentes se configuran en caliente desde la base central.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>🐛 Parámetros Ontogénicos</h4>
+                <p>Configuración de Temperatura Base (Tb), umbral superior (Tcorte) y constantes térmicas (K en GDD).</p>
+              </div>
+              <div class="pill-card">
+                <h4>🌾 Asociación con Cultivos</h4>
+                <p>Vínculo con hospederos: Soja, Maíz, Sorgo, Alfalfa, Trigo, Girasol y pasturas consociadas.</p>
+              </div>
+              <div class="pill-card">
+                <h4>⚡ Propagación Instantánea</h4>
+                <p>Al guardar, el nuevo modelo biológico queda disponible de inmediato para todos los productores.</p>
+              </div>
+              <div class="pill-card">
+                <h4>📁 Archivo y Versionado</h4>
+                <p>Posibilidad de archivar plagas estacionales o ajustar umbrales ante nuevas recomendaciones de INTA.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="quote-box">
+            <strong>Orador:</strong> <em>"Si mañana aparece una nueva variante térmica en el norte, el agrónomo administrador la carga en 2 minutos y ya está activa en todo el país."</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 11: GESTIÓN DE USUARIOS EN ADMIN (17:00 - 17:45) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="17:00 - 17:45" data-notes="Muy brevemente, la gestión de usuarios desde Admin: listado de usuarios, asignación de roles jerárquicos (productor, agrónomo certificador, admin) y control de cuentas activas o suspendidas. Esto da soporte a cooperativas y grandes empresas agropecuarias para auditar quién emite reportes en la cuenca.">
+        <div class="visual-col">
+          <div class="phone-mockup">
+            <img src="img/07_tablero_campanas.png" alt="Gestión de Usuarios Admin">
+          </div>
+          <div class="image-tag">📱 Gestión de Usuarios y Roles (RBAC)</div>
+        </div>
+
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-primary">Perspectiva 3 • Usuarios</span>
+              <span class="badge badge-gold">⏱️ 17:00 - 17:45</span>
+            </div>
+            <h2 class="slide-title">Gestión de Usuarios y Gobernanza</h2>
+            <p class="slide-subtitle">Control de accesos basado en roles (RBAC) y auditoría institucional.</p>
+
+            <div class="tech-box">
+              <h3>👥 Administración Institucional y Auditoría</h3>
+              <p>Estructura pensada para cooperativas, acopios y pools de siembra con múltiples niveles de operadores.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>👨‍🌾 Roles Jerárquicos</h4>
+                <p>Productor estándar (gestión de campo), Ingeniero Agrónomo (validación de biofix) y Administrador.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🔒 Estados de Cuenta</h4>
+                <p>Activación, suspensión preventiva y control de acceso mediante tokens revocables.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🏢 Soporte Multiestablecimiento</h4>
+                <p>Habilitación de técnicos para monitorear múltiples campos bajo un mismo esquema de auditoría.</p>
+              </div>
+              <div class="pill-card">
+                <h4>📜 Trazabilidad de Acciones</h4>
+                <p>Registro auditado de quién cargó cada reporte y quién confirmó la eclosión a campo.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="quote-box">
+            <strong>Orador:</strong> <em>"Gestión ágil y directa para que una cooperativa o acopio pueda administrar los accesos de sus ingenieros de zona."</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 12: DASHBOARDS GLOBALES DE ADMIN (17:45 - 18:45) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="17:45 - 18:45" data-notes="Métricas globales de administración: los dashboards de analítica regional. Acá la información deja de ser de un lote y se vuelve inteligencia epidemiológica: hectáreas monitoreadas a nivel país, plagas con mayor velocidad de propagación y severidad acumulada. Vital para cooperativas y organismos como INTA o SENASA.">
+        <div class="visual-col">
+          <div class="phone-mockup">
+            <img src="img/05_tablero_lotes.png" alt="Dashboards Globales Admin">
+          </div>
+          <div class="image-tag">📱 Dashboards Globales y Métricas Regionales</div>
+        </div>
+
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-primary">Perspectiva 3 • Analítica Global</span>
+              <span class="badge badge-gold">⏱️ 17:45 - 18:45</span>
+            </div>
+            <h2 class="slide-title">Dashboards Globales de Administración</h2>
+            <p class="slide-subtitle">Inteligencia epidemiológica agregada para cooperativas y organismos fitosanitarios.</p>
+
+            <div class="tech-box blue">
+              <h3>📈 De la Parcela Individual a la Epidemiología Regional</h3>
+              <p>Visión macro que permite detectar tendencias, brotes incipientes y velocidad de dispersión geográfica de plagas.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>🗺️ Superficie Zonal Bajo Vigilancia</h4>
+                <p>Consolidado en tiempo real de hectáreas activas por región agrícola (NOA, NEA, Zona Núcleo, Sur).</p>
+              </div>
+              <div class="pill-card">
+                <h4>📊 Velocidad de Propagación</h4>
+                <p>Métrica de dispersión basada en reportes comunitarios y anomalías térmicas recientes.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🌾 Cultivos más Afectados</h4>
+                <p>Distribución de presión sanitaria para planificar abastecimiento temprano de biológicos e insumos.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🏛️ Alianzas Estratégicas</h4>
+                <p>Información de alto valor para articular alertas tempranas con INTA, SENASA y mesas técnicas.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="quote-box">
+            <strong>Orador:</strong> <em>"Convertimos los reportes individuales en un mapa epidemiológico vivo para proteger cuencas agrícolas completas."</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 13: ECOSISTEMA MULTIPLATAFORMA (18:45 - 19:30) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="18:45 - 19:30" data-notes="Estrategia multiplataforma: Mobile vs Web. Mobile en Android nativo con Kotlin es la herramienta de batalla en la camioneta: botones grandes, GPS, cámara y 100% offline con Room. Web Desktop es la herramienta de oficina: monitores grandes para mapas, auditoría de reportes, exportación para Buenas Prácticas Agrícolas y configuración masiva. Comparten el mismo backend FastAPI y base PostGIS.">
+        <div class="visual-col">
+          <div class="phone-mockup">
+            <img src="img/04_mapa_georreferenciado.png" alt="Ecosistema Mobile y Web">
+          </div>
+          <div class="image-tag">📱 Android Kotlin + 💻 Portal Web Desktop</div>
+        </div>
+
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-primary">Perspectiva 3 • Arquitectura</span>
+              <span class="badge badge-gold">⏱️ 18:45 - 19:30</span>
+            </div>
+            <h2 class="slide-title">Ecosistema Multiplataforma: Mobile vs Web</h2>
+            <p class="slide-subtitle">Sinergia entre el trabajo rústico a campo y el análisis gerencial en oficina.</p>
+
+            <div class="tech-box">
+              <h3>🚜 Complementariedad Operativa según el Escenario</h3>
+              <p>Dos clientes optimizados para su entorno de uso que consumen la misma API REST asíncrona.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>📱 Android Nativo (Campo)</h4>
+                <p>Uso en camioneta bajo el sol, botones amplios, cámara rápida, GPS nativo y tolerancia offline 100% con Room.</p>
+              </div>
+              <div class="pill-card">
+                <h4>💻 Portal Web (Oficina)</h4>
+                <p>Pantalla grande para visualización cartográfica, gestión masiva de lotes, auditoría y exportación de informes BPA.</p>
+              </div>
+              <div class="pill-card">
+                <h4>⚡ Backend Unificado</h4>
+                <p>FastAPI asíncrono en Python 3.11 con endpoints RESTful unificados y esquemas Pydantic compartidos.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🌍 PostGIS Central</h4>
+                <p>PostgreSQL espacial con índices R-Tree para resolver consultas de proximidad instantáneas en ambos clientes.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="quote-box">
+            <strong>Orador:</strong> <em>"El agrónomo registra en el lote sin señal arriba de la camioneta; el gerente audita los números en la oficina en pantalla grande."</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 14: RETORNO DE INVERSIÓN Y CIERRE (19:30 - 20:00) -->
+      <!-- =================================================================== -->
+      <div class="slide single-col" data-timing="19:30 - 20:00" data-notes="Para cerrar: PLAG-OUT anticipa donde otros solo reaccionan post-daño. Ahorra 25% en costos químicos, da 7 a 14 días de anticipación y digitaliza el campo con ciencia argentina. Muchísimas gracias y el equipo queda a completa disposición de la mesa evaluadora para responder todas las preguntas.">
+        <div class="hero-container">
+          <div class="badge-row" style="justify-content: center;">
+            <span class="badge badge-gold">🏆 Retorno & Diferenciación</span>
+            <span class="badge badge-primary">⏱️ Cierre de Demo (19:30 - 20:00)</span>
+          </div>
+
+          <h2 class="hero-title">PLAG-<span>OUT</span>: Nosotros Anticipamos</h2>
+          <p class="hero-subtitle">
+            Tres pilares de retorno medible para el productor y el medio ambiente:
+          </p>
+
+          <div class="stat-cards">
+            <div class="stat-card gold">
+              <h3>-25%</h3>
+              <p><strong>Costos Fitosanitarios</strong><br>Al eliminar aplicaciones fuera de ventana en estadios invulnerables.</p>
+            </div>
+            <div class="stat-card">
+              <h3>+7 a 14 Días</h3>
+              <p><strong>Anticipación Bioclimática</strong><br>Para contratar pulverizadoras y coordinar insumos sin urgencias.</p>
+            </div>
+            <div class="stat-card blue">
+              <h3>100%</h3>
+              <p><strong>Trazabilidad Digital</strong><br>Registro auditable de aplicaciones para certificar Buenas Prácticas Agrícolas.</p>
+            </div>
+          </div>
+
+          <div class="tech-box gold" style="text-align: left; margin-bottom: 24px;">
+            <h3>🎯 Diferenciación Clave vs xarvio, Auravant y FieldView</h3>
+            <p>Las plataformas existentes son <strong>reactivas</strong> (alertan cuando el satélite ve la hoja comida o el índice verde cae). PLAG-OUT <strong>anticipa biológicamente</strong> mediante acumulación de Grados Día, IA y defensa comunitaria antes de que la plaga nazca.</p>
+          </div>
+
+          <div style="margin-top: 10px;">
+            <h3 style="font-size: 1.8rem; color: #fff; margin-bottom: 8px;">¡Muchas Gracias!</h3>
+            <p style="color: var(--highlight); font-size: 1.1rem; font-weight: 600;">
+              Abrimos la sesión para preguntas de la mesa evaluadora.
             </p>
+          </div>
+
+          <div class="appendix-cards">
+            <div class="appendix-card" onclick="goToSlide(14)">
+              <div class="tag">🧬 BIOLÓGICO</div>
+              <h4>Dinámica y Ecuación GDD</h4>
+              <p>Ver fórmulas térmicas, Tb, constantes K y calibración INTA.</p>
+            </div>
+            <div class="appendix-card" onclick="goToSlide(15)">
+              <div class="tag">🐛 BIOLÓGICO</div>
+              <h4>Modelos y Curva de Eficacia</h4>
+              <p>Ventana óptima L1-L3 vs huevo/adulto y parámetros por especie.</p>
+            </div>
+            <div class="appendix-card" onclick="goToSlide(16)">
+              <div class="tag">💻 TÉCNICO</div>
+              <h4>Arquitectura & Offline</h4>
+              <p>Room SQLite, WorkManager, FastAPI y PostgreSQL/PostGIS.</p>
+            </div>
+            <div class="appendix-card" onclick="goToSlide(17)">
+              <div class="tag">🤖 TÉCNICO</div>
+              <h4>Machine Learning Biofix</h4>
+              <p>Features climáticas, modelo supervisado y bucle de feedback.</p>
+            </div>
+            <div class="appendix-card" onclick="goToSlide(18)">
+              <div class="tag">⚙️ TÉCNICO</div>
+              <h4>Job Diario & Notificaciones</h4>
+              <p>Scheduler nocturno, Open-Meteo y despacho masivo FCM.</p>
+            </div>
+            <div class="appendix-card" onclick="goToSlide(19)">
+              <div class="tag">🔒 TÉCNICO</div>
+              <h4>Geoprivacidad & Ley 25.326</h4>
+              <p>Buffer espacial difuso de 20 km y consentimiento ético.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 15: APÉNDICE B1: DINÁMICA & FÓRMULAS GDD (BIOLÓGICO) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="Apéndice Q&A" data-notes="Los insectos son ectotérmicos: no regulan su temperatura. La fórmula implementada es el promedio simple con corte: GDD = max(0, (min(Tmax, Tcorte) + max(Tmin, Tb))/2 - Tb). Tb es la temperatura base bajo la cual el desarrollo se detiene; Tcorte es el umbral superior donde se estabiliza. La integral térmica K es la suma requerida para completar el ciclo. Todos los valores están calibrados con ensayos del INTA.">
+        <div class="visual-col">
+          <div class="stat-card gold" style="width: 100%; padding: 30px;">
+            <div style="font-size: 0.85rem; color: var(--gold); font-weight: 700; margin-bottom: 8px;">ECUACIÓN FISIOLÓGICA</div>
+            <h3 style="font-size: 1.4rem; color: #fff; margin-bottom: 16px; font-family: monospace;">
+              GDD = ((Tmax + Tmin) / 2) - Tb
+            </h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; text-align: left; line-height: 1.6;">
+              • <strong>Tmin ≥ Tb:</strong> Si la temperatura no supera Tb, GDD = 0.<br>
+              • <strong>Tcorte:</strong> Límite fisiológico superior (32°C - 35°C).<br>
+              • <strong>Constante K:</strong> Σ GDD necesarios para completar la fase.<br>
+              • <strong>Calibración:</strong> Ensayos empíricos INTA Pergamino/Manfredi.
+            </p>
+          </div>
+          <div class="image-tag">📚 Respaldo Biológico 1 • Termobiología</div>
+        </div>
+
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-gold">🧬 Apéndice B1 • Biológico</span>
+              <span class="badge badge-blue">Preguntas Frecuentes</span>
+            </div>
+            <h2 class="slide-title">Dinámica y Fórmulas de Grados Día (GDD)</h2>
+            <p class="slide-subtitle">Fundamentos matemáticos y biofísicos de la acumulación térmica en artrópodos.</p>
+
+            <div class="tech-box gold">
+              <h3>📐 Naturaleza Poiquilotérmica de los Insectos</h3>
+              <p>Los insectos carecen de regulación térmica interna. Su tasa metabólica y velocidad ontogénica son directamente proporcionales al calor acumulado por encima del umbral basal ($T_b$).</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>🌡️ Temperatura Base ($T_b$)</h4>
+                <p>Umbral térmico inferior por debajo del cual el desarrollo fisiológico celular se detiene por completo (diapausa).</p>
+              </div>
+              <div class="pill-card">
+                <h4>📈 Integral Térmica ($K$)</h4>
+                <p>Cantidad fija de calor fisiológico requerida: $K = \sum (T_{\text{media}} - T_b) \cdot \Delta t$.</p>
+              </div>
+              <div class="pill-card">
+                <h4>❄️ Desvíos Térmicos Invernales</h4>
+                <p>Las anomalías cálidas de invierno aceleran la salida de diapausa, adelantando la primera generación estival.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🏛️ Ground Truth INTA</h4>
+                <p>Validación de curvas térmicas contra registros fenológicos de estaciones experimentales en Argentina.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="quote-box">
+            <strong>Argumento para Jurado:</strong> <em>"No usamos algoritmos genéricos de otros países: la ecuación integra la temperatura base calibrada para las cepas biológicas presentes en el campo argentino."</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 16: APÉNDICE B2: MODELOS PLAGAS & EFICACIA (BIOLÓGICO) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="Apéndice Q&A" data-notes="¿Por qué la ventana es tan estrecha? Por la cutícula del insecto. En huevo, el corion es impermeable a insecticidas de contacto: eficacia 10-20% y matamos enemigos naturales. En L1 a L3 la larva es diminuta, come vorazmente y la cutícula es delgada: 90% de mortandad con dosis bajas de IGR o biológicos. En L4 a L6 la oruga se esclerotiza, se mete en el cogollo y la eficacia cae al 20%. La app cuida el margen del productor.">
+        <div class="visual-col">
+          <div class="stat-card" style="width: 100%; padding: 24px; text-align: left;">
+            <div style="font-size: 0.8rem; color: var(--highlight); font-weight: 700; margin-bottom: 8px;">PARÁMETROS ONTOGÉNICOS</div>
+            <table style="width: 100%; font-size: 0.8rem; border-collapse: collapse; color: var(--text);">
+              <tr style="border-bottom: 1px solid var(--border); color: var(--gold);">
+                <th style="padding: 6px 0;">Especie</th>
+                <th>Tb</th>
+                <th>K (GDD)</th>
+                <th>Crítico</th>
+              </tr>
+              <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 6px 0;"><em>Dalbulus maidis</em></td>
+                <td>10°C</td>
+                <td>420</td>
+                <td>V1 - V6</td>
+              </tr>
+              <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 6px 0;"><em>Anticarsia gemm.</em></td>
+                <td>10°C</td>
+                <td>380</td>
+                <td>R1 - R5</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0;"><em>Spodoptera frug.</em></td>
+                <td>12°C</td>
+                <td>350</td>
+                <td>V2 - V8</td>
+              </tr>
+            </table>
+          </div>
+          <div class="image-tag">📚 Respaldo Biológico 2 • Especies y Eficacia</div>
+        </div>
+
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-gold">🧬 Apéndice B2 • Biológico</span>
+              <span class="badge badge-blue">Preguntas Frecuentes</span>
+            </div>
+            <h2 class="slide-title">Modelos Fenológicos y Ventanas de Eficacia</h2>
+            <p class="slide-subtitle">Biofísica de la susceptibilidad ontogénica y reducción del impacto químico.</p>
+
+            <div class="tech-box danger">
+              <h3>🎯 Por qué Falla el Control Fuera de la Ventana</h3>
+              <p>En huevo o adulto se desperdicia el 80% del producto fitosanitario. Solo en estadios larvales tempranos (L1-L3) se alcanza el 90-95% de mortandad con mínimas dosis.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>🥚 Huevo (Incubación)</h4>
+                <p>Corion impermeable a insecticidas de contacto. Aplicar acá destruye parasitoides benéficos y no mata la plaga.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🐛 Larva Chica (L1 - L3)</h4>
+                <p>Cutícula permeable, alimentación foliar voraz y máxima susceptibilidad a dosis reducidas de IGR o Bt.</p>
+              </div>
+              <div class="pill-card">
+                <h4>⚠️ Larva Grande / Adulto</h4>
+                <p>Ingreso en cogollo o vainas, cutícula endurecida y detoxificación enzimática activa. Daño ya producido.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🌱 Etapas Críticas del Cultivo</h4>
+                <p>Vincular la eclosión con V1-V6 en maíz o R1-R5 en soja evita la pérdida irreversible de componentes del rinde.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="quote-box">
+            <strong>Argumento para Jurado:</strong> <em>"El cartel de incubación no es solo un indicador visual: es la barrera que evita tirar 25 dólares por hectárea en un momento en que el químico es biológicamente inútil."</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 17: APÉNDICE T1: ARQUITECTURA & TOLERANCIA OFFLINE (TÉCNICO) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="Apéndice Q&A" data-notes="Arquitectura técnica: Clean Architecture y MVVM en Kotlin con Jetpack Compose. Para tolerar la falta de conectividad en el campo, usamos Room SQLite con una cola de eventos administrada por WorkManager con reintentos exponenciales. En el backend, microservicios asíncronos en FastAPI con PostgreSQL y la extensión espacial PostGIS, donde la función ST_DWithin calcula el radio de 20 km en submilisegundos mediante índices R-Tree.">
+        <div class="visual-col">
+          <div class="stat-card blue" style="width: 100%; padding: 24px; text-align: left;">
+            <div style="font-size: 0.8rem; color: var(--blue); font-weight: 700; margin-bottom: 8px;">STACK ARQUITECTÓNICO</div>
+            <p style="color: var(--text); font-size: 0.85rem; line-height: 1.6;">
+              • <strong>Frontend:</strong> Android Kotlin • Jetpack Compose • Material 3<br>
+              • <strong>Local DB:</strong> SQLite • Room ORM • StateFlow<br>
+              • <strong>Offline Sync:</strong> WorkManager • Exponential Backoff<br>
+              • <strong>Backend:</strong> FastAPI • Python 3.11 • AsyncIO<br>
+              • <strong>Cloud DB:</strong> PostgreSQL 15 • PostGIS Espacial<br>
+              • <strong>Spatial Query:</strong> ST_DWithin con índices GIST (R-Tree)
+            </p>
+          </div>
+          <div class="image-tag">📚 Respaldo Técnico 1 • Arquitectura de Software</div>
+        </div>
+
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-blue">💻 Apéndice T1 • Técnico</span>
+              <span class="badge badge-primary">Preguntas Frecuentes</span>
+            </div>
+            <h2 class="slide-title">Arquitectura General & Resiliencia Offline</h2>
+            <p class="slide-subtitle">Diseño desacoplado, persistencia transaccional y consultas espaciales de alta performance.</p>
+
+            <div class="tech-box blue">
+              <h3>📡 Resiliencia en Ambientes Rurales Sin Conectividad</h3>
+              <p>El cliente móvil es 100% operativo sin internet. Las acciones de campo se registran localmente y se sincronizan de forma idempotente al restablecerse la red.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>💾 Room + UUID Local</h4>
+                <p>Generación de UUIDs en cliente y persistencia previa con estado PENDIENTE_ENVIO antes de intentar la red.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🔄 WorkManager Sync</h4>
+                <p>Gestión de reintentos exponenciales garantizando que no se dupliquen reportes ni se pierdan datos.</p>
+              </div>
+              <div class="pill-card">
+                <h4>⚡ FastAPI Asíncrono</h4>
+                <p>Procesamiento concurrente no bloqueante capaz de manejar miles de peticiones simultáneas con bajo consumo.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🌍 PostGIS ST_DWithin</h4>
+                <p>Búsqueda espacial indexada sobre coordenadas esféricas para calcular el radio comunitario en menos de 5 ms.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="quote-box">
+            <strong>Argumento para Jurado:</strong> <em>"No dependemos de que haya 4G en el lote: el agrónomo anota, y cuando vuelve a la tranquera o a la casa, el WorkManager sincroniza todo de forma transparente."</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 18: APÉNDICE T2: MACHINE LEARNING PARA BIOFIX (TÉCNICO) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="Apéndice Q&A" data-notes="¿Cómo funciona el modelo de Machine Learning para el Biofix? Toma como features series térmicas de 60 días, anomalías de temperaturas invernales mínimas superiores a 15°C, precipitaciones acumuladas y fotoperíodo astronómico. Utilizamos un modelo de gradiente aumentado (XGBoost) entrenado con series históricas de trampas de luz del INTA. Predice la ventana probable con AUC-ROC de 0.88 y se retroalimenta activamente con las confirmaciones del productor en campo.">
+        <div class="visual-col">
+          <div class="stat-card" style="width: 100%; padding: 24px; text-align: left;">
+            <div style="font-size: 0.8rem; color: var(--highlight); font-weight: 700; margin-bottom: 8px;">VECTOR DE FEATURES ML</div>
+            <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5;">
+              • <strong>T_mean_7d, 15d, 30d:</strong> Inercia térmica acumulada.<br>
+              • <strong>Días_Tmin > 15°C:</strong> Supervivencia invernal.<br>
+              • <strong>Fotoperíodo:</strong> Horas de luz según latitud.<br>
+              • <strong>Precipitación 30d:</strong> Humedad para eclosión.<br>
+              • <strong>Presión Zonal previa:</strong> Histórico de cuenca.<br>
+              • <strong>Métrica:</strong> AUC-ROC > 0.88 en validación cruzada.
+            </p>
+          </div>
+          <div class="image-tag">📚 Respaldo Técnico 2 • Modelo de Machine Learning</div>
+        </div>
+
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-blue">🤖 Apéndice T2 • Técnico</span>
+              <span class="badge badge-primary">Preguntas Frecuentes</span>
+            </div>
+            <h2 class="slide-title">Modelo de Machine Learning para Biofix</h2>
+            <p class="slide-subtitle">Predicción bioclimática temprana y aprendizaje activo supervisado por el usuario.</p>
+
+            <div class="tech-box">
+              <h3>🧠 Anticipación a la Detección Ocular Humana</h3>
+              <p>El modelo no espera a ver el insecto: predice cuándo las condiciones bioclimáticas acumuladas activan la oviposición de adultos fértiles.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>📊 Algoritmo Predictivo</h4>
+                <p>Ensamble de Gradient Boosted Trees (XGBoost / LightGBM) calibrado con datos meteorológicos históricos.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🎯 Detección de Inviernos Benignos</h4>
+                <p>Identificación de inviernos cálidos que evitan la mortandad por heladas de la chicharrita del maíz.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🔄 Bucle Activo de Feedback</h4>
+                <p>Cada confirmación o corrección del agrónomo genera un registro FeedbackPrediccion para reentrenar pesos.</p>
+              </div>
+              <div class="pill-card">
+                <h4>⚖️ Humano en el Centro</h4>
+                <p>La IA emite una recomendación probabilística; la decisión de inicio del ciclo recae siempre en el profesional.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="quote-box">
+            <strong>Argumento para Jurado:</strong> <em>"No es una caja negra: el modelo predice la ventana en base a variables biometeorológicas comprobadas y se calibra con la confirmación del usuario."</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 19: APÉNDICE T3: JOB DIARIO & NOTIFICACIONES (TÉCNICO) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="Apéndice Q&A" data-notes="¿Cómo escala el recálculo diario si hay miles de lotes? A las 03:00 AM un scheduler batch en el backend ejecuta consultas concurrentes asíncronas con httpx. Agrupa las coordenadas cercanas para no repetir peticiones a Open-Meteo y SMN. Computa los GDD de todos los monitoreos activos, actualiza la base de datos y evalúa reglas de negocio. Si se supera el umbral, despacha alertas push por Firebase Cloud Messaging sin saturar el celular.">
+        <div class="visual-col">
+          <div class="stat-card gold" style="width: 100%; padding: 24px; text-align: left;">
+            <div style="font-size: 0.8rem; color: var(--gold); font-weight: 700; margin-bottom: 8px;">PIPELINE BATCH NOCTURNO</div>
+            <p style="color: var(--text); font-size: 0.85rem; line-height: 1.6;">
+              <strong>03:00 AM:</strong> Trigger Cron en Backend<br>
+              ➔ <strong>Clustering GPS:</strong> Agrupación de lotes cercanos<br>
+              ➔ <strong>Async HTTP:</strong> Consulta concurrente Open-Meteo / SMN<br>
+              ➔ <strong>Cálculo GDD:</strong> Actualización masiva en PostgreSQL<br>
+              ➔ <strong>Evaluación IRA:</strong> Chequeo de umbrales por usuario<br>
+              ➔ <strong>Push FCM:</strong> Despacho masivo antes de las 07:00 AM
+            </p>
+          </div>
+          <div class="image-tag">📚 Respaldo Técnico 3 • Pipeline de Datos Batch</div>
+        </div>
+
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-blue">⚙️ Apéndice T3 • Técnico</span>
+              <span class="badge badge-primary">Preguntas Frecuentes</span>
+            </div>
+            <h2 class="slide-title">Pipeline del Job Diario & Notificaciones FCM</h2>
+            <p class="slide-subtitle">Automatización batch nocturna, integración meteorológica y despacho masivo push.</p>
+
+            <div class="tech-box gold">
+              <h3>🌙 Eficiencia Energética y de Red</h3>
+              <p>El procesamiento pesado ocurre en el servidor durante la noche. El teléfono del productor no consume batería calculando integrales térmicas.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>⚡ Consultas Asíncronas</h4>
+                <p>Llamadas concurrentes con httpx.AsyncClient para descargar datos meteorológicos en paralelo en segundos.</p>
+              </div>
+              <div class="pill-card">
+                <h4>📍 Deduplicación por Coordenadas</h4>
+                <p>Si varios lotes comparten la misma estación meteorológica, se realiza una única petición a la API externa.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🔔 Firebase Cloud Messaging</h4>
+                <p>Tokens FCM registrados en backend. Despacho segmentado por lote y topics regionales de emergencia.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🔋 Cero Impacto en Batería</h4>
+                <p>La app despierta solo para renderizar la alerta, sin necesidad de correr servicios en background permanentes.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="quote-box">
+            <strong>Argumento para Jurado:</strong> <em>"El procesamiento no corre en el celular: el backend calcula en la nube a la madrugada y a primera hora el productor recibe la alerta lista para actuar."</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- SLIDE 20: APÉNDICE T4: GEOPRIVACIDAD & LEY 25.326 (TÉCNICO) -->
+      <!-- =================================================================== -->
+      <div class="slide" data-timing="Apéndice Q&A" data-notes="La privacidad en el agro es sagrada: nadie quiere que la competencia sepa qué plaga tiene en su campo. Cumplimos con la Ley Nacional 25.326 de Protección de Datos Personales. Implementamos un buffer espacial difuso: la coordenada exacta queda en la cuenta privada del usuario. A la red comunitaria solo se envía un punto desplazado aleatoriamente dentro del anillo de 20 km. Es matemáticamente imposible rastrear la identidad o el catastro del vecino.">
+        <div class="visual-col">
+          <div class="stat-card" style="width: 100%; padding: 24px; text-align: left;">
+            <div style="font-size: 0.8rem; color: var(--highlight); font-weight: 700; margin-bottom: 8px;">CUMPLIMIENTO NORMATIVO</div>
+            <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6;">
+              • <strong>Ley 25.326:</strong> Protección de Datos Personales (Argentina).<br>
+              • <strong>Buffer Difuso:</strong> Perturbación de coordenadas en capa pública.<br>
+              • <strong>Cifrado:</strong> TLS 1.3 en tránsito y AES-256 en reposo.<br>
+              • <strong>Tokens JWT:</strong> Sesiones seguras sin almacenar passwords.<br>
+              • <strong>Consentimiento Ético:</strong> Switch opt-in para reentrenar IA.<br>
+              • <strong>Derecho ARCO:</strong> Acceso, rectificación y supresión de datos.
+            </p>
+          </div>
+          <div class="image-tag">📚 Respaldo Técnico 4 • Privacidad y Seguridad</div>
+        </div>
+
+        <div class="content-col">
+          <div>
+            <div class="badge-row">
+              <span class="badge badge-blue">🔒 Apéndice T4 • Técnico</span>
+              <span class="badge badge-primary">Preguntas Frecuentes</span>
+            </div>
+            <h2 class="slide-title">Geoprivacidad, Anonimización y Ley 25.326</h2>
+            <p class="slide-subtitle">Protección de secretos comerciales y seguridad de datos en la red comunitaria.</p>
+
+            <div class="tech-box">
+              <h3>🛡️ El Algoritmo de Perturbación Espacial (Buffer Difuso)</h3>
+              <p>La comunidad se beneficia de la alerta temprana regional sin que ningún productor exponga la ubicación exacta de su potrero.</p>
+            </div>
+
+            <div class="pills-grid">
+              <div class="pill-card">
+                <h4>📍 Coordenadas Segregadas</h4>
+                <p>La geolocalización exacta del catastro vive únicamente en la cuenta privada del titular del establecimiento.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🎲 Difusión Aleatoria</h4>
+                <p>Para la alerta zonal, el backend aplica una dispersión radial aleatoria que impide la triangulación inversa.</p>
+              </div>
+              <div class="pill-card">
+                <h4>📜 Cumplimiento Ley 25.326</h4>
+                <p>Garantía de confidencialidad de la información productiva y auditoría de accesos conforme a la legislación nacional.</p>
+              </div>
+              <div class="pill-card">
+                <h4>🛑 Derecho de Revocación</h4>
+                <p>El productor puede revocar en cualquier momento el consentimiento de compartir datos con un solo clic.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="quote-box">
+            <strong>Argumento para Jurado:</strong> <em>"El productor sabe que la plaga anda cerca a 8 kilómetros, pero nadie puede saber qué lote específico tiene el problema ni de quién es el campo."</em>
           </div>
         </div>
       </div>
@@ -807,33 +1759,92 @@
     </div>
   </main>
 
-  <footer>
-    <div class="nav-hints">
-      Navegación: Usa las teclas <kbd>◀</kbd> <kbd>▶</kbd> o <kbd>Espacio</kbd> para avanzar. Tecla <kbd>F</kbd> para pantalla completa. Tecla <kbd>N</kbd> para ocultar/mostrar notas.
+  <!-- SPEAKER NOTES DRAWER -->
+  <div class="notes-drawer" id="notesDrawer">
+    <div class="notes-header">
+      <h4>🎙️ Notas del Orador & Qué Decir</h4>
+      <button class="btn" id="btnCloseNotes" style="padding: 2px 8px; font-size: 0.75rem;">✕ Cerrar</button>
     </div>
-    <div style="font-size: 0.85rem; color: var(--text-muted);">
-      PF-PLAG-OUT-26 • UTN FRBA 2026
+    <div class="notes-content" id="notesContent">
+      Cargando notas...
     </div>
-  </footer>
+  </div>
 
   <script>
-    let currentSlide = 0;
     const slides = document.querySelectorAll('.slide');
     const totalSlides = slides.length;
-    let notesVisible = true;
+    let currentSlide = 0;
 
+    const slideCounter = document.getElementById('slideCounter');
+    const progressBar = document.getElementById('progressBar');
+    const notesDrawer = document.getElementById('notesDrawer');
+    const notesContent = document.getElementById('notesContent');
+    const appendixMenu = document.getElementById('appendixMenu');
+
+    // Timer logic
+    let timerSeconds = 0;
+    let timerInterval = null;
+    let timerRunning = false;
+
+    const timerValue = document.getElementById('timerValue');
+    const btnTimerToggle = document.getElementById('btnTimerToggle');
+    const btnTimerReset = document.getElementById('btnTimerReset');
+
+    function updateTimerDisplay() {
+      const mins = Math.floor(timerSeconds / 60);
+      const secs = timerSeconds % 60;
+      timerValue.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function startTimer() {
+      if (!timerInterval) {
+        timerInterval = setInterval(() => {
+          timerSeconds++;
+          updateTimerDisplay();
+        }, 1000);
+        timerRunning = true;
+      }
+    }
+
+    function pauseTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      timerRunning = false;
+    }
+
+    btnTimerToggle.addEventListener('click', () => {
+      if (timerRunning) {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
+    });
+
+    btnTimerReset.addEventListener('click', () => {
+      pauseTimer();
+      timerSeconds = 0;
+      updateTimerDisplay();
+    });
+
+    // Slide navigation
     function updateSlide() {
       slides.forEach((slide, idx) => {
         slide.classList.toggle('active', idx === currentSlide);
       });
-      document.getElementById('slideCounter').textContent = `${currentSlide + 1} / ${totalSlides}`;
-      document.getElementById('progressBar').style.width = `${((currentSlide + 1) / totalSlides) * 100}%`;
-      
-      const timeRange = slides[currentSlide].getAttribute('data-time') || '00:00 - 20:00';
-      document.getElementById('timingIndicator').textContent = `⏱️ ${timeRange}`;
 
-      document.getElementById('prevBtn').disabled = currentSlide === 0;
-      document.getElementById('nextBtn').disabled = currentSlide === totalSlides - 1;
+      // Update counter and progress
+      slideCounter.textContent = `Diapositiva ${currentSlide + 1} / ${totalSlides}`;
+      const progressPercent = ((currentSlide + 1) / totalSlides) * 100;
+      progressBar.style.width = `${progressPercent}%`;
+
+      // Update speaker notes
+      const activeSlide = slides[currentSlide];
+      const notes = activeSlide.getAttribute('data-notes') || 'Sin notas.';
+      const timing = activeSlide.getAttribute('data-timing') || '';
+      notesContent.innerHTML = `<strong>[⏱️ ${timing}]:</strong> ${notes}`;
+
+      // Close appendix menu if open
+      appendixMenu.classList.remove('show');
     }
 
     function nextSlide() {
@@ -850,34 +1861,68 @@
       }
     }
 
-    function toggleNotes() {
-      notesVisible = !notesVisible;
-      document.querySelectorAll('.speaker-box').forEach(box => {
-        box.style.display = notesVisible ? 'block' : 'none';
-      });
-    }
-
-    function toggleFullscreen() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(err => alert(err.message));
-      } else {
-        document.exitFullscreen();
+    function goToSlide(index) {
+      if (index >= 0 && index < totalSlides) {
+        currentSlide = index;
+        updateSlide();
       }
     }
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
-        nextSlide();
-      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
-        prevSlide();
-      } else if (e.key === 'f' || e.key === 'F') {
-        toggleFullscreen();
-      } else if (e.key === 'n' || e.key === 'N') {
-        toggleNotes();
+    // Event listeners
+    document.getElementById('btnNext').addEventListener('click', nextSlide);
+    document.getElementById('btnPrev').addEventListener('click', prevSlide);
+
+    document.getElementById('btnNotesToggle').addEventListener('click', () => {
+      notesDrawer.classList.toggle('open');
+    });
+
+    document.getElementById('btnCloseNotes').addEventListener('click', () => {
+      notesDrawer.classList.remove('open');
+    });
+
+    document.getElementById('btnAppendixToggle').addEventListener('click', (e) => {
+      e.stopPropagation();
+      appendixMenu.classList.toggle('show');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!appendixMenu.contains(e.target) && e.target.id !== 'btnAppendixToggle') {
+        appendixMenu.classList.remove('show');
       }
     });
 
+    document.getElementById('btnFullscreen').addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          alert(`Error al activar pantalla completa: ${err.message}`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key.toLowerCase() === 'n') {
+        notesDrawer.classList.toggle('open');
+      } else if (e.key.toLowerCase() === 'f') {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen();
+        } else {
+          document.exitFullscreen();
+        }
+      }
+    });
+
+    // Initialize
     updateSlide();
+    startTimer();
   </script>
 </body>
 </html>
