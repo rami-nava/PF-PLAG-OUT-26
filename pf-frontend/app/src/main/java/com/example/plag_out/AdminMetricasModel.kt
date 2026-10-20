@@ -195,7 +195,7 @@ fun agruparPorCampaña(
     val terrenosMap = terrenos.associateBy { it.terreno_id }
 
     val monitoreosPorCampaña = monitoreos.groupBy { m ->
-        val fecha = m.fecha_inicio ?: m.fecha_actualizacion
+        val fecha = m.fecha_inicio ?: LocalDate.now()
         determinarCampaña(fecha)
     }
 
@@ -213,9 +213,10 @@ fun agruparPorCampaña(
         val resumenPlagas = porPlaga.map { (nombrePlaga, items) ->
             val totalPlaga = items.size
             val incidencia = if (totalCampaña > 0) (totalPlaga * 100f / totalCampaña) else 0f
-            val enAlto = items.count { nivelAlertaResuelto(it) >= 2 }
+            val enAlto = items.count { (nivelAlertaResuelto(it) ?: -1) >= 2 }
             val pctAlto = if (totalPlaga > 0) (enAlto * 100f / totalPlaga) else 0f
-            val promedioNivel = if (totalPlaga > 0) items.map { nivelAlertaResuelto(it).coerceAtLeast(0) }.average().toFloat() else 0f
+            val niveles = items.mapNotNull { nivelAlertaResuelto(it) }
+            val promedioNivel = if (niveles.isNotEmpty()) niveles.average().toFloat() else 0f
             val nombreCientifico = items.firstNotNullOfOrNull { it.plaga_nombre_cientifico }
 
             ResumenPlagaCampaña(
@@ -231,9 +232,10 @@ fun agruparPorCampaña(
 
         val plagaLider = resumenPlagas.firstOrNull()
 
-        val rBajo = listaMonitoreos.count { nivelAlertaResuelto(it) <= 0 }
+        // Los que esperan el biofix no tienen nivel: no cuentan en ningún riesgo.
+        val rBajo = listaMonitoreos.count { nivelAlertaResuelto(it) == 0 }
         val rModerado = listaMonitoreos.count { nivelAlertaResuelto(it) == 1 }
-        val rAlto = listaMonitoreos.count { nivelAlertaResuelto(it) >= 2 }
+        val rAlto = listaMonitoreos.count { (nivelAlertaResuelto(it) ?: -1) >= 2 }
 
         CampañaHistorica(
             nombre = nombreCampaña,
@@ -259,8 +261,10 @@ fun calcularSemaforoHectareas(
     val activos = monitoreos.filter { it.activo }
     val terrenosMap = terrenos.associateBy { it.terreno_id }
 
+    // Lotes cuyos monitoreos esperan todos el biofix no tienen nivel: quedan fuera del semáforo.
     val alertaPorTerreno = activos.groupBy { it.terreno_id }
-        .mapValues { (_, ms) -> ms.maxOfOrNull { nivelAlertaResuelto(it) } ?: 0 }
+        .mapNotNull { (terreno, ms) -> ms.mapNotNull(::nivelAlertaResuelto).maxOrNull()?.let { terreno to it } }
+        .toMap()
 
     var haVerde = 0f
     var haAmarillo = 0f
@@ -336,7 +340,7 @@ fun calcularPlagasPorCultivo(
         val plagasDesglose = porPlaga.map { (plaga, items) ->
             val lotesPlaga = items.map { it.terreno_id }.distinct().size
             val pct = if (totalLotes > 0) (lotesPlaga * 100f / totalLotes) else 0f
-            val enAlerta = items.count { nivelAlertaResuelto(it) >= 2 }
+            val enAlerta = items.count { (nivelAlertaResuelto(it) ?: -1) >= 2 }
             val cientifico = items.firstNotNullOfOrNull { it.plaga_nombre_cientifico }
 
             ParPlagaFrecuencia(
@@ -349,7 +353,7 @@ fun calcularPlagasPorCultivo(
         }.sortedByDescending { it.totalLotes }
 
         val plagaLider = plagasDesglose.firstOrNull()?.plagaNombre
-        val enAlertaTotal = lista.count { nivelAlertaResuelto(it) >= 2 }
+        val enAlertaTotal = lista.count { (nivelAlertaResuelto(it) ?: -1) >= 2 }
 
         ResumenCultivoPlagas(
             cultivoNombre = cultivo,
@@ -374,7 +378,7 @@ fun calcularRankingLotesCriticos(
     plantaciones: List<PlantacionesResponse> = emptyList(),
     fechaReferencia: LocalDate = LocalDate.now()
 ): List<LoteEnRiesgoCritico> {
-    val activos = monitoreos.filter { it.activo }
+    val activos = monitoreos.filter { it.activo && medido(it) }
     val terrenosMap = terrenos.associateBy { it.terreno_id }
     val plantacionesMap = plantaciones.associateBy { it.plantacion_id }
 
@@ -385,9 +389,9 @@ fun calcularRankingLotesCriticos(
             ChronoUnit.DAYS.between(it, fechaReferencia).coerceAtLeast(0)
         }
 
-        val nivelAlerta = nivelAlertaResuelto(m)
-        val progreso = progresoResuelto(m)
-        val gddAcumulado = gddAcumuladoResuelto(m)
+        val nivelAlerta = nivelAlertaResuelto(m) ?: 0
+        val progreso = progresoResuelto(m) ?: 0f
+        val gddAcumulado = gddAcumuladoResuelto(m) ?: 0f
 
         val urgencia = textoUrgencia(
             when {
@@ -426,12 +430,11 @@ fun calcularRankingLotesCriticos(
 fun calcularVentanasControlAgronomo(
     monitoreos: List<MonitoreoResponse>
 ): List<VentanaControlBiologico> {
-    val activos = monitoreos.filter { it.activo }
+    val activos = monitoreos.filter { it.activo && medido(it) }
 
     return activos.map { m ->
-        val progreso = progresoResuelto(m)
-        val cicloActivo = m.ciclos?.firstOrNull { it.estado.equals("activo", ignoreCase = true) }
-            ?: m.ciclos?.lastOrNull()
+        val cicloActivo = cicloQueDescribe(m)
+        val progreso = cicloActivo?.progreso ?: 0f
         val estadioReal = cicloActivo?.estadio_biologico?.takeIf { it.isNotBlank() }
 
         val (estadio, estado, recomendacion, enOptima) = when {
@@ -489,7 +492,7 @@ fun calcularEficaciaTratamientos(
         archivados += ciclosArchivados.size
 
         if (ciclosArchivados.isNotEmpty()) {
-            if (nivelAlertaResuelto(m) < 2) {
+            if ((nivelAlertaResuelto(m) ?: 0) < 2) {
                 exitosos += ciclosArchivados.size
             } else {
                 rebrotes++
@@ -508,31 +511,22 @@ fun calcularEficaciaTratamientos(
 }
 
 /**
- * Extrae el nivel de alerta real de un monitoreo a partir de su ciclo activo o archivado más reciente.
+ * El ciclo que describe el monitoreo: el activo o, si no hay, el de biofix más reciente (mismo
+ * criterio que el backend). Null mientras espera el biofix: todavía no se midió nada.
  */
-fun nivelAlertaResuelto(monitoreo: MonitoreoResponse): Int {
-    val ciclo = monitoreo.ciclos?.firstOrNull { it.estado.equals("activo", ignoreCase = true) }
-        ?: monitoreo.ciclos?.lastOrNull()
-    return ciclo?.nivel_alerta ?: monitoreo.nivel_alerta
+fun cicloQueDescribe(monitoreo: MonitoreoResponse): GddCicloResponse? {
+    val ciclos = monitoreo.ciclos.orEmpty()
+    return ciclos.firstOrNull { it.estado.equals("activo", ignoreCase = true) }
+        ?: ciclos.maxWithOrNull(compareBy<GddCicloResponse> { it.fecha_biofix }.thenBy { it.id })
 }
 
-/**
- * Extrae el porcentaje de progreso térmico real del monitoreo a partir de su ciclo activo o archivado.
- */
-fun progresoResuelto(monitoreo: MonitoreoResponse): Float {
-    val ciclo = monitoreo.ciclos?.firstOrNull { it.estado.equals("activo", ignoreCase = true) }
-        ?: monitoreo.ciclos?.lastOrNull()
-    return ciclo?.progreso ?: monitoreo.progreso
-}
+fun nivelAlertaResuelto(monitoreo: MonitoreoResponse): Int? = cicloQueDescribe(monitoreo)?.nivel_alerta
 
-/**
- * Extrae el acumulado térmico GDD real del monitoreo a partir de su ciclo activo o archivado.
- */
-fun gddAcumuladoResuelto(monitoreo: MonitoreoResponse): Float {
-    val ciclo = monitoreo.ciclos?.firstOrNull { it.estado.equals("activo", ignoreCase = true) }
-        ?: monitoreo.ciclos?.lastOrNull()
-    return ciclo?.gdd_acumulado ?: monitoreo.gdd_acumulado
-}
+fun progresoResuelto(monitoreo: MonitoreoResponse): Float? = cicloQueDescribe(monitoreo)?.progreso
+
+fun gddAcumuladoResuelto(monitoreo: MonitoreoResponse): Float? = cicloQueDescribe(monitoreo)?.gdd_acumulado
+
+private fun medido(monitoreo: MonitoreoResponse): Boolean = cicloQueDescribe(monitoreo) != null
 
 // ── Métricas globales del admin (GET /admin/metricas) ───────────────────────
 // El backend ya las calcula sobre todos los productores; acá solo se pasan a los modelos

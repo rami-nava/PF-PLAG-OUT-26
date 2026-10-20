@@ -190,10 +190,18 @@ class CrearReporteViewModelTest {
     }
 
     @Test
-    fun `seleccionarPlaga calcula las etapas biologicas correspondientes`() {
-        val oruga = Fixtures.plaga(id = 1, nombre = "Oruga Cogollera", nombreCientifico = "Spodoptera frugiperda")
-        val chicharrita = Fixtures.plaga(id = 2, nombre = "Chicharrita", nombreCientifico = "Dalbulus maidis")
-        gddService.getPlagasResult = { Response.success(listOf(oruga, chicharrita)) }
+    fun `seleccionarPlaga ofrece las etapas que el backend define para la plaga`() {
+        val oruga = Fixtures.plaga(
+            id = 1, nombre = "Oruga Cogollera", nombreCientifico = "Spodoptera frugiperda",
+            etapas = listOf("HUEVO", "LARVA", "PUPA", "ADULTO")
+        )
+        val chicharrita = Fixtures.plaga(
+            id = 2, nombre = "Chicharrita", nombreCientifico = "Dalbulus maidis",
+            etapas = listOf("HUEVO", "NINFA", "ADULTO")
+        )
+        // Sin tipo de desarrollo cargado el backend no restringe: se ofrecen todas.
+        val sinDato = Fixtures.plaga(id = 3, nombre = "Plaga nueva", nombreCientifico = "Nova species")
+        gddService.getPlagasResult = { Response.success(listOf(oruga, chicharrita, sinDato)) }
         viewModel = CrearReporteViewModel(context, gddService, currentOwner = { "fixture-owner" })
         esperarEstado(viewModel.state) { !it.isLoadingInicial && it.terrenos.isNotEmpty() }
 
@@ -208,6 +216,9 @@ class CrearReporteViewModelTest {
         viewModel.seleccionarPlaga(chicharrita)
         assertEquals(listOf("HUEVO", "NINFA", "ADULTO"), viewModel.state.value.etapasDisponibles)
         assertEquals("HUEVO", viewModel.state.value.etapaBiologica)
+
+        viewModel.seleccionarPlaga(sinDato)
+        assertEquals(listOf("HUEVO", "NINFA", "LARVA", "PUPA", "ADULTO"), viewModel.state.value.etapasDisponibles)
     }
 
     @Test

@@ -33,7 +33,10 @@ class DetalleMonitoreoTest {
     private lateinit var gddService: FakeGDDService
     private lateinit var viewModel: MonitoreoDetalleViewModel
 
-    private val monitoreo = Fixtures.monitoreo(id = 1, progreso = 78f, nivelAlerta = 2, umbralRiesgo = 80)
+    private val monitoreo = Fixtures.monitoreo(
+        id = 1, umbralRiesgo = 80,
+        ciclos = listOf(Fixtures.ciclo(progreso = 78f, nivelAlerta = 2))
+    )
 
     @Before
     fun setup() {

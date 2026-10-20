@@ -15,7 +15,6 @@ class CiclosTest {
     @Test
     fun `el nivel efectivo es el mas alto entre los ciclos activos`() {
         val monitoreo = Fixtures.monitoreo(
-            nivelAlerta = 0,
             ciclos = listOf(
                 Fixtures.ciclo(id = 1, nivelAlerta = 0),
                 Fixtures.ciclo(id = 2, nivelAlerta = 2),
@@ -40,7 +39,7 @@ class CiclosTest {
 
     @Test
     fun `sin ciclos activos el nivel es sin datos y no bajo`() {
-        val monitoreo = Fixtures.monitoreo(nivelAlerta = 0, ciclos = null)
+        val monitoreo = Fixtures.monitoreo(ciclos = null)
 
         assertNull(nivelAlertaDeCiclos(monitoreo))
         assertEquals(-1, nivelAlertaEfectivo(monitoreo))

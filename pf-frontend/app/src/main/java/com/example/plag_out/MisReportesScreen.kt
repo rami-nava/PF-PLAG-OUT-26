@@ -953,9 +953,10 @@ private fun FiltroFechas(
     var mostrarHasta by remember { mutableStateOf(false) }
 
     val todayMillis = remember { java.time.LocalDate.now().atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli() }
-    val minDateMillis = remember { java.time.LocalDate.of(2026, 1, 1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli() }
+    // Cualquier día pasado de los últimos años; el rango entre ambos lo limita ajustarRangoFechas.
+    val minDateMillis = remember { java.time.LocalDate.now().minusYears(5).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli() }
     val pastSelectableDates = remember { object : androidx.compose.material3.SelectableDates { override fun isSelectableDate(utcTimeMillis: Long): Boolean { return utcTimeMillis in minDateMillis..todayMillis } } }
-    val yearRangeToToday = remember { 2026..java.time.LocalDate.now().year }
+    val yearRangeToToday = remember { java.time.LocalDate.now().minusYears(5).year..java.time.LocalDate.now().year }
 
     val formatoCorto = DateTimeFormatter.ofPattern("dd/MM/yy")
 
@@ -1008,11 +1009,8 @@ private fun FiltroFechas(
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
                         val nuevaFecha = java.time.Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
-                        if (nuevaFecha.isAfter(hasta)) {
-                            onFechasChange(nuevaFecha, nuevaFecha)
-                        } else {
-                            onFechasChange(nuevaFecha, hasta)
-                        }
+                        val (nuevoDesde, nuevoHasta) = ajustarRangoFechas(nuevaFecha, hasta, movioDesde = true)
+                        onFechasChange(nuevoDesde, nuevoHasta)
                     }
                     mostrarDesde = false
                 }) { Text("Aceptar") }
@@ -1034,11 +1032,8 @@ private fun FiltroFechas(
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
                         val nuevaFecha = java.time.Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
-                        if (nuevaFecha.isBefore(desde)) {
-                            onFechasChange(nuevaFecha, nuevaFecha)
-                        } else {
-                            onFechasChange(desde, nuevaFecha)
-                        }
+                        val (nuevoDesde, nuevoHasta) = ajustarRangoFechas(desde, nuevaFecha, movioDesde = false)
+                        onFechasChange(nuevoDesde, nuevoHasta)
                     }
                     mostrarHasta = false
                 }) { Text("Aceptar") }

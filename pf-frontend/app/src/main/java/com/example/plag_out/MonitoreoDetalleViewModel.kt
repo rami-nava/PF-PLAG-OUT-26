@@ -11,7 +11,6 @@ import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
-import com.google.gson.JsonObject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -263,8 +262,8 @@ class MonitoreoDetalleViewModel(
         viewModelScope.launch {
             try {
                 val response = withContext(Dispatchers.IO) {
-                    gddService.actualizarUmbralAlertaMl(monitoreo.monitoreo_id,
-                        JsonObject().apply { addProperty("alertas_ml_activas", activas) })
+                    gddService.actualizarMonitoreo(monitoreo.monitoreo_id,
+                        UpdateMonitoreoRequest(alertas_ml_activas = activas))
                 }
                 val actualizado = response.body()
                 if (response.isSuccessful && actualizado?.alertas_ml_activas != null) {

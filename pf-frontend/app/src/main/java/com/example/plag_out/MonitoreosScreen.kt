@@ -454,7 +454,10 @@ fun ordenarMonitoreos(
     monitoreos: List<MonitoreoResponse>,
     finalizadosAlFinal: Boolean = false
 ): List<MonitoreoResponse> {
-    val porProgreso = compareByDescending<MonitoreoResponse> { it.progreso }
+    // El avance real está en los ciclos activos; sin ciclo (esperando biofix) va al final.
+    val porProgreso = compareByDescending<MonitoreoResponse> { m ->
+        ciclosActivos(m).maxOfOrNull { it.progreso } ?: -1f
+    }
     val comparador =
         if (finalizadosAlFinal) compareBy<MonitoreoResponse> { !it.activo }.then(porProgreso)
         else porProgreso

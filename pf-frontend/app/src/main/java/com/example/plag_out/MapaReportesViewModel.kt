@@ -1,5 +1,6 @@
 package com.example.plag_out
 
+import com.example.plag_out.Service.todasLasPlagas
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -237,7 +238,7 @@ class MapaReportesViewModel(
         if (_state.value.catalogoPlagas.isNotEmpty()) return
         viewModelScope.launch {
             try {
-                val response = withContext(Dispatchers.IO) { gddService.getPlagas() }
+                val response = withContext(Dispatchers.IO) { gddService.todasLasPlagas() }
                 val nombres = response.body()
                     ?.map { it.nombre }
                     ?.filter { it.isNotBlank() }

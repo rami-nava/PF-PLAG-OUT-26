@@ -1,5 +1,6 @@
 package com.example.plag_out
 
+import com.example.plag_out.Service.todosLosCultivos
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -171,7 +172,7 @@ class AdminPlagasViewModel(
     private suspend fun cargarCultivosSiHaceFalta() {
         if (_state.value.cultivos.isNotEmpty()) return
         try {
-            val response = withContext(Dispatchers.IO) { gddService.getCultivos() }
+            val response = withContext(Dispatchers.IO) { gddService.todosLosCultivos() }
             response.body()?.takeIf { response.isSuccessful }?.let {
                 _state.value = _state.value.copy(cultivos = it)
             }

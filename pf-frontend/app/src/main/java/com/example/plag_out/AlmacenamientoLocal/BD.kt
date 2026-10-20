@@ -19,7 +19,7 @@ import java.util.Date
 
 @Database(
     entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class, UsuarioResponse::class, FeedbackPrediccionPendiente::class, BiofixPendiente::class],
-    version = 17,
+    version = 18,
     exportSchema = false
 )
 
@@ -45,7 +45,7 @@ abstract class AppDatabase : RoomDatabase() {
                     appContext,
                     AppDatabase::class.java,
                     "gdd_database"
-                ).addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
+                ).addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, migracion17a18(appContext))
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     // Si una versión futura cae en la migración destructiva, también se invalidan
                     // las marcas que describían el caché eliminado.
@@ -57,6 +57,29 @@ abstract class AppDatabase : RoomDatabase() {
                     .build()
                 INSTANCE = instance
                 instance
+            }
+        }
+
+        /**
+         * El backend dejó de mandar los escalares legados del monitoreo (avance, nivel, GDD
+         * acumulado...: viven en los ciclos) y suma plaga_id. La tabla es solo caché, así que se
+         * recrea vacía y se marca para volver a pedirla; las colas pendientes no se tocan.
+         */
+        fun migracion17a18(context: Context) = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `monitoreos`")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `monitoreos` (`monitoreo_id` INTEGER NOT NULL, " +
+                        "`plantacion_id` INTEGER NOT NULL, `terreno_id` INTEGER NOT NULL, " +
+                        "`terreno_nombre` TEXT NOT NULL, `cultivo_nombre` TEXT NOT NULL, " +
+                        "`plaga_id` INTEGER NOT NULL, `plaga_nombre` TEXT NOT NULL, " +
+                        "`gdd_objetivo` REAL NOT NULL, `umbral_riesgo` INTEGER, `activo` INTEGER NOT NULL, " +
+                        "`fecha_inicio` TEXT, `plaga_nombre_cientifico` TEXT, `alertas_ml_activas` INTEGER, " +
+                        "`umbral_alerta_ml_recomendado` REAL, `modelo_alerta_ml_id` TEXT, " +
+                        "`horizonte_alerta_ml_dias` INTEGER, `ciclos` TEXT, `observaciones` TEXT, " +
+                        "PRIMARY KEY(`monitoreo_id`))"
+                )
+                CacheTracker.invalidar(context, CacheTracker.MONITOREOS)
             }
         }
 
