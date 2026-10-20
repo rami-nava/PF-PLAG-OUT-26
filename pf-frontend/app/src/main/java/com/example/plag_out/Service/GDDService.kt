@@ -233,6 +233,11 @@ interface GDDService {
     @GET("api/gdd/health")
     suspend fun health(): Response<Unit>
 
+    // ── Dashboards y Métricas Fitosanitarias ───────────────────────────────
+    // Endpoint dedicado para la consolidación de KPIs ejecutivos
+    @GET("/dashboards/metricas")
+    suspend fun getDashboardMetricas(): Response<com.example.plag_out.DashboardMetricasResponse>
+
     // ── Administración ──────────────────────────────────────────────────────
     // El backend valida que el usuario del JWT sea admin: 403 {"detail": "requiere_admin"} si no.
 
