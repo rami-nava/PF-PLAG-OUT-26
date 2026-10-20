@@ -406,5 +406,119 @@ class AdminMetricasModelTest {
         assertEquals(1, ranking[2].monitoreoId)
         assertEquals(0, ranking[2].nivelAlerta)
     }
+
+    @Test
+    fun `DashboardMetricasResponse y DTOs mapean correctamente a modelos de dominio`() {
+        val dto = DashboardMetricasResponse(
+            total_hectareas_historicas = 250f,
+            total_monitoreos_historicos = 12,
+            plaga_historica_lider = "Oruga cogollera",
+            semaforo_hectareas = SemaforoHectareasDTO(
+                hectareas_verde = 50f,
+                hectareas_amarillo = 100f,
+                hectareas_rojo = 100f,
+                total_hectareas = 250f,
+                lotes_verde = 1,
+                lotes_amarillo = 2,
+                lotes_rojo = 1,
+                total_lotes = 4
+            ),
+            plagas_por_cultivo = listOf(
+                ResumenCultivoPlagasDTO(
+                    cultivo_nombre = "Maíz",
+                    cultivo_cientifico = "Zea mays",
+                    total_lotes = 3,
+                    total_hectareas = 180f,
+                    plagas = listOf(
+                        ParPlagaFrecuenciaDTO(
+                            plaga_nombre = "Oruga cogollera",
+                            plaga_cientifico = "Spodoptera frugiperda",
+                            total_lotes = 2,
+                            porcentaje = 66.6f,
+                            casos_alerta = 1
+                        )
+                    ),
+                    plaga_mas_frecuente = "Oruga cogollera",
+                    lotes_en_riesgo_alto = 1,
+                    dias_desde_siembra = 45L
+                )
+            ),
+            lotes_criticos = listOf(
+                LoteEnRiesgoCriticoDTO(
+                    monitoreo_id = 101,
+                    terreno_id = 1,
+                    terreno_nombre = "Lote Norte",
+                    terreno_area = 100f,
+                    cultivo_nombre = "Maíz",
+                    plaga_nombre = "Oruga cogollera",
+                    plaga_cientifico = "Spodoptera frugiperda",
+                    nivel_alerta = 2,
+                    progreso_gdd = 95f,
+                    gdd_acumulado = 285f,
+                    gdd_objetivo = 300f,
+                    urgencia_accion = "⚠️ Superó umbral - Aplicar / Revisar hoy",
+                    dias_desde_siembra = 45L
+                )
+            ),
+            ventanas_control = listOf(
+                VentanaControlBiologicoDTO(
+                    monitoreo_id = 101,
+                    terreno_nombre = "Lote Norte",
+                    cultivo_nombre = "Maíz",
+                    plaga_nombre = "Oruga cogollera",
+                    plaga_cientifico = "Spodoptera frugiperda",
+                    progreso_gdd = 95f,
+                    estadio_estimado = "Larva L3",
+                    en_ventana_optima = false,
+                    estado_ventana = "VENTANA_CERRADA_AVANZADO",
+                    recomendacion_tecnica = "Tratamiento de rescate requerido"
+                )
+            ),
+            eficacia_tratamientos = EficaciaTratamientosDTO(
+                total_tratamientos_archivados = 5,
+                tratamientos_exitosos = 4,
+                tasa_eficacia_porcentaje = 80f,
+                monitoreos_con_rebrote = 1
+            ),
+            campanas = listOf(
+                CampañaHistoricaDTO(
+                    nombre = "2025/2026",
+                    ano_inicio = 2025,
+                    total_monitoreos = 10,
+                    hectareas_monitoreadas = 200f,
+                    riesgo_bajo = 3,
+                    riesgo_moderado = 4,
+                    riesgo_alto = 3
+                )
+            )
+        )
+
+        val semaforo = dto.semaforo_hectareas?.toDomain()
+        assertNotNull(semaforo)
+        assertEquals(250f, semaforo!!.totalHectareas, 0.01f)
+        assertEquals(4, semaforo.totalLotes)
+
+        val cultivo = dto.plagas_por_cultivo.first().toDomain()
+        assertEquals("Maíz", cultivo.cultivoNombre)
+        assertEquals(3, cultivo.totalLotes)
+        assertEquals(1, cultivo.plagas.size)
+        assertEquals("Oruga cogollera", cultivo.plagas.first().plagaNombre)
+
+        val loteCritico = dto.lotes_criticos.first().toDomain()
+        assertEquals(101, loteCritico.monitoreoId)
+        assertEquals(2, loteCritico.nivelAlerta)
+
+        val ventana = dto.ventanas_control.first().toDomain()
+        assertEquals(EstadoVentanaControl.VENTANA_CERRADA_AVANZADO, ventana.estadoVentana)
+        assertFalse(ventana.enVentanaOptima)
+
+        val eficacia = dto.eficacia_tratamientos?.toDomain()
+        assertNotNull(eficacia)
+        assertEquals(80f, eficacia!!.tasaEficaciaPorcentaje, 0.01f)
+
+        val campana = dto.campanas.first().toDomain()
+        assertEquals("2025/2026", campana.nombre)
+        assertEquals(2025, campana.añoInicio)
+    }
 }
 

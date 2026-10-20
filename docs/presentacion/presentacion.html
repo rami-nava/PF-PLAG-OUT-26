@@ -587,6 +587,77 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* PRINT / PDF EXPORT (All 20 slides in landscape) */
+    @media print {
+      @page {
+        size: landscape;
+        margin: 0;
+      }
+
+      *, *::before, *::after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+
+      header, 
+      .progress-bar-container, 
+      .notes-drawer, 
+      .dropdown-menu,
+      .controls,
+      #slideCounter,
+      .timer-display {
+        display: none !important;
+      }
+
+      body {
+        background: #0B1711 !important;
+        color: #F3F8F5 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100vw !important;
+        min-height: 100vh !important;
+        overflow: visible !important;
+      }
+
+      main {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        display: block !important;
+      }
+
+      .slide-deck {
+        width: 100% !important;
+        display: block !important;
+      }
+
+      .slide {
+        display: grid !important; /* Muestra las 20 diapositivas */
+        width: 100vw !important;
+        min-height: 100vh !important;
+        height: 100vh !important;
+        page-break-after: always !important;
+        page-break-inside: avoid !important;
+        break-after: page !important;
+        border-radius: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 30px 40px !important;
+        box-sizing: border-box !important;
+        background: #0B1711 !important;
+      }
+
+      .slide.single-col {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -612,6 +683,7 @@
       <button class="btn" id="btnPrev" title="Anterior (Flecha Izquierda)">← Ant</button>
       <button class="btn btn-primary" id="btnNext" title="Siguiente (Flecha Derecha o Espacio)">Sig →</button>
       <button class="btn btn-appendix" id="btnAppendixToggle">📚 Apéndice Q&A ▼</button>
+      <button class="btn" onclick="window.print()" title="Exportar o imprimir las 20 diapositivas completas">🖨️ PDF (20 Slides)</button>
       <button class="btn" id="btnNotesToggle" title="Notas del orador (Tecla N)">🎙️ Notas</button>
       <button class="btn" id="btnFullscreen" title="Pantalla completa (Tecla F)">⛶</button>
     </div>
