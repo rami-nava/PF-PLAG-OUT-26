@@ -169,4 +169,37 @@ class TerrenosViewModelTest {
         // Un error del servidor NO debe marcar el recurso como consultado.
         assertFalse(CacheTracker.yaConsultado(context, CacheTracker.TERRENOS))
     }
+
+    // ---------- paginación ----------
+
+    @Test
+    fun `trae todas las paginas y reemplaza el cache con el total`() {
+        val (vm, dao) = viewModelCon(cache = listOf(Fixtures.terreno(id = 999)))
+        gddService.getTerrenosResult = { Response.success((1..45).map { Fixtures.terreno(id = it) }) }
+
+        vm.getTerrenos(forzar = true)
+
+        val estado = esperarEstado(vm.state) { !it.isRefreshing && !it.cargandoMas && it.terrenos.size == 45 }
+        assertEquals(listOf(20 to 0, 100 to 20), gddService.paginasTerrenos)
+        assertEquals((1..45).toList(), estado.terrenos.map { it.terreno_id })
+        assertEquals((1..45).toList(), kotlinx.coroutines.runBlocking { dao.getAll() }.map { it.terreno_id }.sorted())
+        assertTrue(CacheTracker.yaConsultado(context, CacheTracker.TERRENOS))
+    }
+
+    @Test
+    fun `si falla una pagina intermedia no pierde el cache offline`() {
+        val (vm, dao) = viewModelCon(cache = listOf(Fixtures.terreno(id = 1), Fixtures.terreno(id = 50)))
+        gddService.getTerrenosPaginaResult = { limit, offset ->
+            if (offset > 0) FakeGDDService.sinConexion()
+            Response.success(Pagina((1..limit).map { Fixtures.terreno(id = it) }, 40))
+        }
+
+        vm.getTerrenos()
+
+        val estado = esperarEstado(vm.state) { !it.isLoading && !it.cargandoMas && it.terrenos.size == 21 }
+        // Las 20 recibidas más la que solo estaba en caché
+        assertEquals((1..20).toList() + 50, estado.terrenos.map { it.terreno_id })
+        assertEquals((1..20).toList() + 50, kotlinx.coroutines.runBlocking { dao.getAll() }.map { it.terreno_id }.sorted())
+        assertFalse(CacheTracker.yaConsultado(context, CacheTracker.TERRENOS))
+    }
 }

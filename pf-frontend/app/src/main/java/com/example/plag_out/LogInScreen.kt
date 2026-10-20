@@ -45,15 +45,25 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.plag_out.ui.theme.PlagOutColors
+import kotlinx.coroutines.launch
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun LoginScreen(
     authViewModel: AuthViewModel,
     onLoginSuccess: (rol: String) -> Unit,
-    onCrearCuenta: () -> Unit
+    onCrearCuenta: () -> Unit,
+    onRecuperarPassword: () -> Unit = {}
 ) {
     val state by authViewModel.loginState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.mensajeExito) {
+        state.mensajeExito?.let { mensaje ->
+            snackbarHostState.showSnackbar(mensaje, duration = SnackbarDuration.Long)
+            authViewModel.limpiarMensajeExitoLogin()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -151,6 +161,29 @@ fun LoginScreen(
                         modifier = Modifier.fillMaxWidth().testTag("txtPassword")
                     )
 
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        TextButton(
+                            onClick = {
+                                authViewModel.iniciarRecuperacionPassword(state.email)
+                                onRecuperarPassword()
+                            },
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                            modifier = Modifier.testTag("btnOlvidePassword")
+                        ) {
+                            Text(
+                                "¿Olvidaste tu contraseña?",
+                                color = PlagOutColors.Forest,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
                     AnimatedVisibility(
                         visible = state.error != null,
                         enter = fadeIn(tween(220)) + expandVertically(tween(220)),
@@ -159,7 +192,7 @@ fun LoginScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 14.dp)
+                                .padding(top = 10.dp)
                                 .background(PlagOutColors.RiskDanger.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -176,7 +209,7 @@ fun LoginScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(28.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     Button(
                         onClick = { authViewModel.iniciarSesion(onSuccess = onLoginSuccess) },
@@ -207,6 +240,21 @@ fun LoginScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(WindowInsets.systemBars)
+                .padding(bottom = 16.dp)
+        ) { data ->
+            Snackbar(
+                snackbarData = data,
+                containerColor = PlagOutColors.Forest,
+                contentColor = PlagOutColors.TextOnDark,
+                shape = RoundedCornerShape(12.dp)
+            )
         }
     }
 }

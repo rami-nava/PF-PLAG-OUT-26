@@ -89,6 +89,7 @@ class UserViewModel(
                         error = if (hayPerfil) null else "No se pudo cargar tu perfil.",
                         sinConexion = false
                     )
+                    if (forzar) Avisos.error(errorDeRespuesta(response).mensaje)
                     Log.e("USUARIO", "Error: ${response.code()}")
                 }
             } catch (e: IOException) {
@@ -98,6 +99,7 @@ class UserViewModel(
                     error = if (hayPerfil) null else "No hay conexión a internet.",
                     sinConexion = true
                 )
+                if (forzar) Avisos.error(errorDeExcepcion(e).mensaje)
                 Log.e("USUARIO", "Sin conexión: ${e.message}")
             } catch (e: CancellationException) {
                 throw e
@@ -108,6 +110,7 @@ class UserViewModel(
                     error = if (hayPerfil) null else "No se pudo cargar tu perfil.",
                     sinConexion = false
                 )
+                if (forzar) Avisos.error(errorDeExcepcion(e).mensaje)
                 Log.e("USUARIO", "Error: ${e.message}")
             }
         }
@@ -202,11 +205,20 @@ class UserViewModel(
                     onSuccess()
                 } else {
                     Log.e("USUARIO", "Error al eliminar la cuenta: ${response.code()}")
-                    onError("No se pudo eliminar tu cuenta. Intentá de nuevo más tarde.")
+                    onError(
+                        if (response.isSuccessful) "No se pudo eliminar tu cuenta. Intentá de nuevo más tarde."
+                        else errorDeRespuesta(
+                            response,
+                            porCodigo = mapOf(
+                                404 to "No encontramos tu cuenta. Puede que ya se haya eliminado.",
+                                500 to "No se pudo eliminar tu cuenta. Intentá de nuevo más tarde."
+                            )
+                        ).mensaje
+                    )
                 }
             } catch (e: Exception) {
                 Log.e("USUARIO", "Error al eliminar la cuenta: ${e.message}")
-                onError("No se pudo eliminar tu cuenta. Revisá tu conexión.")
+                onError(errorDeExcepcion(e).mensaje)
             }
         }
     }

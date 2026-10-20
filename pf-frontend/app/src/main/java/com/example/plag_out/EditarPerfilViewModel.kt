@@ -152,7 +152,7 @@ class EditarPerfilViewModel(
                 if (!response.isSuccessful) {
                     _state.value = _state.value.copy(
                         guardando = false,
-                        error = mensajeDeError(response.code())
+                        error = errorDeRespuesta(response, ERRORES_PERFIL, ERRORES_EDICION_CODIGO).enFormularioOAviso()
                     )
                     Log.e("EDITAR_PERFIL", "Error al guardar: ${response.code()}")
                     return@launch
@@ -176,16 +176,14 @@ class EditarPerfilViewModel(
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     guardando = false,
-                    error = "No se pudieron guardar los cambios. Revisá tu conexión."
+                    error = errorDeExcepcion(e).enFormularioOAviso()
                 )
                 Log.e("EDITAR_PERFIL", "Error al guardar: ${e.message}")
             }
         }
     }
 
-    private fun mensajeDeError(codigo: Int): String = when (codigo) {
-        400, 422 -> "Revisá los datos ingresados."
-        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
-        else -> "No se pudieron guardar los cambios. Intentá de nuevo."
+    private companion object {
+        val ERRORES_EDICION_CODIGO = mapOf(500 to "No se pudieron guardar los cambios. Intentá de nuevo.")
     }
 }

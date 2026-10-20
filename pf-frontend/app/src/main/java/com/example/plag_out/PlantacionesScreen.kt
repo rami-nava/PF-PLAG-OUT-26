@@ -113,17 +113,16 @@ fun PlantacionesPorTerreno(
 
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { 2 })
-    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(terrenosState.error) {
         terrenosState.error?.let {
-            snackbarHostState.showSnackbar(it)
+            Avisos.error(it)
             terrenoViewModel.limpiarError()
         }
     }
     LaunchedEffect(plantacionesState.error) {
         plantacionesState.error?.let {
-            snackbarHostState.showSnackbar(it)
+            Avisos.error(it)
             plantacionesViewModel.limpiarError()
         }
     }
@@ -154,7 +153,6 @@ fun PlantacionesPorTerreno(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             AnimatedVisibility(
                 visible = pagerState.currentPage == PAGINA_PLANTACIONES,
@@ -296,6 +294,7 @@ fun PlantacionesPorTerreno(
                     plantacionesViewModel.renombrarTerreno(actualizado.terreno_id, actualizado.terreno_nombre)
                     monitoreosViewModel.renombrarTerreno(actualizado.terreno_id, actualizado.terreno_nombre)
                     mostrarDialogoEditar = false
+                    Avisos.exito("Terreno actualizado.")
                 }
             }
         )
@@ -320,9 +319,7 @@ fun PlantacionesPorTerreno(
             onConfirmar = {
                 plantacionAEliminar = null
                 eliminandoId = plantacion.plantacion_id
-                eliminarPlantacionEnCascada(plantacion.plantacion_id, plantacionesViewModel, monitoreosViewModel) {
-                    scope.launch { snackbarHostState.showSnackbar("Cultivo eliminado") }
-                }
+                eliminarPlantacionEnCascada(plantacion.plantacion_id, plantacionesViewModel, monitoreosViewModel)
             },
             onCancelar = { plantacionAEliminar = null }
         )
@@ -518,7 +515,7 @@ private fun EditarTerrenoDialog(
 
         OutlinedTextField(
             value = hectareas,
-            onValueChange = { if (it.matches(regex)) hectareas = it },
+            onValueChange = { val valor = it.replace(',', '.'); if (valor.matches(regex)) hectareas = valor },
             label = { Text("Superficie") },
             leadingIcon = { Icon(Icons.Filled.SquareFoot, contentDescription = null, tint = PlagOutColors.Forest) },
             trailingIcon = { Text("ha", color = PlagOutColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.padding(end = 12.dp)) },

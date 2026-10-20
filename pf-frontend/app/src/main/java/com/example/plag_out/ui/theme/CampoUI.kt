@@ -447,7 +447,7 @@ fun PanelFiltrosPlegable(
     onToggleExpandido: () -> Unit,
     hayFiltroActivo: Boolean,
     etiquetaAbrir: String,
-    resumen: String,
+    resumen: String?,
     onLimpiar: () -> Unit,
     modifier: Modifier = Modifier,
     contenido: @Composable ColumnScope.() -> Unit
@@ -496,14 +496,16 @@ fun PanelFiltrosPlegable(
                             color = PlagOutColors.TextMain
                         )
                     }
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = resumen,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (hayFiltroActivo) PlagOutColors.Forest else PlagOutColors.TextSecondary,
-                        modifier = Modifier.padding(start = 42.dp)
-                    )
+                    if (resumen != null) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = resumen,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (hayFiltroActivo) PlagOutColors.Forest else PlagOutColors.TextSecondary,
+                            modifier = Modifier.padding(start = 42.dp)
+                        )
+                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -644,7 +646,13 @@ fun EstadoVacioFlotante(icono: ImageVector, titulo: String, subtitulo: String) {
             }
         }
         Spacer(Modifier.height(24.dp))
-        Text(titulo, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+        Text(
+            titulo,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = PlagOutColors.TextMain,
+            textAlign = TextAlign.Center
+        )
         Text(
             subtitulo,
             textAlign = TextAlign.Center,

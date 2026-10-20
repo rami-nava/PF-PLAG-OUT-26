@@ -40,9 +40,11 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -70,6 +72,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -101,6 +104,7 @@ import java.util.Locale
 fun VerReporteScreen(
     reporteId: Int,
     reporteJsonFallback: String?,
+    ignorarLimite: Boolean = false,
     viewModel: VerReporteViewModel,
     onBack: () -> Unit,
     onVerTerreno: (Int) -> Unit
@@ -108,7 +112,7 @@ fun VerReporteScreen(
     val state by viewModel.state.collectAsState()
 
     LaunchedEffect(reporteId) {
-        viewModel.cargar(reporteId, reporteJsonFallback)
+        viewModel.cargar(reporteId, reporteJsonFallback, ignorarLimite)
     }
 
     Scaffold(
@@ -157,6 +161,7 @@ private fun ContenidoVerReporte(
     onVerTerreno: (Int) -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val locale = LocalConfiguration.current.locales[0]
     var mostrarDialogoConfirmacion by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -297,12 +302,24 @@ private fun ContenidoVerReporte(
                     )
 
                     // Fecha y hora
-                    val sdf = SimpleDateFormat("dd/MM/yyyy  HH:mm", androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
+                    val sdf = SimpleDateFormat("dd/MM/yyyy  HH:mm", locale)
                     val fechaStr = sdf.format(Date(detalle.timestamp_ms))
                     FilaDato(
                         icono = Icons.Outlined.AccessTime,
                         etiqueta = "Fecha y hora",
                         valor = fechaStr
+                    )
+
+                    FilaDato(
+                        icono = Icons.Outlined.Grass,
+                        etiqueta = "Cultivo",
+                        valor = detalle.cultivo_nombre?.takeIf { it.isNotBlank() } ?: "No especificado"
+                    )
+
+                    FilaDato(
+                        icono = Icons.Outlined.Timeline,
+                        etiqueta = "Etapa biológica",
+                        valor = detalle.etapa_biologica?.takeIf { it.isNotBlank() } ?: "No registrada"
                     )
 
                     // Nivel de severidad
@@ -357,6 +374,10 @@ private fun ContenidoVerReporte(
                             }
                         }
                     } else {
+                        val distanciaMasCercano = terrenosAfectados.firstOrNull()?.distanciaKm ?: detalle.distancia_km
+                        val sobrepasa150 = distanciaMasCercano != null && distanciaMasCercano >= 150f
+                        val tituloSeccion = if (sobrepasa150) "Terreno más cercano" else "Terrenos afectados"
+
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -369,7 +390,7 @@ private fun ContenidoVerReporte(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Text(
-                                    "Terrenos afectados",
+                                    tituloSeccion,
                                     fontSize = 14.sp,
                                     color = PlagOutColors.TextSecondary,
                                     fontWeight = FontWeight.SemiBold
@@ -377,15 +398,29 @@ private fun ContenidoVerReporte(
                             }
                             Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(start = 26.dp)) {
                                 if (terrenosAfectados.isEmpty()) {
-                                    Text("Sin terrenos cercanos", fontSize = 14.sp, color = PlagOutColors.TextMain)
+                                    if (!detalle.terreno_nombre.isNullOrBlank()) {
+                                        val distText = if (detalle.distancia_km != null) {
+                                            if (detalle.distancia_km < 1f) " · a ${(detalle.distancia_km * 1000).toInt()} m"
+                                            else String.format(locale, " · a %.1f km", detalle.distancia_km)
+                                        } else ""
+                                        val sufijoMasCercano = if (sobrepasa150) "" else " (más cercano)"
+                                        FilaContextoNav(
+                                            titulo = "${detalle.terreno_nombre}$distText$sufijoMasCercano",
+                                            onClick = if (detalle.terreno_mas_cercano_id != null) { { onVerTerreno(detalle.terreno_mas_cercano_id) } } else null
+                                        )
+                                    } else {
+                                        Text("Sin terrenos cercanos", fontSize = 14.sp, color = PlagOutColors.TextMain)
+                                    }
                                 } else {
                                     terrenosAfectados.forEachIndexed { index, ta ->
                                         val textDist = if (ta.distanciaKm < 1f) {
                                             "${(ta.distanciaKm * 1000).toInt()} m"
                                         } else {
-                                            String.format(Locale.getDefault(), "%.1f km", ta.distanciaKm)
+                                            String.format(locale, "%.1f km", ta.distanciaKm)
                                         }
-                                        val titulo = if (index == 0) {
+                                        val titulo = if (sobrepasa150) {
+                                            "${ta.terrenoNombre} · a $textDist"
+                                        } else if (index == 0) {
                                             "${ta.terrenoNombre} · a $textDist (más cercano)"
                                         } else {
                                             "${ta.terrenoNombre} · a $textDist"
@@ -763,7 +798,7 @@ private fun HeaderVerReporte(onBack: () -> Unit, acciones: @Composable () -> Uni
         label = "escalaDecorativaVerReporte"
     )
 
-    val forma = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
+    val forma = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -773,7 +808,6 @@ private fun HeaderVerReporte(onBack: () -> Unit, acciones: @Composable () -> Uni
                 shape = forma
             )
             .clip(forma)
-            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         // Decoración animada
         Box(
@@ -788,7 +822,7 @@ private fun HeaderVerReporte(onBack: () -> Unit, acciones: @Composable () -> Uni
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 22.dp),
+                .padding(start = 8.dp, end = 20.dp, top = 6.dp, bottom = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(

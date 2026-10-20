@@ -22,7 +22,6 @@ enum class FiltroUsuarios(val activo: Boolean?) { TODOS(null), ACTIVOS(true), SU
 data class AdminUsuariosUIState(
     val usuarios: List<UsuarioAdmin> = emptyList(),
     val total: Int = 0,
-    val pagina: Int = 0,
     val busqueda: String = "",
     val filtro: FiltroUsuarios = FiltroUsuarios.TODOS,
     val cargado: Boolean = false,
@@ -36,8 +35,10 @@ data class AdminUsuariosUIState(
     val sinPermiso: Boolean = false
 ) {
     // Un usuario suspendido o reactivado sigue en la lista aunque ya no cumpla el filtro del
-    // servidor, así que no cuenta contra el total.
-    val hayMas: Boolean get() = usuarios.count { filtro.activo == null || it.estaActivo == filtro.activo } < total
+    // servidor, así que no cuenta contra el total ni corre el offset de la próxima página.
+    val enServidor: Int get() = usuarios.count { filtro.activo == null || it.estaActivo == filtro.activo }
+
+    val hayMas: Boolean get() = enServidor < total
 
     val usuariosVisibles: List<UsuarioAdmin> get() = filtrarUsuarios(usuarios, busqueda, filtro)
 }
@@ -67,45 +68,45 @@ class AdminUsuariosViewModel(
 
     fun cargar(forzar: Boolean = false) {
         if (!forzar && (_state.value.cargado || _state.value.isLoading)) return
-        cargarPagina(1)
+        cargarDesde(0)
     }
 
-    fun refrescar() = cargarPagina(1, refresco = true)
+    fun refrescar() = cargarDesde(0, refresco = true)
 
     /** La búsqueda espera a que el admin deje de tipear para no disparar un request por letra. */
     fun buscar(texto: String) {
         _state.value = _state.value.copy(busqueda = texto)
-        cargarPagina(1, espera = esperaBusquedaMs)
+        cargarDesde(0, espera = esperaBusquedaMs)
     }
 
     fun cambiarFiltro(filtro: FiltroUsuarios) {
         if (filtro == _state.value.filtro) return
         _state.value = _state.value.copy(filtro = filtro)
-        cargarPagina(1)
+        cargarDesde(0)
     }
 
     fun cargarMas() {
         val actual = _state.value
         if (!actual.hayMas || actual.cargandoMas || actual.isLoading || cargaJob?.isActive == true) return
-        cargarPagina(actual.pagina + 1)
+        cargarDesde(actual.enServidor)
     }
 
     /**
      * Cuando un usuario sale del resultado del servidor (eliminado, o ya no cumple el filtro), los
-     * siguientes se corren una posición y el primero de la próxima página cae en la ya cargada.
-     * Se vuelve a pedir la página actual para recuperarlo; los repetidos se descartan por id.
+     * siguientes se corren una posición. Se pide desde lo que queda en el servidor para traer al
+     * que se corrió sin esperar al scroll; los repetidos se descartan por id.
      */
     private fun completarPagina() {
         val actual = _state.value
-        // Si hay una carga de la página 1 en curso, esa ya trae la lista correcta
-        if (!actual.hayMas || actual.pagina < 1 || (cargaJob?.isActive == true && !actual.cargandoMas)) return
-        cargarPagina(actual.pagina, completar = true)
+        // Si hay una carga desde el inicio en curso, esa ya trae la lista correcta
+        if (!actual.hayMas || !actual.cargado || (cargaJob?.isActive == true && !actual.cargandoMas)) return
+        cargarDesde(actual.enServidor)
     }
 
-    private fun cargarPagina(pagina: Int, espera: Long = 0L, refresco: Boolean = false, completar: Boolean = false) {
-        // Una carga nueva de la página 1 (búsqueda o filtro distinto) reemplaza a la anterior
+    private fun cargarDesde(offset: Int, espera: Long = 0L, refresco: Boolean = false) {
+        // Una carga nueva desde el inicio (búsqueda o filtro distinto) reemplaza a la anterior
         cargaJob?.cancel()
-        val primera = pagina == 1 && !completar
+        val primera = offset == 0
         _state.value = _state.value.copy(
             isLoading = primera && !refresco,
             isRefreshing = primera && refresco,
@@ -121,8 +122,8 @@ class AdminUsuariosViewModel(
                     gddService.adminGetUsuarios(
                         q = filtros.busqueda.trim().ifEmpty { null },
                         activo = filtros.filtro.activo,
-                        pagina = pagina,
-                        tamanio = TAMANIO_PAGINA
+                        limit = TAMANIO_PAGINA,
+                        offset = offset
                     )
                 }
                 val cuerpo = response.body()
@@ -136,7 +137,6 @@ class AdminUsuariosViewModel(
                     _state.value = _state.value.copy(
                         usuarios = usuarios,
                         total = cuerpo.total,
-                        pagina = pagina,
                         cargado = true
                     )
                 } else {
@@ -157,11 +157,11 @@ class AdminUsuariosViewModel(
         }
     }
 
-    fun suspender(id: String) = actualizar(id) { gddService.adminSuspenderUsuario(id) }
+    fun suspender(id: String) = actualizar(id, "Cuenta suspendida.") { gddService.adminSuspenderUsuario(id) }
 
-    fun reactivar(id: String) = actualizar(id) { gddService.adminReactivarUsuario(id) }
+    fun reactivar(id: String) = actualizar(id, "Cuenta reactivada.") { gddService.adminReactivarUsuario(id) }
 
-    private fun actualizar(id: String, llamada: suspend () -> retrofit2.Response<UsuarioAdmin>) {
+    private fun actualizar(id: String, mensajeExito: String, llamada: suspend () -> retrofit2.Response<UsuarioAdmin>) {
         if (_state.value.procesando != null) return
         _state.value = _state.value.copy(procesando = id, errorAccion = null)
         viewModelScope.launch {
@@ -176,6 +176,7 @@ class AdminUsuariosViewModel(
                     // salió del filtro y corrió las páginas.
                     val filtro = _state.value.filtro.activo
                     if (filtro != null && usuario.estaActivo != filtro) completarPagina()
+                    Avisos.exito(mensajeExito)
                 } else {
                     val fallo = falloDeRespuesta(response)
                     _state.value = _state.value.copy(errorAccion = fallo.mensaje, sinPermiso = fallo.sinPermiso)

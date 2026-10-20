@@ -12,12 +12,19 @@ import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
+import com.example.plag_out.Service.traerTodasLasPaginas
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+// La primera página es chica para mostrar algo enseguida; el resto se trae de a muchos
+const val MONITOREOS_PRIMERA_PAGINA = 20
+const val MONITOREOS_PAGINA_SIGUIENTE = 100
 
 data class MonitoreoUIState(
     var isLoading: Boolean = true,
@@ -25,6 +32,7 @@ data class MonitoreoUIState(
     val monitoreos: List<MonitoreoResponse> = emptyList(),
     /** Se sirvió del caché porque el fetch a la red falló o no hay conexión. */
     val datosDesactualizados: Boolean = false,
+    val cargandoMas: Boolean = false,
     val eliminando: Set<Int> = emptySet()
 )
 
@@ -39,6 +47,7 @@ class MonitoreosViewModel(
     val state: StateFlow<MonitoreoUIState> = _state.asStateFlow()
     val monitoreosRepository = repository
     val context = context
+    private var carga: Job? = null
 
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -46,12 +55,17 @@ class MonitoreosViewModel(
 
     /** Cierre de sesión: descarta en memoria los datos del usuario anterior. */
     fun limpiar() {
+        carga?.cancel()
         _state.value = MonitoreoUIState()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun getMonitoreos(forzar: Boolean = false) {
-        viewModelScope.launch {
+        if (carga?.isActive == true) {
+            if (!forzar) return
+            carga?.cancel()
+        }
+        carga = viewModelScope.launch {
             // Mostrar el caché al instante (si existe)
             val cachedMonitoreos = withContext(Dispatchers.IO) {
                 monitoreosRepository.obtenerMonitoreos()
@@ -78,43 +92,74 @@ class MonitoreosViewModel(
                 _state.value = _state.value.copy(isLoading = true)
             }
 
+            // Se piden todas las páginas para que el caché offline quede completo, pero cada página
+            // se muestra apenas llega: la primera es chica para que la lista aparezca rápido. Mientras
+            // tanto, lo que todavía no llegó se sigue mostrando desde el caché.
+            val recibidos = LinkedHashMap<Int, MonitoreoResponse>()
+            fun conCacheRestante() =
+                recibidos.values.toList() + cachedMonitoreos.filterNot { it.monitoreo_id in recibidos }
+
             try {
-                val response = withContext(Dispatchers.IO) {
-                    gddService.getMonitoreos()
-                }
-
-                if (response.isSuccessful) {
-                    val monitoresResponse = response.body() ?: emptyList()
-
-                    withContext(Dispatchers.IO) {
-                        monitoreosRepository.reemplazarMonitoreos(monitoresResponse)
+                val error = traerTodasLasPaginas(
+                    recibidos,
+                    id = { it.monitoreo_id },
+                    alQuedarPaginas = {
+                        _state.value = _state.value.copy(
+                            monitoreos = conCacheRestante(),
+                            isLoading = false,
+                            cargandoMas = true
+                        )
                     }
-
-                    _state.value = _state.value.copy(
-                        monitoreos = monitoresResponse,
-                        isLoading = false,
-                        isRefreshing = false,
-                        datosDesactualizados = false
-                    )
-                    CacheTracker.marcarConsultado(context, CacheTracker.MONITOREOS)
-                } else {
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        datosDesactualizados = cachedMonitoreos.isNotEmpty()
-                    )
-                    Log.e("MONITOREOS", "Error: ${response.code()}")
+                ) { limit, offset ->
+                    withContext(Dispatchers.IO) { gddService.getMonitoreos(limit, offset) }
                 }
-            } catch (e: Exception) {
-                // Sin conexión: se queda con el caché ya mostrado
+                if (error != null) {
+                    cargaIncompleta(recibidos.values.toList(), conCacheRestante())
+                    if (forzar) Avisos.error(errorDeRespuesta(error).mensaje)
+                    Log.e("MONITOREOS", "Error: ${error.code()}")
+                    return@launch
+                }
+
+                val monitoreosResponse = recibidos.values.toList()
+                withContext(Dispatchers.IO) {
+                    monitoreosRepository.reemplazarMonitoreos(monitoreosResponse)
+                }
+
                 _state.value = _state.value.copy(
+                    monitoreos = monitoreosResponse,
                     isLoading = false,
                     isRefreshing = false,
-                    datosDesactualizados = cachedMonitoreos.isNotEmpty()
+                    cargandoMas = false,
+                    datosDesactualizados = false
                 )
+                CacheTracker.marcarConsultado(context, CacheTracker.MONITOREOS)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Sin conexión: se queda con el caché ya mostrado más lo que se llegó a recibir
+                cargaIncompleta(recibidos.values.toList(), conCacheRestante())
+                if (forzar) Avisos.error(errorDeExcepcion(e).mensaje)
                 Log.e("MONITOREOS", "Error: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Una página falló a mitad de la carga: el caché no se reemplaza (quedaría sin los monitoreos
+     * que faltaron), solo se actualizan los que sí llegaron. No se marca consultado, así que la
+     * próxima entrada vuelve a intentar la carga completa.
+     */
+    private suspend fun cargaIncompleta(recibidos: List<MonitoreoResponse>, mostrados: List<MonitoreoResponse>) {
+        if (recibidos.isNotEmpty()) {
+            withContext(Dispatchers.IO) { monitoreosRepository.guardarMonitoreos(recibidos) }
+        }
+        _state.value = _state.value.copy(
+            monitoreos = mostrados,
+            isLoading = false,
+            isRefreshing = false,
+            cargandoMas = false,
+            datosDesactualizados = mostrados.size > recibidos.size
+        )
     }
 
     /**
@@ -222,14 +267,16 @@ class MonitoreosViewModel(
                 } else {
                     Log.e("MONITOREOS", "Error al eliminar $monitoreoId: ${response.code()}")
                     when (response.code()) {
-                        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
                         404, 405 -> "Eliminar monitoreos todavía no está disponible en el servidor."
-                        else -> "No se pudo eliminar el monitoreo. Intentá de nuevo."
+                        else -> errorDeCuerpo(
+                            response.code(), cuerpo,
+                            porCodigo = mapOf(500 to "No se pudo eliminar el monitoreo. Intentá de nuevo.")
+                        ).mensaje
                     }
                 }
             } catch (e: Exception) {
                 Log.e("MONITOREOS", "Error al eliminar $monitoreoId: ${e.message}")
-                "No se pudo eliminar el monitoreo. Revisá tu conexión."
+                errorDeExcepcion(e).mensaje
             }
             _state.value = _state.value.copy(eliminando = _state.value.eliminando - monitoreoId)
             onResultado(error)

@@ -89,7 +89,6 @@ import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 import android.location.Geocoder
 import android.location.Address
-import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -468,12 +467,12 @@ fun SelectLocationScreen(
                                                     mapController?.setZoom(16.0)
                                                     selectedTabIndex = 0 // Cambiar a pestaña mapa
                                                 } else {
-                                                    Toast.makeText(context, "No se pudo obtener la ubicación actual correctamente.", Toast.LENGTH_SHORT).show()
+                                                    Avisos.error("No se pudo obtener la ubicación actual.")
                                                 }
                                             }
                                             .addOnFailureListener {
                                                 obteniendoUbicacion = false
-                                                Toast.makeText(context, "No se pudo obtener la ubicación actual correctamente.", Toast.LENGTH_SHORT).show()
+                                                Avisos.error("No se pudo obtener la ubicación actual.")
                                             }
                                     } else {
                                         launcher.launch(

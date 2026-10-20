@@ -18,8 +18,12 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.OffsetDateTime
 import com.example.plag_out.CuentaSuspendidaEventBus
+import com.example.plag_out.Pagina
+import com.example.plag_out.SesionExpiradaEventBus
 import com.example.plag_out.SupabaseProvider
+import com.google.gson.reflect.TypeToken
 import io.github.jan.supabase.auth.auth
+import java.lang.reflect.ParameterizedType
 
 object RetrofitClient {
 
@@ -75,6 +79,28 @@ object RetrofitClient {
         .registerTypeAdapter(LocalTime::class.java, JsonSerializer<LocalTime> { time, _, _ ->
             JsonPrimitive(time.toString())
         })
+        // Soporta tanto respuestas paginadas con objeto {"items": [...], "total": N}
+        // como respuestas que devuelven directamente un arreglo JSON [...]
+        .registerTypeAdapter(Pagina::class.java, JsonDeserializer<Pagina<*>> { json, typeOfT, context ->
+            val parameterizedType = typeOfT as? ParameterizedType
+            val itemType = parameterizedType?.actualTypeArguments?.firstOrNull() ?: Any::class.java
+            val listType = TypeToken.getParameterized(List::class.java, itemType).type
+
+            if (json.isJsonArray) {
+                val list: List<Any> = context.deserialize(json, listType) ?: emptyList()
+                Pagina(items = list, total = list.size)
+            } else if (json.isJsonObject) {
+                val obj = json.asJsonObject
+                val itemsJson = obj.get("items")
+                val items: List<Any>? = if (itemsJson != null && !itemsJson.isJsonNull) {
+                    context.deserialize(itemsJson, listType)
+                } else null
+                val total = obj.get("total")?.takeIf { !it.isJsonNull }?.asInt ?: (items?.size ?: 0)
+                Pagina(items = items, total = total)
+            } else {
+                Pagina(items = emptyList(), total = 0)
+            }
+        })
         .create()
 
     private val client = OkHttpClient.Builder()
@@ -90,6 +116,10 @@ object RetrofitClient {
             val response = chain.proceed(builder.build())
             if (response.code == 403 && esCuentaSuspendida(response)) {
                 CuentaSuspendidaEventBus.avisar()
+            }
+            // Sin token el 401 es esperable (todavía no hay sesión): no hay nada que renovar
+            if (response.code == 401 && token != null) {
+                SesionExpiradaEventBus.avisar()
             }
             response
         }

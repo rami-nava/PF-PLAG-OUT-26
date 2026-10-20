@@ -180,9 +180,9 @@ fun TarjetaConcepto(
 fun TarjetaIRA(modifier: Modifier = Modifier) {
     TarjetaConcepto(Icons.Outlined.Insights, "¿Qué es el IRA?", modifier) {
         Text(
-            "Índice de Riesgo Ambiental: combina los GDD acumulados con las condiciones que " +
+            "Índice de Riesgo Ambiental: evalúa las condiciones ambientales que " +
                 "atravesó la plaga para estimar cuánto la favoreció el ambiente. De ahí salen el " +
-                "nivel de alerta y el porcentaje del anillo.",
+                "nivel de alerta.",
             fontSize = 13.sp,
             color = PlagOutColors.TextSecondary
         )
@@ -195,7 +195,7 @@ fun TarjetaGDD(modifier: Modifier = Modifier) {
     TarjetaConcepto(Icons.Outlined.Thermostat, "¿Qué son los GDD?", modifier) {
         Text(
             "Grados Día de Crecimiento: el calor que se fue acumulando desde que arranca el conteo " +
-                "(la siembra de tu cultivo o el biofix de la plaga). Cada plaga necesita juntar " +
+                "(el biofix de la plaga). Cada plaga necesita juntar " +
                 "cierta cantidad para eclosionar, y ese total es el objetivo del monitoreo.",
             fontSize = 13.sp,
             color = PlagOutColors.TextSecondary

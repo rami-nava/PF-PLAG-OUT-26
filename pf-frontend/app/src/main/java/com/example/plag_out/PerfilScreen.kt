@@ -4,7 +4,6 @@ import android.Manifest
 import android.net.ConnectivityManager
 import android.net.Network
 import android.os.Build
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -42,6 +41,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -56,6 +56,8 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
@@ -64,9 +66,6 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
@@ -94,7 +93,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -304,6 +305,7 @@ fun PerfilScreen(
     if (mostrarCambiarPassword) {
         DialogoCambiarPassword(
             authViewModel = authViewModel,
+            emailUsuario = state.usuario?.email,
             onDismiss = { mostrarCambiarPassword = false }
         )
     }
@@ -924,7 +926,6 @@ private fun DialogoEliminarCuenta(
     onEliminada: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
     var confirmacion by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var eliminando by remember { mutableStateOf(false) }
@@ -1008,7 +1009,7 @@ private fun DialogoEliminarCuenta(
                         eliminando = false
                         // Único momento para confirmarlo: enseguida se cierra sesión y se cae
                         // al login, donde ya no hay dónde mostrarlo.
-                        Toast.makeText(context, "Cuenta eliminada.", Toast.LENGTH_LONG).show()
+                        Avisos.exito("Cuenta eliminada.")
                         onEliminada()
                     },
                     onError = {
@@ -1029,70 +1030,88 @@ private fun DialogoConsentimientoModelo(
     onConfirmar: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = PlagOutColors.Surface,
-        title = {
-            Text(
-                if (consentir) "¿Autorizar uso de reportes?" else "¿Revocar consentimiento?",
-                fontWeight = FontWeight.Bold,
-                color = PlagOutColors.TextMain
+    val acento = if (consentir) PlagOutColors.Forest else PlagOutColors.RiskDanger
+    MarcoDialogo(tag = "dialogConsentimientoMl", onDismissRequest = onDismiss) { rebote ->
+        InsigniaAccion(if (consentir) Icons.Outlined.Insights else Icons.Outlined.Block, acento, rebote)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            if (consentir) "¿Autorizar uso de reportes?" else "¿Revocar consentimiento?",
+            style = MaterialTheme.typography.titleLarge,
+            color = PlagOutColors.TextMain,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            if (consentir) "Ayudá a que Plag-Out anticipe mejor el riesgo de plagas en tu zona."
+            else "Podés volver a autorizarlo cuando quieras desde tu perfil.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = PlagOutColors.TextSecondary,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(Modifier.height(18.dp))
+        Text(
+            if (consentir) "QUÉ PASA AL ACEPTAR" else "QUÉ PASA AL REVOCAR",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.6.sp,
+            color = PlagOutColors.TextSecondary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 4.dp, bottom = 8.dp)
+        )
+        val consecuencias = if (consentir) {
+            listOf(
+                "Los reportes que envíes desde ahora podrán usarse para evaluar y mejorar los modelos de riesgo.",
+                "Tus reportes anteriores no se incluyen."
             )
-        },
-        text = {
-            Column {
-                Text(
-                    if (consentir) {
-                        "Si aceptás, los reportes que envíes a partir de ahora podrán utilizarse " +
-                            "para evaluar y mejorar los modelos de riesgo de plagas de Plag-Out. " +
-                            "Tus reportes anteriores no se incluyen por este consentimiento. " +
-                            "Podés revocarlo cuando quieras desde Ajustes; la revocación se aplica " +
-                            "hacia adelante y no borra el historial ya registrado."
-                    } else {
-                        "Los reportes que envíes después de revocar ya no podrán utilizarse para " +
-                            "evaluar modelos. El historial ya registrado no se borra."
-                    },
-                    color = PlagOutColors.TextSecondary,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp
-                )
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    "Versión: $VERSION_CONSENTIMIENTO_ML",
-                    color = PlagOutColors.TextSecondary,
-                    fontSize = 11.sp
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirmar, modifier = Modifier.testTag("btnConfirmarConsentimientoMl")) {
-                Text(
-                    if (consentir) "Aceptar" else "Revocar",
-                    color = if (consentir) PlagOutColors.Forest else PlagOutColors.RiskDanger,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar", color = PlagOutColors.TextSecondary) }
+        } else {
+            listOf("Los reportes que envíes después de revocar ya no se usarán para evaluar modelos.")
         }
-    )
+        consecuencias.forEach { ConsecuenciaAccion(it, acento) }
+
+        Spacer(Modifier.height(14.dp))
+        AvisoDialogo(
+            Icons.Outlined.CheckCircle,
+            if (consentir) "Podés revocarlo cuando quieras. La revocación aplica hacia adelante."
+            else "El historial ya registrado no se borra.",
+            PlagOutColors.Leaf
+        )
+
+        Spacer(Modifier.height(22.dp))
+        BotonesDialogo(
+            textoConfirmar = if (consentir) "Aceptar" else "Revocar",
+            iconoConfirmar = if (consentir) Icons.Filled.Check else Icons.Outlined.Block,
+            color = acento,
+            tagCancelar = "btnCancelarConsentimientoMl",
+            tagConfirmar = "btnConfirmarConsentimientoMl",
+            onCancelar = onDismiss,
+            onConfirmar = onConfirmar
+        )
+    }
 }
 
 private const val PALABRA_CONFIRMACION = "ELIMINAR"
 
 /** Cambio de contraseña contra Supabase */
 @Composable
-internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () -> Unit) {
+internal fun DialogoCambiarPassword(
+    authViewModel: AuthViewModel,
+    emailUsuario: String? = null,
+    onDismiss: () -> Unit
+) {
     val context = LocalContext.current
+    var actual by remember { mutableStateOf("") }
     var nueva by remember { mutableStateOf("") }
     var repetir by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var enviando by remember { mutableStateOf(false) }
 
+    val actualOk = actual.isNotBlank()
     val largoOk = nueva.length >= 6
     val coinciden = repetir.isNotEmpty() && nueva == repetir
-    val valido = largoOk && coinciden
+    val distintaDeActual = actual.isBlank() || nueva.isBlank() || actual != nueva
+    val valido = actualOk && largoOk && coinciden && distintaDeActual
 
     MarcoDialogo(tag = "dialogCambiarPassword", onDismissRequest = { if (!enviando) onDismiss() }) { rebote ->
         InsigniaAccion(Icons.Outlined.Lock, PlagOutColors.Forest, rebote)
@@ -1113,6 +1132,14 @@ internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () 
         Spacer(Modifier.height(18.dp))
 
         CampoPassword(
+            valor = actual,
+            onValor = { actual = it; error = null },
+            etiqueta = "Contraseña actual",
+            habilitado = !enviando,
+            tag = "txtPasswordActual"
+        )
+        Spacer(Modifier.height(12.dp))
+        CampoPassword(
             valor = nueva,
             onValor = { nueva = it; error = null },
             etiqueta = "Contraseña nueva",
@@ -1125,13 +1152,16 @@ internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () 
             onValor = { repetir = it; error = null },
             etiqueta = "Repetir contraseña",
             habilitado = !enviando,
-            esError = repetir.isNotBlank() && nueva != repetir,
+            esError = repetir.isNotBlank() && !coinciden,
             tag = "txtPasswordRepetir"
         )
 
         Spacer(Modifier.height(12.dp))
         RequisitoPassword("Al menos 6 caracteres", cumplido = largoOk)
         RequisitoPassword("Las dos contraseñas coinciden", cumplido = coinciden)
+        if (actual.isNotBlank() && nueva.isNotBlank()) {
+            RequisitoPassword("Distinta de la contraseña actual", cumplido = distintaDeActual)
+        }
 
         error?.let {
             Spacer(Modifier.height(10.dp))
@@ -1150,12 +1180,15 @@ internal fun DialogoCambiarPassword(authViewModel: AuthViewModel, onDismiss: () 
             onCancelar = onDismiss,
             onConfirmar = {
                 enviando = true
+                error = null
                 authViewModel.cambiarPassword(
+                    actual = actual,
                     nueva = nueva,
+                    emailUsuario = emailUsuario,
                     onSuccess = {
                         enviando = false
                         onDismiss()
-                        Toast.makeText(context, "Contraseña actualizada.", Toast.LENGTH_SHORT).show()
+                        Avisos.exito("Contraseña actualizada.")
                     },
                     onError = {
                         enviando = false

@@ -11,7 +11,10 @@ import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
+import com.example.plag_out.Service.traerTodasLasPaginas
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +25,8 @@ data class TerrenoUIState(
     var isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val terrenos: List<TerrenoResponse> = emptyList(),
+    /** Ya se muestra lo recibido, pero todavía faltan páginas de GET /terrenos. */
+    val cargandoMas: Boolean = false,
     val procesando: Boolean = false,
     val error: String? = null
 )
@@ -36,6 +41,7 @@ class TerrenosViewModel(
     val state: StateFlow<TerrenoUIState> = _state.asStateFlow()
     val terrenoRepository = repository
     val context = context
+    private var carga: Job? = null
 
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -43,12 +49,19 @@ class TerrenosViewModel(
 
     /** Cierre de sesión: descarta en memoria los datos del usuario anterior. */
     fun limpiar() {
+        carga?.cancel()
         _state.value = TerrenoUIState()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun getTerrenos(forzar: Boolean = false) {
-        viewModelScope.launch {
+        // Varias pantallas lo piden al entrar: si ya hay una carga en curso, esa alcanza. Un
+        // refresco manual la reemplaza para no mezclar páginas de dos recorridos distintos.
+        if (carga?.isActive == true) {
+            if (!forzar) return
+            carga?.cancel()
+        }
+        carga = viewModelScope.launch {
             // Mostrar el caché al instante (si existe)
             val cachedTerrenos = withContext(Dispatchers.IO) {
                 terrenoRepository.obtenerTerrenos()
@@ -70,35 +83,70 @@ class TerrenosViewModel(
                 _state.value = _state.value.copy(isLoading = true)
             }
 
+
+            val recibidos = LinkedHashMap<Int, TerrenoResponse>()
+            fun conCacheRestante() =
+                recibidos.values.toList() + cachedTerrenos.filterNot { it.terreno_id in recibidos }
+
             try {
-                val response = withContext(Dispatchers.IO) {
-                    gddService.getTerrenos()
-                }
-
-                if (response.isSuccessful) {
-                    val terrenosResponse = response.body() ?: emptyList()
-
-                    _state.value = _state.value.copy(
-                        terrenos = terrenosResponse,
-                        isLoading = false,
-                        isRefreshing = false
-                    )
-
-                    withContext(Dispatchers.IO) {
-                        terrenoRepository.reemplazarTerrenos(terrenosResponse)
+                val error = traerTodasLasPaginas(
+                    recibidos,
+                    id = { it.terreno_id },
+                    alQuedarPaginas = {
+                        _state.value = _state.value.copy(
+                            terrenos = conCacheRestante(),
+                            isLoading = false,
+                            cargandoMas = true
+                        )
                     }
-                    CacheTracker.marcarConsultado(context, CacheTracker.TERRENOS)
-                } else {
-                    // TODO AGREGAR WARNING DE VALORES DESACTUALIZADOS
-                    _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
-                    Log.e("TERRENOS", "Error: ${response.code()}")
+                ) { limit, offset ->
+                    withContext(Dispatchers.IO) { gddService.getTerrenos(limit, offset) }
                 }
+                if (error != null) {
+                    cargaIncompleta(recibidos.values.toList(), conCacheRestante())
+                    if (forzar) Avisos.error(errorDeRespuesta(error).mensaje)
+                    Log.e("TERRENOS", "Error: ${error.code()}")
+                    return@launch
+                }
+
+                val terrenosResponse = recibidos.values.toList()
+                _state.value = _state.value.copy(
+                    terrenos = terrenosResponse,
+                    isLoading = false,
+                    isRefreshing = false,
+                    cargandoMas = false
+                )
+
+                withContext(Dispatchers.IO) {
+                    terrenoRepository.reemplazarTerrenos(terrenosResponse)
+                }
+                CacheTracker.marcarConsultado(context, CacheTracker.TERRENOS)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                // Sin conexión: se queda con el caché ya mostrado
-                _state.value = _state.value.copy(isLoading = false, isRefreshing = false)
+                // Sin conexión: se queda con el caché ya mostrado más lo que se llegó a recibir
+                cargaIncompleta(recibidos.values.toList(), conCacheRestante())
+                if (forzar) Avisos.error(errorDeExcepcion(e).mensaje)
                 Log.e("TERRENOS", "Error: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Una página falló a mitad de la carga: el caché no se reemplaza (quedaría sin los terrenos
+     * que faltaron), solo se actualizan los que sí llegaron. No se marca consultado, así que la
+     * próxima entrada vuelve a intentar la carga completa.
+     */
+    private suspend fun cargaIncompleta(recibidos: List<TerrenoResponse>, mostrados: List<TerrenoResponse>) {
+        if (recibidos.isNotEmpty()) {
+            withContext(Dispatchers.IO) { terrenoRepository.guardarTerrenos(recibidos) }
+        }
+        _state.value = _state.value.copy(
+            terrenos = mostrados,
+            isLoading = false,
+            isRefreshing = false,
+            cargandoMas = false
+        )
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -111,16 +159,12 @@ class TerrenosViewModel(
         val actual = _state.value.terrenos.find { it.terreno_id == terrenoId } ?: return
 
         val nombreLimpio = nombre.trim()
-        if (nombreLimpio.isEmpty()) {
-            _state.value = _state.value.copy(error = "El nombre del terreno no puede estar vacío")
+        val area = areaHectareas.trim().replace(',', '.').toDoubleOrNull()
+        validarTerreno(nombreLimpio, area)?.let {
+            _state.value = _state.value.copy(error = it)
             return
         }
-
-        val area = areaHectareas.trim().toDoubleOrNull()
-        if (area == null || area <= 0.0) {
-            _state.value = _state.value.copy(error = "Las hectáreas deben ser un número decimal mayor a 0")
-            return
-        }
+        area!!
 
         _state.value = _state.value.copy(procesando = true, error = null)
         viewModelScope.launch {
@@ -143,13 +187,13 @@ class TerrenosViewModel(
                     )
                     onSuccess(actualizado)
                 } else {
-                    _state.value = _state.value.copy(procesando = false, error = mensajeDeEdicion(response.code()))
+                    _state.value = _state.value.copy(procesando = false, error = errorDeRespuesta(response, porCodigo = ERRORES_EDICION).mensaje)
                     Log.e("TERRENOS", "Error al editar: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     procesando = false,
-                    error = "No se pudieron guardar los cambios. Revisá tu conexión."
+                    error = errorDeExcepcion(e).mensaje
                 )
                 Log.e("TERRENOS", "Error al editar: ${e.message}")
             }
@@ -179,31 +223,28 @@ class TerrenosViewModel(
                     )
                     onSuccess()
                 } else {
-                    _state.value = _state.value.copy(procesando = false, error = mensajeDeError(response.code()))
+                    _state.value = _state.value.copy(procesando = false, error = errorDeRespuesta(response, porCodigo = ERRORES_ELIMINACION).mensaje)
                     Log.e("TERRENOS", "Error al eliminar: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     procesando = false,
-                    error = "No se pudo eliminar el terreno. Revisá tu conexión."
+                    error = errorDeExcepcion(e).mensaje
                 )
                 Log.e("TERRENOS", "Error al eliminar: ${e.message}")
             }
         }
     }
 
-    private fun mensajeDeEdicion(codigo: Int): String = when (codigo) {
-        400, 422 -> "Revisá los datos ingresados."
-        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
-        404 -> "El terreno ya no existe."
-        else -> "No se pudieron guardar los cambios. Intentá de nuevo."
-    }
-
-    private fun mensajeDeError(codigo: Int): String = when (codigo) {
-        400, 422 -> "Revisá los datos ingresados."
-        401, 403 -> "Tu sesión expiró. Volvé a iniciar sesión."
-        404 -> "El terreno ya no existe."
-        else -> "No se pudo eliminar el terreno. Intentá de nuevo."
+    private companion object {
+        val ERRORES_EDICION = mapOf(
+            404 to "El terreno ya no existe.",
+            500 to "No se pudieron guardar los cambios del terreno. Intentá de nuevo."
+        )
+        val ERRORES_ELIMINACION = mapOf(
+            404 to "El terreno ya no existe.",
+            500 to "No se pudo eliminar el terreno. Intentá de nuevo."
+        )
     }
 }
 

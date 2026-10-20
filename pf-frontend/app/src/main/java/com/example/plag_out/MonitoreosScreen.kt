@@ -35,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Flag
@@ -110,8 +111,6 @@ fun MonitoreosScreen(
     onMonitoreoEliminado: () -> Unit = {}
 ) {
     val state by monitoreosViewModel.state.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     var aEliminar by remember { mutableStateOf<MonitoreoResponse?>(null) }
 
     LaunchedEffect(Unit) {
@@ -142,7 +141,6 @@ fun MonitoreosScreen(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             var shown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { shown = true }
@@ -175,7 +173,10 @@ fun MonitoreosScreen(
                 .padding(padding)
         ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            PanelDeCampo(monitoreos = activos)
+            PanelDeCampo(
+                monitoreos = activos,
+                onIrATableros = { navController.navigate("tableros_control") }
+            )
 
             val opciones = remember(state.monitoreos, activos) {
                 listOf(
@@ -214,7 +215,7 @@ fun MonitoreosScreen(
             Box(modifier = Modifier.weight(1f)) {
                 AnimatedContent(
                     targetState = when {
-                        state.isLoading -> "cargando"
+                        state.isLoading || (state.cargandoMas && filtrados.isEmpty()) -> "cargando"
                         activos.isEmpty() && filtro != FILTRO_FINALIZADOS -> "vacio"
                         filtrados.isEmpty() -> "sin-resultados"
                         else -> "lista-$filtro"
@@ -273,7 +274,7 @@ fun MonitoreosScreen(
                 aEliminar = null
                 monitoreosViewModel.eliminarMonitoreo(monitoreo.monitoreo_id) { error ->
                     if (error == null) onMonitoreoEliminado()
-                    scope.launch { snackbarHostState.showSnackbar(error ?: "Monitoreo eliminado") }
+                    if (error != null) Avisos.error(error) else Avisos.exito("Monitoreo eliminado.")
                 }
             },
             onCancelar = { aEliminar = null }
@@ -285,7 +286,10 @@ fun MonitoreosScreen(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
+private fun PanelDeCampo(
+    monitoreos: List<MonitoreoResponse>,
+    onIrATableros: () -> Unit = {}
+) {
     val total = monitoreos.size
     val bajo = monitoreos.count { nivelAlertaEfectivo(it) == 0 }
     val moderado = monitoreos.count { nivelAlertaEfectivo(it) == 1 }
@@ -332,19 +336,54 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
                     .format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale.forLanguageTag("es")))
                     .replaceFirstChar { it.uppercase() }
             }
-            Text(
-                hoy,
-                color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.4.sp
-            )
-            Text(
-                "Mis Monitoreos",
-                color = PlagOutColors.TextOnDark,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        hoy,
+                        color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.4.sp
+                    )
+                    Text(
+                        "Mis Monitoreos",
+                        color = PlagOutColors.TextOnDark,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+
+                Surface(
+                    onClick = onIrATableros,
+                    shape = RoundedCornerShape(20.dp),
+                    color = PlagOutColors.TextOnDark.copy(alpha = 0.16f),
+                    border = BorderStroke(1.dp, PlagOutColors.TextOnDark.copy(alpha = 0.32f)),
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Insights,
+                            contentDescription = null,
+                            tint = PlagOutColors.TextOnDark,
+                            modifier = Modifier.size(17.dp)
+                        )
+                        Text(
+                            "Tableros",
+                            color = PlagOutColors.TextOnDark,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
 
             Spacer(Modifier.height(18.dp))
 
@@ -585,14 +624,13 @@ fun MonitoreosPorPlantacion(
 
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { 2 })
-    val snackbarHostState = remember { SnackbarHostState() }
     var aEliminar by remember { mutableStateOf<MonitoreoResponse?>(null) }
     var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
     var mostrarDialogoEliminar by remember { mutableStateOf(false) }
 
     LaunchedEffect(plantacionesState.error) {
         plantacionesState.error?.let {
-            snackbarHostState.showSnackbar(it)
+            Avisos.error(it)
             plantacionesViewModel.limpiarError()
         }
     }
@@ -600,7 +638,6 @@ fun MonitoreosPorPlantacion(
     Scaffold(
         containerColor = PlagOutColors.Cream,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             AnimatedVisibility(
                 visible = pagerState.currentPage == PAGINA_MONITOREOS_PLANTACION && plantacion?.activa == true,
@@ -747,6 +784,7 @@ fun MonitoreosPorPlantacion(
                 mostrarDialogoFinalizar = false
                 plantacionesViewModel.finalizarPlantacion(plantacion.plantacion_id) {
                     viewModel.finalizarPorPlantacion(plantacion.plantacion_id)
+                    Avisos.exito("Cultivo finalizado.")
                 }
             },
             onCancelar = { mostrarDialogoFinalizar = false }
@@ -771,7 +809,7 @@ fun MonitoreosPorPlantacion(
                 aEliminar = null
                 viewModel.eliminarMonitoreo(monitoreo.monitoreo_id) { error ->
                     if (error == null) onMonitoreoEliminado()
-                    scope.launch { snackbarHostState.showSnackbar(error ?: "Monitoreo eliminado") }
+                    if (error != null) Avisos.error(error) else Avisos.exito("Monitoreo eliminado.")
                 }
             },
             onCancelar = { aEliminar = null }

@@ -5,9 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Point
-import android.graphics.RadialGradient
+import android.graphics.Rect
 import android.graphics.RectF
-import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -117,6 +116,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.hypot
@@ -227,6 +227,7 @@ fun MapaReportesScreen(
             .background(PlagOutColors.Cream)
     ) {
         LienzoMapa(
+            puntos = puntos,
             clusters = clusters,
             terrenos = terrenos,
             modo = modo,
@@ -362,10 +363,14 @@ fun MapaReportesScreen(
                     nivel_severidad = reporte.nivel_severidad,
                     latitud = reporte.latitud,
                     longitud = reporte.longitud,
-                    timestamp_ms = reporte.timestamp_ms
+                    timestamp_ms = reporte.timestamp_ms,
+                    es_propio = reporte.es_propio,
+                    terreno_nombre = reporte.terreno_nombre,
+                    terreno_mas_cercano_id = reporte.terreno_mas_cercano_id,
+                    distancia_km = reporte.distancia_km
                 )
                 val json = Uri.encode(Gson().toJson(payload))
-                navController.navigate("ver_reporte/${reporte.id}/$json")
+                navController.navigate("ver_reporte/${reporte.id}/$json?ignorar_limite=true")
             },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -569,7 +574,8 @@ private fun HojaFiltrosMapa(
                     tag = "Plaga"
                 ) {
                     GrillaFiltro(
-                        plagasDisponibles.map { nombre ->
+                        columnas = 2,
+                        celdas = plagasDisponibles.map { nombre ->
                             CeldaFiltro(
                                 etiqueta = nombre,
                                 icono = Icons.Outlined.BugReport,
@@ -590,7 +596,8 @@ private fun HojaFiltrosMapa(
                     tag = "Cultivo"
                 ) {
                     GrillaFiltro(
-                        cultivosDisponibles.map { nombre ->
+                        columnas = 3,
+                        celdas = cultivosDisponibles.map { nombre ->
                             CeldaFiltro(
                                 etiqueta = nombre,
                                 icono = Icons.Outlined.Grass,
@@ -660,11 +667,13 @@ private fun GrillaFiltro(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         celdas.chunked(columnas).forEach { fila ->
+            // IntrinsicSize.Min: la fila toma el alto de su celda más alta y las demás la igualan,
+            // así un nombre largo en dos o tres líneas no deja celdas desparejas.
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                fila.forEach { celda -> VistaCeldaFiltro(celda, Modifier.weight(1f)) }
+                fila.forEach { celda -> VistaCeldaFiltro(celda, Modifier.weight(1f).fillMaxHeight()) }
                 repeat(columnas - fila.size) { Spacer(Modifier.weight(1f)) }
             }
         }
@@ -688,7 +697,9 @@ private fun VistaCeldaFiltro(celda: CeldaFiltro, modifier: Modifier = Modifier) 
         shape = RoundedCornerShape(16.dp),
         color = fondo,
         border = BorderStroke(if (celda.activa) 2.dp else 1.dp, borde),
-        modifier = modifier.height(76.dp)
+        // Alto mínimo y no fijo: con nombres largos o la fuente del sistema agrandada, la celda
+        // crece en vez de cortar el texto.
+        modifier = modifier.heightIn(min = 76.dp)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 10.dp),
@@ -708,9 +719,7 @@ private fun VistaCeldaFiltro(celda: CeldaFiltro, modifier: Modifier = Modifier) 
                 lineHeight = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = PlagOutColors.TextMain,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -920,6 +929,7 @@ private fun AvisoFlotante(texto: String, cargando: Boolean, modifier: Modifier =
 
 @Composable
 private fun LienzoMapa(
+    puntos: List<PuntoMapa>,
     clusters: List<ClusterReportes>,
     terrenos: List<TerrenoResponse>,
     modo: ModoMapa,
@@ -943,6 +953,7 @@ private fun LienzoMapa(
                 zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
                 setUseDataConnection(true)
                 minZoomLevel = 3.0
+                maxZoomLevel = ZOOM_MAXIMO_SERVIDOR.toDouble()
                 controller.setZoom(ZOOM_PAIS)
                 controller.setCenter(CENTRO_PAIS)
                 val informarVista = {
@@ -976,6 +987,19 @@ private fun LienzoMapa(
         update = { map ->
             map.overlays.clear()
             map.agregarAtribucionOsm()
+            // Los reportes caen justo sobre su lote. De cerca la mancha es más grande que el ícono:
+            // va abajo para no taparlo y asoma alrededor. De lejos es más chica que el ícono y,
+            // abajo, quedaría escondida: va arriba y al ser translúcida deja ver el lote.
+            val calor = if (modo == ModoMapa.NUBES) {
+                CalorReportesOverlay(
+                    puntos = puntos,
+                    clusters = clusters,
+                    densidad = densidad,
+                    onTap = onSeleccion
+                )
+            } else null
+            val calorDebajo = zoom >= ZOOM_CALOR_DEBAJO
+            if (calor != null && calorDebajo) map.overlays.add(calor)
             val nombreVisible = zoom >= ZOOM_NOMBRE_LOTE
             terrenos.forEach { terreno ->
                 val centro = GeoPoint(terreno.terreno_latitud.toDouble(), terreno.terreno_longitud.toDouble())
@@ -1005,20 +1029,14 @@ private fun LienzoMapa(
                     setInfoWindow(null)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                     icon = iconoTerreno(map.context, terreno.terreno_nombre, nombreVisible)
-                    setOnMarkerClickListener { _, _ -> true }
+                    // En modo calor el tap sobre el lote tiene que llegarle a la mancha de abajo.
+                    setOnMarkerClickListener { _, _ -> modo == ModoMapa.PINES }
                 }
                 map.overlays.add(insignia)
             }
 
             when (modo) {
-                ModoMapa.NUBES -> {
-                    map.overlays.add(
-                        NubesReportesOverlay(
-                            nubes = clusters.map { it.aNube(densidad) },
-                            onTap = onSeleccion
-                        )
-                    )
-                }
+                ModoMapa.NUBES -> if (calor != null && !calorDebajo) map.overlays.add(calor)
                 ModoMapa.PINES -> {
                     clusters.forEach { cluster ->
                         val marcador = Marker(map).apply {
@@ -1104,14 +1122,7 @@ private data class ClusterReportes(
     val cantidad: Int,
     val severidadDominante: String,
     val reportes: List<ReporteDetalleResponse>
-) {
-    fun aNube(densidad: Float): NubeReportes {
-        val fraccion = fraccionDensidad(cantidad)
-        val radio = ((34f + 17f * sqrt(cantidad.toFloat())) * densidad).coerceAtMost(150f * densidad)
-        val alfa = (160 + 75 * fraccion).toInt().coerceIn(160, 235)
-        return NubeReportes(latitud, longitud, radio, colorDensidad(fraccion), alfa, this)
-    }
-}
+)
 
 private fun rangoSeveridad(nivel: String): Int = when (nivel.lowercase(Locale.ROOT)) {
     "alto" -> 2
@@ -1152,64 +1163,150 @@ private fun agruparReportes(
         }
 }
 
-// ── Capa de nubes ─────────────────────────────────────────────────────────────
+// ── Capa de calor ─────────────────────────────────────────────────────────────
 
-private data class NubeReportes(
-    val latitud: Double,
-    val longitud: Double,
-    val radioPx: Float,
-    val color: Int,
-    val alfa: Int,
-    val cluster: ClusterReportes
-)
 
-private class NubesReportesOverlay(
-    private val nubes: List<NubeReportes>,
+private const val ALCANCE_REPORTE_M = 3_000f
+
+
+// De lejos el alcance real sería invisible y de cerca taparía todo: en pantalla queda acotado.
+private const val RADIO_CALOR_MIN_LEJOS_DP = 9f
+private const val RADIO_CALOR_MIN_CERCA_DP = 44f
+private const val ZOOM_CALOR_LEJOS = 5.0
+private const val ZOOM_CALOR_CERCA = 8.0
+
+
+private const val ZOOM_CALOR_DEBAJO = 7.0
+private const val RADIO_CALOR_MAX_DP = 80f
+
+
+private const val CRECIMIENTO_GRUPO_MAX = 1.5f
+
+
+private const val PASO_CALOR_PX = 4
+
+private const val ALFA_CALOR_BASE = 170
+private const val ALFA_CALOR_MAX = 225
+
+
+private const val CALOR_MINIMO_TAP = 0.15f
+
+
+private class CalorReportesOverlay(
+    private val puntos: List<PuntoMapa>,
+    private val clusters: List<ClusterReportes>,
+    private val densidad: Float,
     private val onTap: (ClusterReportes) -> Unit
 ) : Overlay() {
 
-    private val pincel = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var anchoGrilla = 0
+    private var altoGrilla = 0
+    private var calor = FloatArray(0)
+    private var colores = IntArray(0)
+    private var bitmap: Bitmap? = null
+    private val pincel = Paint(Paint.FILTER_BITMAP_FLAG)
+    private val destino = Rect()
     private val punto = Point()
 
     override fun draw(pCanvas: Canvas, pProjection: Projection) {
-        nubes.forEach { nube ->
-            pProjection.toPixels(GeoPoint(nube.latitud, nube.longitud), punto)
-            val x = punto.x.toFloat()
-            val y = punto.y.toFloat()
-            pincel.shader = RadialGradient(
-                x, y, nube.radioPx,
-                intArrayOf(
-                    conAlfa(nube.color, nube.alfa),
-                    conAlfa(nube.color, nube.alfa),
-                    conAlfa(nube.color, (nube.alfa * 0.7f).toInt()),
-                    conAlfa(nube.color, 0)
-                ),
-                floatArrayOf(0f, 0.3f, 0.65f, 1f),
-                Shader.TileMode.CLAMP
+        val ancho = pProjection.width
+        val alto = pProjection.height
+        if (ancho <= 0 || alto <= 0 || puntos.isEmpty()) return
+        prepararGrilla(ancho, alto)
+        calor.fill(0f)
+
+        val zoom = pProjection.zoomLevel
+        val acercamiento = ((zoom - ZOOM_CALOR_LEJOS) / (ZOOM_CALOR_CERCA - ZOOM_CALOR_LEJOS)).toFloat().coerceIn(0f, 1f)
+        val radioMin = (RADIO_CALOR_MIN_LEJOS_DP + (RADIO_CALOR_MIN_CERCA_DP - RADIO_CALOR_MIN_LEJOS_DP) * acercamiento) * densidad
+        val radioMax = RADIO_CALOR_MAX_DP * densidad
+        puntos.forEach { p ->
+            pProjection.toPixels(GeoPoint(p.latitud, p.longitud), punto)
+            val alcance = pProjection.metersToPixels(ALCANCE_REPORTE_M, p.latitud, zoom).coerceIn(radioMin, radioMax)
+            val crecimiento = (1f + 0.15f * ln(p.cantidad.toFloat())).coerceAtMost(CRECIMIENTO_GRUPO_MAX)
+            sumarCalor(
+                punto.x.toFloat() / PASO_CALOR_PX,
+                punto.y.toFloat() / PASO_CALOR_PX,
+                alcance * crecimiento / PASO_CALOR_PX,
+                p.cantidad.toFloat()
             )
-            pCanvas.drawCircle(x, y, nube.radioPx, pincel)
         }
-        pincel.shader = null
+
+        for (i in calor.indices) colores[i] = colorCalor(calor[i])
+        val lienzo = bitmap ?: return
+        lienzo.setPixels(colores, 0, anchoGrilla, 0, 0, anchoGrilla, altoGrilla)
+        destino.set(0, 0, anchoGrilla * PASO_CALOR_PX, altoGrilla * PASO_CALOR_PX)
+        pCanvas.drawBitmap(lienzo, null, destino, pincel)
+    }
+
+    private fun prepararGrilla(ancho: Int, alto: Int) {
+        val w = (ancho + PASO_CALOR_PX - 1) / PASO_CALOR_PX
+        val h = (alto + PASO_CALOR_PX - 1) / PASO_CALOR_PX
+        if (w == anchoGrilla && h == altoGrilla && bitmap != null) return
+        anchoGrilla = w
+        altoGrilla = h
+        calor = FloatArray(w * h)
+        colores = IntArray(w * h)
+        bitmap?.recycle()
+        bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    }
+
+
+    private fun sumarCalor(cx: Float, cy: Float, radio: Float, peso: Float) {
+        if (radio <= 0f) return
+        if (cx + radio < 0 || cy + radio < 0 || cx - radio >= anchoGrilla || cy - radio >= altoGrilla) return
+        val r2 = radio * radio
+        val y0 = floor(cy - radio).toInt().coerceAtLeast(0)
+        val y1 = ceil(cy + radio).toInt().coerceAtMost(altoGrilla - 1)
+        val x0 = floor(cx - radio).toInt().coerceAtLeast(0)
+        val x1 = ceil(cx + radio).toInt().coerceAtMost(anchoGrilla - 1)
+        for (y in y0..y1) {
+            val dy = y + 0.5f - cy
+            val fila = y * anchoGrilla
+            for (x in x0..x1) {
+                val dx = x + 0.5f - cx
+                val d2 = dx * dx + dy * dy
+                if (d2 >= r2) continue
+                val t = 1f - d2 / r2
+                calor[fila + x] += peso * t * t
+            }
+        }
     }
 
     override fun onSingleTapConfirmed(e: MotionEvent?, mapView: MapView?): Boolean {
-        if (e == null || mapView == null) return false
+        if (e == null || mapView == null || anchoGrilla == 0) return false
+        val gx = (e.x / PASO_CALOR_PX).toInt()
+        val gy = (e.y / PASO_CALOR_PX).toInt()
+        if (gx !in 0 until anchoGrilla || gy !in 0 until altoGrilla) return false
+        if (calor[gy * anchoGrilla + gx] < CALOR_MINIMO_TAP) return false
+
+        // La mancha puede ser la suma de varios grupos: se elige el más cercano al dedo.
         val proyeccion = mapView.projection
-        val impacto = nubes
-            .map { nube ->
-                proyeccion.toPixels(GeoPoint(nube.latitud, nube.longitud), Point()).let { p ->
-                    nube to hypot((p.x - e.x).toDouble(), (p.y - e.y).toDouble())
-                }
+        val elegido = clusters.minByOrNull { c ->
+            proyeccion.toPixels(GeoPoint(c.latitud, c.longitud), Point()).let { p ->
+                hypot((p.x - e.x).toDouble(), (p.y - e.y).toDouble())
             }
-            .filter { (nube, d) -> d <= nube.radioPx * 0.75 }
-            .minByOrNull { it.second }
-        return if (impacto != null) {
-            onTap(impacto.first.cluster)
-            true
-        } else {
-            false
-        }
+        } ?: return false
+        onTap(elegido)
+        return true
     }
+
+    override fun onDetach(mapView: MapView?) {
+        bitmap?.recycle()
+        bitmap = null
+        super.onDetach(mapView)
+    }
+}
+
+
+private fun colorCalor(calor: Float): Int {
+    if (calor < 0.02f) return 0
+    if (calor < 1f) {
+        val alfa = (ALFA_CALOR_BASE * (calor * 1.25f).coerceAtMost(1f)).toInt()
+        return conAlfa(RAMPA_DENSIDAD.first(), alfa)
+    }
+    val fraccion = fraccionDensidad(calor)
+    val alfa = ALFA_CALOR_BASE + ((ALFA_CALOR_MAX - ALFA_CALOR_BASE) * fraccion).toInt()
+    return conAlfa(colorDensidad(fraccion), alfa)
 }
 
 private fun conAlfa(color: Int, alfa: Int): Int =
@@ -1351,8 +1448,8 @@ private val RAMPA_DENSIDAD = listOf(
 
 private val CORTES_DENSIDAD = listOf(1, 3, 10, 30)
 
-private fun fraccionDensidad(cantidad: Int): Float {
-    val n = cantidad.coerceAtLeast(1)
+private fun fraccionDensidad(cantidad: Float): Float {
+    val n = cantidad.coerceAtLeast(1f)
     val ultimo = CORTES_DENSIDAD.size - 1
     if (n >= CORTES_DENSIDAD[ultimo]) return 1f
 
@@ -1362,7 +1459,7 @@ private fun fraccionDensidad(cantidad: Int): Float {
     // Logarítmica dentro del tramo: de 1 a 3 reportes se nota tanto como de 10 a 30.
     val desde = CORTES_DENSIDAD[tramo].toFloat()
     val hasta = CORTES_DENSIDAD[tramo + 1].toFloat()
-    val avance = ((ln(n.toFloat()) - ln(desde)) / (ln(hasta) - ln(desde))).coerceIn(0f, 1f)
+    val avance = ((ln(n) - ln(desde)) / (ln(hasta) - ln(desde))).coerceIn(0f, 1f)
     return (tramo + avance) / ultimo
 }
 

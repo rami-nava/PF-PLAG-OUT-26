@@ -72,6 +72,7 @@ fun AgregarMonitoreoScreen(
 
     LaunchedEffect(plantacionId) {
         viewModel.cargarPlagas()
+        viewModel.cargarMonitoreosActivos()
         if (plantacionId != null) viewModel.precargarContexto(plantacionId) else viewModel.cargarTerrenos()
     }
 
@@ -80,11 +81,10 @@ fun AgregarMonitoreoScreen(
         if (state.terrenoSeleccionado != null) viewModel.cargarPlantaciones(state.terrenoSeleccionado!!.terreno_id)
     }
 
-    // Corre también en la primera composición, cuando todavía no hay cultivo elegido, y cada vez
-    // que llegan las plagas de la red: por eso el cultivo va como nullable y `plagas` es una clave.
-    LaunchedEffect(state.plantacionSeleccionada, state.plagas) {
+
+    LaunchedEffect(state.plantacionSeleccionada, state.plagas, state.plagasMonitoreadas) {
         dropdownPlagaExpanded = false
-        if (state.plantacionSeleccionada != null) viewModel.filtrarPlagas(state.plantacionSeleccionada?.cultivo_id)
+        state.plantacionSeleccionada?.let { viewModel.filtrarPlagas(it.cultivo_id, it.plantacion_id) }
     }
 
     Column(
@@ -365,6 +365,7 @@ fun AgregarMonitoreoScreen(
                                         text = {
                                             Text(
                                                 if (plantacionElegida == null) "Seleccioná un cultivo"
+                                                else if (state.plagasYaMonitoreadas > 0) "Ya tenés monitoreos activos para todas las plagas de ${plantacionElegida.cultivo_nombre}"
                                                 else "No hay plagas registradas para ${plantacionElegida.cultivo_nombre}",
                                                 color = PlagOutColors.TextSecondary
                                             )

@@ -9,7 +9,9 @@ import com.example.plag_out.CreateUserResponse
 import com.example.plag_out.CultivoResponse
 import com.example.plag_out.DispositivoRequest
 import com.example.plag_out.DispositivoResponse
+import com.example.plag_out.ConteoReportes
 import com.example.plag_out.MarcarLeidaResponse
+import com.example.plag_out.Pagina
 import com.example.plag_out.MonitoreoRequest
 import com.example.plag_out.MonitoreoResponse
 import com.example.plag_out.NotificacionResponse
@@ -32,7 +34,6 @@ import com.example.plag_out.PrediccionConfirmacionResponse
 import com.example.plag_out.PrediccionDetalleResponse
 import com.example.plag_out.ConsentimientoModeloRequest
 import com.example.plag_out.ConsentimientoModeloResponse
-import com.example.plag_out.PaginaUsuarios
 import com.example.plag_out.PlagaAdmin
 import com.example.plag_out.PlagaAdminRequest
 import com.example.plag_out.UsuarioAdmin
@@ -59,8 +60,23 @@ class FakeGDDService : GDDService {
     fun vecesLlamado(endpoint: String): Int = llamadas.count { it == endpoint }
 
     var getMonitoreosResult: () -> Response<List<MonitoreoResponse>> = { noDeclarado("getMonitoreos") }
+    var getMonitoreosPaginaResult: (limit: Int, offset: Int) -> Response<Pagina<MonitoreoResponse>> =
+        { limit, offset -> paginar(getMonitoreosResult(), limit, offset) }
+    val paginasMonitoreos = mutableListOf<Pair<Int, Int>>()
     var getTerrenosResult: () -> Response<List<TerrenoResponse>> = { noDeclarado("getTerrenos") }
+    var getTerrenosPaginaResult: (limit: Int, offset: Int) -> Response<Pagina<TerrenoResponse>> =
+        { limit, offset -> paginar(getTerrenosResult(), limit, offset) }
+    val paginasTerrenos = mutableListOf<Pair<Int, Int>>()
+
+    private fun <T> paginar(r: Response<List<T>>, limit: Int, offset: Int): Response<Pagina<T>> =
+        if (r.isSuccessful) {
+            val todos = r.body().orEmpty()
+            Response.success(Pagina(todos.drop(offset).take(limit), todos.size))
+        } else Response.error(r.code(), r.errorBody()!!)
     var getPlantacionesResult: () -> Response<List<PlantacionesResponse>> = { noDeclarado("getPlantaciones") }
+    var getPlantacionesPaginaResult: (limit: Int, offset: Int) -> Response<Pagina<PlantacionesResponse>> =
+        { limit, offset -> paginar(getPlantacionesResult(), limit, offset) }
+    val paginasPlantaciones = mutableListOf<Pair<Int, Int>>()
     var createTerrenoResult: () -> Response<TerrenoCreateResponse> = { noDeclarado("createTerreno") }
     var actualizarTerrenoResult: () -> Response<TerrenoResponse> = { noDeclarado("actualizarTerreno") }
     var eliminarTerrenoResult: () -> Response<Unit> = { noDeclarado("eliminarTerreno") }
@@ -87,26 +103,59 @@ class FakeGDDService : GDDService {
     var marcarNotificacionLeidaResult: () -> Response<MarcarLeidaResponse> = { noDeclarado("marcarNotificacionLeida") }
     var createReporteResult: () -> Response<ReporteResponse> = { noDeclarado("createReporte") }
     var getReporteResult: () -> Response<ReporteDetalleResponse> = { noDeclarado("getReporte") }
-    var getReportesResult: () -> Response<List<ReporteDetalleResponse>> = { noDeclarado("getReportes") }
-    var getReportesPaginaResult: (suspend (String?, String?, Int, Int) -> Response<List<ReporteDetalleResponse>>)? = null
-    data class ConsultaReportes(val desde: String?, val hasta: String?, val limit: Int, val offset: Int, val distanciaKm: Int?)
+
+    var reportesServidor: List<ReporteDetalleResponse> = emptyList()
+    var getReportesPaginaResult: (suspend (ConsultaReportes) -> Response<Pagina<ReporteDetalleResponse>>)? = null
+    data class ConsultaReportes(
+        val ambito: String,
+        val desde: String?,
+        val hasta: String?,
+        val limit: Int,
+        val offset: Int,
+        val distanciaKm: Int?,
+        val severidad: String? = null,
+        val terrenoId: Int? = null,
+        val plagaId: Int? = null
+    )
     val consultasReportes = mutableListOf<ConsultaReportes>()
+    var getResumenReportesResult: ((ConsultaReportes) -> Response<ConteoReportes>)? = null
+    val consultasResumen = mutableListOf<ConsultaReportes>()
+
+    private fun filtrarServidor(consulta: ConsultaReportes) = reportesServidor.filter {
+        it.es_propio == (consulta.ambito == "propios") &&
+            (consulta.severidad == null || it.nivel_severidad.equals(consulta.severidad, ignoreCase = true)) &&
+            (consulta.plagaId == null || it.plaga_id == consulta.plagaId)
+    }
+
+    fun conteoServidor(consulta: ConsultaReportes): ConteoReportes {
+        val filtrados = filtrarServidor(consulta)
+        fun cuantos(nivel: String) = filtrados.count { it.nivel_severidad.equals(nivel, ignoreCase = true) }
+        return ConteoReportes(filtrados.size, cuantos("Alto"), cuantos("Medio"), cuantos("Bajo"))
+    }
+
+    fun paginaServidor(consulta: ConsultaReportes): Response<Pagina<ReporteDetalleResponse>> {
+        val filtrados = filtrarServidor(consulta)
+        return Response.success(Pagina(filtrados.drop(consulta.offset).take(consulta.limit), filtrados.size))
+    }
     var getReportesMapaResult: () -> Response<ReportesMapaResponse> = { noDeclarado("getReportesMapa") }
     var deleteReporteResult: () -> Response<Unit> = { Response.success(Unit) }
     var getPrediccionResult: () -> Response<PrediccionDetalleResponse> = { noDeclarado("getPrediccion") }
     var confirmarPrediccionResult: () -> Response<PrediccionConfirmacionResponse> = { noDeclarado("confirmarPrediccion") }
     var healthResult: () -> Response<Unit> = { noDeclarado("health") }
 
-    override suspend fun getMonitoreos(): Response<List<MonitoreoResponse>> {
-        llamadas += "getMonitoreos"; return getMonitoreosResult()
+    override suspend fun getMonitoreos(limit: Int, offset: Int): Response<Pagina<MonitoreoResponse>> {
+        llamadas += "getMonitoreos"; paginasMonitoreos += limit to offset
+        return getMonitoreosPaginaResult(limit, offset)
     }
 
-    override suspend fun getTerrenos(): Response<List<TerrenoResponse>> {
-        llamadas += "getTerrenos"; return getTerrenosResult()
+    override suspend fun getTerrenos(limit: Int, offset: Int): Response<Pagina<TerrenoResponse>> {
+        llamadas += "getTerrenos"; paginasTerrenos += limit to offset
+        return getTerrenosPaginaResult(limit, offset)
     }
 
-    override suspend fun getPlantaciones(): Response<List<PlantacionesResponse>> {
-        llamadas += "getPlantaciones"; return getPlantacionesResult()
+    override suspend fun getPlantaciones(limit: Int, offset: Int): Response<Pagina<PlantacionesResponse>> {
+        llamadas += "getPlantaciones"; paginasPlantaciones += limit to offset
+        return getPlantacionesPaginaResult(limit, offset)
     }
 
     override suspend fun createTerreno(data: CreateTerrenoRequest): Response<TerrenoCreateResponse> {
@@ -220,17 +269,38 @@ class FakeGDDService : GDDService {
     }
 
     override suspend fun getReportes(
+        ambito: String,
         fechaDesde: String?,
         fechaHasta: String?,
         limit: Int,
         offset: Int,
-        distanciaKm: Int?
-    ): Response<List<ReporteDetalleResponse>> {
+        distanciaKm: Int?,
+        severidad: String?,
+        terrenoId: Int?,
+        plagaId: Int?
+    ): Response<Pagina<ReporteDetalleResponse>> {
         llamadas += "getReportes"
         ultimoFechaDesdeReportes = fechaDesde
         ultimoFechaHastaReportes = fechaHasta
-        consultasReportes += ConsultaReportes(fechaDesde, fechaHasta, limit, offset, distanciaKm)
-        return getReportesPaginaResult?.invoke(fechaDesde, fechaHasta, limit, offset) ?: getReportesResult()
+        val consulta = ConsultaReportes(ambito, fechaDesde, fechaHasta, limit, offset, distanciaKm, severidad, terrenoId, plagaId)
+        consultasReportes += consulta
+        return getReportesPaginaResult?.invoke(consulta) ?: paginaServidor(consulta)
+    }
+
+    override suspend fun getResumenReportes(
+        ambito: String,
+        fechaDesde: String?,
+        fechaHasta: String?,
+        distanciaKm: Int?,
+        severidad: String?,
+        terrenoId: Int?,
+        plagaId: Int?
+    ): Response<ConteoReportes> {
+        llamadas += "getResumenReportes"
+        // Mismos campos que el listado; limit y offset no aplican.
+        val consulta = ConsultaReportes(ambito, fechaDesde, fechaHasta, 0, 0, distanciaKm, severidad, terrenoId, plagaId)
+        consultasResumen += consulta
+        return getResumenReportesResult?.invoke(consulta) ?: Response.success(conteoServidor(consulta))
     }
 
     val consultasMapa = mutableListOf<Map<String, Any?>>()
@@ -321,7 +391,7 @@ class FakeGDDService : GDDService {
     var adminCrearPlagaResult: () -> Response<PlagaAdmin> = { noDeclarado("adminCrearPlaga") }
     var adminActualizarPlagaResult: () -> Response<PlagaAdmin> = { noDeclarado("adminActualizarPlaga") }
     var adminDesactivarPlagaResult: () -> Response<PlagaAdmin> = { noDeclarado("adminDesactivarPlaga") }
-    var adminGetUsuariosResult: () -> Response<PaginaUsuarios> = { noDeclarado("adminGetUsuarios") }
+    var adminGetUsuariosResult: () -> Response<Pagina<UsuarioAdmin>> = { noDeclarado("adminGetUsuarios") }
     var adminSuspenderUsuarioResult: () -> Response<UsuarioAdmin> = { noDeclarado("adminSuspenderUsuario") }
     var adminReactivarUsuarioResult: () -> Response<UsuarioAdmin> = { noDeclarado("adminReactivarUsuario") }
     var adminEliminarUsuarioResult: () -> Response<AccountDeletionResponse> = { noDeclarado("adminEliminarUsuario") }
@@ -353,9 +423,9 @@ class FakeGDDService : GDDService {
         return adminDesactivarPlagaResult()
     }
 
-    override suspend fun adminGetUsuarios(q: String?, activo: Boolean?, pagina: Int, tamanio: Int): Response<PaginaUsuarios> {
+    override suspend fun adminGetUsuarios(q: String?, activo: Boolean?, limit: Int, offset: Int): Response<Pagina<UsuarioAdmin>> {
         llamadas += "adminGetUsuarios"
-        ultimaBusquedaUsuarios = q to pagina
+        ultimaBusquedaUsuarios = q to offset
         return adminGetUsuariosResult()
     }
 

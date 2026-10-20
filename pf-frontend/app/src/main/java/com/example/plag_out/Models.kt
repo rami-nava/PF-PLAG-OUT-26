@@ -601,17 +601,6 @@ data class UsuarioAdmin(
             .ifEmpty { email }
 }
 
-data class PaginaUsuarios(
-    @SerializedName("items")
-    val items: List<UsuarioAdmin>? = null,
-    @SerializedName("total")
-    val total: Int = 0,
-    @SerializedName("pagina")
-    val pagina: Int = 1,
-    @SerializedName("tamanio")
-    val tamanio: Int = 20
-)
-
 @Serializable
 data class CreateReporteRequest(
     @SerializedName("plantacion_id")
@@ -652,6 +641,7 @@ data class ReporteDetalleResponse(
     @SerializedName("plaga_nombre")     val plaga_nombre: String,
     @SerializedName("terreno_nombre")   val terreno_nombre: String? = null,
     @SerializedName("cultivo_nombre")   val cultivo_nombre: String? = null,
+    @SerializedName("etapa_biologica")  val etapa_biologica: String? = null,
     @SerializedName("nivel_severidad")  val nivel_severidad: String,
     @SerializedName("latitud")          val latitud: Double?,
     @SerializedName("longitud")         val longitud: Double?,
@@ -662,6 +652,19 @@ data class ReporteDetalleResponse(
     @SerializedName("distancia_km")     val distancia_km: Float? = null
 )
 
+
+
+data class Pagina<T>(
+    @SerializedName("items") val items: List<T>? = null,
+    @SerializedName("total") val total: Int = 0
+)
+
+data class ConteoReportes(
+    @SerializedName("total") val total: Int = 0,
+    @SerializedName("alto")  val alto: Int = 0,
+    @SerializedName("medio") val medio: Int = 0,
+    @SerializedName("bajo")  val bajo: Int = 0
+)
 
 data class ReportesMapaResponse(
     @SerializedName("nivel")     val nivel: String? = null,
@@ -686,7 +689,11 @@ data class ReporteNavPayload(
     val nivel_severidad: String,
     val latitud: Double?,
     val longitud: Double?,
-    val timestamp_ms: Long
+    val timestamp_ms: Long,
+    val es_propio: Boolean = false,
+    val terreno_nombre: String? = null,
+    val terreno_mas_cercano_id: Int? = null,
+    val distancia_km: Float? = null
 )
 
 

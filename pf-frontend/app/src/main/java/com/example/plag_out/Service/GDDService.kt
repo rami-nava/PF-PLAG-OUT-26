@@ -26,13 +26,14 @@ import com.example.plag_out.NotificacionResponse
 import com.example.plag_out.CreateReporteRequest
 import com.example.plag_out.ReporteResponse
 import com.example.plag_out.ReporteDetalleResponse
+import com.example.plag_out.Pagina
 import com.example.plag_out.ReportesMapaResponse
+import com.example.plag_out.ConteoReportes
 import com.example.plag_out.PrediccionConfirmacionRequest
 import com.example.plag_out.PrediccionConfirmacionResponse
 import com.example.plag_out.PrediccionDetalleResponse
 import com.example.plag_out.ConsentimientoModeloRequest
 import com.example.plag_out.ConsentimientoModeloResponse
-import com.example.plag_out.PaginaUsuarios
 import com.example.plag_out.PlagaAdmin
 import com.example.plag_out.PlagaAdminRequest
 import com.example.plag_out.UsuarioAdmin
@@ -51,13 +52,23 @@ interface GDDService {
     suspend fun simulateDay(@Body data: GDDSimulationRequest): Response<GDDSimulationResponse>
     */
     @GET("/monitoreos")
-    suspend fun getMonitoreos(): Response<List<MonitoreoResponse>>
+    suspend fun getMonitoreos(
+        @Query("limit") limit: Int,
+        @Query("offset") offset: Int
+    ): Response<Pagina<MonitoreoResponse>>
+
 
     @GET("/terrenos")
-    suspend fun getTerrenos(): Response<List<TerrenoResponse>>
+    suspend fun getTerrenos(
+        @Query("limit") limit: Int,
+        @Query("offset") offset: Int
+    ): Response<Pagina<TerrenoResponse>>
 
     @GET("/plantaciones")
-    suspend fun getPlantaciones(): Response<List<PlantacionesResponse>>
+    suspend fun getPlantaciones(
+        @Query("limit") limit: Int,
+        @Query("offset") offset: Int
+    ): Response<Pagina<PlantacionesResponse>>
 
     @POST("/terrenos")
     suspend fun createTerreno(@Body data: CreateTerrenoRequest): Response<TerrenoCreateResponse>
@@ -158,12 +169,27 @@ interface GDDService {
 
     @GET("/reportes")
     suspend fun getReportes(
-        @retrofit2.http.Query("fecha_desde") fechaDesde: String? = null,
-        @retrofit2.http.Query("fecha_hasta") fechaHasta: String? = null,
-        @retrofit2.http.Query("limit") limit: Int = 100,
-        @retrofit2.http.Query("offset") offset: Int = 0,
-        @retrofit2.http.Query("distancia_km") distanciaKm: Int? = null
-    ): Response<List<ReporteDetalleResponse>>
+        @Query("ambito") ambito: String,
+        @Query("fecha_desde") fechaDesde: String? = null,
+        @Query("fecha_hasta") fechaHasta: String? = null,
+        @Query("limit") limit: Int = 20,
+        @Query("offset") offset: Int = 0,
+        @Query("distancia_km") distanciaKm: Int? = null,
+        @Query("severidad") severidad: String? = null,
+        @Query("terreno_id") terrenoId: Int? = null,
+        @Query("plaga_id") plagaId: Int? = null
+    ): Response<Pagina<ReporteDetalleResponse>>
+
+    @GET("/reportes/resumen")
+    suspend fun getResumenReportes(
+        @Query("ambito") ambito: String,
+        @Query("fecha_desde") fechaDesde: String? = null,
+        @Query("fecha_hasta") fechaHasta: String? = null,
+        @Query("distancia_km") distanciaKm: Int? = null,
+        @Query("severidad") severidad: String? = null,
+        @Query("terreno_id") terrenoId: Int? = null,
+        @Query("plaga_id") plagaId: Int? = null
+    ): Response<ConteoReportes>
 
     @GET("/mapa/reportes")
     suspend fun getReportesMapa(
@@ -233,9 +259,9 @@ interface GDDService {
     suspend fun adminGetUsuarios(
         @Query("q") q: String? = null,
         @Query("activo") activo: Boolean? = null,
-        @Query("pagina") pagina: Int = 1,
-        @Query("tamanio") tamanio: Int = 20
-    ): Response<PaginaUsuarios>
+        @Query("limit") limit: Int = 20,
+        @Query("offset") offset: Int = 0
+    ): Response<Pagina<UsuarioAdmin>>
 
     @POST("/admin/usuarios/{id}/suspender")
     suspend fun adminSuspenderUsuario(@Path("id") id: String): Response<UsuarioAdmin>
