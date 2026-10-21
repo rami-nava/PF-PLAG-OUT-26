@@ -44,7 +44,7 @@ import com.example.plag_out.ui.theme.PlagOutColors
 
 /**
  * Ayuda rápida del signo de pregunta de la barra superior: cinco líneas con el recorrido de la
- * app y nada más. La explicación larga (GDD, biofix, IRA, niveles) vive en [ComoFuncionaSheet],
+ * app y nada más. La explicación larga (GDD, biofix, etapas, niveles) vive en [ComoFuncionaSheet],
  * al que se llega desde Perfil → Ajustes; acá solo se apunta para allá.
  */
 @OptIn(ExperimentalMaterial3Api::class)

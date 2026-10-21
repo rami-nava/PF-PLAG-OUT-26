@@ -53,15 +53,15 @@ class AdminMetricasGlobalesTest {
           "lotes_criticos": [{
             "cultivo": "Maíz", "plaga": "Cogollero", "plaga_cientifico": "Spodoptera frugiperda",
             "hectareas": 30.0, "nivel_alerta": 2, "progreso": 62.5, "gdd_acumulado": 75.0,
-            "gdd_objetivo": 120.0, "urgencia": "supero_umbral", "dias_desde_siembra": null
+            "gdd_objetivo": 120.0, "urgencia": "eclosionada", "dias_desde_siembra": null
           }, {
             "cultivo": "Maíz", "plaga": "Cogollero", "plaga_cientifico": null,
             "hectareas": 10.0, "nivel_alerta": 1, "progreso": 82.0, "gdd_acumulado": 98.4,
-            "gdd_objetivo": 120.0, "urgencia": "eclosion_inminente", "dias_desde_siembra": 30
+            "gdd_objetivo": 120.0, "urgencia": "eclosion_cerca", "dias_desde_siembra": 30
           }],
           "ventanas": [{
             "cultivo": "Maíz", "plaga": "Cogollero", "plaga_cientifico": null,
-            "progreso": 62.5, "estadio": "L2", "estado": "ventana_optima"
+            "progreso": 100.0, "estadio": "Larva", "estado": "eclosionada"
           }],
           "eficacia": {"ciclos_archivados": 0, "exitosos": 0, "tasa": null, "monitoreos_con_rebrote": 0},
           "historico": {"monitoreos": 4, "hectareas": 45.0, "campanias": 2, "plaga_lider": "Cogollero"},
@@ -103,14 +103,14 @@ class AdminMetricasGlobalesTest {
 
         val (critico, inminente) = estado.lotesCriticos
         assertEquals("Lote anónimo 1", critico.terrenoNombre)
-        assertEquals("⚠️ Superó umbral - Aplicar / Revisar hoy", critico.urgenciaAccion)
-        assertEquals("👀 Eclosión inminente (82% térmico)", inminente.urgenciaAccion)
+        assertEquals("Eclosionó: recorrer el lote y contar", critico.urgenciaAccion)
+        assertEquals("Eclosión cerca (82% del huevo): planificar la recorrida", inminente.urgenciaAccion)
         assertTrue(estado.lotesCriticos.all { it.monitoreoId < 0 })
 
         val ventana = estado.ventanasControl.single()
-        assertEquals(EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA, ventana.estadoVentana)
-        assertTrue(ventana.enVentanaOptima)
-        assertEquals("L2", ventana.estadioEstimado)
+        assertEquals(EstadoVentanaControl.ECLOSIONADA, ventana.estadoVentana)
+        assertTrue(ventana.requiereRecorrida)
+        assertEquals("Larva", ventana.estadioEstimado)
 
         // Sin ciclos archivados la tasa es desconocida, no 100 %.
         assertNull(estado.eficaciaTratamientos!!.tasaEficaciaPorcentaje)

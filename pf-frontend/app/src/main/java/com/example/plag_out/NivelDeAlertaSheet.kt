@@ -69,9 +69,9 @@ fun NivelDeAlertaSheet(nivelActual: Int?, onDismiss: () -> Unit) {
             Spacer(Modifier.height(12.dp))
 
             Text(
-                "Resume en tres escalones qué tan favorables fueron las condiciones ambientales " +
-                    "para la plaga. No mide lo que hay hoy en el lote: estima la densidad " +
-                    "poblacional que podés esperar.",
+                "Resume en tres escalones en qué etapa está la plaga según el calor acumulado: " +
+                    "en huevo, cerca de la eclosión o ya eclosionada. No mide lo que hay hoy en el " +
+                    "lote: estima cuándo conviene ir a mirar.",
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 color = PlagOutColors.TextSecondary
@@ -79,7 +79,7 @@ fun NivelDeAlertaSheet(nivelActual: Int?, onDismiss: () -> Unit) {
 
             Spacer(Modifier.height(16.dp))
 
-            TarjetaIRA()
+            TarjetaEtapa()
 
             Spacer(Modifier.height(16.dp))
 
@@ -132,7 +132,7 @@ fun NivelDeAlertaSheet(nivelActual: Int?, onDismiss: () -> Unit) {
 }
 
 /**
- * Tarjeta de concepto (GDD, IRA, biofix): mismo fondo, mismo chip de ícono y mismo título, para
+ * Tarjeta de concepto (GDD, etapa, biofix): mismo fondo, mismo chip de ícono y mismo título, para
  * que los bloques explicativos de la app se lean como una sola familia.
  */
 @Composable
@@ -175,14 +175,14 @@ fun TarjetaConcepto(
     }
 }
 
-/** Bloque explicativo del IRA; se reusa en la ayuda general de la app. */
+/** De dónde sale el nivel de alerta; se reusa en la ayuda general de la app. */
 @Composable
-fun TarjetaIRA(modifier: Modifier = Modifier) {
-    TarjetaConcepto(Icons.Outlined.Insights, "¿Qué es el IRA?", modifier) {
+fun TarjetaEtapa(modifier: Modifier = Modifier) {
+    TarjetaConcepto(Icons.Outlined.Insights, "¿De dónde sale el nivel?", modifier) {
         Text(
-            "Índice de Riesgo Ambiental: evalúa las condiciones ambientales que " +
-                "atravesó la plaga para estimar cuánto la favoreció el ambiente. De ahí salen el " +
-                "nivel de alerta.",
+            "Del modelo térmico: los grados-día que necesita el huevo de cada plaga para " +
+                "eclosionar, con valores de trabajos científicos citados. Pasa a amarillo cuando " +
+                "el huevo llega a tu umbral de aviso y a rojo cuando se estima la eclosión.",
             fontSize = 13.sp,
             color = PlagOutColors.TextSecondary
         )

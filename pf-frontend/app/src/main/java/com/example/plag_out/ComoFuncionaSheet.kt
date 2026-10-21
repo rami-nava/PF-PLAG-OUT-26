@@ -148,8 +148,8 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
 
             Spacer(Modifier.height(12.dp))
 
-            // Mismo bloque de IRA que muestra el detalle de monitoreo.
-            TarjetaIRA()
+            // Mismo bloque que muestra el detalle de monitoreo.
+            TarjetaEtapa()
 
             Spacer(Modifier.height(24.dp))
 
@@ -160,8 +160,8 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
                 color = PlagOutColors.TextMain
             )
             Text(
-                "El nivel de alerta dice qué tan favorables fueron las " +
-                    "condiciones para la plaga y, con eso, qué densidad poblacional esperar.",
+                "El nivel de alerta dice en qué etapa está la plaga según el calor acumulado " +
+                    "y, con eso, cuándo conviene recorrer el lote.",
                 fontSize = 13.sp,
                 color = PlagOutColors.TextSecondary,
                 modifier = Modifier.padding(top = 4.dp)
