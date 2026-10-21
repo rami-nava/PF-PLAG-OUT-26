@@ -34,6 +34,8 @@ import com.example.plag_out.PrediccionConfirmacionResponse
 import com.example.plag_out.PrediccionDetalleResponse
 import com.example.plag_out.ConsentimientoModeloRequest
 import com.example.plag_out.ConsentimientoModeloResponse
+import com.example.plag_out.CultivoAdmin
+import com.example.plag_out.CultivoAdminRequest
 import com.example.plag_out.PlagaAdmin
 import com.example.plag_out.PlagaAdminRequest
 import com.example.plag_out.UsuarioAdmin
@@ -396,6 +398,14 @@ class FakeGDDService : GDDService {
     var adminReactivarUsuarioResult: () -> Response<UsuarioAdmin> = { noDeclarado("adminReactivarUsuario") }
     var adminEliminarUsuarioResult: () -> Response<AccountDeletionResponse> = { noDeclarado("adminEliminarUsuario") }
 
+    var adminGetCultivosResult: () -> Response<List<CultivoAdmin>> = { noDeclarado("adminGetCultivos") }
+    var adminGetCultivoResult: () -> Response<CultivoAdmin> = { noDeclarado("adminGetCultivo") }
+    var adminCrearCultivoResult: () -> Response<CultivoAdmin> = { noDeclarado("adminCrearCultivo") }
+    var adminActualizarCultivoResult: () -> Response<CultivoAdmin> = { noDeclarado("adminActualizarCultivo") }
+    var adminDesactivarCultivoResult: () -> Response<CultivoAdmin> = { noDeclarado("adminDesactivarCultivo") }
+
+    var ultimoCultivoEnviado: CultivoAdminRequest? = null
+        private set
     var ultimaPlagaEnviada: PlagaAdminRequest? = null
         private set
     var ultimaBusquedaUsuarios: Pair<String?, Int>? = null
@@ -421,6 +431,33 @@ class FakeGDDService : GDDService {
     override suspend fun adminDesactivarPlaga(id: Int): Response<PlagaAdmin> {
         llamadas += "adminDesactivarPlaga"
         return adminDesactivarPlagaResult()
+    }
+
+    override suspend fun adminGetCultivos(incluirInactivos: Boolean): Response<List<CultivoAdmin>> {
+        llamadas += "adminGetCultivos"
+        return adminGetCultivosResult()
+    }
+
+    override suspend fun adminGetCultivo(id: Int): Response<CultivoAdmin> {
+        llamadas += "adminGetCultivo"
+        return adminGetCultivoResult()
+    }
+
+    override suspend fun adminCrearCultivo(data: CultivoAdminRequest): Response<CultivoAdmin> {
+        llamadas += "adminCrearCultivo"
+        ultimoCultivoEnviado = data
+        return adminCrearCultivoResult()
+    }
+
+    override suspend fun adminActualizarCultivo(id: Int, data: CultivoAdminRequest): Response<CultivoAdmin> {
+        llamadas += "adminActualizarCultivo"
+        ultimoCultivoEnviado = data
+        return adminActualizarCultivoResult()
+    }
+
+    override suspend fun adminDesactivarCultivo(id: Int): Response<CultivoAdmin> {
+        llamadas += "adminDesactivarCultivo"
+        return adminDesactivarCultivoResult()
     }
 
     override suspend fun adminGetUsuarios(q: String?, activo: Boolean?, limit: Int, offset: Int): Response<Pagina<UsuarioAdmin>> {

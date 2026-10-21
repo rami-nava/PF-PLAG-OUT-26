@@ -325,6 +325,8 @@ private val ERRORES_CREACION = mapOf(
     "plantation_finalized" to "La plantación está finalizada.",
     "plaga_inactiva" to "Esta plaga ya no está disponible.",
     "monitoring_already_active" to "Ya tenés un monitoreo activo de esta plaga en esta plantación.",
+    // Un admin quitó la plaga de este cultivo mientras se completaba el formulario
+    "plaga_no_afecta_cultivo" to "Ya no se puede monitorear en este cultivo.",
     "no afecta al cultivo" to "Esta plaga no afecta al cultivo de la plantación.",
     "Terreno no encontrado" to "El terreno ya no existe.",
     "Plantacion no encontrada" to "La plantación ya no existe."

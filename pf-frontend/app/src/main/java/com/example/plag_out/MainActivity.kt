@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -301,6 +302,9 @@ fun AppNavigation(
     val adminPlagasViewModel: AdminPlagasViewModel = viewModel(
         factory = remember { AdminPlagasViewModelFactory() }
     )
+    val adminCultivosViewModel: AdminCultivosViewModel = viewModel(
+        factory = remember { AdminCultivosViewModelFactory() }
+    )
     val adminUsuariosViewModel: AdminUsuariosViewModel = viewModel(
         factory = remember { AdminUsuariosViewModelFactory() }
     )
@@ -518,12 +522,19 @@ fun AppNavigation(
             notificacionesViewModel.limpiar()
             misReportesViewModel.limpiar()
             adminPlagasViewModel.limpiar()
+            adminCultivosViewModel.limpiar()
             adminUsuariosViewModel.limpiar()
             navController.navigate("logIn") {
                 popUpTo(0) { inclusive = true }
             }
-            cerrandoSesion = false
-            despues()
+            actionScope.launch {
+                //Evita ver una pantalla con error antes del login
+                navController.visibleEntries.first { visibles ->
+                    visibles.singleOrNull()?.destination?.route == "logIn"
+                }
+                cerrandoSesion = false
+                despues()
+            }
         }
     }
 
@@ -929,6 +940,7 @@ fun AppNavigation(
                         viewModel = adminPlagasViewModel,
                         plagaId = null,
                         onBack = { navController.popBackStack() },
+                        onCatalogoCambiado = adminCultivosViewModel::marcarDesactualizado,
                         onGuardado = {
                             navController.popBackStack()
                             Avisos.exito("Plaga creada.")
@@ -943,10 +955,47 @@ fun AppNavigation(
                         viewModel = adminPlagasViewModel,
                         plagaId = plagaId ?: -1,
                         onBack = { navController.popBackStack() },
+                        onCatalogoCambiado = adminCultivosViewModel::marcarDesactualizado,
                         onGuardado = {
                             navController.popBackStack()
                             Avisos.exito("Cambios guardados.")
                         }
+                    )
+                }
+            }
+            composable(RUTA_ADMIN_CULTIVOS) {
+                SoloAdmin(navController) {
+                    AdminCultivosScreen(
+                        viewModel = adminCultivosViewModel,
+                        onNuevoCultivo = { navController.navigate(RUTA_ADMIN_CULTIVO_NUEVO) },
+                        onCultivoClick = { id -> navController.navigate("admin_cultivo/$id") },
+                        onSinPermiso = onSinPermisoAdmin
+                    )
+                }
+            }
+            composable(RUTA_ADMIN_CULTIVO_NUEVO) {
+                SoloAdmin(navController) {
+                    CultivoDetalleScreen(
+                        viewModel = adminCultivosViewModel,
+                        cultivoId = null,
+                        onBack = { navController.popBackStack() },
+                        onCreado = {
+                            navController.popBackStack()
+                            Avisos.exito("Cultivo creado.")
+                        },
+                        onRelacionesCambiadas = adminPlagasViewModel::marcarDesactualizado
+                    )
+                }
+            }
+            composable(RUTA_ADMIN_CULTIVO) { backStackEntry ->
+                val cultivoId = backStackEntry.arguments?.getString("cultivo_id")?.toIntOrNull()
+                SoloAdmin(navController) {
+                    CultivoDetalleScreen(
+                        viewModel = adminCultivosViewModel,
+                        cultivoId = cultivoId ?: -1,
+                        onBack = { navController.popBackStack() },
+                        onCreado = { navController.popBackStack() },
+                        onRelacionesCambiadas = adminPlagasViewModel::marcarDesactualizado
                     )
                 }
             }
@@ -1030,7 +1079,7 @@ fun AppNavigation(
     AvisosHost()
 }
 
-private val rutasAdminConBarras = listOf(RUTA_ADMIN_PLAGAS, RUTA_ADMIN_USUARIOS, RUTA_ADMIN_METRICAS, RUTA_ADMIN_CUENTA)
+private val rutasAdminConBarras = listOf(RUTA_ADMIN_PLAGAS, RUTA_ADMIN_CULTIVOS, RUTA_ADMIN_USUARIOS, RUTA_ADMIN_METRICAS, RUTA_ADMIN_CUENTA)
 
 
 @Composable

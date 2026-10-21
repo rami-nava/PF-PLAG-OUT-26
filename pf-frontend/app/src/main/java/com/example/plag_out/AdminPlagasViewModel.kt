@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
 
 data class AdminPlagasUIState(
     val plagas: List<PlagaAdmin> = emptyList(),
-    val cultivos: List<CultivoResponse> = emptyList(),
+    val cultivos: List<CultivoAdmin> = emptyList(),
     val busqueda: String = "",
     val filtro: FiltroPlagas = FiltroPlagas.TODAS,
     val cargado: Boolean = false,
@@ -25,7 +25,8 @@ data class AdminPlagasUIState(
     val guardando: Boolean = false,
     val error: String? = null,
     val errorAccion: String? = null,
-    val sinPermiso: Boolean = false
+    val sinPermiso: Boolean = false,
+    val desactualizado: Boolean = false
 )
 
 data class FormularioPlaga(
@@ -136,7 +137,8 @@ class AdminPlagasViewModel(
     fun cargar(forzar: Boolean = false) {
         val actual = _state.value
         if (actual.isLoading || actual.isRefreshing) return
-        if (!forzar && actual.cargado) return
+        if (!forzar && actual.cargado && !actual.desactualizado) return
+        val recargarCultivos = forzar || actual.desactualizado
 
         _state.value = actual.copy(
             isLoading = !actual.cargado,
@@ -149,8 +151,8 @@ class AdminPlagasViewModel(
                 val response = withContext(Dispatchers.IO) { gddService.adminGetPlagas() }
                 val plagas = response.body()
                 if (response.isSuccessful && plagas != null) {
-                    _state.value = _state.value.copy(plagas = plagas, cargado = true)
-                    cargarCultivosSiHaceFalta()
+                    _state.value = _state.value.copy(plagas = plagas, cargado = true, desactualizado = false)
+                    cargarCultivos(forzar = recargarCultivos)
                 } else {
                     aplicarFallo(falloDeRespuesta(response), comoErrorDeCarga = true)
                 }
@@ -167,19 +169,25 @@ class AdminPlagasViewModel(
 
     fun refrescar() = cargar(forzar = true)
 
-    // Los cultivos solo se usan en el formulario: si fallan, la lista igual se muestra.
-    private suspend fun cargarCultivosSiHaceFalta() {
-        if (_state.value.cultivos.isNotEmpty()) return
+    private suspend fun cargarCultivos(forzar: Boolean) {
+        if (!forzar && _state.value.cultivos.isNotEmpty()) return
         try {
-            val response = withContext(Dispatchers.IO) { gddService.getCultivos() }
-            response.body()?.takeIf { response.isSuccessful }?.let {
-                _state.value = _state.value.copy(cultivos = it)
+            val admin = withContext(Dispatchers.IO) { gddService.adminGetCultivos() }
+            val cultivos = admin.body()?.takeIf { admin.isSuccessful } ?: run {
+                val response = withContext(Dispatchers.IO) { gddService.getCultivos() }
+                response.body()?.takeIf { response.isSuccessful }
+                    ?.map { CultivoAdmin(id = it.id, nombre = it.nombre, nombre_cientifico = it.nombre_cientifico) }
             }
+            cultivos?.let { _state.value = _state.value.copy(cultivos = it.sortedBy { c -> c.nombre.lowercase() }) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.e("ADMIN_PLAGAS", "No se pudieron cargar los cultivos: ${e.message}")
         }
+    }
+
+    fun marcarDesactualizado() {
+        _state.value = _state.value.copy(desactualizado = true)
     }
 
     fun buscar(texto: String) {

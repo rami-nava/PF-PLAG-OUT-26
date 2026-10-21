@@ -171,7 +171,7 @@ fun AdminPlagasScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TarjetaPlagaAdmin(plaga: PlagaAdmin, cultivos: List<CultivoResponse>, onClick: () -> Unit) {
+private fun TarjetaPlagaAdmin(plaga: PlagaAdmin, cultivos: List<CultivoAdmin>, onClick: () -> Unit) {
     val interaccion = remember { MutableInteractionSource() }
     val escala = rememberPressScale(interaccion)
     val acento = if (plaga.estaActiva) PlagOutColors.Leaf else PlagOutColors.RiskUnknown
@@ -274,7 +274,8 @@ fun PlagaFormScreen(
     viewModel: AdminPlagasViewModel,
     plagaId: Int?,
     onBack: () -> Unit,
-    onGuardado: () -> Unit
+    onGuardado: () -> Unit,
+    onCatalogoCambiado: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     val original = remember(plagaId, state.plagas) { plagaId?.let { viewModel.plaga(it) } }
@@ -411,14 +412,18 @@ fun PlagaFormScreen(
                 titulo = "Cultivos afectados",
                 subtitulo = "Solo se ofrece para monitorear en estos cultivos."
             ) {
-                if (state.cultivos.isEmpty()) {
+                // Los dados de baja solo aparecen si la plaga ya los tenía, para poder quitarlos
+                val cultivosOfrecidos = state.cultivos.filter {
+                    it.estaActivo || it.id in original?.cultivos_afectados.orEmpty()
+                }
+                if (cultivosOfrecidos.isEmpty()) {
                     Text("No se pudieron cargar los cultivos.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
                 } else {
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        state.cultivos.forEach { cultivo ->
+                        cultivosOfrecidos.forEach { cultivo ->
                             val elegido = cultivo.id in form.cultivos
                             FilterChip(
                                 selected = elegido,
@@ -427,7 +432,7 @@ fun PlagaFormScreen(
                                         cultivos = if (elegido) form.cultivos - cultivo.id else form.cultivos + cultivo.id
                                     )
                                 },
-                                label = { Text(cultivo.nombre) },
+                                label = { Text(if (cultivo.estaActivo) cultivo.nombre else "${cultivo.nombre} (de baja)") },
                                 leadingIcon = if (elegido) {
                                     { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
                                 } else null,
@@ -453,7 +458,10 @@ fun PlagaFormScreen(
                     habilitada = !state.guardando,
                     onClick = {
                         if (original.estaActiva) confirmarBaja = true
-                        else viewModel.reactivar(original.id) { Avisos.exito("Plaga reactivada.") }
+                        else viewModel.reactivar(original.id) {
+                            Avisos.exito("Plaga reactivada.")
+                            onCatalogoCambiado()
+                        }
                     }
                 )
             }
@@ -468,7 +476,10 @@ fun PlagaFormScreen(
             Button(
                 onClick = {
                     intentoGuardar = true
-                    viewModel.guardar(original, form, onGuardado)
+                    viewModel.guardar(original, form) {
+                        onCatalogoCambiado()
+                        onGuardado()
+                    }
                 },
                 enabled = !state.guardando,
                 modifier = Modifier
@@ -511,7 +522,10 @@ fun PlagaFormScreen(
             peligro = true,
             onConfirmar = {
                 confirmarBaja = false
-                viewModel.desactivar(original.id) { Avisos.exito("Plaga dada de baja.") }
+                viewModel.desactivar(original.id) {
+                    Avisos.exito("Plaga dada de baja.")
+                    onCatalogoCambiado()
+                }
             },
             onDismiss = { confirmarBaja = false }
         )
@@ -519,7 +533,7 @@ fun PlagaFormScreen(
 }
 
 @Composable
-private fun SeccionFormulario(titulo: String, subtitulo: String, contenido: @Composable ColumnScope.() -> Unit) {
+internal fun SeccionFormulario(titulo: String, subtitulo: String, contenido: @Composable ColumnScope.() -> Unit) {
     Surface(
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(22.dp),
@@ -543,7 +557,7 @@ private fun SeccionFormulario(titulo: String, subtitulo: String, contenido: @Com
 private fun esNumeroPlaga(texto: String) = texto.all { it.isDigit() || it in "-.," }
 
 @Composable
-private fun AvisoImpacto(texto: String) {
+internal fun AvisoImpacto(texto: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

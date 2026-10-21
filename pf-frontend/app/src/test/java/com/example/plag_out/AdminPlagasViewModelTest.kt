@@ -44,7 +44,9 @@ class AdminPlagasViewModelTest {
     @Before
     fun setup() {
         gddService = FakeGDDService()
-        gddService.getCultivosResult = { Response.success(listOf(CultivoResponse(1, "Manzano", "Malus domestica"))) }
+        gddService.adminGetCultivosResult = {
+            Response.success(listOf(CultivoAdmin(1, "Manzano", "Malus domestica", activo = true)))
+        }
         viewModel = AdminPlagasViewModel(gddService)
     }
 
@@ -60,6 +62,36 @@ class AdminPlagasViewModelTest {
         val estado = esperarEstado(viewModel.state) { it.cargado && it.cultivos.isNotEmpty() }
         assertEquals(listOf(carpocapsa), estado.plagas)
         assertFalse(estado.isLoading)
+    }
+
+    @Test
+    fun `sin catalogo admin de cultivos usa los de cultivos`() {
+        gddService.adminGetCultivosResult = { FakeGDDService.errorServidor(404) }
+        gddService.getCultivosResult = { Response.success(listOf(CultivoResponse(2, "Maíz", "Zea mays"))) }
+        gddService.adminGetPlagasResult = { Response.success(listOf(carpocapsa)) }
+
+        viewModel.cargar()
+
+        val estado = esperarEstado(viewModel.state) { it.cargado && it.cultivos.isNotEmpty() }
+        assertEquals(listOf(2), estado.cultivos.map { it.id })
+        assertTrue(estado.cultivos.single().estaActivo)
+    }
+
+    @Test
+    fun `marcarDesactualizado hace que la proxima carga vuelva a pedir plagas y cultivos`() {
+        gddService.adminGetPlagasResult = { Response.success(listOf(carpocapsa)) }
+        viewModel.cargar()
+        esperarEstado(viewModel.state) { it.cargado && it.cultivos.isNotEmpty() && !it.isLoading }
+
+        viewModel.cargar()
+        assertEquals(1, gddService.vecesLlamado("adminGetPlagas"))
+
+        viewModel.marcarDesactualizado()
+        viewModel.cargar()
+
+        esperarEstado(viewModel.state) { !it.desactualizado && !it.isRefreshing }
+        assertEquals(2, gddService.vecesLlamado("adminGetPlagas"))
+        assertEquals(2, gddService.vecesLlamado("adminGetCultivos"))
     }
 
     @Test
