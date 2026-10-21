@@ -234,11 +234,6 @@ interface GDDService {
     suspend fun archivarCiclo(@Path("id") id: Int): Response<com.example.plag_out.GddCicloResponse>
 
 
-    // ── Dashboards y Métricas Fitosanitarias ───────────────────────────────
-    // Endpoint dedicado para la consolidación de KPIs ejecutivos
-    @GET("/dashboards/metricas")
-    suspend fun getDashboardMetricas(): Response<com.example.plag_out.DashboardMetricasResponse>
-
     // ── Administración ──────────────────────────────────────────────────────
     // El backend valida que el usuario del JWT sea admin: 403 {"detail": "requiere_admin"} si no.
 
