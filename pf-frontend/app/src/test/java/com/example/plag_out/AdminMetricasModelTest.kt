@@ -230,7 +230,7 @@ class AdminMetricasModelTest {
     }
 
     @Test
-    fun `calcularVentanasControlAgronomo detecta fases biologicas segun acumulacion termica`() {
+    fun `calcularVentanasControlAgronomo muestra la etapa termica del ciclo y no ventanas por porcentaje`() {
         val monitoreos = listOf(
             monitoreoDePrueba(
                 monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
@@ -251,19 +251,14 @@ class AdminMetricasModelTest {
 
         val ventanas = calcularVentanasControlAgronomo(monitoreos)
 
-        assertEquals(3, ventanas.size)
-        // El lote con ventana óptima abierta queda primero por orden de prioridad
-        val optima = ventanas.first { it.monitoreoId == 2 }
-        assertTrue(optima.enVentanaOptima)
-        assertEquals(EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA, optima.estadoVentana)
-
-        val espera = ventanas.first { it.monitoreoId == 1 }
-        assertFalse(espera.enVentanaOptima)
-        assertEquals(EstadoVentanaControl.INCUBACION_ESPERA, espera.estadoVentana)
-
-        val cerrado = ventanas.first { it.monitoreoId == 3 }
-        assertFalse(cerrado.enVentanaOptima)
-        assertEquals(EstadoVentanaControl.VENTANA_CERRADA_AVANZADO, cerrado.estadoVentana)
+        // Lo eclosionado primero; la etapa sale del nivel del ciclo, no de cortes por porcentaje.
+        assertEquals(listOf(3, 2, 1), ventanas.map { it.monitoreoId })
+        assertEquals(
+            listOf(EstadoVentanaControl.ECLOSIONADA, EstadoVentanaControl.ECLOSION_CERCA, EstadoVentanaControl.HUEVO),
+            ventanas.map { it.estadoVentana }
+        )
+        assertEquals(listOf(true, false, false), ventanas.map { it.requiereRecorrida })
+        assertTrue(ventanas.none { "L1" in it.estadioEstimado || "L1" in it.recomendacionTecnica })
     }
 
     @Test
@@ -397,7 +392,7 @@ class AdminMetricasModelTest {
         // Primero el de alerta 2
         assertEquals(2, ranking[0].monitoreoId)
         assertEquals(2, ranking[0].nivelAlerta)
-        assertTrue(ranking[0].urgenciaAccion.contains("Superó umbral"))
+        assertTrue(ranking[0].urgenciaAccion.contains("Eclosionó"))
         assertEquals(16L, ranking[0].diasDesdeSiembra)
 
         // Segundo el de alerta 1

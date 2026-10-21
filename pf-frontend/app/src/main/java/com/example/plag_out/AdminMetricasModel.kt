@@ -108,12 +108,26 @@ data class LoteEnRiesgoCritico(
 )
 
 /**
- * Estado fenológico de una plaga y evaluación de ventana de aplicación para el agrónomo.
+ * Etapa térmica de la plaga en un lote: es el nivel de alerta del ciclo (0 huevo, 1 eclosión
+ * cerca, 2 eclosionó), calculado por el backend con parámetros citados. No hay "ventanas" por
+ * porcentaje ni recomendación de aplicar: eso se decide monitoreando el lote.
  */
 enum class EstadoVentanaControl {
-    INCUBACION_ESPERA,
-    VENTANA_OPTIMA_ABIERTA,
-    VENTANA_CERRADA_AVANZADO
+    HUEVO,
+    ECLOSION_CERCA,
+    ECLOSIONADA
+}
+
+fun etapaDeNivel(nivelAlerta: Int): EstadoVentanaControl = when {
+    nivelAlerta >= 2 -> EstadoVentanaControl.ECLOSIONADA
+    nivelAlerta == 1 -> EstadoVentanaControl.ECLOSION_CERCA
+    else -> EstadoVentanaControl.HUEVO
+}
+
+private fun claveDeEtapa(etapa: EstadoVentanaControl): String = when (etapa) {
+    EstadoVentanaControl.HUEVO -> "huevo"
+    EstadoVentanaControl.ECLOSION_CERCA -> "eclosion_cerca"
+    EstadoVentanaControl.ECLOSIONADA -> "eclosionada"
 }
 
 data class VentanaControlBiologico(
@@ -124,7 +138,8 @@ data class VentanaControlBiologico(
     val plagaCientifico: String?,
     val progresoGdd: Float,
     val estadioEstimado: String,
-    val enVentanaOptima: Boolean,
+    /** Ya eclosionó: toca recorrer el lote. */
+    val requiereRecorrida: Boolean,
     val estadoVentana: EstadoVentanaControl,
     val recomendacionTecnica: String
 )
@@ -393,15 +408,7 @@ fun calcularRankingLotesCriticos(
         val progreso = progresoResuelto(m) ?: 0f
         val gddAcumulado = gddAcumuladoResuelto(m) ?: 0f
 
-        val urgencia = textoUrgencia(
-            when {
-                nivelAlerta >= 2 -> "supero_umbral"
-                progreso >= 80f -> "eclosion_inminente"
-                progreso >= 45f -> "ventana_activa"
-                else -> "controlada"
-            },
-            progreso
-        )
+        val urgencia = textoUrgencia(claveDeEtapa(etapaDeNivel(nivelAlerta)), progreso)
 
         LoteEnRiesgoCritico(
             monitoreoId = m.monitoreo_id,
@@ -425,7 +432,7 @@ fun calcularRankingLotesCriticos(
 }
 
 /**
- * Determina las ventanas óptimas de aplicación fitosanitaria para el ingeniero agrónomo.
+ * Etapa térmica de cada lote activo, con lo eclosionado primero.
  */
 fun calcularVentanasControlAgronomo(
     monitoreos: List<MonitoreoResponse>
@@ -437,26 +444,9 @@ fun calcularVentanasControlAgronomo(
         val progreso = cicloActivo?.progreso ?: 0f
         val estadioReal = cicloActivo?.estadio_biologico?.takeIf { it.isNotBlank() }
 
-        val (estadio, estado, recomendacion, enOptima) = when {
-            progreso < 40f -> Quad(
-                estadioReal ?: "Incubación (Huevo)",
-                EstadoVentanaControl.INCUBACION_ESPERA,
-                recomendacion(EstadoVentanaControl.INCUBACION_ESPERA),
-                false
-            )
-            progreso <= 85f -> Quad(
-                estadioReal ?: "Larva chica (L1 - L3)",
-                EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA,
-                recomendacion(EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA),
-                true
-            )
-            else -> Quad(
-                estadioReal ?: "Larva avanzada / Adulto",
-                EstadoVentanaControl.VENTANA_CERRADA_AVANZADO,
-                recomendacion(EstadoVentanaControl.VENTANA_CERRADA_AVANZADO),
-                false
-            )
-        }
+        val estado = etapaDeNivel(nivelAlertaResuelto(m) ?: 0)
+        val estadio = estadioReal ?: estadioPorDefecto(estado)
+        val recomendacion = recomendacion(estado)
 
         VentanaControlBiologico(
             monitoreoId = m.monitoreo_id,
@@ -466,12 +456,12 @@ fun calcularVentanasControlAgronomo(
             plagaCientifico = m.plaga_nombre_cientifico,
             progresoGdd = progreso,
             estadioEstimado = estadio,
-            enVentanaOptima = enOptima,
+            requiereRecorrida = estado == EstadoVentanaControl.ECLOSIONADA,
             estadoVentana = estado,
             recomendacionTecnica = recomendacion
         )
     }.sortedWith(
-        compareByDescending<VentanaControlBiologico> { it.enVentanaOptima }
+        compareByDescending<VentanaControlBiologico> { it.estadoVentana.ordinal }
             .thenByDescending { it.progresoGdd }
     )
 }
@@ -533,25 +523,32 @@ private fun medido(monitoreo: MonitoreoResponse): Boolean = cicloQueDescribe(mon
 // de la pantalla. Los lotes llegan anónimos, así que se numeran en el orden del ranking.
 
 fun textoUrgencia(urgencia: String, progreso: Float): String = when (urgencia) {
-    "supero_umbral" -> "⚠️ Superó umbral - Aplicar / Revisar hoy"
-    "eclosion_inminente" -> "👀 Eclosión inminente (${progreso.toInt()}% térmico)"
-    "ventana_activa" -> "🌱 Ventana activa de desarrollo"
-    else -> "✅ Población controlada"
+    "eclosionada" -> "Eclosionó: recorrer el lote y contar"
+    "eclosion_cerca" -> "Eclosión cerca (${progreso.toInt()}% del huevo): planificar la recorrida"
+    else -> "En huevo: seguir el monitoreo habitual"
 }
 
 private fun estadoVentana(estado: String): EstadoVentanaControl = when (estado) {
-    "ventana_optima" -> EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA
-    "ventana_cerrada" -> EstadoVentanaControl.VENTANA_CERRADA_AVANZADO
-    else -> EstadoVentanaControl.INCUBACION_ESPERA
+    "eclosionada" -> EstadoVentanaControl.ECLOSIONADA
+    "eclosion_cerca" -> EstadoVentanaControl.ECLOSION_CERCA
+    else -> EstadoVentanaControl.HUEVO
 }
 
+private fun estadioPorDefecto(estado: EstadoVentanaControl): String = when (estado) {
+    EstadoVentanaControl.HUEVO -> "Huevo"
+    EstadoVentanaControl.ECLOSION_CERCA -> "Huevo, eclosión cerca"
+    EstadoVentanaControl.ECLOSIONADA -> "Larva o ninfa"
+}
+
+// Las larvas chicas son las más sensibles al control, y aplicar se decide con el umbral de
+// daño del cultivo (Gamundi y Perotti, INTA 2007), no con el modelo.
 private fun recomendacion(estado: EstadoVentanaControl): String = when (estado) {
-    EstadoVentanaControl.INCUBACION_ESPERA ->
-        "No pulverizar aún: plaga en fase de huevo o no susceptible."
-    EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA ->
-        "Ventana óptima de control: máxima susceptibilidad a insecticidas y biológicos."
-    EstadoVentanaControl.VENTANA_CERRADA_AVANZADO ->
-        "Ventana en cierre: superó el umbral térmico de eclosión y la plaga está en fase avanzada."
+    EstadoVentanaControl.HUEVO ->
+        "Según los grados-día acumulados todavía no eclosionó."
+    EstadoVentanaControl.ECLOSION_CERCA ->
+        "Pasó el umbral de aviso: conviene planificar la recorrida del lote."
+    EstadoVentanaControl.ECLOSIONADA ->
+        "Recorrer el lote: las larvas chicas son las más sensibles al control y la aplicación se decide con el umbral de daño del cultivo."
 }
 
 private fun nombreLoteAnonimo(posicion: Int) = "Lote anónimo ${posicion + 1}"
@@ -649,7 +646,7 @@ fun AdminMetricasUIState.conMetricasGlobales(metricas: MetricasAdmin): AdminMetr
                 plagaCientifico = ventana.plaga_cientifico,
                 progresoGdd = ventana.progreso,
                 estadioEstimado = ventana.estadio,
-                enVentanaOptima = estado == EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA,
+                requiereRecorrida = estado == EstadoVentanaControl.ECLOSIONADA,
                 estadoVentana = estado,
                 recomendacionTecnica = recomendacion(estado)
             )
@@ -663,4 +660,3 @@ fun AdminMetricasUIState.conMetricasGlobales(metricas: MetricasAdmin): AdminMetr
     )
 }
 
-private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

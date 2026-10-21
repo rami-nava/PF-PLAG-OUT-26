@@ -693,9 +693,9 @@ fun UmbralDeRiesgoSlider(
     }
 
     val etiquetaRiesgo = when {
-        umbralActual < 34 -> "Riesgo bajo"
-        umbralActual < 67 -> "Riesgo medio"
-        else -> "Riesgo alto"
+        umbralActual < 34 -> "Aviso temprano"
+        umbralActual < 67 -> "Aviso intermedio"
+        else -> "Aviso cerca de la eclosión"
     }
 
     Surface(

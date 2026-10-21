@@ -102,31 +102,31 @@ fun estiloDeNivel(nivel: Int): NivelEstilo = when {
         Color(0xFFCFC5AC),
         "Sin datos",
         Icons.AutoMirrored.Filled.HelpOutline,
-        "Todavía no hay monitoreos con datos suficientes para calcular el IRA."
+        "Todavía no hay monitoreos con datos suficientes para estimar la etapa."
     )
     nivel == 0 -> NivelEstilo(
         PlagOutColors.RiskOk,
         Color(0xFF8ACD86),
-        "Bajo",
+        "En huevo",
         Icons.Filled.CheckCircle,
-        "Las condiciones ambientales no favorecieron a la plaga: se espera una densidad poblacional baja.",
+        "Según los grados-día acumulados, la plaga todavía está en huevo y falta para la eclosión.",
         "Seguí el monitoreo con la frecuencia habitual."
     )
     nivel == 1 -> NivelEstilo(
         PlagOutColors.RiskWarn,
         PlagOutColors.Sun,
-        "Moderado",
+        "Eclosión cerca",
         Icons.Filled.WarningAmber,
-        "Hubo períodos con condiciones favorables: la densidad poblacional esperada es intermedia.",
-        "Revisá el cultivo más seguido y prepará el control por las dudas."
+        "Pasó tu umbral de aviso: la eclosión estimada está cerca.",
+        "Planificá recorrer el lote en los próximos días."
     )
     else -> NivelEstilo(
         PlagOutColors.RiskDanger,
         Color(0xFFE4795C),
-        "Alto",
+        "Eclosionó",
         Icons.Filled.ErrorOutline,
-        "Las condiciones fueron muy favorables para la plaga: se espera una densidad poblacional alta.",
-        "Inspeccioná el cultivo cuanto antes y evaluá aplicar control."
+        "Según el modelo térmico ya eclosionaron: puede haber larvas o ninfas chicas en el lote.",
+        "Recorré el lote y contá. Las larvas chicas son las más sensibles al control; si aplicar o no se decide con el umbral de daño de tu cultivo."
     )
 }
 
@@ -137,7 +137,7 @@ fun estiloFinalizado(): NivelEstilo =
         PlagOutColors.BarkLight,
         "Finalizado",
         Icons.Filled.Flag,
-        "El monitoreo se cerró: ya no se calcula el IRA ni se envían alertas."
+        "El monitoreo se cerró: ya no se calculan los grados-día ni se envían alertas."
     )
 
 fun estiloEsperandoBiofix(): NivelEstilo =

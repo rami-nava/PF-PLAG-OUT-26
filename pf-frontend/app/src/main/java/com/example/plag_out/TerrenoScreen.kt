@@ -530,8 +530,8 @@ fun TerrenoCard(
 
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     when {
-                        criticos > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$criticos en riesgo alto", PlagOutColors.RiskDanger)
-                        atencion > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$atencion en atención", PlagOutColors.RiskWarn)
+                        criticos > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$criticos ya eclosionados", PlagOutColors.RiskDanger)
+                        atencion > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$atencion con eclosión cerca", PlagOutColors.RiskWarn)
                         monitoreos.isEmpty() -> EtiquetaInfo(Icons.AutoMirrored.Outlined.HelpOutline, "Sin monitoreos", PlagOutColors.RiskUnknown)
                         activos.isEmpty() -> EtiquetaInfo(Icons.Filled.Flag, "Todos finalizados", PlagOutColors.Bark)
                         esperando > 0 -> EtiquetaInfo(

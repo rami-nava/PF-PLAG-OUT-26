@@ -265,7 +265,7 @@ private fun VistaDashboardProductor(state: AdminMetricasUIState) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize()
     ) {
-        // 1. Semáforo Donut de Superficie en Riesgo
+        // 1. Semáforo de superficie por etapa térmica
         state.semaforoHectareas?.let { semaforo ->
             item {
                 StaggeredAppear(index = 0) {
@@ -304,8 +304,8 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
                 Icon(Icons.Outlined.Assessment, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Semáforo de Superficie en Riesgo", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
-                    Text("Distribución de hectáreas según el peor nivel de alerta del lote", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
+                    Text("Superficie por etapa de la plaga", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text("Hectáreas según la etapa más avanzada de cada lote", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
 
@@ -350,7 +350,7 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 ItemDesgloseSemaforo(
-                    etiqueta = "Bajo control",
+                    etiqueta = "En huevo",
                     hectareas = semaforo.hectareasVerde,
                     porcentaje = semaforo.porcentajeVerde,
                     lotes = semaforo.lotesVerde,
@@ -358,7 +358,7 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
                     modifier = Modifier.weight(1f)
                 )
                 ItemDesgloseSemaforo(
-                    etiqueta = "Seguimiento",
+                    etiqueta = "Eclosión cerca",
                     hectareas = semaforo.hectareasAmarillo,
                     porcentaje = semaforo.porcentajeAmarillo,
                     lotes = semaforo.lotesAmarillo,
@@ -366,7 +366,7 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
                     modifier = Modifier.weight(1f)
                 )
                 ItemDesgloseSemaforo(
-                    etiqueta = "Alerta crítica",
+                    etiqueta = "Eclosionó",
                     hectareas = semaforo.hectareasRojo,
                     porcentaje = semaforo.porcentajeRojo,
                     lotes = semaforo.lotesRojo,
@@ -745,8 +745,8 @@ private fun TarjetaVentanaOptimaAplicacion(ventanas: List<VentanaControlBiologic
                 Icon(Icons.Outlined.Schedule, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Ventana Óptima de Aplicación", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
-                    Text("Sincronización fenológica (GDD) y susceptibilidad biológica", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
+                    Text("Etapa de cada lote", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text("Grados-día con parámetros citados. Aplicar se decide monitoreando el lote.", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
 
@@ -771,9 +771,9 @@ private fun TarjetaVentanaOptimaAplicacion(ventanas: List<VentanaControlBiologic
 @Composable
 private fun FilaVentanaBiologica(ventana: VentanaControlBiologico) {
     val (colorEstado, iconoEstado, etiquetaEstado) = when (ventana.estadoVentana) {
-        EstadoVentanaControl.VENTANA_OPTIMA_ABIERTA -> Triple(PlagOutColors.RiskOk, Icons.Outlined.CheckCircle, "VENTANA ÓPTIMA (L1 - L3)")
-        EstadoVentanaControl.INCUBACION_ESPERA -> Triple(PlagOutColors.TextSecondary, Icons.Outlined.HourglassEmpty, "INCUBACIÓN (ESPERA)")
-        EstadoVentanaControl.VENTANA_CERRADA_AVANZADO -> Triple(PlagOutColors.RiskDanger, Icons.Outlined.Warning, "VENTANA EN CIERRE (AVANZADA)")
+        EstadoVentanaControl.HUEVO -> Triple(PlagOutColors.RiskOk, Icons.Outlined.HourglassEmpty, "EN HUEVO")
+        EstadoVentanaControl.ECLOSION_CERCA -> Triple(PlagOutColors.RiskWarn, Icons.Outlined.Schedule, "ECLOSIÓN CERCA")
+        EstadoVentanaControl.ECLOSIONADA -> Triple(PlagOutColors.RiskDanger, Icons.Outlined.Warning, "ECLOSIONÓ")
     }
 
     Column(Modifier.fillMaxWidth()) {
@@ -809,8 +809,8 @@ private fun FilaVentanaBiologica(ventana: VentanaControlBiologico) {
 
         Spacer(Modifier.height(8.dp))
 
-        // Barra tricolor de progreso biológico
-        BarraProgresoFasesBiologicas(progreso = ventana.progresoGdd)
+        // Avance del huevo hacia la eclosión
+        BarraProgresoFasesBiologicas(progreso = ventana.progresoGdd, color = colorEstado)
 
         Spacer(Modifier.height(6.dp))
 
@@ -823,8 +823,9 @@ private fun FilaVentanaBiologica(ventana: VentanaControlBiologico) {
     }
 }
 
+/** Avance del acumulador del huevo hacia su constante de eclosión (parámetros citados). */
 @Composable
-private fun BarraProgresoFasesBiologicas(progreso: Float) {
+private fun BarraProgresoFasesBiologicas(progreso: Float, color: Color) {
     val fraccion = (progreso / 100f).coerceIn(0f, 1f)
 
     Column(Modifier.fillMaxWidth()) {
@@ -835,21 +836,11 @@ private fun BarraProgresoFasesBiologicas(progreso: Float) {
                 .clip(RoundedCornerShape(4.dp))
                 .background(PlagOutColors.CreamDeep)
         ) {
-            Row(Modifier.fillMaxSize()) {
-                // Zona 1: Huevo (0-40%)
-                Box(Modifier.fillMaxHeight().weight(0.40f).background(Color(0xFFD4C9B4)))
-                // Zona 2: Óptima L1-L3 (40-85%)
-                Box(Modifier.fillMaxHeight().weight(0.45f).background(PlagOutColors.LeafLight.copy(alpha = 0.6f)))
-                // Zona 3: Adulto/Daño (85-100%)
-                Box(Modifier.fillMaxHeight().weight(0.15f).background(PlagOutColors.Terracotta.copy(alpha = 0.5f)))
-            }
-
-            // Indicador de avance actual
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(fraccion)
-                    .background(Color.Black.copy(alpha = 0.25f))
+                    .background(color.copy(alpha = 0.7f))
             )
         }
 
@@ -859,8 +850,8 @@ private fun BarraProgresoFasesBiologicas(progreso: Float) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text("Huevo", fontSize = 9.sp, color = PlagOutColors.TextSecondary)
-            Text("Ventana Óptima (L1-L3)", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.Forest)
-            Text("Adulto / Daño", fontSize = 9.sp, color = PlagOutColors.RiskDanger)
+            Text("${progreso.toInt()}% hacia la eclosión", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.Forest)
+            Text("Eclosión", fontSize = 9.sp, color = PlagOutColors.TextSecondary)
         }
     }
 }
@@ -988,7 +979,7 @@ private fun VistaDashboardHistorico(
 
             item {
                 StaggeredAppear(index = 3) {
-                    TarjetaPerfilRiesgoAmbiental(campaña = camp)
+                    TarjetaEtapasCampaña(campaña = camp)
                 }
             }
         }
@@ -1128,9 +1119,9 @@ private fun TarjetaPlagaPredominanteCampaña(campaña: CampañaHistorica) {
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     MiniIndicador(titulo = "Incidencia", valor = String.format(LocalConfiguration.current.locales[0], "%.1f%%", lider.porcentajeIncidencia), detalle = "del total monitoreado", color = PlagOutColors.Forest, modifier = Modifier.weight(1f))
-                    MiniIndicador(titulo = "Casos en Alerta", valor = "${lider.enRiesgoAlto}", detalle = "${lider.porcentajeRiesgoAlto.toInt()}% con riesgo alto", color = if (lider.enRiesgoAlto > 0) PlagOutColors.RiskDanger else PlagOutColors.RiskOk, modifier = Modifier.weight(1f))
+                    MiniIndicador(titulo = "Ya eclosionados", valor = "${lider.enRiesgoAlto}", detalle = "${lider.porcentajeRiesgoAlto.toInt()}% de los medidos", color = if (lider.enRiesgoAlto > 0) PlagOutColors.RiskDanger else PlagOutColors.RiskOk, modifier = Modifier.weight(1f))
                     val estiloSeveridad = estiloDeNivel(lider.nivelRiesgoPromedio.roundToInt())
-                    MiniIndicador(titulo = "Severidad Media", valor = estiloSeveridad.etiqueta, detalle = "índice ponderado", color = estiloSeveridad.color, modifier = Modifier.weight(1f))
+                    MiniIndicador(titulo = "Etapa típica", valor = estiloSeveridad.etiqueta, detalle = "promedio de la campaña", color = estiloSeveridad.color, modifier = Modifier.weight(1f))
                 }
             } else {
                 Text("No se registraron plagas en esta campaña.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
@@ -1265,7 +1256,7 @@ private fun FilaPlagaPrevalencia(posicion: Int, plaga: ResumenPlagaCampaña) {
                 Icon(Icons.Outlined.Warning, contentDescription = null, tint = PlagOutColors.RiskDanger, modifier = Modifier.size(11.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    "${plaga.enRiesgoAlto} ${if (plaga.enRiesgoAlto == 1) "caso alcanzó" else "casos alcanzaron"} nivel de alerta alta (${plaga.porcentajeRiesgoAlto.toInt()}%)",
+                    "${plaga.enRiesgoAlto} ${if (plaga.enRiesgoAlto == 1) "caso ya eclosionó" else "casos ya eclosionaron"} (${plaga.porcentajeRiesgoAlto.toInt()}%)",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = PlagOutColors.RiskDanger
@@ -1275,10 +1266,10 @@ private fun FilaPlagaPrevalencia(posicion: Int, plaga: ResumenPlagaCampaña) {
     }
 }
 
-// ── Tarjeta: Perfil de Riesgo Ambiental (IRA) ─────────────────────────────────
+// ── Tarjeta: etapas de la campaña ─────────────────────────────────────────────
 
 @Composable
-private fun TarjetaPerfilRiesgoAmbiental(campaña: CampañaHistorica) {
+private fun TarjetaEtapasCampaña(campaña: CampañaHistorica) {
     Surface(
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(22.dp),
@@ -1291,8 +1282,8 @@ private fun TarjetaPerfilRiesgoAmbiental(campaña: CampañaHistorica) {
                 Icon(Icons.Outlined.Shield, contentDescription = null, tint = PlagOutColors.Terracotta, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Perfil de Riesgo Ambiental (IRA)", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
-                    Text("Distribución de severidad y presión de plagas en la campaña", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
+                    Text("Etapas en la campaña", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text("Monitoreos con mediciones según su etapa térmica", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
 
@@ -1310,9 +1301,9 @@ private fun TarjetaPerfilRiesgoAmbiental(campaña: CampañaHistorica) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                ItemLeyendaRiesgo(color = PlagOutColors.RiskOk, titulo = "Bajo (<30%)", cantidad = campaña.riesgoBajo, porcentaje = campaña.porcentajeRiesgoBajo, modifier = Modifier.weight(1f))
-                ItemLeyendaRiesgo(color = PlagOutColors.RiskWarn, titulo = "Moderado (30-70%)", cantidad = campaña.riesgoModerado, porcentaje = campaña.porcentajeRiesgoModerado, modifier = Modifier.weight(1f))
-                ItemLeyendaRiesgo(color = PlagOutColors.RiskDanger, titulo = "Alto (≥70%)", cantidad = campaña.riesgoAlto, porcentaje = campaña.porcentajeRiesgoAlto, modifier = Modifier.weight(1f))
+                ItemLeyendaRiesgo(color = PlagOutColors.RiskOk, titulo = estiloDeNivel(0).etiqueta, cantidad = campaña.riesgoBajo, porcentaje = campaña.porcentajeRiesgoBajo, modifier = Modifier.weight(1f))
+                ItemLeyendaRiesgo(color = PlagOutColors.RiskWarn, titulo = estiloDeNivel(1).etiqueta, cantidad = campaña.riesgoModerado, porcentaje = campaña.porcentajeRiesgoModerado, modifier = Modifier.weight(1f))
+                ItemLeyendaRiesgo(color = PlagOutColors.RiskDanger, titulo = estiloDeNivel(2).etiqueta, cantidad = campaña.riesgoAlto, porcentaje = campaña.porcentajeRiesgoAlto, modifier = Modifier.weight(1f))
             }
 
             Spacer(Modifier.height(16.dp))
@@ -1327,7 +1318,7 @@ private fun TarjetaPerfilRiesgoAmbiental(campaña: CampañaHistorica) {
                 Icon(Icons.Outlined.Info, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "El Índice de Riesgo Ambiental (IRA) pondera la acumulación térmica (GDD), el progreso fenológico del ciclo biológico y la proximidad a los umbrales de alerta y eclosión.",
+                    "La etapa sale del modelo térmico (grados-día con parámetros citados): en huevo, eclosión cerca (pasó el umbral de aviso) o eclosionó.",
                     fontSize = 11.sp,
                     color = PlagOutColors.TextSecondary,
                     lineHeight = 15.sp

@@ -19,23 +19,23 @@ class EstiloDeNivelTest {
     }
 
     @Test
-    fun `nivel 0 es Bajo`() {
-        assertEquals("Bajo", estiloDeNivel(0).etiqueta)
+    fun `nivel 0 es En huevo`() {
+        assertEquals("En huevo", estiloDeNivel(0).etiqueta)
     }
 
     @Test
-    fun `nivel 1 es Moderado`() {
-        assertEquals("Moderado", estiloDeNivel(1).etiqueta)
+    fun `nivel 1 es Eclosión cerca`() {
+        assertEquals("Eclosión cerca", estiloDeNivel(1).etiqueta)
     }
 
     @Test
-    fun `nivel 2 es Alto`() {
-        assertEquals("Alto", estiloDeNivel(2).etiqueta)
+    fun `nivel 2 es Eclosionó`() {
+        assertEquals("Eclosionó", estiloDeNivel(2).etiqueta)
     }
 
     @Test
-    fun `cualquier nivel mayor a 1 es Alto`() {
-        assertEquals("Alto", estiloDeNivel(99).etiqueta)
+    fun `cualquier nivel mayor a 1 es Eclosionó`() {
+        assertEquals("Eclosionó", estiloDeNivel(99).etiqueta)
     }
 
     @Test

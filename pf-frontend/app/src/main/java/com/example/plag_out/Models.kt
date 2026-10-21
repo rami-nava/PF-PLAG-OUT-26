@@ -607,7 +607,7 @@ data class LoteCriticoAdmin(
     @SerializedName("progreso") val progreso: Float,
     @SerializedName("gdd_acumulado") val gdd_acumulado: Float,
     @SerializedName("gdd_objetivo") val gdd_objetivo: Float,
-    // supero_umbral | eclosion_inminente | ventana_activa | controlada
+    // huevo | eclosion_cerca | eclosionada (etapa térmica del ciclo)
     @SerializedName("urgencia") val urgencia: String,
     @SerializedName("dias_desde_siembra") val dias_desde_siembra: Long?
 )
