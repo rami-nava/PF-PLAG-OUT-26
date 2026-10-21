@@ -57,6 +57,39 @@ class AdminMetricasViewModel(
             }
 
             try {
+                // 1. Intento de carga rápida y desacoplada mediante endpoint dedicado de dashboards
+                val respDashboard = try {
+                    withContext(ioDispatcher) { gddService.getDashboardMetricas() }
+                } catch (e: Throwable) {
+                    null
+                }
+
+                if (respDashboard != null && respDashboard.isSuccessful && respDashboard.body() != null) {
+                    val data = respDashboard.body()!!
+                    val campanasDomain = data.campanas.map { it.toDomain() }
+                    val seleccionadaActual = _state.value.campañaSeleccionada?.nombre
+                    val nuevaSeleccionada = campanasDomain.firstOrNull { it.nombre == seleccionadaActual }
+                        ?: campanasDomain.firstOrNull()
+
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        campañas = campanasDomain,
+                        campañaSeleccionada = nuevaSeleccionada,
+                        totalHectareasHistoricas = data.total_hectareas_historicas,
+                        totalMonitoreosHistoricos = data.total_monitoreos_historicos,
+                        plagaHistoricaLider = data.plaga_historica_lider,
+                        semaforoHectareas = data.semaforo_hectareas?.toDomain(),
+                        plagasPorCultivo = data.plagas_por_cultivo.map { it.toDomain() },
+                        lotesCriticos = data.lotes_criticos.map { it.toDomain() },
+                        ventanasControl = data.ventanas_control.map { it.toDomain() },
+                        eficaciaTratamientos = data.eficacia_tratamientos?.toDomain(),
+                        error = null
+                    )
+                    return@launch
+                }
+
+                // 2. Fallback: cálculo local en cliente para modo offline o compatibilidad
                 val (respMonitoreos, respTerrenos, respPlantaciones) = withContext(ioDispatcher) {
                     val deferredMonitoreos = async { gddService.todosLosMonitoreos() }
                     val deferredTerrenos = async { gddService.todosLosTerrenos() }
