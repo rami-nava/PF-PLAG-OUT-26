@@ -354,7 +354,7 @@ class AdminMetricasModelTest {
         assertEquals(2, eficacia.totalTratamientosArchivados)
         assertEquals(1, eficacia.tratamientosExitosos)
         assertEquals(1, eficacia.monitoreosConRebrote)
-        assertEquals(50f, eficacia.tasaEficaciaPorcentaje, 0.01f)
+        assertEquals(50f, eficacia.tasaEficaciaPorcentaje!!, 0.01f)
     }
 
     @Test
@@ -514,7 +514,7 @@ class AdminMetricasModelTest {
 
         val eficacia = dto.eficacia_tratamientos?.toDomain()
         assertNotNull(eficacia)
-        assertEquals(80f, eficacia!!.tasaEficaciaPorcentaje, 0.01f)
+        assertEquals(80f, eficacia!!.tasaEficaciaPorcentaje!!, 0.01f)
 
         val campana = dto.campanas.first().toDomain()
         assertEquals("2025/2026", campana.nombre)

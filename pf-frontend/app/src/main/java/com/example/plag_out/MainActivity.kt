@@ -983,7 +983,7 @@ fun AppNavigation(
                 }
             }
             composable(RUTA_ADMIN_METRICAS) {
-                SoloAdmin(navController) { AdminMetricasScreen(viewModel = adminMetricasViewModel) }
+                SoloAdmin(navController) { AdminMetricasScreen(viewModel = adminMetricasViewModel, global = true) }
             }
             composable("tableros_control") {
                 AdminMetricasScreen(
