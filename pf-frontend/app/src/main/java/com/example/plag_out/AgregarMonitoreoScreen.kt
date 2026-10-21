@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
@@ -727,7 +728,10 @@ fun UmbralDeRiesgoSlider(
                 colors = SliderDefaults.colors(
                     thumbColor = colorRiesgo,
                     activeTrackColor = colorRiesgo,
-                    inactiveTrackColor = colorRiesgo.copy(alpha = 0.15f)
+                    inactiveTrackColor = colorRiesgo.copy(alpha = 0.15f),
+                    // 99 pasos dibujan una marca por punto: una línea de puntos que ensucia la barra.
+                    activeTickColor = Color.Transparent,
+                    inactiveTickColor = Color.Transparent
                 )
             )
 

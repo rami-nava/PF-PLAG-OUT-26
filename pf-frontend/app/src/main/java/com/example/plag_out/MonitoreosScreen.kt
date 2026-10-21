@@ -145,7 +145,8 @@ fun MonitoreosScreen(
             var shown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { shown = true }
             val fabScale by animateFloatAsState(
-                targetValue = if (shown) 1f else 0f,
+                // Con los filtros abiertos se esconde: tapaba la última fila de chips.
+                targetValue = if (shown && !filtrosExpandidos) 1f else 0f,
                 animationSpec = tween(360, easing = FastOutSlowInEasing),
                 label = "fabScale"
             )
@@ -454,7 +455,10 @@ fun ordenarMonitoreos(
     monitoreos: List<MonitoreoResponse>,
     finalizadosAlFinal: Boolean = false
 ): List<MonitoreoResponse> {
-    val porProgreso = compareByDescending<MonitoreoResponse> { it.progreso }
+    // El avance real está en los ciclos activos; sin ciclo (esperando biofix) va al final.
+    val porProgreso = compareByDescending<MonitoreoResponse> { m ->
+        ciclosActivos(m).maxOfOrNull { it.progreso } ?: -1f
+    }
     val comparador =
         if (finalizadosAlFinal) compareBy<MonitoreoResponse> { !it.activo }.then(porProgreso)
         else porProgreso
@@ -501,7 +505,13 @@ fun MonitoreoCard(
             Column(Modifier.padding(start = 17.dp, end = 18.dp, top = 16.dp, bottom = 14.dp)) {
                 Row(Modifier.fillMaxWidth()) {
                     Column(Modifier.weight(1f)) {
-                        SelloDeNivel(estilo, pulsante = monitoreo.activo && nivelAlertaEfectivo(monitoreo) >= 2)
+                        // Sin biofix no hay nivel que mostrar: el estado ocupa el lugar del sello en vez
+                        // de sumar un "Sin datos" que parece un error.
+                        if (monitoreo.activo && esperandoBiofix(monitoreo)) {
+                            EtiquetaInfo(Icons.Outlined.HourglassEmpty, "Esperando biofix", PlagOutColors.TextSecondary)
+                        } else {
+                            SelloDeNivel(estilo, pulsante = monitoreo.activo && nivelAlertaEfectivo(monitoreo) >= 2)
+                        }
                         Spacer(Modifier.height(10.dp))
                         Text(
                             monitoreo.plaga_nombre,
@@ -533,10 +543,6 @@ fun MonitoreoCard(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    if (esperandoBiofix(monitoreo)) {
-                        EtiquetaInfo(Icons.Outlined.HourglassEmpty, "Esperando biofix", PlagOutColors.TextSecondary)
                     }
                 }
 

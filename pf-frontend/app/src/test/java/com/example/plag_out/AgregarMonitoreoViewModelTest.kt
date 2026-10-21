@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
+import com.example.plag_out.AlmacenamientoLocal.TerrenoDao
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
 import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.fakes.FakeMonitoreoDao
@@ -12,7 +13,11 @@ import com.example.plag_out.fakes.FakeTerrenoDao
 import com.example.plag_out.fakes.Fixtures
 import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
+import java.util.concurrent.CountDownLatch
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -79,6 +84,45 @@ class AgregarMonitoreoViewModelTest {
             esperarEstado(vm.state) { it.plagas.size == plagas.size }
         }
         return vm
+    }
+
+    // ---------- carga inicial ----------
+
+    @Test
+    fun `las plagas que llegan mientras se leen los terrenos no se pierden`() = runTest {
+        // Orden forzado de la carrera: la lectura de terrenos empieza y queda suspendida, recién
+        // entonces llegan las plagas, y al final termina la lectura. Antes, esa última escritura
+        // devolvía el estado de antes de las plagas y la pantalla quedaba cargando para siempre.
+        val respuestaPlagas = CountDownLatch(1)
+        val lecturaTerrenos = CompletableDeferred<List<TerrenoResponse>>()
+        val terrenoLento = object : TerrenoDao by FakeTerrenoDao() {
+            override suspend fun getAll(): List<TerrenoResponse> = lecturaTerrenos.await()
+        }
+        gddService = FakeGDDService().apply {
+            getPlagasResult = {
+                respuestaPlagas.await()
+                Response.success(listOf(Fixtures.plaga(id = 7, nombre = "Oruga")))
+            }
+        }
+        val vm = AgregarMonitoreoViewModel(
+            context = context,
+            monitoreoRepository = MonitoreoRepository(FakeMonitoreoDao()),
+            plantacionRepository = PlantacionRepository(FakePlantacionDao()),
+            terrenoRepository = TerrenoRepository(terrenoLento),
+            gddService = gddService
+        )
+
+        vm.cargarPlagas()
+        val terrenos = launch(start = CoroutineStart.UNDISPATCHED) { vm.cargarTerrenos() }
+        respuestaPlagas.countDown()
+        esperarEstado(vm.state) { !it.isLoading && it.plagas.isNotEmpty() }
+        lecturaTerrenos.complete(listOf(Fixtures.terreno(id = 1)))
+        terrenos.join()
+
+        val estado = vm.state.value
+        assertFalse(estado.isLoading)
+        assertEquals(listOf(7), estado.plagas.map { it.id })
+        assertEquals(listOf(1), estado.terrenos.map { it.terreno_id })
     }
 
     // ---------- cargarPlantaciones: filtro ----------

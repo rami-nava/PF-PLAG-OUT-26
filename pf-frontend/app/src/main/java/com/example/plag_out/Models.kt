@@ -8,64 +8,6 @@ import java.io.Serial
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-/*
-@Serializable
-data class GDDSimulationRequest(
-    val latitude: Double,
-    val longitude: Double,
-    val startDate: String,
-    val currentDate: String,
-    val initialGDD: Int,
-    val targetGDD: Int,
-    val baseTemperature: Double,
-    val cropName: String = "Unknown",
-    val notes: String = ""
-)*/
-/*
-@Serializable
-data class GDDSimulationResponse(
-    @SerializedName("current_gdd")
-    val currentGDD: Int,
-    @SerializedName("target_gdd")
-    val targetGDD: Int,
-    @SerializedName("progress_percentage")
-    val progressPercentage: Float,
-    val date: String,
-    @SerializedName("avg_temp")
-    val avgTemp: Float,
-    @SerializedName("gdd_gained")
-    val gddGained: Float,
-    @SerializedName("target_reached")
-    val targetReached: Boolean,
-    val message: String
-)*/
-
-@Serializable
-data class HealthResponse(
-    val status: String
-)
-/*
-data class Monitoreo(
-    val id: Int,
-    val plantacion_id: Int,
-    val plaga_id: Int,
-    val fecha: Date,
-    val gdd_diario: Float,
-    val gdd_acumulado: Float,
-    val estadio_biologico: String,
-    val porc_riesgo_calculado: Float,
-    val nivel_alerta: Int
-)*/
-
-/*
-@Serializable
-data class MonitoreoResponse(
-    @SerializedName("plantacion")
-    val plantacion: PlantacionResponse,
-    @SerializedName("monitoreos")
-    val monitoreos: List<Monitoreo>
-)*/
-
 @Entity(tableName = "monitoreos")
 @Serializable
 data class MonitoreoResponse(
@@ -80,20 +22,13 @@ data class MonitoreoResponse(
     val terreno_nombre: String,
     @SerializedName("cultivo_nombre")
     val cultivo_nombre: String,
+    @SerializedName("plaga_id")
+    val plaga_id: Int,
     @SerializedName("plaga_nombre")
     val plaga_nombre: String,
-    @SerializedName("gdd_diario")
-    val gdd_diario: Float,
-    @SerializedName("gdd_acumulado")
-    val gdd_acumulado: Float,
+    // GDD hasta la eclosión. El avance, el nivel y el estadio viven en los ciclos.
     @SerializedName("gdd_objetivo")
     val gdd_objetivo: Float,
-    @SerializedName("progreso")
-    val progreso: Float,
-    @SerializedName("nivel_alerta")
-    val nivel_alerta: Int,
-    @SerializedName("fecha_actualizacion")
-    val fecha_actualizacion: LocalDate,
     @SerializedName("umbral_riesgo")
     val umbral_riesgo: Int? = null,
     @SerializedName("activo")
@@ -102,19 +37,14 @@ data class MonitoreoResponse(
     val fecha_inicio: LocalDate? = null,
     @SerializedName("plaga_nombre_cientifico")
     val plaga_nombre_cientifico: String? = null,
-    @SerializedName("umbral_alerta_ml")
-    val umbral_alerta_ml: Float? = null,
     @SerializedName("alertas_ml_activas")
     val alertas_ml_activas: Boolean? = null,
     @SerializedName("umbral_alerta_ml_recomendado")
     val umbral_alerta_ml_recomendado: Float? = null,
-    @SerializedName("umbral_alerta_ml_efectivo")
-    val umbral_alerta_ml_efectivo: Float? = null,
     @SerializedName("modelo_alerta_ml_id")
     val modelo_alerta_ml_id: String? = null,
     @SerializedName("horizonte_alerta_ml_dias")
     val horizonte_alerta_ml_dias: Int? = null,
-    val estado_seguimiento: String? = null,
     val ciclos: List<GddCicloResponse>? = null,
     @SerializedName("observaciones")
     val observaciones: String? = null
@@ -247,7 +177,11 @@ data class PlagaResponse(
     @SerializedName("nombre_cientifico")
     val nombre_cientifico: String,
     @SerializedName("cultivos_afectados")
-    val cultivos_afectados: List<Int>? = null
+    val cultivos_afectados: List<Int>? = null,
+    // Etapas que admite un reporte de esta plaga, en orden del ciclo de vida (las define el
+    // backend según el tipo de desarrollo; sin dato, todas).
+    @SerializedName("etapas")
+    val etapas: List<String>? = null
 )
 
 @Serializable
@@ -269,6 +203,8 @@ data class UpdateMonitoreoRequest(
     val umbral_riesgo: Int? = null,
     @SerializedName("activo")
     val activo: Boolean? = null,
+    @SerializedName("alertas_ml_activas")
+    val alertas_ml_activas: Boolean? = null,
     // para borrar la nota se manda "" (cadena vacía), no null.
     @SerializedName("observaciones")
     val observaciones: String? = null
@@ -282,8 +218,7 @@ data class UpdatePlantacionRequest(
 
 @Serializable
 data class CreateUserRequest(
-    @SerializedName("email")
-    val email: String,
+    // The backend takes the email from the signed token only.
     @SerializedName("nombre")
     val nombre: String,
     @SerializedName("apellido")

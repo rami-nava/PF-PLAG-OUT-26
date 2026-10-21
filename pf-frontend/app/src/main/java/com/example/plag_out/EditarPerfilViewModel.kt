@@ -1,5 +1,6 @@
 package com.example.plag_out
 
+import com.example.plag_out.Service.todosLosCargos
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -78,7 +79,7 @@ class EditarPerfilViewModel(
         _state.value = _state.value.copy(cargando = true)
         viewModelScope.launch {
             try {
-                val response = withContext(Dispatchers.IO) { gddService.getCargos() }
+                val response = withContext(Dispatchers.IO) { gddService.todosLosCargos() }
                 val cargos = response.body().orEmpty()
                 if (response.isSuccessful) {
                     _state.value = _state.value.copy(

@@ -572,7 +572,16 @@ fun AppNavigation(
             } catch (e: Exception) {
                 true
             }
-            if (!renovada) {
+            // Con el token renovado puede seguir faltando el perfil (cuenta eliminada o nunca
+            // creada): el backend vuelve a responder 401 y no hay nada que hacer adentro.
+            val sinPerfil = renovada && try {
+                withContext(Dispatchers.IO) { RetrofitClient.gddService.getUsuarioActual() }.code() == 401
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                false
+            }
+            if (!renovada || sinPerfil) {
                 limpiarSesion(false) {
                     Avisos.error(MENSAJE_SESION_EXPIRADA)
                 }

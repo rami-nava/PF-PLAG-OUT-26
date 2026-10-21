@@ -3,6 +3,7 @@ package com.example.plag_out
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -56,7 +57,7 @@ class AdminMetricasModelTest {
         )
 
         val monitoreos = listOf(
-            MonitoreoResponse(
+            monitoreoDePrueba(
                 monitoreo_id = 1,
                 plantacion_id = 1,
                 terreno_id = 1,
@@ -71,7 +72,7 @@ class AdminMetricasModelTest {
                 nivel_alerta = 2,
                 fecha_actualizacion = LocalDate.of(2025, 11, 10)
             ),
-            MonitoreoResponse(
+            monitoreoDePrueba(
                 monitoreo_id = 2,
                 plantacion_id = 1,
                 terreno_id = 1,
@@ -86,7 +87,7 @@ class AdminMetricasModelTest {
                 nivel_alerta = 0,
                 fecha_actualizacion = LocalDate.of(2025, 12, 5)
             ),
-            MonitoreoResponse(
+            monitoreoDePrueba(
                 monitoreo_id = 3,
                 plantacion_id = 2,
                 terreno_id = 2,
@@ -101,7 +102,7 @@ class AdminMetricasModelTest {
                 nivel_alerta = 1,
                 fecha_actualizacion = LocalDate.of(2026, 2, 14)
             ),
-            MonitoreoResponse(
+            monitoreoDePrueba(
                 monitoreo_id = 4,
                 plantacion_id = 1,
                 terreno_id = 1,
@@ -155,22 +156,22 @@ class AdminMetricasModelTest {
         val terreno3 = TerrenoResponse(3, "Lote 3", -31.6f, -64.3f, 30f)  // Alerta baja (Verde)
 
         val monitoreos = listOf(
-            MonitoreoResponse(
+            monitoreoDePrueba(
                 monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
                 cultivo_nombre = "Maíz", plaga_nombre = "Oruga", gdd_diario = 10f, gdd_acumulado = 50f,
                 gdd_objetivo = 100f, progreso = 50f, nivel_alerta = 2, fecha_actualizacion = LocalDate.now(), activo = true
             ),
-            MonitoreoResponse(
+            monitoreoDePrueba(
                 monitoreo_id = 2, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
                 cultivo_nombre = "Maíz", plaga_nombre = "Chinche", gdd_diario = 10f, gdd_acumulado = 20f,
                 gdd_objetivo = 100f, progreso = 20f, nivel_alerta = 0, fecha_actualizacion = LocalDate.now(), activo = true
             ),
-            MonitoreoResponse(
+            monitoreoDePrueba(
                 monitoreo_id = 3, plantacion_id = 2, terreno_id = 2, terreno_nombre = "Lote 2",
                 cultivo_nombre = "Soja", plaga_nombre = "Barrenador", gdd_diario = 10f, gdd_acumulado = 60f,
                 gdd_objetivo = 100f, progreso = 60f, nivel_alerta = 1, fecha_actualizacion = LocalDate.now(), activo = true
             ),
-            MonitoreoResponse(
+            monitoreoDePrueba(
                 monitoreo_id = 4, plantacion_id = 3, terreno_id = 3, terreno_nombre = "Lote 3",
                 cultivo_nombre = "Trigo", plaga_nombre = "Pulgón", gdd_diario = 10f, gdd_acumulado = 10f,
                 gdd_objetivo = 100f, progreso = 10f, nivel_alerta = 0, fecha_actualizacion = LocalDate.now(), activo = true
@@ -209,7 +210,7 @@ class AdminMetricasModelTest {
         )
 
         val monitoreos = listOf(
-            MonitoreoResponse(
+            monitoreoDePrueba(
                 monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
                 cultivo_nombre = "Maíz", plaga_nombre = "Oruga cogollera", gdd_diario = 10f, gdd_acumulado = 80f,
                 gdd_objetivo = 100f, progreso = 80f, nivel_alerta = 2, fecha_actualizacion = LocalDate.now(), activo = true
@@ -231,17 +232,17 @@ class AdminMetricasModelTest {
     @Test
     fun `calcularVentanasControlAgronomo detecta fases biologicas segun acumulacion termica`() {
         val monitoreos = listOf(
-            MonitoreoResponse(
+            monitoreoDePrueba(
                 monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
                 cultivo_nombre = "Maíz", plaga_nombre = "Oruga 1", gdd_diario = 10f, gdd_acumulado = 20f,
                 gdd_objetivo = 100f, progreso = 20f, nivel_alerta = 0, fecha_actualizacion = LocalDate.now(), activo = true
             ),
-            MonitoreoResponse(
+            monitoreoDePrueba(
                 monitoreo_id = 2, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
                 cultivo_nombre = "Maíz", plaga_nombre = "Oruga 2", gdd_diario = 10f, gdd_acumulado = 60f,
                 gdd_objetivo = 100f, progreso = 60f, nivel_alerta = 1, fecha_actualizacion = LocalDate.now(), activo = true
             ),
-            MonitoreoResponse(
+            monitoreoDePrueba(
                 monitoreo_id = 3, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
                 cultivo_nombre = "Maíz", plaga_nombre = "Oruga 3", gdd_diario = 10f, gdd_acumulado = 95f,
                 gdd_objetivo = 100f, progreso = 95f, nivel_alerta = 2, fecha_actualizacion = LocalDate.now(), activo = true
@@ -266,17 +267,18 @@ class AdminMetricasModelTest {
     }
 
     @Test
-    fun `nivelAlertaResuelto y progresoResuelto priorizan ciclos activos sobre el valor base`() {
+    fun `nivelAlertaResuelto y progresoResuelto salen del ciclo y sin ciclo no hay medicion`() {
         // Monitoreo sin ciclos usa valores base
-        val mSinCiclos = MonitoreoResponse(
+        val mSinCiclos = monitoreoDePrueba(
             monitoreo_id = 10, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote Base",
             cultivo_nombre = "Soja", plaga_nombre = "Oruga", gdd_diario = 5f, gdd_acumulado = 50f,
             gdd_objetivo = 100f, progreso = 50f, nivel_alerta = 1, fecha_actualizacion = LocalDate.now(),
             ciclos = emptyList()
         )
-        assertEquals(1, nivelAlertaResuelto(mSinCiclos))
-        assertEquals(50f, progresoResuelto(mSinCiclos), 0.01f)
-        assertEquals(50f, gddAcumuladoResuelto(mSinCiclos), 0.01f)
+        // Sin ciclos espera el biofix: no hay nada medido.
+        assertNull(nivelAlertaResuelto(mSinCiclos))
+        assertNull(progresoResuelto(mSinCiclos))
+        assertNull(gddAcumuladoResuelto(mSinCiclos))
 
         // Monitoreo con ciclo activo toma los datos del ciclo
         val cicloActivo = GddCicloResponse(
@@ -296,8 +298,8 @@ class AdminMetricasModelTest {
         )
         val mConCiclo = mSinCiclos.copy(ciclos = listOf(cicloActivo))
         assertEquals(2, nivelAlertaResuelto(mConCiclo))
-        assertEquals(85f, progresoResuelto(mConCiclo), 0.01f)
-        assertEquals(85f, gddAcumuladoResuelto(mConCiclo), 0.01f)
+        assertEquals(85f, progresoResuelto(mConCiclo)!!, 0.01f)
+        assertEquals(85f, gddAcumuladoResuelto(mConCiclo)!!, 0.01f)
     }
 
     @Test
@@ -319,7 +321,7 @@ class AdminMetricasModelTest {
         )
 
         // Monitoreo 1: ciclo archivado y nivel actual controlado (alerta 0) -> Exitoso
-        val m1 = MonitoreoResponse(
+        val m1 = monitoreoDePrueba(
             monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
             cultivo_nombre = "Maíz", plaga_nombre = "Oruga", gdd_diario = 10f, gdd_acumulado = 20f,
             gdd_objetivo = 100f, progreso = 20f, nivel_alerta = 0, fecha_actualizacion = LocalDate.now(),
@@ -342,7 +344,7 @@ class AdminMetricasModelTest {
             nivel_alerta = 2,
             dias_pendientes = 1
         )
-        val m2 = MonitoreoResponse(
+        val m2 = monitoreoDePrueba(
             monitoreo_id = 2, plantacion_id = 2, terreno_id = 2, terreno_nombre = "Lote 2",
             cultivo_nombre = "Soja", plaga_nombre = "Chinche", gdd_diario = 12f, gdd_acumulado = 90f,
             gdd_objetivo = 100f, progreso = 90f, nivel_alerta = 2, fecha_actualizacion = LocalDate.now(),
@@ -367,17 +369,17 @@ class AdminMetricasModelTest {
             fecha_siembra = LocalDate.of(2026, 10, 1), activa = true
         )
 
-        val mBajo = MonitoreoResponse(
+        val mBajo = monitoreoDePrueba(
             monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote Norte",
             cultivo_nombre = "Maíz", plaga_nombre = "Chinche", gdd_diario = 5f, gdd_acumulado = 30f,
             gdd_objetivo = 100f, progreso = 30f, nivel_alerta = 0, fecha_actualizacion = LocalDate.now(), activo = true
         )
-        val mAlto = MonitoreoResponse(
+        val mAlto = monitoreoDePrueba(
             monitoreo_id = 2, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote Norte",
             cultivo_nombre = "Maíz", plaga_nombre = "Oruga", gdd_diario = 12f, gdd_acumulado = 92f,
             gdd_objetivo = 100f, progreso = 92f, nivel_alerta = 2, fecha_actualizacion = LocalDate.now(), activo = true
         )
-        val mMedio = MonitoreoResponse(
+        val mMedio = monitoreoDePrueba(
             monitoreo_id = 3, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote Norte",
             cultivo_nombre = "Maíz", plaga_nombre = "Barrenador", gdd_diario = 8f, gdd_acumulado = 65f,
             gdd_objetivo = 100f, progreso = 65f, nivel_alerta = 1, fecha_actualizacion = LocalDate.now(), activo = true
@@ -522,3 +524,55 @@ class AdminMetricasModelTest {
     }
 }
 
+/**
+ * Monitoreo de prueba con los parámetros de antes: el avance y el nivel se cargan como un ciclo
+ * activo, que es donde viven ahora. Con [ciclos] explícitos se usan esos.
+ */
+@Suppress("UNUSED_PARAMETER")
+private fun monitoreoDePrueba(
+    monitoreo_id: Int,
+    plantacion_id: Int,
+    terreno_id: Int,
+    terreno_nombre: String,
+    cultivo_nombre: String,
+    plaga_nombre: String,
+    plaga_nombre_cientifico: String? = null,
+    gdd_diario: Float = 0f,
+    gdd_acumulado: Float = 0f,
+    gdd_objetivo: Float = 100f,
+    progreso: Float = 0f,
+    nivel_alerta: Int = 0,
+    fecha_actualizacion: LocalDate = LocalDate.now(),
+    fecha_inicio: LocalDate? = null,
+    activo: Boolean = true,
+    ciclos: List<GddCicloResponse>? = null
+) = MonitoreoResponse(
+    monitoreo_id = monitoreo_id,
+    plantacion_id = plantacion_id,
+    terreno_id = terreno_id,
+    terreno_nombre = terreno_nombre,
+    cultivo_nombre = cultivo_nombre,
+    plaga_id = plaga_nombre.hashCode(),
+    plaga_nombre = plaga_nombre,
+    plaga_nombre_cientifico = plaga_nombre_cientifico,
+    gdd_objetivo = gdd_objetivo,
+    activo = activo,
+    fecha_inicio = fecha_inicio ?: fecha_actualizacion,
+    ciclos = ciclos ?: listOf(
+        GddCicloResponse(
+            id = monitoreo_id * 100,
+            monitoreo_id = monitoreo_id,
+            fecha_biofix = fecha_actualizacion.toString(),
+            estado = "activo",
+            fecha_actualizacion = fecha_actualizacion.toString(),
+            gdd_acumulado = gdd_acumulado,
+            gdd_diario = 0f,
+            gdd_eclosion = gdd_objetivo,
+            gdd_generacion = gdd_objetivo * 3,
+            progreso = progreso,
+            estadio_biologico = "",
+            nivel_alerta = nivel_alerta,
+            dias_pendientes = 0
+        )
+    )
+)

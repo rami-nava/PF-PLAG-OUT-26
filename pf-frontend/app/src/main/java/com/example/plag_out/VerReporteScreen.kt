@@ -319,7 +319,7 @@ private fun ContenidoVerReporte(
                     FilaDato(
                         icono = Icons.Outlined.Timeline,
                         etiqueta = "Etapa biológica",
-                        valor = detalle.etapa_biologica?.takeIf { it.isNotBlank() } ?: "No registrada"
+                        valor = detalle.etapa_biologica?.takeIf { it.isNotBlank() }?.let(::etiquetaEtapa) ?: "No registrada"
                     )
 
                     // Nivel de severidad

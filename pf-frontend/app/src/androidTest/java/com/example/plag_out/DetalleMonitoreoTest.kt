@@ -33,7 +33,8 @@ class DetalleMonitoreoTest {
     private lateinit var gddService: FakeGDDService
     private lateinit var viewModel: MonitoreoDetalleViewModel
 
-    private val monitoreo = Fixtures.monitoreo(id = 1, progreso = 78f, nivelAlerta = 2, umbralRiesgo = 80)
+    // Sin ciclos: espera el biofix. Los tests que necesitan uno lo agregan.
+    private val monitoreo = Fixtures.monitoreo(id = 1, umbralRiesgo = 80)
 
     @Before
     fun setup() {

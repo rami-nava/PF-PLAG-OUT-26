@@ -135,7 +135,7 @@ fun MonitoreoDetalleScreen(
 
     if (mostrarInfoNivel) {
         NivelDeAlertaSheet(
-            nivelActual = monitoreo?.nivel_alerta,
+            nivelActual = monitoreo?.let(::nivelAlertaDeCiclos),
             onDismiss = { mostrarInfoNivel = false }
         )
     }

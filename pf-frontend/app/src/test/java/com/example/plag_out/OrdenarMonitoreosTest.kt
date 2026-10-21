@@ -8,7 +8,8 @@ import org.junit.Test
 class OrdenarMonitoreosTest {
 
     private fun monitoreo(id: Int, progreso: Float, activo: Boolean = true) =
-        Fixtures.monitoreo(id = id, progreso = progreso, activo = activo)
+        // El avance vive en el ciclo activo.
+        Fixtures.monitoreo(id = id, activo = activo, ciclos = listOf(Fixtures.ciclo(id = id, monitoreoId = id, progreso = progreso)))
 
     @Test
     fun `por progreso de mayor a menor`() {
