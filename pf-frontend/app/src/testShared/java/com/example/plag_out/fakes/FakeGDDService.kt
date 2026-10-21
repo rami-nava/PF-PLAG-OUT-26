@@ -38,7 +38,6 @@ import com.example.plag_out.ConsentimientoModeloResponse
 import com.example.plag_out.PlagaAdmin
 import com.example.plag_out.PlagaAdminRequest
 import com.example.plag_out.UsuarioAdmin
-import com.example.plag_out.DashboardMetricasResponse
 import com.example.plag_out.Service.GDDService
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -98,7 +97,6 @@ class FakeGDDService : GDDService {
     var registrarDispositivoResult: () -> Response<DispositivoResponse> = { noDeclarado("registrarDispositivo") }
     var eliminarDispositivoResult: () -> Response<Unit> = { noDeclarado("eliminarDispositivo") }
     var eliminarCuentaResult: () -> Response<AccountDeletionResponse> = { noDeclarado("eliminarCuenta") }
-    var getDashboardMetricasResult: () -> Response<DashboardMetricasResponse> = { errorServidor(404) }
     var getCargosResult: () -> Response<List<CargoResponse>> = { noDeclarado("getCargos") }
     var getNotificacionesResult: () -> Response<List<NotificacionResponse>> = { noDeclarado("getNotificaciones") }
     var marcarNotificacionLeidaResult: () -> Response<MarcarLeidaResponse> = { noDeclarado("marcarNotificacionLeida") }
@@ -440,11 +438,6 @@ class FakeGDDService : GDDService {
     override suspend fun adminGetMetricas(): Response<MetricasAdmin> {
         llamadas += "adminGetMetricas"
         return adminGetMetricasResult()
-    }
-
-    override suspend fun getDashboardMetricas(): Response<DashboardMetricasResponse> {
-        llamadas += "getDashboardMetricas"
-        return getDashboardMetricasResult()
     }
 
     private fun <T> noDeclarado(endpoint: String): Response<T> =
