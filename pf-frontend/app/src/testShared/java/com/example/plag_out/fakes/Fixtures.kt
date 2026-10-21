@@ -103,7 +103,8 @@ object Fixtures {
         estadioBiologico: String = "Huevo",
         nivelAlerta: Int = 0,
         diasPendientes: Int = 0,
-        fechaEclosion: String? = null
+        fechaEclosion: String? = null,
+        gddAcumuladoHuevo: Float? = null
     ) = GddCicloResponse(
         id = id,
         monitoreo_id = monitoreoId,
@@ -118,7 +119,8 @@ object Fixtures {
         estadio_biologico = estadioBiologico,
         nivel_alerta = nivelAlerta,
         dias_pendientes = diasPendientes,
-        fecha_eclosion = fechaEclosion
+        fecha_eclosion = fechaEclosion,
+        gdd_acumulado_huevo = gddAcumuladoHuevo
     )
 
     fun cultivo(
@@ -132,13 +134,15 @@ object Fixtures {
         nombre: String = "Chicharrita",
         nombreCientifico: String = "Dalbulus maidis",
         cultivosAfectados: List<Int>? = listOf(1),
-        etapas: List<String>? = null
+        etapas: List<String>? = null,
+        modeloTermico: Boolean? = null
     ) = PlagaResponse(
         id = id,
         nombre = nombre,
         nombre_cientifico = nombreCientifico,
         cultivos_afectados = cultivosAfectados,
-        etapas = etapas
+        etapas = etapas,
+        modelo_termico = modeloTermico
     )
 
     fun usuario(

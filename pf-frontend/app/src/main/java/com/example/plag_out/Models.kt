@@ -181,8 +181,14 @@ data class PlagaResponse(
     // Etapas que admite un reporte de esta plaga, en orden del ciclo de vida (las define el
     // backend según el tipo de desarrollo; sin dato, todas).
     @SerializedName("etapas")
-    val etapas: List<String>? = null
-)
+    val etapas: List<String>? = null,
+    // False cuando la plaga no tiene parámetros térmicos citados: se puede reportar, pero no
+    // admite monitoreos GDD nuevos. Nullable por Gson (ver arriba); sin dato, decide el backend.
+    @SerializedName("modelo_termico")
+    val modelo_termico: Boolean? = null
+) {
+    val admiteMonitoreo: Boolean get() = modelo_termico != false
+}
 
 @Serializable
 data class MonitoreoRequest(
@@ -483,9 +489,25 @@ data class PlagaAdmin(
     @SerializedName("activo")
     val activo: Boolean? = null,
     @SerializedName("monitoreos_activos")
-    val monitoreos_activos: Int? = null
+    val monitoreos_activos: Int? = null,
+    @SerializedName("referencia_termica")
+    val referencia_termica: ReferenciaTermica? = null
 ) {
     val estaActiva: Boolean get() = activo != false
+}
+
+/**
+ * Los parámetros citados de la plaga (config/pest_thermal_parameters.v1.yaml del backend).
+ * [estado]: "validado", "sin_modelo" o "sin_fuente"; [difiere]: campos del catálogo que una
+ * edición apartó de la fuente.
+ */
+data class ReferenciaTermica(
+    @SerializedName("estado")
+    val estado: String? = null,
+    @SerializedName("difiere")
+    val difiere: List<String>? = null
+) {
+    val validada: Boolean get() = estado == "validado"
 }
 
 // En el PATCH solo se mandan los campos tocados: Gson omite los null.
@@ -754,7 +776,10 @@ data class GddCicloResponse(
     val gdd_eclosion: Float, val gdd_generacion: Float,
     val progreso: Float, val estadio_biologico: String,
     val nivel_alerta: Int, val dias_pendientes: Int,
-    val fecha_eclosion: String? = null
+    val fecha_eclosion: String? = null,
+    // El huevo acumula con su propia temperatura base hasta la eclosión; gdd_acumulado es el
+    // desarrollo hasta el adulto. Sin dato, el huevo usa la base del ciclo.
+    val gdd_acumulado_huevo: Float? = null
 )
 
 @Serializable

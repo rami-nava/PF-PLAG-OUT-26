@@ -201,6 +201,23 @@ class AgregarMonitoreoViewModelTest {
     }
 
     @Test
+    fun `las plagas sin modelo termico no se pueden elegir pero se muestran aparte`() {
+        val vm = viewModel(
+            plagas = listOf(
+                Fixtures.plaga(id = 1, nombre = "Chicharrita", cultivosAfectados = listOf(TRIGO), modeloTermico = true),
+                Fixtures.plaga(id = 2, nombre = "Isoca militar", cultivosAfectados = listOf(TRIGO), modeloTermico = false),
+                Fixtures.plaga(id = 3, nombre = "Pulgón", cultivosAfectados = listOf(TRIGO))
+            )
+        )
+
+        vm.filtrarPlagas(cultivoId = TRIGO)
+
+        assertEquals(listOf(1, 3), vm.state.value.plagasDisponibles.map { it.id })
+        assertEquals(listOf(2), vm.state.value.plagasSinModelo.map { it.id })
+        assertEquals(0, vm.state.value.plagasYaMonitoreadas)
+    }
+
+    @Test
     fun `no se ofrecen las plagas con monitoreo activo en la misma plantacion`() = runTest {
         val vm = viewModel(
             plagas = listOf(
