@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -128,6 +129,10 @@ class CreacionMonitoreoTest {
 
     @Test
     fun datos_de_monitoreo_validos() {
+        // La pantalla arranca cargando terrenos y plagas: hasta que termina no existen los campos.
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            composeRule.onAllNodesWithTag("txtPlantacion").fetchSemanticsNodes().isNotEmpty()
+        }
 
         // Caso 1: los pasos se habilitan en orden, cada uno depende del anterior
         composeRule.onNodeWithTag("txtPlantacion")

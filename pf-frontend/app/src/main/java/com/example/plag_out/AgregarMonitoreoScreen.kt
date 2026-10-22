@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
@@ -366,6 +367,7 @@ fun AgregarMonitoreoScreen(
                                             Text(
                                                 if (plantacionElegida == null) "Seleccioná un cultivo"
                                                 else if (state.plagasYaMonitoreadas > 0) "Ya tenés monitoreos activos para todas las plagas de ${plantacionElegida.cultivo_nombre}"
+                                                else if (state.plagasSinModelo.isNotEmpty()) "Ninguna plaga de ${plantacionElegida.cultivo_nombre} tiene parámetros térmicos validados"
                                                 else "No hay plagas registradas para ${plantacionElegida.cultivo_nombre}",
                                                 color = PlagOutColors.TextSecondary
                                             )
@@ -394,6 +396,27 @@ fun AgregarMonitoreoScreen(
                                                 viewModel.alternarPlaga(plaga)
                                                 dropdownPlagaExpanded = false
                                             }
+                                        )
+                                    }
+                                }
+                                // Sin parámetros térmicos citados no hay GDD que calcular: se ven,
+                                // pero no se pueden elegir (sí se pueden reportar).
+                                if (plantacionElegida != null) {
+                                    state.plagasSinModelo.forEach { plaga ->
+                                        DropdownMenuItem(
+                                            enabled = false,
+                                            text = {
+                                                Column {
+                                                    Text(plaga.nombre, color = PlagOutColors.TextSecondary)
+                                                    Text(
+                                                        "Sin modelo térmico validado · solo reportes",
+                                                        fontSize = 12.sp,
+                                                        color = PlagOutColors.TextSecondary
+                                                    )
+                                                }
+                                            },
+                                            onClick = {},
+                                            modifier = Modifier.testTag("plagaSinModelo_${plaga.id}")
                                         )
                                     }
                                 }
@@ -426,6 +449,8 @@ fun AgregarMonitoreoScreen(
                 onUmbralChange = { viewModel.actualizarUmbralDeRiesgo(it) },
                 onInfo = { mostrarInfoUmbral = true }
             )
+
+            Text("En monitoreos compatibles, las alertas de brote severo se activan automáticamente. Podés desactivarlas desde el detalle.", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
 
             AnimatedVisibility(
                 visible = state.error != null,
@@ -668,9 +693,9 @@ fun UmbralDeRiesgoSlider(
     }
 
     val etiquetaRiesgo = when {
-        umbralActual < 34 -> "Riesgo bajo"
-        umbralActual < 67 -> "Riesgo medio"
-        else -> "Riesgo alto"
+        umbralActual < 34 -> "Aviso temprano"
+        umbralActual < 67 -> "Aviso intermedio"
+        else -> "Aviso cerca de la eclosión"
     }
 
     Surface(
@@ -725,7 +750,10 @@ fun UmbralDeRiesgoSlider(
                 colors = SliderDefaults.colors(
                     thumbColor = colorRiesgo,
                     activeTrackColor = colorRiesgo,
-                    inactiveTrackColor = colorRiesgo.copy(alpha = 0.15f)
+                    inactiveTrackColor = colorRiesgo.copy(alpha = 0.15f),
+                    // 99 pasos dibujan una marca por punto: una línea de puntos que ensucia la barra.
+                    activeTickColor = Color.Transparent,
+                    inactiveTickColor = Color.Transparent
                 )
             )
 

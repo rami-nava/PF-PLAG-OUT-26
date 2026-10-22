@@ -29,12 +29,13 @@ class VerReporteScreenTest {
             }
         }
 
+        val viewModel = VerReporteViewModel(gddService)
         compose.setContent {
             MaterialTheme {
                 VerReporteScreen(
                     reporteId = 78,
                     reporteJsonFallback = null,
-                    viewModel = VerReporteViewModel(gddService),
+                    viewModel = viewModel,
                     onBack = {},
                     onVerTerreno = {}
                 )
@@ -42,6 +43,6 @@ class VerReporteScreenTest {
         }
 
         compose.onNodeWithText("Maíz").performScrollTo().assertExists()
-        compose.onNodeWithText("HUEVO").performScrollTo().assertExists()
+        compose.onNodeWithText("Huevo").performScrollTo().assertExists()
     }
 }

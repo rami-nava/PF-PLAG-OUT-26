@@ -1,5 +1,6 @@
 package com.example.plag_out
 
+import com.example.plag_out.Service.todasLasPlagas
 import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -34,13 +35,18 @@ data class CrearReporteUIState(
     val latitud: Double? = null,
     val longitud: Double? = null,
     val timestampMs: Long = System.currentTimeMillis(),
-    val observaciones: String = "",
     val isLoadingInicial: Boolean = false,
     val isGuardando: Boolean = false,
     val error: String? = null,
     /** Disponible tras POST exitoso; se usa para navegar a VerReporteScreen. */
     val reporteNavPayload: ReporteNavPayload? = null
 )
+
+private val ETAPAS_BIOLOGICAS = listOf("HUEVO", "NINFA", "LARVA", "ADULTO")
+
+/** Nombre legible de una etapa del contrato ("LARVA" -> "Larva"); los reportes viejos pueden traer "PUPA". */
+fun etiquetaEtapa(codigo: String): String =
+    codigo.trim().lowercase().replaceFirstChar { it.uppercase() }
 
 class CrearReporteViewModel(
     private val context: Context,
@@ -68,7 +74,7 @@ class CrearReporteViewModel(
                     val service = gddService ?: RetrofitClient.gddService
                     val deferredTerrenos = async { service.todosLosTerrenos() }
                     val deferredPlantaciones = async { service.todasLasPlantaciones() }
-                    val deferredPlagas = async { service.getPlagas() }
+                    val deferredPlagas = async { service.todasLasPlagas() }
 
                     val resTerrenos = deferredTerrenos.await()
                     val resPlantaciones = deferredPlantaciones.await()
@@ -119,22 +125,10 @@ class CrearReporteViewModel(
         }
     }
 
-    /** Obtiene las etapas biológicas / fenológicas aplicables a la plaga seleccionada */
+    /** Etapas que el backend acepta para la plaga; todas si todavía no tiene tipo de desarrollo. */
     fun obtenerEtapasParaPlaga(plaga: PlagaResponse?): List<String> {
         if (plaga == null) return emptyList()
-        val nombre = plaga.nombre.lowercase()
-        val cientifico = plaga.nombre_cientifico.lowercase()
-        return when {
-            nombre.contains("cogoller") || nombre.contains("oruga") || cientifico.contains("spodoptera") -> {
-                listOf("HUEVO", "LARVA", "PUPA", "ADULTO")
-            }
-            nombre.contains("chicharrita") || cientifico.contains("dalbulus") -> {
-                listOf("HUEVO", "NINFA", "ADULTO")
-            }
-            else -> {
-                listOf("HUEVO", "NINFA", "LARVA", "PUPA", "ADULTO")
-            }
-        }
+        return plaga.etapas?.takeIf { it.isNotEmpty() } ?: ETAPAS_BIOLOGICAS
     }
 
     fun seleccionarTerreno(terreno: TerrenoResponse) {
@@ -184,12 +178,11 @@ class CrearReporteViewModel(
         // Solo plagas del cultivo elegido.
         if (_state.value.plagasDisponibles.none { it.id == plaga.id }) return
 
-        val etapas = obtenerEtapasParaPlaga(plaga)
-        val etapaInicial = etapas.firstOrNull() ?: ""
+        // La etapa no se preselecciona: define el momento de aplicar y la tiene que elegir quien vio la plaga.
         _state.value = _state.value.copy(
             plagaSeleccionada = plaga,
-            etapasDisponibles = etapas,
-            etapaBiologica = etapaInicial,
+            etapasDisponibles = obtenerEtapasParaPlaga(plaga),
+            etapaBiologica = "",
             error = null
         )
     }
@@ -200,18 +193,6 @@ class CrearReporteViewModel(
 
     fun actualizarNivelSeveridad(nivel: String) {
         _state.value = _state.value.copy(nivelSeveridad = nivel, error = null)
-    }
-
-    fun actualizarUbicacion(latitud: Double?, longitud: Double?) {
-        _state.value = _state.value.copy(
-            latitud = latitud,
-            longitud = longitud,
-            error = null
-        )
-    }
-
-    fun actualizarObservaciones(obs: String) {
-        _state.value = _state.value.copy(observaciones = obs)
     }
 
     fun actualizarTimestamp() {
@@ -250,6 +231,11 @@ class CrearReporteViewModel(
             return
         }
 
+        if (currentState.etapaBiologica.isBlank()) {
+            _state.value = _state.value.copy(error = "Elegí la etapa biológica en la que viste la plaga")
+            return
+        }
+
         val owner = currentOwner()
         if (owner == null || (reportOwner != null && reportOwner != owner)) {
             _state.value = _state.value.copy(error = "La sesión cambió. Iniciá un nuevo reporte con tu cuenta actual.")
@@ -260,7 +246,7 @@ class CrearReporteViewModel(
 
         viewModelScope.launch {
             try {
-                val etapaStr = currentState.etapaBiologica.ifBlank { null }
+                val etapaStr = currentState.etapaBiologica
                 val request = CreateReporteRequest(
                     plantacion_id = plantacion.plantacion_id,
                     plaga_id = plaga.id,

@@ -188,3 +188,22 @@ class AdminPlagasViewModelTest {
         assertEquals(PlagaAdminRequest(activo = true), gddService.ultimaPlagaEnviada)
     }
 }
+
+class AvisoDeFuenteTest {
+    private fun plaga(referencia: ReferenciaTermica?) =
+        PlagaAdmin(id = 1, nombre = "Chinche", nombre_cientifico = "Nezara viridula", referencia_termica = referencia)
+
+    @org.junit.Test
+    fun `avisa si no hay modelo o si una edicion se aparto de la fuente`() {
+        org.junit.Assert.assertNull(avisoDeFuente(plaga(null)))
+        org.junit.Assert.assertNull(avisoDeFuente(plaga(ReferenciaTermica("validado", emptyList()))))
+        org.junit.Assert.assertEquals(
+            "Un parámetro difiere de su fuente citada",
+            avisoDeFuente(plaga(ReferenciaTermica("validado", listOf("temp_base"))))
+        )
+        org.junit.Assert.assertEquals(
+            "Sin modelo térmico validado: no admite monitoreos nuevos",
+            avisoDeFuente(plaga(ReferenciaTermica("sin_modelo", emptyList())))
+        )
+    }
+}

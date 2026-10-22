@@ -1,5 +1,6 @@
 package com.example.plag_out
 
+import com.example.plag_out.Service.todasLasPlagas
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -24,6 +25,33 @@ import java.time.ZoneId
 import retrofit2.HttpException
 
 const val REPORTES_PAGE_SIZE = 20
+
+/**
+ * Días entre "desde" y "hasta" como máximo. El backend acepta hasta 365 días entre el inicio de
+ * "desde" y el final de "hasta", es decir 364 días de diferencia entre las fechas.
+ */
+const val RANGO_MAXIMO_DIAS = 364L
+
+/**
+ * Rango válido después de mover un extremo: el que se movió manda y el otro se acerca lo
+ * necesario para que "desde" no pase a "hasta" ni el rango supere [RANGO_MAXIMO_DIAS].
+ */
+fun ajustarRangoFechas(desde: LocalDate, hasta: LocalDate, movioDesde: Boolean): Pair<LocalDate, LocalDate> =
+    if (movioDesde) {
+        val nuevoHasta = when {
+            hasta.isBefore(desde) -> desde
+            desde.plusDays(RANGO_MAXIMO_DIAS).isBefore(hasta) -> desde.plusDays(RANGO_MAXIMO_DIAS)
+            else -> hasta
+        }
+        desde to nuevoHasta
+    } else {
+        val nuevoDesde = when {
+            desde.isAfter(hasta) -> hasta
+            hasta.minusDays(RANGO_MAXIMO_DIAS).isAfter(desde) -> hasta.minusDays(RANGO_MAXIMO_DIAS)
+            else -> desde
+        }
+        nuevoDesde to hasta
+    }
 
 enum class AmbitoReportes(val valor: String) { PROPIOS("propios"), COMUNIDAD("comunidad") }
 
@@ -411,7 +439,7 @@ class MisReportesViewModel(
                 withContext(reportesDispatcher) { gddService.todosLosTerrenos() }.body()
             }.onFailure { if (it is CancellationException) throw it }.getOrNull()
             val plagas = runCatching {
-                withContext(reportesDispatcher) { gddService.getPlagas() }.body()
+                withContext(reportesDispatcher) { gddService.todasLasPlagas() }.body()
             }.onFailure { if (it is CancellationException) throw it }.getOrNull()
             _state.value = _state.value.copy(
                 terrenos = terrenos.orEmpty().sortedBy { it.terreno_nombre.lowercase() },

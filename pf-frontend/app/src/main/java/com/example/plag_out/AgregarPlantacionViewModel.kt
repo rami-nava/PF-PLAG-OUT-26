@@ -1,5 +1,6 @@
 package com.example.plag_out
 
+import com.example.plag_out.Service.todosLosCultivos
 import android.content.Context
 import android.os.Build
 import android.util.Log
@@ -69,7 +70,7 @@ class AgregarPlantacionViewModel(
         viewModelScope.launch {
             try {
                 val response = withContext(ioDispatcher) {
-                    gddService.getCultivos()
+                    gddService.todosLosCultivos()
                 }
                 if (response.isSuccessful) {
                     _state.value = _state.value.copy(
@@ -185,7 +186,8 @@ class AgregarPlantacionViewModel(
 }
 
 private val ERRORES_CREACION = mapOf(
-    "plantation_already_active" to "Ya existe una plantación activa de ese cultivo con esa fecha en este terreno."
+    "plantation_already_active" to "Ya existe una plantación activa de ese cultivo con esa fecha en este terreno.",
+    "cultivo_inactivo" to "Este cultivo ya no está disponible. Elegí otro."
 )
 private val ERRORES_CREACION_CODIGO = mapOf(
     400 to "El cultivo seleccionado ya no está disponible.",

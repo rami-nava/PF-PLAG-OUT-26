@@ -141,7 +141,8 @@ fun TerrenoScreen(
             var shown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { shown = true }
             val fabScale by animateFloatAsState(
-                targetValue = if (shown) 1f else 0f,
+                // Con los filtros abiertos se esconde: tapaba la última fila de chips.
+                targetValue = if (shown && !filtrosExpandidos) 1f else 0f,
                 animationSpec = tween(360, easing = FastOutSlowInEasing),
                 label = "fabScale"
             )
@@ -529,8 +530,8 @@ fun TerrenoCard(
 
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     when {
-                        criticos > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$criticos en estado crítico", PlagOutColors.RiskDanger)
-                        atencion > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$atencion en atención", PlagOutColors.RiskWarn)
+                        criticos > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$criticos ya eclosionados", PlagOutColors.RiskDanger)
+                        atencion > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$atencion con eclosión cerca", PlagOutColors.RiskWarn)
                         monitoreos.isEmpty() -> EtiquetaInfo(Icons.AutoMirrored.Outlined.HelpOutline, "Sin monitoreos", PlagOutColors.RiskUnknown)
                         activos.isEmpty() -> EtiquetaInfo(Icons.Filled.Flag, "Todos finalizados", PlagOutColors.Bark)
                         esperando > 0 -> EtiquetaInfo(

@@ -35,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Flag
@@ -144,7 +145,8 @@ fun MonitoreosScreen(
             var shown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { shown = true }
             val fabScale by animateFloatAsState(
-                targetValue = if (shown) 1f else 0f,
+                // Con los filtros abiertos se esconde: tapaba la última fila de chips.
+                targetValue = if (shown && !filtrosExpandidos) 1f else 0f,
                 animationSpec = tween(360, easing = FastOutSlowInEasing),
                 label = "fabScale"
             )
@@ -172,7 +174,10 @@ fun MonitoreosScreen(
                 .padding(padding)
         ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            PanelDeCampo(monitoreos = activos)
+            PanelDeCampo(
+                monitoreos = activos,
+                onIrATableros = { navController.navigate("tableros_control") }
+            )
 
             val opciones = remember(state.monitoreos, activos) {
                 listOf(
@@ -282,7 +287,10 @@ fun MonitoreosScreen(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
+private fun PanelDeCampo(
+    monitoreos: List<MonitoreoResponse>,
+    onIrATableros: () -> Unit = {}
+) {
     val total = monitoreos.size
     val bajo = monitoreos.count { nivelAlertaEfectivo(it) == 0 }
     val moderado = monitoreos.count { nivelAlertaEfectivo(it) == 1 }
@@ -329,19 +337,54 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
                     .format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale.forLanguageTag("es")))
                     .replaceFirstChar { it.uppercase() }
             }
-            Text(
-                hoy,
-                color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.4.sp
-            )
-            Text(
-                "Mis Monitoreos",
-                color = PlagOutColors.TextOnDark,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        hoy,
+                        color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.4.sp
+                    )
+                    Text(
+                        "Mis Monitoreos",
+                        color = PlagOutColors.TextOnDark,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+
+                Surface(
+                    onClick = onIrATableros,
+                    shape = RoundedCornerShape(20.dp),
+                    color = PlagOutColors.TextOnDark.copy(alpha = 0.16f),
+                    border = BorderStroke(1.dp, PlagOutColors.TextOnDark.copy(alpha = 0.32f)),
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Insights,
+                            contentDescription = null,
+                            tint = PlagOutColors.TextOnDark,
+                            modifier = Modifier.size(17.dp)
+                        )
+                        Text(
+                            "Tableros",
+                            color = PlagOutColors.TextOnDark,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
 
             Spacer(Modifier.height(18.dp))
 
@@ -412,7 +455,10 @@ fun ordenarMonitoreos(
     monitoreos: List<MonitoreoResponse>,
     finalizadosAlFinal: Boolean = false
 ): List<MonitoreoResponse> {
-    val porProgreso = compareByDescending<MonitoreoResponse> { it.progreso }
+    // El avance real está en los ciclos activos; sin ciclo (esperando biofix) va al final.
+    val porProgreso = compareByDescending<MonitoreoResponse> { m ->
+        ciclosActivos(m).maxOfOrNull { it.progreso } ?: -1f
+    }
     val comparador =
         if (finalizadosAlFinal) compareBy<MonitoreoResponse> { !it.activo }.then(porProgreso)
         else porProgreso
@@ -459,7 +505,13 @@ fun MonitoreoCard(
             Column(Modifier.padding(start = 17.dp, end = 18.dp, top = 16.dp, bottom = 14.dp)) {
                 Row(Modifier.fillMaxWidth()) {
                     Column(Modifier.weight(1f)) {
-                        SelloDeNivel(estilo, pulsante = monitoreo.activo && nivelAlertaEfectivo(monitoreo) >= 2)
+                        // Sin biofix no hay nivel que mostrar: el estado ocupa el lugar del sello en vez
+                        // de sumar un "Sin datos" que parece un error.
+                        if (monitoreo.activo && esperandoBiofix(monitoreo)) {
+                            EtiquetaInfo(Icons.Outlined.HourglassEmpty, "Esperando biofix", PlagOutColors.TextSecondary)
+                        } else {
+                            SelloDeNivel(estilo, pulsante = monitoreo.activo && nivelAlertaEfectivo(monitoreo) >= 2)
+                        }
                         Spacer(Modifier.height(10.dp))
                         Text(
                             monitoreo.plaga_nombre,
@@ -491,10 +543,6 @@ fun MonitoreoCard(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    if (esperandoBiofix(monitoreo)) {
-                        EtiquetaInfo(Icons.Outlined.HourglassEmpty, "Esperando biofix", PlagOutColors.TextSecondary)
                     }
                 }
 

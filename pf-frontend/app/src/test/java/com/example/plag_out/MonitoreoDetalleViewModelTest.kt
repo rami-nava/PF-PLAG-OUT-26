@@ -11,7 +11,6 @@ import com.example.plag_out.fakes.Fixtures
 import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.Service.RetrofitClient
 import com.example.plag_out.util.esperarEstado
-import com.google.gson.JsonObject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -87,20 +86,20 @@ class MonitoreoDetalleViewModelTest {
 
     @Test
     fun `cargar muestra primero el cache y despues el dato de red`() {
-        val cache = Fixtures.monitoreo(id = 1, progreso = 20f)
+        val cache = Fixtures.monitoreo(id = 1, umbralRiesgo = 20)
         val (vm, _) = viewModelCon(cache = listOf(cache))
-        val deRed = Fixtures.monitoreo(id = 1, progreso = 55f)
+        val deRed = Fixtures.monitoreo(id = 1, umbralRiesgo = 55)
         gddService.getMonitoreoResult = { Response.success(deRed) }
 
         cargarYEsperar(vm, 1)
 
-        esperarEstado(vm.state) { it.monitoreo?.progreso == 55f }
+        esperarEstado(vm.state) { it.monitoreo?.umbral_riesgo == 55 }
         assertFalse(vm.state.value.datosDesactualizados)
     }
 
     @Test
     fun `cargar sin red se queda con el cache y marca datos desactualizados`() {
-        val cache = Fixtures.monitoreo(id = 1, progreso = 20f)
+        val cache = Fixtures.monitoreo(id = 1, umbralRiesgo = 20)
         val (vm, _) = viewModelCon(cache = listOf(cache))
         gddService.getMonitoreoResult = { FakeGDDService.sinConexion() }
 
@@ -110,7 +109,7 @@ class MonitoreoDetalleViewModelTest {
         // hay que esperar la señal que realmente nos interesa, no isLoading, para no leer el
         // estado intermedio.
         val estado = esperarEstado(vm.state) { it.datosDesactualizados }
-        assertEquals(20f, estado.monitoreo?.progreso)
+        assertEquals(20, estado.monitoreo?.umbral_riesgo)
     }
 
     // ---------- guardarUmbral ----------
@@ -170,140 +169,97 @@ class MonitoreoDetalleViewModelTest {
     }
 
     @Test
-    fun `guardar threshold ML respeta el minimo recomendado y envia entero`() {
-        val monitoreo = Fixtures.monitoreo(
-            umbralAlertaMlRecomendado = 24.67f,
-            umbralAlertaMlEfectivo = 24.67f,
-            modeloAlertaMlId = "modelo-1"
-        )
-        val (vm, _) = viewModelCon(listOf(monitoreo))
+    fun `desactivar alertas envia solo la preferencia y conserva los ciclos en cache`() {
+        val monitoreo = Fixtures.monitoreo(modeloAlertaMlId = "modelo-1").copy(alertas_ml_activas = true)
+        val (vm, dao) = viewModelCon(listOf(monitoreo))
         cargarYEsperar(vm, monitoreo.monitoreo_id)
-        esperarEstado(vm.state) { it.monitoreo != null }
-        gddService.actualizarUmbralAlertaMlResult = {
-            Response.success(monitoreo.copy(umbral_alerta_ml = 25f, umbral_alerta_ml_efectivo = 25f))
-        }
-
-        vm.abrirEditorUmbralMl()
-        assertEquals(25, vm.state.value.umbralMlEditado)
-        vm.guardarUmbralMl {}
-
-        esperarEstado(vm.state) { !it.guardandoUmbralMl }
-        assertEquals(25, gddService.ultimoUmbralAlertaMl?.get("umbral_alerta_ml")?.asInt)
-    }
-
-    @Test
-    fun `usar recomendado envia null explicito`() {
-        val monitoreo = Fixtures.monitoreo(
-            umbralAlertaMl = 40f,
-            umbralAlertaMlRecomendado = 24.67f,
-            umbralAlertaMlEfectivo = 40f,
-            modeloAlertaMlId = "modelo-1"
-        )
-        val (vm, _) = viewModelCon(listOf(monitoreo))
-        cargarYEsperar(vm, monitoreo.monitoreo_id)
-        esperarEstado(vm.state) { it.monitoreo != null }
-        gddService.actualizarUmbralAlertaMlResult = {
-            Response.success(monitoreo.copy(umbral_alerta_ml = null, umbral_alerta_ml_efectivo = 24.67f))
-        }
-
-        vm.usarUmbralMlRecomendado {}
-
-        esperarEstado(vm.state) { !it.guardandoUmbralMl }
-        assertTrue(gddService.ultimoUmbralAlertaMl?.get("umbral_alerta_ml")?.isJsonNull == true)
-    }
-
-    /**
-     * Regresión: assertear sobre el [com.google.gson.JsonObject] no alcanza, porque el null se
-     * perdía recién al serializar (Gson descarta las propiedades null salvo `serializeNulls`).
-     * Este test toma el body que arma el ViewModel y lo pasa por el converter real de Retrofit,
-     * el mismo que usa RetrofitClient, para verificar lo que sale al cable.
-     */
-    @Test
-    fun `usar recomendado serializa null explicito en el body HTTP`() {
-        val monitoreo = Fixtures.monitoreo(
-            umbralAlertaMl = 40f,
-            umbralAlertaMlRecomendado = 24.67f,
-            umbralAlertaMlEfectivo = 40f,
-            modeloAlertaMlId = "modelo-1"
-        )
-        val (vm, _) = viewModelCon(listOf(monitoreo))
-        cargarYEsperar(vm, monitoreo.monitoreo_id)
-        esperarEstado(vm.state) { it.monitoreo != null }
-        gddService.actualizarUmbralAlertaMlResult = {
-            Response.success(monitoreo.copy(umbral_alerta_ml = null, umbral_alerta_ml_efectivo = 24.67f))
-        }
-
-        vm.usarUmbralMlRecomendado {}
-        esperarEstado(vm.state) { !it.guardandoUmbralMl }
-
-        val body = requireNotNull(gddService.ultimoUmbralAlertaMl)
-        assertEquals("{\"umbral_alerta_ml\":null}", serializarComoRetrofit(body))
-    }
-
-    /**
-     * Regresión del caché rancio: volver a entrar a la pantalla (mismo ViewModel, nuevo
-     * LaunchedEffect) tiene que volver a pedir el monitoreo al backend. Antes el early-return
-     * dejaba congelado el override ML hasta reiniciar el proceso.
-     */
-    @Test
-    fun `volver a cargar el mismo monitoreo refresca contra el backend`() {
-        val conOverride = Fixtures.monitoreo(
-            id = 41,
-            umbralAlertaMl = 50f,
-            umbralAlertaMlRecomendado = 24.67f,
-            umbralAlertaMlEfectivo = 50f,
-            modeloAlertaMlId = "modelo-1"
-        )
-        val (vm, dao) = viewModelCon(cache = listOf(conOverride))
-        gddService.getMonitoreoResult = { Response.success(conOverride) }
-        cargarYEsperar(vm, 41)
-        esperarEstado(vm.state) { it.monitoreo != null }
-
-        // El override se limpió del lado del servidor (por ejemplo, desde otro dispositivo).
-        val sinOverride = conOverride.copy(umbral_alerta_ml = null, umbral_alerta_ml_efectivo = 24.67f)
-        gddService.getMonitoreoResult = { Response.success(sinOverride) }
-
-        cargarYEsperar(vm, 41)
-
-        esperarEstado(vm.state) { it.monitoreo?.umbral_alerta_ml == null }
-        assertEquals(24.67f, vm.state.value.monitoreo?.umbral_alerta_ml_efectivo)
-        val persistido = runBlocking { dao.getAll() }.find { it.monitoreo_id == 41 }
-        assertEquals(null, persistido?.umbral_alerta_ml)
-    }
-
-    /**
-     * Regresión del caché rancio en el listado: el listado se sirve del caché hasta el corte
-     * diario de GDD, así que un cambio de threshold tiene que invalidar esa marca.
-     */
-    @Test
-    fun `guardar el threshold ML invalida el cache del listado`() {
-        val monitoreo = Fixtures.monitoreo(
-            umbralAlertaMl = null,
-            umbralAlertaMlRecomendado = 24.67f,
-            umbralAlertaMlEfectivo = 24.67f,
-            modeloAlertaMlId = "modelo-1"
-        )
-        val (vm, _) = viewModelCon(listOf(monitoreo))
-        cargarYEsperar(vm, monitoreo.monitoreo_id)
-        esperarEstado(vm.state) { it.monitoreo != null }
         CacheTracker.marcarConsultado(context, CacheTracker.MONITOREOS)
-        gddService.actualizarUmbralAlertaMlResult = {
-            Response.success(monitoreo.copy(umbral_alerta_ml = 50f, umbral_alerta_ml_efectivo = 50f))
-        }
-
-        vm.abrirEditorUmbralMl()
-        vm.actualizarUmbralMlEditado(50)
-        vm.guardarUmbralMl {}
-
-        esperarEstado(vm.state) { !it.guardandoUmbralMl }
+        gddService.actualizarMonitoreoResult = { Response.success(monitoreo.copy(alertas_ml_activas = false)) }
+        vm.cambiarAlertasMl(false)
+        esperarEstado(vm.state) { !it.guardandoAlertasMl }
+        assertEquals("{\"alertas_ml_activas\":false}", serializarComoRetrofit(requireNotNull(gddService.ultimoActualizarMonitoreo)))
+        assertEquals(false, vm.state.value.monitoreo?.alertas_ml_activas)
+        val persistido = runBlocking { dao.getAll().single() }
+        assertEquals(false, persistido.alertas_ml_activas)
+        assertEquals(monitoreo.ciclos, persistido.ciclos)
+        assertEquals(monitoreo.activo, persistido.activo)
         assertFalse(CacheTracker.yaConsultado(context, CacheTracker.MONITOREOS))
     }
 
+    @Test
+    fun `respuesta perdida conserva preferencia anterior y permite reintentar`() {
+        val monitoreo = Fixtures.monitoreo(modeloAlertaMlId = "modelo-1").copy(alertas_ml_activas = true)
+        val (vm, dao) = viewModelCon(listOf(monitoreo))
+        cargarYEsperar(vm, monitoreo.monitoreo_id)
+        gddService.actualizarMonitoreoResult = { throw java.io.IOException("response lost") }
+        vm.cambiarAlertasMl(false)
+        esperarEstado(vm.state) { it.error != null }
+        assertEquals(true, vm.state.value.monitoreo?.alertas_ml_activas)
+        assertEquals(true, runBlocking { dao.getAll().single().alertas_ml_activas })
+        gddService.actualizarMonitoreoResult = { Response.success(monitoreo.copy(alertas_ml_activas = false)) }
+        vm.cambiarAlertasMl(false)
+        esperarEstado(vm.state) { !it.guardandoAlertasMl && it.monitoreo?.alertas_ml_activas == false }
+        assertEquals(null, vm.state.value.error)
+    }
+
+    @Test
+    fun `doble toque envia un solo cambio y respeta la respuesta del servidor`() {
+        val monitoreo = Fixtures.monitoreo(modeloAlertaMlId = "modelo-1").copy(alertas_ml_activas = true)
+        val (vm, _) = viewModelCon(listOf(monitoreo))
+        cargarYEsperar(vm, monitoreo.monitoreo_id)
+        val started = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        gddService.actualizarMonitoreoResult = {
+            started.countDown()
+            check(release.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            Response.success(monitoreo.copy(alertas_ml_activas = false))
+        }
+        try {
+            vm.cambiarAlertasMl(false)
+            assertTrue(started.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            vm.cambiarAlertasMl(true)
+            assertEquals(1, gddService.llamadas.count { it == "actualizarMonitoreo" })
+        } finally { release.countDown() }
+        esperarEstado(vm.state) { !it.guardandoAlertasMl }
+        assertEquals(false, vm.state.value.monitoreo?.alertas_ml_activas)
+    }
+
+    @Test
+    fun `sin preferencia del servidor no permite cambiar alertas`() {
+        val monitoreo = Fixtures.monitoreo(modeloAlertaMlId = "modelo-1")
+        val (vm, _) = viewModelCon(listOf(monitoreo))
+        cargarYEsperar(vm, monitoreo.monitoreo_id)
+        vm.cambiarAlertasMl(true)
+        assertFalse(gddService.llamadas.contains("actualizarMonitoreo"))
+    }
+
+    @Test
+    fun `respuesta vacia no inventa que se guardo la preferencia`() {
+        val monitoreo = Fixtures.monitoreo(modeloAlertaMlId = "modelo-1").copy(alertas_ml_activas = true)
+        val (vm, _) = viewModelCon(listOf(monitoreo))
+        cargarYEsperar(vm, monitoreo.monitoreo_id)
+        gddService.actualizarMonitoreoResult = { Response.success(null) }
+        vm.cambiarAlertasMl(false)
+        esperarEstado(vm.state) { it.error != null }
+        assertEquals(true, vm.state.value.monitoreo?.alertas_ml_activas)
+    }
+
+    @Test
+    fun `recargar actualiza la preferencia cambiada desde otro dispositivo`() {
+        val monitoreo = Fixtures.monitoreo(modeloAlertaMlId = "modelo-1").copy(alertas_ml_activas = true)
+        val (vm, dao) = viewModelCon(listOf(monitoreo))
+        cargarYEsperar(vm, monitoreo.monitoreo_id)
+        gddService.getMonitoreoResult = { Response.success(monitoreo.copy(alertas_ml_activas = false)) }
+        cargarYEsperar(vm, monitoreo.monitoreo_id)
+        assertEquals(false, vm.state.value.monitoreo?.alertas_ml_activas)
+        assertEquals(false, runBlocking { dao.getAll().single().alertas_ml_activas })
+    }
+
     /** Usa el converter real de [RetrofitClient], el mismo que arma el body del PATCH. */
-    private fun serializarComoRetrofit(body: JsonObject): String {
-        val converter: Converter<JsonObject, RequestBody> =
+    private fun serializarComoRetrofit(body: UpdateMonitoreoRequest): String {
+        val converter: Converter<UpdateMonitoreoRequest, RequestBody> =
             RetrofitClient.retrofit.requestBodyConverter(
-                JsonObject::class.java,
+                UpdateMonitoreoRequest::class.java,
                 emptyArray(),
                 emptyArray()
             )

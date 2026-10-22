@@ -1,5 +1,6 @@
 package com.example.plag_out
 
+import com.example.plag_out.Service.todosLosCultivos
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -174,7 +175,7 @@ class AdminPlagasViewModel(
         try {
             val admin = withContext(Dispatchers.IO) { gddService.adminGetCultivos() }
             val cultivos = admin.body()?.takeIf { admin.isSuccessful } ?: run {
-                val response = withContext(Dispatchers.IO) { gddService.getCultivos() }
+                val response = withContext(Dispatchers.IO) { gddService.todosLosCultivos() }
                 response.body()?.takeIf { response.isSuccessful }
                     ?.map { CultivoAdmin(id = it.id, nombre = it.nombre, nombre_cientifico = it.nombre_cientifico) }
             }

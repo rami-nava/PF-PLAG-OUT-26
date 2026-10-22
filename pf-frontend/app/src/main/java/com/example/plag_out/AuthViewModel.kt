@@ -1,5 +1,6 @@
 package com.example.plag_out
 
+import com.example.plag_out.Service.todosLosCargos
 import android.content.Context
 import android.os.Build
 import android.util.Log
@@ -21,6 +22,7 @@ import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.exception.AuthWeakPasswordException
+import io.github.jan.supabase.auth.user.UserInfo
 import io.github.jan.supabase.auth.user.UserSession
 import io.github.jan.supabase.exceptions.RestException
 import kotlinx.coroutines.CancellationException
@@ -67,6 +69,11 @@ data class RecuperarPasswordState(
     val mensajeExito: String? = null,
     val recoverySession: UserSession? = null
 )
+private const val MENSAJE_PERFIL_NO_DISPONIBLE =
+    "No pudimos preparar tu cuenta. Intentá de nuevo en unos minutos."
+private const val MENSAJE_PERFIL_INCOMPLETO =
+    "A tu cuenta le faltan datos de perfil (nombre, apellido o cargo). Escribinos para completarlos."
+
 /** Tope para el logout remoto de Supabase */
 private const val TOPE_SIGN_OUT_MS = 5_000L
 
@@ -116,67 +123,17 @@ class AuthViewModel(
                 val token = supabaseClient.auth.currentAccessTokenOrNull()
                 if(token != null) Log.d("AuthViewModel", "Login exitoso.")
 
-                // Sincronizar con el backend de Plag-Out después de un login exitoso
+                // El perfil de Plag-Out tiene que existir antes de entrar: sin él el backend
+                // rechaza todo con 401 y la app quedaría adentro sin poder hacer nada.
                 val user = supabaseClient.auth.currentUserOrNull()
-                val metadata = user?.userMetadata
-                val nombre = metadata?.get("nombre")?.jsonPrimitive?.contentOrNull ?: ""
-                val apellido = metadata?.get("apellido")?.jsonPrimitive?.contentOrNull ?: ""
-                val cargoId = metadata?.get("cargo")?.jsonPrimitive?.contentOrNull ?: ""
-
-                if (user != null) {
-                    try {
-                        val response = gddService.createUser(
-                            CreateUserRequest(
-                                email = user.email ?: "",
-                                nombre = nombre,
-                                apellido = apellido,
-                                cargo_id = cargoId.toIntOrNull() ?: 1
-                            )
-                        )
-                        if (response.isSuccessful) {
-                            Log.d(
-                                "AuthViewModel",
-                                if(response.body()?.created == false) "El usuario ya existe en el backend"
-                                        else "Usuario creado exitosamente en el backend: ${response.body()?.usuario_id}"
-                            )
-                        } else if (response.code() == 404) {
-                            runCatching { supabaseClient.auth.signOut() }
-                            _loginState.value = _loginState.value.copy(
-                                cargando = false,
-                                error = "Esta cuenta fue eliminada y no puede volver a usarse."
-                            )
-                            return@launch
-                        } else {
-                            Log.e(
-                                "AuthViewModel",
-                                "Error al crear usuario en backend: ${response.code()} ${
-                                    response.errorBody()?.string()
-                                }"
-                            )
-                        }
-                    } catch (e: Exception) {
-                        Log.e("AuthViewModel", "Excepción al sincronizar usuario con el backend", e)
-                    }
-                } else {
-                    Log.w(
-                        "AuthViewModel",
-                        "No se encontró el usuario en Supabase después del login"
-                    )
-                }
-
-                // El rol decide a qué lado de la app se entra, así que se pide antes de navegar.
-                // Si el backend no responde se entra como usuario base: lo que el usuario no
-                // puede hacer igual lo rechaza el backend.
-                val rol = when (val resultado = obtenerRol()) {
-                    is ResultadoRol.Suspendida -> {
+                val rol = when (val perfil = prepararPerfil(user)) {
+                    is ResultadoPerfil.Listo -> perfil.rol
+                    is ResultadoPerfil.Rechazado -> {
                         runCatching { supabaseClient.auth.signOut() }
-                        _loginState.value = _loginState.value.copy(
-                            cargando = false,
-                            error = CuentaSuspendidaEventBus.MENSAJE
-                        )
+                            .onFailure { runCatching { supabaseClient.auth.clearSession() } }
+                        _loginState.value = _loginState.value.copy(cargando = false, error = perfil.mensaje)
                         return@launch
                     }
-                    is ResultadoRol.Ok -> resultado.rol
                 }
                 PreferenciasUsuario.guardarRol(context, rol)
 
@@ -206,34 +163,61 @@ class AuthViewModel(
         }
     }
 
-    private sealed interface ResultadoRol {
-        data class Ok(val rol: String) : ResultadoRol
-        data object Suspendida : ResultadoRol
+    private sealed interface ResultadoPerfil {
+        data class Listo(val rol: String) : ResultadoPerfil
+        data class Rechazado(val mensaje: String) : ResultadoPerfil
     }
 
+    /**
+     * Crea el perfil si falta (idempotente en el backend) y lee el rol. Cualquier falla deja
+     * afuera: entrar sin perfil confirmado sería entrar a una app que el backend rechaza.
+     */
     @RequiresApi(Build.VERSION_CODES.O)
-    private suspend fun obtenerRol(): ResultadoRol {
+    private suspend fun prepararPerfil(user: UserInfo?): ResultadoPerfil {
+        if (user == null) return ResultadoPerfil.Rechazado(MENSAJE_PERFIL_NO_DISPONIBLE)
+        val metadata = user.userMetadata
+        val nombre = metadata?.get("nombre")?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+        val apellido = metadata?.get("apellido")?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+        val cargoId = metadata?.get("cargo")?.jsonPrimitive?.contentOrNull?.toIntOrNull()
         return try {
+            val alta = withContext(Dispatchers.IO) {
+                // Sin datos de perfil no se inventan: el backend igual exige nombre, apellido y
+                // cargo, y un perfil ya creado no los necesita.
+                if (nombre.isEmpty() || apellido.isEmpty() || cargoId == null) null
+                else gddService.createUser(CreateUserRequest(nombre = nombre, apellido = apellido, cargo_id = cargoId))
+            }
+            if (alta != null && !alta.isSuccessful) {
+                return when (alta.code()) {
+                    404 -> ResultadoPerfil.Rechazado("Esta cuenta fue eliminada y no puede volver a usarse.")
+                    403 -> ResultadoPerfil.Rechazado(CuentaSuspendidaEventBus.MENSAJE)
+                    else -> {
+                        Log.e("AuthViewModel", "Alta de perfil rechazada: ${alta.code()}")
+                        ResultadoPerfil.Rechazado(MENSAJE_PERFIL_NO_DISPONIBLE)
+                    }
+                }
+            }
             val response = withContext(Dispatchers.IO) { gddService.getUsuarioActual() }
             val usuario = response.body()
             when {
                 response.isSuccessful && usuario != null -> {
                     withContext(Dispatchers.IO) { usuarioRepository.guardarUsuario(usuario) }
-                    ResultadoRol.Ok(usuario.rol ?: ROL_USUARIO)
+                    ResultadoPerfil.Listo(usuario.rol ?: ROL_USUARIO)
                 }
                 response.code() == 403 &&
                     response.errorBody()?.string()?.contains(CuentaSuspendidaEventBus.DETALLE) == true ->
-                    ResultadoRol.Suspendida
+                    ResultadoPerfil.Rechazado(CuentaSuspendidaEventBus.MENSAJE)
+                // 401 con sesión recién abierta: no hay perfil y no se pudo crear (faltan datos).
+                response.code() == 401 -> ResultadoPerfil.Rechazado(MENSAJE_PERFIL_INCOMPLETO)
                 else -> {
-                    Log.e("AuthViewModel", "No se pudo leer el rol: ${response.code()}")
-                    ResultadoRol.Ok(ROL_USUARIO)
+                    Log.e("AuthViewModel", "No se pudo leer el perfil: ${response.code()}")
+                    ResultadoPerfil.Rechazado(MENSAJE_PERFIL_NO_DISPONIBLE)
                 }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e("AuthViewModel", "No se pudo leer el rol", e)
-            ResultadoRol.Ok(ROL_USUARIO)
+            Log.e("AuthViewModel", "No se pudo preparar el perfil", e)
+            ResultadoPerfil.Rechazado(errorDeExcepcion(e).mensaje)
         }
     }
 
@@ -653,7 +637,7 @@ class AuthViewModel(
     fun cargarCargos() {
         viewModelScope.launch {
             try {
-                val response = gddService.getCargos()
+                val response = gddService.todosLosCargos()
                 if (response.isSuccessful()) {
                     val cargos = response.body() ?: emptyList()
                     _crearCuentaState.value =

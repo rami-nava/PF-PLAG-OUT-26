@@ -1,5 +1,6 @@
 package com.example.plag_out
 
+import com.example.plag_out.Service.todasLasPlagas
 import android.content.Context
 import android.os.Build
 import android.util.Log
@@ -16,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
@@ -29,8 +31,11 @@ data class AgregarMonitoreoUIState(
     val plagas: List<PlagaResponse> = emptyList(),
     val plagasDisponibles: List<PlagaResponse> = emptyList(),
     val plagasSeleccionadas: List<PlagaResponse> = emptyList(),
-    val plagasMonitoreadas: Map<Int, Set<String>> = emptyMap(),
+    // Por plantación, las plagas (por id) que ya tienen un monitoreo activo.
+    val plagasMonitoreadas: Map<Int, Set<Int>> = emptyMap(),
     val plagasYaMonitoreadas: Int = 0,
+    // Plagas del cultivo sin modelo térmico validado: se muestran deshabilitadas.
+    val plagasSinModelo: List<PlagaResponse> = emptyList(),
     val umbralDeRiesgo: Int = 80, //Inicializado en un valor tipico
     val contextoFijado: Boolean = false,
     val isLoading: Boolean = false,
@@ -73,7 +78,7 @@ class AgregarMonitoreoViewModel(
         viewModelScope.launch {
             try {
                 val response = withContext(Dispatchers.IO) {
-                    gddService.getPlagas()
+                    gddService.todasLasPlagas()
                 }
                 if (response.isSuccessful) {
                     val plagas = response.body() ?: emptyList()
@@ -110,10 +115,12 @@ class AgregarMonitoreoViewModel(
                 .toList()
         }
         val yaMonitoreadas = plantacionId?.let { _state.value.plagasMonitoreadas[it] }.orEmpty()
-        val disponibles = plagasParaCultivo.filter { normalizarNombrePlaga(it.nombre) !in yaMonitoreadas }
+        val (conModelo, sinModelo) = plagasParaCultivo.partition { it.admiteMonitoreo }
+        val disponibles = conModelo.filter { it.id !in yaMonitoreadas }
         _state.value = _state.value.copy(
             plagasDisponibles = disponibles,
-            plagasYaMonitoreadas = plagasParaCultivo.size - disponibles.size
+            plagasYaMonitoreadas = conModelo.size - disponibles.size,
+            plagasSinModelo = sinModelo
         )
     }
 
@@ -124,11 +131,9 @@ class AgregarMonitoreoViewModel(
             plagasMonitoreadas = monitoreos
                 .filter { it.activo }
                 .groupBy { it.plantacion_id }
-                .mapValues { (_, lista) -> lista.map { normalizarNombrePlaga(it.plaga_nombre) }.toSet() }
+                .mapValues { (_, lista) -> lista.map { it.plaga_id }.toSet() }
         )
     }
-
-    private fun normalizarNombrePlaga(nombre: String) = nombre.trim().lowercase()
 
     suspend fun cargarPlantaciones(terrenoId: Int){
         val plantaciones = plantacionRepository.obtenerPlantaciones()
@@ -138,9 +143,11 @@ class AgregarMonitoreoViewModel(
     }
 
     suspend fun cargarTerrenos(){
-        _state.value = _state.value.copy(
-            terrenos = terrenoRepository.obtenerTerrenos()
-        )
+        // Primero la lectura y después el estado: copiar `_state.value` antes de suspender en Room
+        // pisaba con un estado viejo las plagas que llegaban mientras tanto, y la pantalla quedaba
+        // cargando para siempre.
+        val terrenos = terrenoRepository.obtenerTerrenos()
+        _state.update { it.copy(terrenos = terrenos) }
     }
 
 
@@ -324,6 +331,7 @@ class AgregarMonitoreoViewModel(
 private val ERRORES_CREACION = mapOf(
     "plantation_finalized" to "La plantación está finalizada.",
     "plaga_inactiva" to "Esta plaga ya no está disponible.",
+    "plaga_sin_modelo_termico" to "Esta plaga no tiene parámetros térmicos validados: se puede reportar, pero no monitorear.",
     "monitoring_already_active" to "Ya tenés un monitoreo activo de esta plaga en esta plantación.",
     // Un admin quitó la plaga de este cultivo mientras se completaba el formulario
     "plaga_no_afecta_cultivo" to "Ya no se puede monitorear en este cultivo.",

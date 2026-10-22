@@ -457,7 +457,7 @@ fun CrearReporteScreen(
                         ) {
                             OutlinedTextField(
                                 readOnly = true,
-                                value = if (state.plagaSeleccionada == null) "Seleccioná una plaga primero" else state.etapaBiologica.ifEmpty { "Seleccionar etapa..." },
+                                value = if (state.plagaSeleccionada == null) "Seleccioná una plaga primero" else state.etapaBiologica.takeIf { it.isNotEmpty() }?.let(::etiquetaEtapa) ?: "Elegí la etapa",
                                 onValueChange = {},
                                 enabled = state.plagaSeleccionada != null,
                                 label = { Text("Etapa Biológica") },
@@ -478,7 +478,7 @@ fun CrearReporteScreen(
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                etapa,
+                                                etiquetaEtapa(etapa),
                                                 fontWeight = if (state.etapaBiologica == etapa) FontWeight.Bold else FontWeight.Normal,
                                                 color = PlagOutColors.TextMain
                                             )

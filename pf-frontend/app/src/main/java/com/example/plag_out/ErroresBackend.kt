@@ -81,7 +81,8 @@ val ERRORES_REPORTE = mapOf(
     "report_plantation_not_found" to "No encontramos la plantación.",
     "report_pest_not_compatible" to "La plaga no afecta a este cultivo.",
     "report_plantation_location_unavailable" to "El terreno no tiene una ubicación válida.",
-    "plaga_inactiva" to "La plaga ya no está disponible."
+    "plaga_inactiva" to "La plaga ya no está disponible.",
+    "etapa_no_corresponde_a_la_plaga" to "La etapa elegida no corresponde a esta plaga."
 )
 
 
@@ -111,6 +112,9 @@ private fun mensajeDeValidacion(campo: String, code: String): String {
     return when (code) {
         "fecha_siembra_future" -> "La fecha de siembra no puede ser futura."
         "fecha_siembra_too_old" -> "La fecha de siembra no puede ser de hace más de un año."
+        "report_observed_in_future" ->
+            "La fecha y hora del celular están adelantadas. Corregilas y volvé a intentar."
+        "report_observed_too_old" -> "El reporte no puede ser de hace más de un año."
         "missing" -> "Falta completar $nombre."
         "string_too_short" -> "Revisá $nombre: no puede quedar en blanco."
         "string_too_long" -> "Revisá $nombre: tiene demasiados caracteres."
@@ -137,7 +141,7 @@ private val ETIQUETAS_CAMPOS = mapOf(
     "plaga_id" to "la plaga",
     "fecha_siembra" to "la fecha de siembra",
     "umbral_riesgo" to "el umbral de riesgo",
-    "umbral_alerta_ml" to "el umbral de alerta",
     "radio_notificacion_km" to "el radio de notificación",
-    "observaciones" to "las observaciones"
+    "observaciones" to "las observaciones",
+    "timestamp_ms" to "la fecha del reporte"
 )

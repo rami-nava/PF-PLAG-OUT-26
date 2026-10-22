@@ -8,64 +8,6 @@ import java.io.Serial
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-/*
-@Serializable
-data class GDDSimulationRequest(
-    val latitude: Double,
-    val longitude: Double,
-    val startDate: String,
-    val currentDate: String,
-    val initialGDD: Int,
-    val targetGDD: Int,
-    val baseTemperature: Double,
-    val cropName: String = "Unknown",
-    val notes: String = ""
-)*/
-/*
-@Serializable
-data class GDDSimulationResponse(
-    @SerializedName("current_gdd")
-    val currentGDD: Int,
-    @SerializedName("target_gdd")
-    val targetGDD: Int,
-    @SerializedName("progress_percentage")
-    val progressPercentage: Float,
-    val date: String,
-    @SerializedName("avg_temp")
-    val avgTemp: Float,
-    @SerializedName("gdd_gained")
-    val gddGained: Float,
-    @SerializedName("target_reached")
-    val targetReached: Boolean,
-    val message: String
-)*/
-
-@Serializable
-data class HealthResponse(
-    val status: String
-)
-/*
-data class Monitoreo(
-    val id: Int,
-    val plantacion_id: Int,
-    val plaga_id: Int,
-    val fecha: Date,
-    val gdd_diario: Float,
-    val gdd_acumulado: Float,
-    val estadio_biologico: String,
-    val porc_riesgo_calculado: Float,
-    val nivel_alerta: Int
-)*/
-
-/*
-@Serializable
-data class MonitoreoResponse(
-    @SerializedName("plantacion")
-    val plantacion: PlantacionResponse,
-    @SerializedName("monitoreos")
-    val monitoreos: List<Monitoreo>
-)*/
-
 @Entity(tableName = "monitoreos")
 @Serializable
 data class MonitoreoResponse(
@@ -80,20 +22,13 @@ data class MonitoreoResponse(
     val terreno_nombre: String,
     @SerializedName("cultivo_nombre")
     val cultivo_nombre: String,
+    @SerializedName("plaga_id")
+    val plaga_id: Int,
     @SerializedName("plaga_nombre")
     val plaga_nombre: String,
-    @SerializedName("gdd_diario")
-    val gdd_diario: Float,
-    @SerializedName("gdd_acumulado")
-    val gdd_acumulado: Float,
+    // GDD hasta la eclosión. El avance, el nivel y el estadio viven en los ciclos.
     @SerializedName("gdd_objetivo")
     val gdd_objetivo: Float,
-    @SerializedName("progreso")
-    val progreso: Float,
-    @SerializedName("nivel_alerta")
-    val nivel_alerta: Int,
-    @SerializedName("fecha_actualizacion")
-    val fecha_actualizacion: LocalDate,
     @SerializedName("umbral_riesgo")
     val umbral_riesgo: Int? = null,
     @SerializedName("activo")
@@ -102,17 +37,14 @@ data class MonitoreoResponse(
     val fecha_inicio: LocalDate? = null,
     @SerializedName("plaga_nombre_cientifico")
     val plaga_nombre_cientifico: String? = null,
-    @SerializedName("umbral_alerta_ml")
-    val umbral_alerta_ml: Float? = null,
+    @SerializedName("alertas_ml_activas")
+    val alertas_ml_activas: Boolean? = null,
     @SerializedName("umbral_alerta_ml_recomendado")
     val umbral_alerta_ml_recomendado: Float? = null,
-    @SerializedName("umbral_alerta_ml_efectivo")
-    val umbral_alerta_ml_efectivo: Float? = null,
     @SerializedName("modelo_alerta_ml_id")
     val modelo_alerta_ml_id: String? = null,
     @SerializedName("horizonte_alerta_ml_dias")
     val horizonte_alerta_ml_dias: Int? = null,
-    val estado_seguimiento: String? = null,
     val ciclos: List<GddCicloResponse>? = null,
     @SerializedName("observaciones")
     val observaciones: String? = null
@@ -245,8 +177,18 @@ data class PlagaResponse(
     @SerializedName("nombre_cientifico")
     val nombre_cientifico: String,
     @SerializedName("cultivos_afectados")
-    val cultivos_afectados: List<Int>? = null
-)
+    val cultivos_afectados: List<Int>? = null,
+    // Etapas que admite un reporte de esta plaga, en orden del ciclo de vida (las define el
+    // backend según el tipo de desarrollo; sin dato, todas).
+    @SerializedName("etapas")
+    val etapas: List<String>? = null,
+    // False cuando la plaga no tiene parámetros térmicos citados: se puede reportar, pero no
+    // admite monitoreos GDD nuevos. Nullable por Gson (ver arriba); sin dato, decide el backend.
+    @SerializedName("modelo_termico")
+    val modelo_termico: Boolean? = null
+) {
+    val admiteMonitoreo: Boolean get() = modelo_termico != false
+}
 
 @Serializable
 data class MonitoreoRequest(
@@ -267,6 +209,8 @@ data class UpdateMonitoreoRequest(
     val umbral_riesgo: Int? = null,
     @SerializedName("activo")
     val activo: Boolean? = null,
+    @SerializedName("alertas_ml_activas")
+    val alertas_ml_activas: Boolean? = null,
     // para borrar la nota se manda "" (cadena vacía), no null.
     @SerializedName("observaciones")
     val observaciones: String? = null
@@ -280,8 +224,7 @@ data class UpdatePlantacionRequest(
 
 @Serializable
 data class CreateUserRequest(
-    @SerializedName("email")
-    val email: String,
+    // The backend takes the email from the signed token only.
     @SerializedName("nombre")
     val nombre: String,
     @SerializedName("apellido")
@@ -546,9 +489,25 @@ data class PlagaAdmin(
     @SerializedName("activo")
     val activo: Boolean? = null,
     @SerializedName("monitoreos_activos")
-    val monitoreos_activos: Int? = null
+    val monitoreos_activos: Int? = null,
+    @SerializedName("referencia_termica")
+    val referencia_termica: ReferenciaTermica? = null
 ) {
     val estaActiva: Boolean get() = activo != false
+}
+
+/**
+ * Los parámetros citados de la plaga (config/pest_thermal_parameters.v1.yaml del backend).
+ * [estado]: "validado", "sin_modelo" o "sin_fuente"; [difiere]: campos del catálogo que una
+ * edición apartó de la fuente.
+ */
+data class ReferenciaTermica(
+    @SerializedName("estado")
+    val estado: String? = null,
+    @SerializedName("difiere")
+    val difiere: List<String>? = null
+) {
+    val validada: Boolean get() = estado == "validado"
 }
 
 // En el PATCH solo se mandan los campos tocados: Gson omite los null.
@@ -643,6 +602,120 @@ data class UsuarioAdmin(
             .joinToString(" ")
             .ifEmpty { email }
 }
+
+// GET /admin/metricas: tableros de todos los productores, con lotes anónimos (sin dueño,
+// nombre ni ubicación). Contrato y definiciones: docs/admin-metrics.md del backend.
+// Gson no aplica los valores por defecto de Kotlin: todo lo que el backend puede mandar
+// en null es nullable.
+
+data class NivelSemaforoAdmin(
+    @SerializedName("lotes") val lotes: Int,
+    @SerializedName("hectareas") val hectareas: Float
+)
+
+data class SemaforoAdmin(
+    @SerializedName("verde") val verde: NivelSemaforoAdmin,
+    @SerializedName("amarillo") val amarillo: NivelSemaforoAdmin,
+    @SerializedName("rojo") val rojo: NivelSemaforoAdmin,
+    // Lotes cuyos monitoreos activos esperan el biofix: no entran en los totales.
+    @SerializedName("esperando_biofix") val esperando_biofix: NivelSemaforoAdmin,
+    @SerializedName("total_lotes") val total_lotes: Int,
+    @SerializedName("total_hectareas") val total_hectareas: Float
+)
+
+data class PlagaEnCultivoAdmin(
+    @SerializedName("plaga") val plaga: String,
+    @SerializedName("plaga_cientifico") val plaga_cientifico: String?,
+    @SerializedName("lotes") val lotes: Int,
+    @SerializedName("porcentaje") val porcentaje: Float,
+    @SerializedName("casos_alerta") val casos_alerta: Int
+)
+
+data class CultivoMetricasAdmin(
+    @SerializedName("cultivo") val cultivo: String,
+    @SerializedName("cultivo_cientifico") val cultivo_cientifico: String?,
+    @SerializedName("lotes") val lotes: Int,
+    @SerializedName("hectareas") val hectareas: Float,
+    @SerializedName("monitoreos_riesgo_alto") val monitoreos_riesgo_alto: Int,
+    @SerializedName("plaga_mas_frecuente") val plaga_mas_frecuente: String?,
+    @SerializedName("fecha_siembra") val fecha_siembra: LocalDate?,
+    @SerializedName("dias_desde_siembra") val dias_desde_siembra: Long?,
+    @SerializedName("plagas") val plagas: List<PlagaEnCultivoAdmin>
+)
+
+data class LoteCriticoAdmin(
+    @SerializedName("cultivo") val cultivo: String,
+    @SerializedName("plaga") val plaga: String,
+    @SerializedName("plaga_cientifico") val plaga_cientifico: String?,
+    @SerializedName("hectareas") val hectareas: Float,
+    @SerializedName("nivel_alerta") val nivel_alerta: Int,
+    @SerializedName("progreso") val progreso: Float,
+    @SerializedName("gdd_acumulado") val gdd_acumulado: Float,
+    @SerializedName("gdd_objetivo") val gdd_objetivo: Float,
+    // huevo | eclosion_cerca | eclosionada (etapa térmica del ciclo)
+    @SerializedName("urgencia") val urgencia: String,
+    @SerializedName("dias_desde_siembra") val dias_desde_siembra: Long?
+)
+
+data class VentanaControlAdmin(
+    @SerializedName("cultivo") val cultivo: String,
+    @SerializedName("plaga") val plaga: String,
+    @SerializedName("plaga_cientifico") val plaga_cientifico: String?,
+    @SerializedName("progreso") val progreso: Float,
+    @SerializedName("estadio") val estadio: String,
+    // incubacion | ventana_optima | ventana_cerrada
+    @SerializedName("estado") val estado: String
+)
+
+data class EficaciaAdmin(
+    @SerializedName("ciclos_archivados") val ciclos_archivados: Int,
+    @SerializedName("exitosos") val exitosos: Int,
+    // null mientras no haya ciclos archivados: la tasa es desconocida.
+    @SerializedName("tasa") val tasa: Float?,
+    @SerializedName("monitoreos_con_rebrote") val monitoreos_con_rebrote: Int
+)
+
+data class PlagaEnCampaniaAdmin(
+    @SerializedName("plaga") val plaga: String,
+    @SerializedName("plaga_cientifico") val plaga_cientifico: String?,
+    @SerializedName("monitoreos") val monitoreos: Int,
+    @SerializedName("incidencia") val incidencia: Float,
+    @SerializedName("riesgo_alto") val riesgo_alto: Int,
+    @SerializedName("porcentaje_riesgo_alto") val porcentaje_riesgo_alto: Float?,
+    @SerializedName("nivel_promedio") val nivel_promedio: Float?
+)
+
+data class CampaniaAdmin(
+    @SerializedName("nombre") val nombre: String,
+    @SerializedName("anio_inicio") val anio_inicio: Int,
+    @SerializedName("monitoreos") val monitoreos: Int,
+    @SerializedName("hectareas") val hectareas: Float,
+    @SerializedName("plaga_predominante") val plaga_predominante: String?,
+    @SerializedName("riesgo_bajo") val riesgo_bajo: Int,
+    @SerializedName("riesgo_moderado") val riesgo_moderado: Int,
+    @SerializedName("riesgo_alto") val riesgo_alto: Int,
+    @SerializedName("esperando_biofix") val esperando_biofix: Int,
+    @SerializedName("plagas") val plagas: List<PlagaEnCampaniaAdmin>
+)
+
+data class HistoricoAdmin(
+    @SerializedName("monitoreos") val monitoreos: Int,
+    @SerializedName("hectareas") val hectareas: Float,
+    @SerializedName("campanias") val campanias: Int,
+    @SerializedName("plaga_lider") val plaga_lider: String?
+)
+
+data class MetricasAdmin(
+    @SerializedName("monitoreos_activos") val monitoreos_activos: Int,
+    @SerializedName("monitoreos_esperando_biofix") val monitoreos_esperando_biofix: Int,
+    @SerializedName("semaforo") val semaforo: SemaforoAdmin,
+    @SerializedName("cultivos") val cultivos: List<CultivoMetricasAdmin>,
+    @SerializedName("lotes_criticos") val lotes_criticos: List<LoteCriticoAdmin>,
+    @SerializedName("ventanas") val ventanas: List<VentanaControlAdmin>,
+    @SerializedName("eficacia") val eficacia: EficaciaAdmin,
+    @SerializedName("historico") val historico: HistoricoAdmin,
+    @SerializedName("campanias") val campanias: List<CampaniaAdmin>
+)
 
 @Serializable
 data class CreateReporteRequest(
@@ -748,7 +821,10 @@ data class GddCicloResponse(
     val gdd_eclosion: Float, val gdd_generacion: Float,
     val progreso: Float, val estadio_biologico: String,
     val nivel_alerta: Int, val dias_pendientes: Int,
-    val fecha_eclosion: String? = null
+    val fecha_eclosion: String? = null,
+    // El huevo acumula con su propia temperatura base hasta la eclosión; gdd_acumulado es el
+    // desarrollo hasta el adulto. Sin dato, el huevo usa la base del ciclo.
+    val gdd_acumulado_huevo: Float? = null
 )
 
 @Serializable

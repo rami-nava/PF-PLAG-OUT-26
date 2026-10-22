@@ -135,16 +135,10 @@ private fun ContenidoPrediccion(
                     )
                 }
                 Spacer(Modifier.height(18.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    DatoPrediccion("Probabilidad", porcentaje(prediccion.probabilidad_porcentaje))
-                    DatoPrediccion(
-                        "Umbral efectivo",
-                        prediccion.umbral_efectivo_porcentaje?.let(::porcentaje) ?: "No disponible"
-                    )
-                }
+                DatoPrediccion("Riesgo de capturas elevadas", porcentaje(prediccion.probabilidad_porcentaje))
                 Spacer(Modifier.height(16.dp))
-                Text("Horizonte: ${prediccion.horizon_days} días", color = PlagOutColors.TextSecondary, fontSize = 13.sp)
-                Text("Modelo: ${prediccion.model_id}", color = PlagOutColors.TextSecondary, fontSize = 12.sp)
+                Text("Estimación a ${prediccion.horizon_days} días. No confirma presencia ni enfermedad: revisá el cultivo.",
+                    color = PlagOutColors.TextSecondary, fontSize = 13.sp)
                 prediccion.confirmacion.expira_en?.let {
                     Text("Vigente hasta: ${formatearFecha(it)}", color = PlagOutColors.TextSecondary, fontSize = 12.sp)
                 }

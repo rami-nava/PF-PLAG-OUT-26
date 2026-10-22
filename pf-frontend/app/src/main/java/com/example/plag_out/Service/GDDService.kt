@@ -22,6 +22,7 @@ import com.example.plag_out.UpdateUserRequest
 import com.example.plag_out.DispositivoRequest
 import com.example.plag_out.DispositivoResponse
 import com.example.plag_out.MarcarLeidaResponse
+import com.example.plag_out.MetricasAdmin
 import com.example.plag_out.NotificacionResponse
 import com.example.plag_out.CreateReporteRequest
 import com.example.plag_out.ReporteResponse
@@ -39,7 +40,6 @@ import com.example.plag_out.CultivoAdminRequest
 import com.example.plag_out.PlagaAdmin
 import com.example.plag_out.PlagaAdminRequest
 import com.example.plag_out.UsuarioAdmin
-import com.google.gson.JsonObject
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -50,9 +50,6 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface GDDService {
-    /*@POST("api/gdd/simulate-day")
-    suspend fun simulateDay(@Body data: GDDSimulationRequest): Response<GDDSimulationResponse>
-    */
     @GET("/monitoreos")
     suspend fun getMonitoreos(
         @Query("limit") limit: Int,
@@ -84,11 +81,19 @@ interface GDDService {
     @DELETE("/terrenos/{id}")
     suspend fun eliminarTerreno(@Path("id") id: Int): Response<Unit>
 
+    // Catálogos paginados: usar todosLosCultivos()/todasLasPlagas()/todosLosCargos(), que
+    // recorren todas las páginas.
     @GET("/cultivos")
-    suspend fun getCultivos(): Response<List<CultivoResponse>>
+    suspend fun getCultivos(
+        @Query("limit") limit: Int,
+        @Query("offset") offset: Int
+    ): Response<List<CultivoResponse>>
 
     @GET("/plagas")
-    suspend fun getPlagas(): Response<List<PlagaResponse>>
+    suspend fun getPlagas(
+        @Query("limit") limit: Int,
+        @Query("offset") offset: Int
+    ): Response<List<PlagaResponse>>
 
     @POST("/plantaciones")
     suspend fun createPlantacion(@Body data: CreatePlantacionRequest): Response<PlantacionCreateResponse>
@@ -114,11 +119,6 @@ interface GDDService {
         @Body data: UpdateMonitoreoRequest
     ): Response<MonitoreoResponse>
 
-    @PATCH("/monitoreos/{id}")
-    suspend fun actualizarUmbralAlertaMl(
-        @Path("id") id: Int,
-        @Body data: JsonObject
-    ): Response<MonitoreoResponse>
 
     @DELETE("/monitoreos/{id}")
     suspend fun eliminarMonitoreo(@Path("id") id: Int): Response<Unit>
@@ -161,7 +161,10 @@ interface GDDService {
     suspend fun marcarNotificacionLeida(@Path("id") id: Int): Response<MarcarLeidaResponse>
 
     @GET("/cargos")
-    suspend fun getCargos(): Response<List<CargoResponse>>
+    suspend fun getCargos(
+        @Query("limit") limit: Int,
+        @Query("offset") offset: Int
+    ): Response<List<CargoResponse>>
 
     @POST("/reportes")
     suspend fun createReporte(@Body data: CreateReporteRequest): Response<ReporteResponse>
@@ -232,8 +235,6 @@ interface GDDService {
     @POST("/ciclos/{id}/archivar")
     suspend fun archivarCiclo(@Path("id") id: Int): Response<com.example.plag_out.GddCicloResponse>
 
-    @GET("api/gdd/health")
-    suspend fun health(): Response<Unit>
 
     // ── Administración ──────────────────────────────────────────────────────
     // El backend valida que el usuario del JWT sea admin: 403 {"detail": "requiere_admin"} si no.
@@ -293,4 +294,9 @@ interface GDDService {
 
     @DELETE("/admin/usuarios/{id}")
     suspend fun adminEliminarUsuario(@Path("id") id: String): Response<AccountDeletionResponse>
+
+    // Tableros de todos los productores, con lotes anónimos. Los productores calculan los
+    // suyos en la app a partir de /monitoreos, /terrenos y /plantaciones.
+    @GET("/admin/metricas")
+    suspend fun adminGetMetricas(): Response<MetricasAdmin>
 }

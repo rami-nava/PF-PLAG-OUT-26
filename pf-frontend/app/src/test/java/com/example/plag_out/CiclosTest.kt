@@ -15,7 +15,6 @@ class CiclosTest {
     @Test
     fun `el nivel efectivo es el mas alto entre los ciclos activos`() {
         val monitoreo = Fixtures.monitoreo(
-            nivelAlerta = 0,
             ciclos = listOf(
                 Fixtures.ciclo(id = 1, nivelAlerta = 0),
                 Fixtures.ciclo(id = 2, nivelAlerta = 2),
@@ -40,7 +39,7 @@ class CiclosTest {
 
     @Test
     fun `sin ciclos activos el nivel es sin datos y no bajo`() {
-        val monitoreo = Fixtures.monitoreo(nivelAlerta = 0, ciclos = null)
+        val monitoreo = Fixtures.monitoreo(ciclos = null)
 
         assertNull(nivelAlertaDeCiclos(monitoreo))
         assertEquals(-1, nivelAlertaEfectivo(monitoreo))
@@ -85,6 +84,23 @@ class CiclosTest {
         )
 
         assertEquals(10, diasEstimadosDelCiclo(ciclo, objetivoMonitoreo = null))
+    }
+
+    @Test
+    fun `la eclosion se mide con el acumulador del huevo`() {
+        // El huevo tiene su propia base: 80 GD en 10 dias (8/dia); el desarrollo lleva 150.
+        // Faltan 40 hasta 120 -> 5 dias, y la barra muestra 80, no 150.
+        val ciclo = Fixtures.ciclo(
+            fechaBiofix = "2026-01-01",
+            fechaActualizacion = "2026-01-11",
+            gddAcumulado = 150f,
+            gddAcumuladoHuevo = 80f,
+            gddEclosion = 120f,
+            progreso = 66f
+        )
+
+        assertEquals(5, diasEstimadosDelCiclo(ciclo, objetivoMonitoreo = null))
+        assertEquals(80f, acumuladoVisibleDelCiclo(ciclo, 120f))
     }
 
     @Test

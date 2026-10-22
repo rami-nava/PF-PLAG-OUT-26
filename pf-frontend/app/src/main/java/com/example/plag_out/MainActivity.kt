@@ -3,6 +3,7 @@ package com.example.plag_out
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -165,7 +166,7 @@ class MainActivity : ComponentActivity() {
 
     private fun leerDeepLink(intent: Intent?) {
         intent ?: return
-        val uri = intent.data ?: return
+        val uri = intent.data ?: Uri.EMPTY
         val uriStr = uri.toString().lowercase()
         val esResetPassword = (uri.scheme == "plagout" && uri.host == "reset-password") ||
             (uri.scheme == "http" && uri.host == "localhost" && uri.port == 3000)
@@ -307,6 +308,9 @@ fun AppNavigation(
     )
     val adminUsuariosViewModel: AdminUsuariosViewModel = viewModel(
         factory = remember { AdminUsuariosViewModelFactory() }
+    )
+    val adminMetricasViewModel: AdminMetricasViewModel = viewModel(
+        factory = remember { AdminMetricasViewModelFactory() }
     )
 
     // Supabase restaura la sesión guardada al iniciar (y renueva el token si hace
@@ -502,7 +506,11 @@ fun AppNavigation(
         }
     }
 
-    val fullBleedScreens = listOf("logIn", "crearCuenta", "recuperarPassword", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "mapa_reportes")
+    val fullBleedScreens = listOf(
+        "logIn", "crearCuenta", "recuperarPassword", "editarPerfil",
+        "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "mapa_reportes",
+        "tableros_control", RUTA_ADMIN_PLAGA_NUEVA, RUTA_ADMIN_PLAGA, RUTA_ADMIN_USUARIO
+    )
     val rutaActual = navBackStackEntry?.destination?.route
 
     // Cerrar sesión: AuthViewModel borra el almacenamiento local (token, Room,
@@ -524,6 +532,7 @@ fun AppNavigation(
             adminPlagasViewModel.limpiar()
             adminCultivosViewModel.limpiar()
             adminUsuariosViewModel.limpiar()
+            adminMetricasViewModel.limpiar()
             navController.navigate("logIn") {
                 popUpTo(0) { inclusive = true }
             }
@@ -574,7 +583,16 @@ fun AppNavigation(
             } catch (e: Exception) {
                 true
             }
-            if (!renovada) {
+            // Con el token renovado puede seguir faltando el perfil (cuenta eliminada o nunca
+            // creada): el backend vuelve a responder 401 y no hay nada que hacer adentro.
+            val sinPerfil = renovada && try {
+                withContext(Dispatchers.IO) { RetrofitClient.gddService.getUsuarioActual() }.code() == 401
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                false
+            }
+            if (!renovada || sinPerfil) {
                 limpiarSesion(false) {
                     Avisos.error(MENSAJE_SESION_EXPIRADA)
                 }
@@ -1023,7 +1041,13 @@ fun AppNavigation(
                 }
             }
             composable(RUTA_ADMIN_METRICAS) {
-                SoloAdmin(navController) { AdminMetricasScreen() }
+                SoloAdmin(navController) { AdminMetricasScreen(viewModel = adminMetricasViewModel, global = true) }
+            }
+            composable("tableros_control") {
+                AdminMetricasScreen(
+                    viewModel = adminMetricasViewModel,
+                    onVolver = { navController.popBackStack() }
+                )
             }
             composable(RUTA_ADMIN_CUENTA) {
                 SoloAdmin(navController) {
@@ -1199,7 +1223,7 @@ private fun PantallaCargandoSesion(esperaAgotada: Boolean, onIrAlLogin: () -> Un
 fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo", "agregar_monitoreo/{plantacion_id}", "logIn", "crearCuenta", "recuperarPassword", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "crear_reporte", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}", "mapa_reportes")
+    val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "seleccionar_cultivo", "agregar_plantacion/{terreno_id}", "agregar_monitoreo", "agregar_monitoreo/{plantacion_id}", "logIn", "crearCuenta", "recuperarPassword", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "crear_reporte", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}", "mapa_reportes", "tableros_control")
     return !screensWithoutNavBar.contains(currentScreen)
 }
 
@@ -1207,6 +1231,6 @@ fun shouldShowBottomBar(navController: NavController): Boolean {
 fun shouldShowTopBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
-    val screensWithoutNavBar = listOf("logIn","crearCuenta","recuperarPassword","perfil","editarPerfil","monitoreo/{monitoreo_id}","prediccion/{prediccion_id}","mapa_reportes")
+    val screensWithoutNavBar = listOf("logIn","crearCuenta","recuperarPassword","perfil","editarPerfil","monitoreo/{monitoreo_id}","prediccion/{prediccion_id}","mapa_reportes","tableros_control")
     return !screensWithoutNavBar.contains(currentScreen)
 }

@@ -11,6 +11,7 @@ import com.example.plag_out.DispositivoRequest
 import com.example.plag_out.DispositivoResponse
 import com.example.plag_out.ConteoReportes
 import com.example.plag_out.MarcarLeidaResponse
+import com.example.plag_out.MetricasAdmin
 import com.example.plag_out.Pagina
 import com.example.plag_out.MonitoreoRequest
 import com.example.plag_out.MonitoreoResponse
@@ -40,7 +41,6 @@ import com.example.plag_out.PlagaAdmin
 import com.example.plag_out.PlagaAdminRequest
 import com.example.plag_out.UsuarioAdmin
 import com.example.plag_out.Service.GDDService
-import com.google.gson.JsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.Response
@@ -90,7 +90,6 @@ class FakeGDDService : GDDService {
     var createMonitoreoResult: () -> Response<MonitoreoResponse> = { noDeclarado("createMonitoreo") }
     var getMonitoreoResult: () -> Response<MonitoreoResponse> = { noDeclarado("getMonitoreo") }
     var actualizarMonitoreoResult: () -> Response<MonitoreoResponse> = { noDeclarado("actualizarMonitoreo") }
-    var actualizarUmbralAlertaMlResult: () -> Response<MonitoreoResponse> = { noDeclarado("actualizarUmbralAlertaMl") }
     var eliminarMonitoreoResult: () -> Response<Unit> = { noDeclarado("eliminarMonitoreo") }
     var createUserResult: () -> Response<CreateUserResponse> = { noDeclarado("createUser") }
     var getUsuarioActualResult: () -> Response<UsuarioResponse> = { noDeclarado("getUsuarioActual") }
@@ -143,7 +142,6 @@ class FakeGDDService : GDDService {
     var deleteReporteResult: () -> Response<Unit> = { Response.success(Unit) }
     var getPrediccionResult: () -> Response<PrediccionDetalleResponse> = { noDeclarado("getPrediccion") }
     var confirmarPrediccionResult: () -> Response<PrediccionConfirmacionResponse> = { noDeclarado("confirmarPrediccion") }
-    var healthResult: () -> Response<Unit> = { noDeclarado("health") }
 
     override suspend fun getMonitoreos(limit: Int, offset: Int): Response<Pagina<MonitoreoResponse>> {
         llamadas += "getMonitoreos"; paginasMonitoreos += limit to offset
@@ -172,11 +170,11 @@ class FakeGDDService : GDDService {
         llamadas += "eliminarTerreno"; return eliminarTerrenoResult()
     }
 
-    override suspend fun getCultivos(): Response<List<CultivoResponse>> {
+    override suspend fun getCultivos(limit: Int, offset: Int): Response<List<CultivoResponse>> {
         llamadas += "getCultivos"; return getCultivosResult()
     }
 
-    override suspend fun getPlagas(): Response<List<PlagaResponse>> {
+    override suspend fun getPlagas(limit: Int, offset: Int): Response<List<PlagaResponse>> {
         llamadas += "getPlagas"; return getPlagasResult()
     }
 
@@ -204,9 +202,6 @@ class FakeGDDService : GDDService {
         llamadas += "actualizarMonitoreo"; ultimoActualizarMonitoreo = data; return actualizarMonitoreoResult()
     }
 
-    override suspend fun actualizarUmbralAlertaMl(id: Int, data: JsonObject): Response<MonitoreoResponse> {
-        llamadas += "actualizarUmbralAlertaMl"; ultimoUmbralAlertaMl = data; return actualizarUmbralAlertaMlResult()
-    }
 
     override suspend fun eliminarMonitoreo(id: Int): Response<Unit> {
         llamadas += "eliminarMonitoreo"; return eliminarMonitoreoResult()
@@ -248,7 +243,7 @@ class FakeGDDService : GDDService {
         llamadas += "eliminarCuenta"; return eliminarCuentaResult()
     }
 
-    override suspend fun getCargos(): Response<List<CargoResponse>> {
+    override suspend fun getCargos(limit: Int, offset: Int): Response<List<CargoResponse>> {
         llamadas += "getCargos"; return getCargosResult()
     }
 
@@ -341,9 +336,6 @@ class FakeGDDService : GDDService {
         return confirmarPrediccionResult()
     }
 
-    override suspend fun health(): Response<Unit> {
-        llamadas += "health"; return healthResult()
-    }
 
     // Cuerpos de las peticiones recibidas, para verificar que el ViewModel arma bien el request.
     var ultimoCreateTerreno: CreateTerrenoRequest? = null
@@ -359,8 +351,6 @@ class FakeGDDService : GDDService {
     var ultimoActualizarUsuario: UpdateUserRequest? = null
         private set
     var ultimoActualizarMonitoreo: UpdateMonitoreoRequest? = null
-        private set
-    var ultimoUmbralAlertaMl: JsonObject? = null
         private set
     var ultimoConsentimientoModelo: ConsentimientoModeloRequest? = null
         private set
@@ -397,6 +387,7 @@ class FakeGDDService : GDDService {
     var adminSuspenderUsuarioResult: () -> Response<UsuarioAdmin> = { noDeclarado("adminSuspenderUsuario") }
     var adminReactivarUsuarioResult: () -> Response<UsuarioAdmin> = { noDeclarado("adminReactivarUsuario") }
     var adminEliminarUsuarioResult: () -> Response<AccountDeletionResponse> = { noDeclarado("adminEliminarUsuario") }
+    var adminGetMetricasResult: () -> Response<MetricasAdmin> = { noDeclarado("adminGetMetricas") }
 
     var adminGetCultivosResult: () -> Response<List<CultivoAdmin>> = { noDeclarado("adminGetCultivos") }
     var adminGetCultivoResult: () -> Response<CultivoAdmin> = { noDeclarado("adminGetCultivo") }
@@ -479,6 +470,11 @@ class FakeGDDService : GDDService {
     override suspend fun adminEliminarUsuario(id: String): Response<AccountDeletionResponse> {
         llamadas += "adminEliminarUsuario"
         return adminEliminarUsuarioResult()
+    }
+
+    override suspend fun adminGetMetricas(): Response<MetricasAdmin> {
+        llamadas += "adminGetMetricas"
+        return adminGetMetricasResult()
     }
 
     private fun <T> noDeclarado(endpoint: String): Response<T> =
