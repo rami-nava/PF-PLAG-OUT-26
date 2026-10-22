@@ -733,7 +733,7 @@ private fun TarjetaEtapasMonitoreos(conteo: Map<EstadoVentanaControl, Int>) {
     TarjetaMetrica(
         icono = Icons.Outlined.Schedule,
         titulo = "Etapas de los monitoreos activos",
-        subtitulo = "Cuántos monitoreos con mediciones hay en cada etapa según los grados-día acumulados. El detalle por lote está en Productor."
+        subtitulo = "Cuántos monitoreos con mediciones hay en cada etapa según los grados-día acumulados. El detalle por lote está en Lotes."
     ) {
         EstadoVentanaControl.entries.forEachIndexed { index, etapa ->
             val (color, etiqueta) = when (etapa) {
@@ -792,7 +792,7 @@ private fun TarjetaTratamientos(tratamientos: TratamientosAdmin?) {
             Column(Modifier.fillMaxWidth().testTag("tratamiento_${producto.producto}")) {
                 Text(producto.producto, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
                 Text(
-                    "${producto.tratamientos} ${if (producto.tratamientos == 1) "tratamiento" else "tratamientos"} · ${producto.evaluados} evaluados",
+                    "${producto.tratamientos} ${if (producto.tratamientos == 1) "tratamiento" else "tratamientos"} · ${producto.evaluados} ${if (producto.evaluados == 1) "evaluado" else "evaluados"}",
                     fontSize = 11.sp,
                     color = PlagOutColors.TextSecondary
                 )
