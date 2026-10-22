@@ -293,9 +293,11 @@ data class AccountDeletionResponse(
 )
 
 @Serializable
+// El dispositivo se registra por su Firebase installation ID (FID). El backend envía con
+// Message(fid=...); fcm_token queda solo para las APK anteriores.
 data class DispositivoRequest(
-    @SerializedName("fcm_token")
-    val fcm_token: String,
+    @SerializedName("fid")
+    val fid: String,
     @SerializedName("plataforma")
     val plataforma: String = "android"
 )

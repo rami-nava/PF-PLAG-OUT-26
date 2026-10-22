@@ -145,13 +145,13 @@ interface GDDService {
     @DELETE("/usuarios/me")
     suspend fun eliminarCuenta(): Response<AccountDeletionResponse>
 
-    // Registra (upsert) el token FCM del dispositivo para el usuario del JWT
+    // Registra (upsert) el dispositivo, por su Firebase installation ID, para el usuario del JWT
     @POST("/usuarios/fcm-token")
     suspend fun registrarDispositivo(@Body data: DispositivoRequest): Response<DispositivoResponse>
 
-    // Elimina el token FCM del usuario actual (logout)
+    // Da de baja el dispositivo del usuario actual (logout); acepta el FID tal cual.
     @DELETE("/usuarios/fcm-token/{fcm_token}")
-    suspend fun eliminarDispositivo(@Path("fcm_token") fcmToken: String): Response<Unit>
+    suspend fun eliminarDispositivo(@Path("fcm_token") fid: String): Response<Unit>
 
     // Historial in-app del usuario del JWT. El backend devuelve solo las no leídas.
     @GET("/notificaciones")

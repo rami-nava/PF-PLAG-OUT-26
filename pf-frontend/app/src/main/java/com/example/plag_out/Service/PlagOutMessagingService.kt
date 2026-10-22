@@ -1,13 +1,13 @@
 package com.example.plag_out.Service
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -27,21 +27,25 @@ import kotlinx.coroutines.launch
 /**
  * Recibe los push de FCM y refresca el token del dispositivo.
  */
+// El lint todavía pide onNewToken, pero con el registro por FID FCM ya no lo llama: los cambios
+// llegan por onRegistered().
+@SuppressLint("MissingFirebaseInstanceTokenRefresh")
 class PlagOutMessagingService : FirebaseMessagingService() {
     //Se llaman de manera automatica cuando el sistema lo precisa
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    override fun onNewToken(token: String) {
+    // Con el registro por FID, FCM avisa acá cada vez que el installation ID cambia (onNewToken
+    // ya no se llama).
+    override fun onRegistered(installationId: String) {
         // Solo tiene sentido registrar si hay sesión: si no, el login lo hará luego.
         val haySesion = runCatching {
             SupabaseProvider.client.auth.currentAccessTokenOrNull() != null
         }.getOrDefault(false)
-        // Y si el usuario apagó las notificaciones en su perfil, un token nuevo no debe volver a
+        // Y si el usuario apagó las notificaciones en su perfil, un FID nuevo no debe volver a
         // suscribir el dispositivo por la puerta de atrás.
         if (haySesion && PreferenciasUsuario.notificacionesActivadas(this)) {
-            scope.launch { FcmTokenRegistrar.registrar(token) }
+            scope.launch { FcmTokenRegistrar.registrar(installationId) }
         }
     }
 
