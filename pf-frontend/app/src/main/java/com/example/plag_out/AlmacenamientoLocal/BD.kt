@@ -18,8 +18,8 @@ import java.time.LocalDate
 import java.util.Date
 
 @Database(
-    entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class, UsuarioResponse::class, FeedbackPrediccionPendiente::class, BiofixPendiente::class],
-    version = 18,
+    entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class, UsuarioResponse::class, FeedbackPrediccionPendiente::class, BiofixPendiente::class, TratamientoPendiente::class],
+    version = 19,
     exportSchema = false
 )
 
@@ -28,6 +28,7 @@ abstract class AppDatabase : RoomDatabase() {
 
     abstract fun presenceRetryDao(): PresenceRetryDao
     abstract fun biofixDao(): BiofixDao
+    abstract fun tratamientoPendienteDao(): TratamientoPendienteDao
     abstract fun monitoreoDao(): MonitoreoDao
     abstract fun terrenoDao(): TerrenoDao
     abstract fun plantacionDao(): PlantacionDao
@@ -45,7 +46,7 @@ abstract class AppDatabase : RoomDatabase() {
                     appContext,
                     AppDatabase::class.java,
                     "gdd_database"
-                ).addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, migracion17a18(appContext))
+                ).addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, migracion17a18(appContext), MIGRATION_18_19)
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     // Si una versión futura cae en la migración destructiva, también se invalidan
                     // las marcas que describían el caché eliminado.
@@ -80,6 +81,22 @@ abstract class AppDatabase : RoomDatabase() {
                         "PRIMARY KEY(`monitoreo_id`))"
                 )
                 CacheTracker.invalidar(context, CacheTracker.MONITOREOS)
+            }
+        }
+
+        /** Bandeja de salida de tratamientos (TratamientoPendiente). No toca los cachés. */
+        val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tratamiento_pendiente` (`idempotency_key` TEXT NOT NULL, " +
+                        "`owner_id` TEXT NOT NULL, `monitoreo_id` INTEGER NOT NULL, `tratamiento_id` INTEGER, " +
+                        "`payload` TEXT NOT NULL, `estado` TEXT NOT NULL DEFAULT 'pendiente', " +
+                        "`creado_en` INTEGER NOT NULL, PRIMARY KEY(`idempotency_key`))"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_tratamiento_pendiente_owner_id_monitoreo_id` " +
+                        "ON `tratamiento_pendiente` (`owner_id`, `monitoreo_id`)"
+                )
             }
         }
 

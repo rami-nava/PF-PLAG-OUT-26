@@ -372,6 +372,45 @@ class FakeGDDService : GDDService {
     override suspend fun registrarBiofix(id: Int, data: com.example.plag_out.BiofixRequest): Response<com.example.plag_out.BiofixResult> = noDeclarado("registrarBiofix")
     override suspend fun getCiclo(id: Int): Response<com.example.plag_out.GddCicloResponse> = noDeclarado("getCiclo")
 
+    var getTratamientosResult: () -> Response<List<com.example.plag_out.TratamientoResponse>> = { noDeclarado("getTratamientos") }
+    var registrarTratamientoResult: (com.example.plag_out.TratamientoRequest) -> Response<com.example.plag_out.TratamientoResponse> =
+        { noDeclarado("registrarTratamiento") }
+    var actualizarTratamientoResult: () -> Response<com.example.plag_out.TratamientoResponse> = { noDeclarado("actualizarTratamiento") }
+    var eliminarTratamientoResult: () -> Response<Unit> = { noDeclarado("eliminarTratamiento") }
+    val tratamientosEnviados = mutableListOf<com.example.plag_out.TratamientoRequest>()
+    // El JSON exacto de cada PATCH, con los null explícitos.
+    val edicionesDeTratamiento = mutableListOf<Pair<Int, com.google.gson.JsonObject>>()
+
+    override suspend fun getTratamientos(monitoreoId: Int): Response<List<com.example.plag_out.TratamientoResponse>> {
+        llamadas += "getTratamientos"
+        return getTratamientosResult()
+    }
+
+    override suspend fun registrarTratamiento(
+        monitoreoId: Int,
+        data: com.example.plag_out.TratamientoRequest
+    ): Response<com.example.plag_out.TratamientoResponse> {
+        llamadas += "registrarTratamiento"
+        tratamientosEnviados += data
+        return registrarTratamientoResult(data)
+    }
+
+    override suspend fun actualizarTratamiento(
+        tratamientoId: Int,
+        cambios: okhttp3.RequestBody
+    ): Response<com.example.plag_out.TratamientoResponse> {
+        llamadas += "actualizarTratamiento"
+        val buffer = okio.Buffer()
+        cambios.writeTo(buffer)
+        edicionesDeTratamiento += tratamientoId to com.google.gson.JsonParser.parseString(buffer.readUtf8()).asJsonObject
+        return actualizarTratamientoResult()
+    }
+
+    override suspend fun eliminarTratamiento(tratamientoId: Int): Response<Unit> {
+        llamadas += "eliminarTratamiento"
+        return eliminarTratamientoResult()
+    }
+
     var archivarCicloResult: () -> Response<com.example.plag_out.GddCicloResponse> = { noDeclarado("archivarCiclo") }
     override suspend fun archivarCiclo(id: Int): Response<com.example.plag_out.GddCicloResponse> {
         llamadas += "archivarCiclo"

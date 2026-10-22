@@ -42,15 +42,21 @@ object PresenceRetryScheduler {
             SupabaseProvider.client.auth.sessionStatus.collectLatest { status ->
                 if (status !is SessionStatus.Authenticated) return@collectLatest
                 val owner = SupabaseProvider.client.auth.currentUserOrNull()?.id ?: return@collectLatest
-                val dao = AppDatabase.getDatabase(app).presenceRetryDao()
-                combine(dao.manual(owner), dao.feedback(owner)) { manual, feedback -> manual to feedback }
-                    .collect { (manual, feedback) ->
+                val db = AppDatabase.getDatabase(app)
+                val dao = db.presenceRetryDao()
+                combine(dao.manual(owner), dao.feedback(owner), db.tratamientoPendienteDao().todos(owner)) { manual, feedback, tratamientos ->
+                    Triple(manual, feedback, tratamientos)
+                }
+                    .collect { (manual, feedback, tratamientos) ->
                         manual.filter { it.estado == "pendiente" }.forEach { row ->
                             val key = runCatching { Gson().fromJson(row.payload, BiofixRequest::class.java).idempotency_key }.getOrNull()
                             if (key != null) enqueue(app, owner, "manual", row.monitoreo_id, key)
                         }
                         feedback.filter { it.estado == "pendiente" && it.respuesta == "presente" && it.biofix_json != null }
                             .forEach { enqueue(app, owner, "ml", it.prediccion_id, it.idempotency_key) }
+                        // Un alta convertida en edición conserva la clave: la fila se relee al correr.
+                        tratamientos.filter { it.estado == "pendiente" }
+                            .forEach { enqueue(app, owner, TratamientosViewModel.TIPO_TRATAMIENTO, it.monitoreo_id, it.idempotency_key) }
                     }
             }
         }
@@ -81,6 +87,15 @@ class PresenceRetryWorker(context: Context, params: WorkerParameters) : Coroutin
         SupabaseProvider.client.auth.sessionStatus.first { it !is SessionStatus.Initializing }
         if (SupabaseProvider.client.auth.currentUserOrNull()?.id != owner) return Result.success()
         val db = AppDatabase.getDatabase(applicationContext)
+        if (kind == TratamientosViewModel.TIPO_TRATAMIENTO) {
+            val tratamientos = db.tratamientoPendienteDao()
+            val fila = tratamientos.get(owner, key) ?: return Result.success()
+            if (fila.estado != "pendiente") return Result.success()
+            val envio = enviarTratamientoPendiente(fila, RetrofitClient.forPresenceRetry(owner), tratamientos)
+            if (envio == EnvioTratamiento.Reintentar) return Result.retry()
+            PresenceRetryEvents.events.emit(PresenceRetryEvent(owner, kind, id))
+            return Result.success()
+        }
         val dao = db.presenceRetryDao()
         val service = RetrofitClient.forPresenceRetry(owner)
         val gson = Gson()

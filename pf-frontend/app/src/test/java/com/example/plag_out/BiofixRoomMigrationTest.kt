@@ -53,7 +53,7 @@ class BiofixRoomMigrationTest {
         sqlite.version = 12
         sqlite.close()
         val migrated = Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .addMigrations(AppDatabase.MIGRATION_12_13, AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17, AppDatabase.migracion17a18(context)).allowMainThreadQueries().build()
+            .addMigrations(AppDatabase.MIGRATION_12_13, AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17, AppDatabase.migracion17a18(context), AppDatabase.MIGRATION_18_19).allowMainThreadQueries().build()
         val pending = migrated.feedbackPrediccionDao().get("owner",41)!!
         assertEquals("same-uuid",pending.idempotency_key)
         assertEquals("requiere_revision",pending.estado)
