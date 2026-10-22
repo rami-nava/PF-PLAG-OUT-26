@@ -12,7 +12,10 @@ import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -134,5 +137,23 @@ class AgregarPlantacionViewModelTest {
         esperarEstado(vm.state) { !it.isGuardando && exito }
         val guardada = kotlinx.coroutines.runBlocking { PlantacionRepository(plantacionDao).obtenerPlantaciones() }
         assertEquals("Terreno 42", guardada.single().terreno_nombre)
+    }
+
+    @Test
+    fun `cultivo dado de baja mientras se completaba el formulario recarga la lista`() {
+        val vm = viewModel()
+        vm.actualizarCultivo(Fixtures.cultivo())
+        vm.seleccionarFecha(millisUtc(LocalDate.of(2026, 9, 1)))
+        gddService.createPlantacionResult = {
+            Response.error(409, """{"detail":"cultivo_inactivo"}""".toResponseBody("application/json".toMediaType()))
+        }
+        gddService.getCultivosResult = { Response.success(emptyList()) }
+
+        vm.guardarPlantacion(terrenoId = 1) { }
+
+        val estado = esperarEstado(vm.state) { !it.isGuardando && it.error != null && !it.isLoading }
+        assertEquals(MENSAJE_CULTIVO_INACTIVO, estado.error)
+        assertNull(estado.cultivoSeleccionado)
+        assertEquals(2, gddService.vecesLlamado("getCultivos"))
     }
 }

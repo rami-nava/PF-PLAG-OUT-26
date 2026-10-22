@@ -530,6 +530,51 @@ data class PlagaAdminRequest(
     val activo: Boolean? = null
 )
 
+data class CultivoAdmin(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("nombre")
+    val nombre: String,
+    @SerializedName("nombre_cientifico")
+    val nombre_cientifico: String,
+    @SerializedName("activo")
+    val activo: Boolean? = null,
+    @SerializedName("plantaciones_activas")
+    val plantaciones_activas: Int? = null,
+    @SerializedName("monitoreos_activos")
+    val monitoreos_activos: Int? = null,
+    @SerializedName("plagas")
+    val plagas: List<PlagaDeCultivo>? = null
+) {
+    val estaActivo: Boolean get() = activo != false
+}
+
+data class PlagaDeCultivo(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("nombre")
+    val nombre: String,
+    @SerializedName("nombre_cientifico")
+    val nombre_cientifico: String,
+    @SerializedName("activo")
+    val activo: Boolean? = null,
+    @SerializedName("monitoreos_activos")
+    val monitoreos_activos: Int? = null
+) {
+    val estaActiva: Boolean get() = activo != false
+}
+
+data class CultivoAdminRequest(
+    @SerializedName("nombre")
+    val nombre: String? = null,
+    @SerializedName("nombre_cientifico")
+    val nombre_cientifico: String? = null,
+    @SerializedName("activo")
+    val activo: Boolean? = null,
+    @SerializedName("plagas")
+    val plagas: List<Int>? = null
+)
+
 data class UsuarioAdmin(
     @SerializedName("id")
     val id: String,

@@ -35,6 +35,8 @@ import com.example.plag_out.PrediccionConfirmacionResponse
 import com.example.plag_out.PrediccionDetalleResponse
 import com.example.plag_out.ConsentimientoModeloRequest
 import com.example.plag_out.ConsentimientoModeloResponse
+import com.example.plag_out.CultivoAdmin
+import com.example.plag_out.CultivoAdminRequest
 import com.example.plag_out.PlagaAdmin
 import com.example.plag_out.PlagaAdminRequest
 import com.example.plag_out.UsuarioAdmin
@@ -254,6 +256,26 @@ interface GDDService {
     // Baja lógica: la plaga queda con activo = false. Se reactiva con PATCH {"activo": true}.
     @DELETE("/admin/plagas/{id}")
     suspend fun adminDesactivarPlaga(@Path("id") id: Int): Response<PlagaAdmin>
+
+    @GET("/admin/cultivos")
+    suspend fun adminGetCultivos(
+        @Query("incluir_inactivos") incluirInactivos: Boolean = true
+    ): Response<List<CultivoAdmin>>
+
+    @GET("/admin/cultivos/{id}")
+    suspend fun adminGetCultivo(@Path("id") id: Int): Response<CultivoAdmin>
+
+    @POST("/admin/cultivos")
+    suspend fun adminCrearCultivo(@Body data: CultivoAdminRequest): Response<CultivoAdmin>
+
+    @PATCH("/admin/cultivos/{id}")
+    suspend fun adminActualizarCultivo(
+        @Path("id") id: Int,
+        @Body data: CultivoAdminRequest
+    ): Response<CultivoAdmin>
+
+    @DELETE("/admin/cultivos/{id}")
+    suspend fun adminDesactivarCultivo(@Path("id") id: Int): Response<CultivoAdmin>
 
     // Solo lista usuarios base: los admins no se gestionan desde la app.
     @GET("/admin/usuarios")

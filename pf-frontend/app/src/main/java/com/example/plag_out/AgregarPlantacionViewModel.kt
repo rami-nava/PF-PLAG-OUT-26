@@ -32,6 +32,8 @@ data class AgregarPlantacionUIState(
     val error: String? = null
 )
 
+internal const val MENSAJE_CULTIVO_INACTIVO = "Este cultivo ya no está disponible. Elegí otro."
+
 @RequiresApi(Build.VERSION_CODES.O)
 class AgregarPlantacionViewModel(
     val context: Context,
@@ -156,10 +158,21 @@ class AgregarPlantacionViewModel(
                         )
                     }
                 } else {
-                    _state.value = _state.value.copy(
-                        isGuardando = false,
-                        error = errorDeRespuesta(response, ERRORES_CREACION, ERRORES_CREACION_CODIGO).enFormularioOAviso()
-                    )
+                    val error = errorDeRespuesta(response, ERRORES_CREACION, ERRORES_CREACION_CODIGO)
+                    if (response.code() == 409 && error.detalle?.contains("cultivo_inactivo") == true) {
+                        // Lo dieron de baja mientras se completaba el formulario
+                        _state.value = _state.value.copy(
+                            isGuardando = false,
+                            cultivoSeleccionado = null
+                        )
+                        cargarCultivos()
+                        _state.value = _state.value.copy(error = MENSAJE_CULTIVO_INACTIVO)
+                    } else {
+                        _state.value = _state.value.copy(
+                            isGuardando = false,
+                            error = error.enFormularioOAviso()
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(

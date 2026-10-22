@@ -61,6 +61,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.text.style.TextAlign
 
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.HelpOutline
 
 import androidx.compose.foundation.shape.CircleShape
@@ -106,11 +107,12 @@ fun AdminBottomNavigationBar(navController: NavController) {
         navController = navController,
         items = listOf(
             0 to BarItem("Plagas", RUTA_ADMIN_PLAGAS, Icons.Outlined.BugReport),
-            1 to BarItem("Usuarios", RUTA_ADMIN_USUARIOS, Icons.Default.Group),
-            2 to BarItem("Métricas", RUTA_ADMIN_METRICAS, Icons.Default.Insights),
-            3 to BarItem("Cuenta", RUTA_ADMIN_CUENTA, Icons.Default.Person)
+            1 to BarItem("Cultivos", RUTA_ADMIN_CULTIVOS, Icons.Outlined.Grass),
+            2 to BarItem("Usuarios", RUTA_ADMIN_USUARIOS, Icons.Default.Group),
+            3 to BarItem("Métricas", RUTA_ADMIN_METRICAS, Icons.Default.Insights),
+            4 to BarItem("Cuenta", RUTA_ADMIN_CUENTA, Icons.Default.Person)
         ),
-        ranuras = 4
+        ranuras = 5
     )
 }
 
