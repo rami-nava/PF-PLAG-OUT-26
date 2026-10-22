@@ -73,6 +73,7 @@ class PlagOutMessagingService : FirebaseMessagingService() {
             data["plantacion_id"]?.let { putExtra(EXTRA_PLANTACION_ID, it) }
             data["prediccion_id"]?.let { putExtra(EXTRA_PREDICCION_ID, it) }
             data["entidad_id"]?.let { putExtra(EXTRA_ENTIDAD_ID, it) }
+            data["notificacion_id"]?.let { putExtra(EXTRA_NOTIFICACION_ID, it) }
         }
         val entidad = data["ciclo_id"] ?: data["prediccion_id"] ?: data["monitoreo_id"] ?: data["reporte_id"]
             ?: data["plantacion_id"] ?: data["entidad_id"] ?: "sin-id"
@@ -144,5 +145,6 @@ class PlagOutMessagingService : FirebaseMessagingService() {
         const val EXTRA_PLANTACION_ID = "plantacion_id"
         const val EXTRA_PREDICCION_ID = "prediccion_id"
         const val EXTRA_ENTIDAD_ID = "entidad_id"
+        const val EXTRA_NOTIFICACION_ID = "notificacion_id"
     }
 }

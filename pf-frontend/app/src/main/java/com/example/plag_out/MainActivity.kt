@@ -93,6 +93,8 @@ class MainActivity : ComponentActivity() {
     // monitoreo_id pendiente de un tap en una notificación; lo observa AppNavigation
     // para hacer el deep-link una vez que hay sesión y NavController.
     private val deepLinkMonitoreoId = mutableStateOf<String?>(null)
+    private val deepLinkAvisoBiofix = mutableStateOf(false)
+    private val deepLinkNotificacionId = mutableStateOf<Int?>(null)
     private val deepLinkReporteId = mutableStateOf<String?>(null)
     private val deepLinkPlantacionId = mutableStateOf<String?>(null)
     private val deepLinkCicloId = mutableStateOf<String?>(null)
@@ -132,7 +134,13 @@ class MainActivity : ComponentActivity() {
                             deepLinkRecoverySession.value = null
                         },
                         deepLinkMonitoreoId = deepLinkMonitoreoId.value,
-                        onDeepLinkMonitoreoConsumido = { deepLinkMonitoreoId.value = null },
+                        deepLinkAvisoBiofix = deepLinkAvisoBiofix.value,
+                        deepLinkNotificacionId = deepLinkNotificacionId.value,
+                        onDeepLinkMonitoreoConsumido = {
+                            deepLinkMonitoreoId.value = null
+                            deepLinkAvisoBiofix.value = false
+                            deepLinkNotificacionId.value = null
+                        },
                         deepLinkReporteId = deepLinkReporteId.value,
                         onDeepLinkReporteConsumido = { deepLinkReporteId.value = null },
                         deepLinkPlantacionId = deepLinkPlantacionId.value,
@@ -225,10 +233,18 @@ class MainActivity : ComponentActivity() {
             entidadId = intent.getStringExtra(PlagOutMessagingService.EXTRA_ENTIDAD_ID)
         ) ?: return
         val id = destino.substringAfterLast('/')
+        val tipoPush = intent.getStringExtra(PlagOutMessagingService.EXTRA_TIPO)?.uppercase()
+        val notifId = intent.getStringExtra(PlagOutMessagingService.EXTRA_NOTIFICACION_ID)?.toIntOrNull()
         when {
             destino.startsWith("ciclo/") -> deepLinkCicloId.value = id
             destino.startsWith("prediccion/") -> deepLinkPrediccionId.value = id
-            destino.startsWith("monitoreo/") -> deepLinkMonitoreoId.value = id
+            destino.startsWith("monitoreo/") -> {
+                deepLinkMonitoreoId.value = id
+                if (tipoPush in setOf("BIOFIX_CICLO", "BIOFIX", "ALERTA_BIOFIX")) {
+                    deepLinkAvisoBiofix.value = true
+                    deepLinkNotificacionId.value = notifId
+                }
+            }
             destino.startsWith("ver_reporte/") -> deepLinkReporteId.value = id
             destino.startsWith("plantacion/") -> deepLinkPlantacionId.value = id
         }
@@ -245,6 +261,8 @@ fun AppNavigation(
     deepLinkCicloId: String? = null,
     onDeepLinkCicloConsumido: () -> Unit = {},
     deepLinkMonitoreoId: String? = null,
+    deepLinkAvisoBiofix: Boolean = false,
+    deepLinkNotificacionId: Int? = null,
     onDeepLinkMonitoreoConsumido: () -> Unit = {},
     deepLinkReporteId: String? = null,
     onDeepLinkReporteConsumido: () -> Unit = {},
@@ -263,6 +281,7 @@ fun AppNavigation(
         FeedbackPrediccionRepository(db.feedbackPrediccionDao())
     }
     val actionScope = rememberCoroutineScope()
+    var avisoBiofixParaMonitoreo by remember { mutableStateOf<Pair<Int, Int?>?>(null) }
 
     val monitoreosViewModel: MonitoreosViewModel = viewModel(
         factory = remember(context, monitoreoRepository) {
@@ -427,6 +446,10 @@ fun AppNavigation(
     // para el biofix).
     LaunchedEffect(deepLinkMonitoreoId, sessionStatus) {
         if (deepLinkMonitoreoId != null && sessionStatus is SessionStatus.Authenticated && !PreferenciasUsuario.esAdmin(context)) {
+            val mId = deepLinkMonitoreoId.toIntOrNull()
+            if (mId != null && deepLinkAvisoBiofix) {
+                avisoBiofixParaMonitoreo = Pair(mId, deepLinkNotificacionId)
+            }
             navController.navigate("monitoreo/$deepLinkMonitoreoId")
             onDeepLinkMonitoreoConsumido()
         }
@@ -751,6 +774,8 @@ fun AppNavigation(
                     backStackEntry.arguments?.getString("monitoreo_id")?.toInt() ?: 0
                 val detalleViewModel: MonitoreoDetalleViewModel =
                     viewModel(factory = MonitoreoDetalleViewModelFactory(context, monitoreoRepository))
+                val esAvisoBiofix = avisoBiofixParaMonitoreo?.first == monitoreoId
+                val notifIdAviso = if (esAvisoBiofix) avisoBiofixParaMonitoreo?.second else null
                 MonitoreoDetalleScreen(
                     monitoreoId = monitoreoId,
                     viewModel = detalleViewModel,
@@ -767,7 +792,14 @@ fun AppNavigation(
                     },
                     onNoDisponible = { id -> monitoreosViewModel.purgarMonitoreo(id) },
                     onVerPlantacion = { plantacionId -> navController.navigate("plantacion/$plantacionId") },
-                    onVerTerreno = { terrenoId -> navController.navigate("terreno/$terrenoId") }
+                    onVerTerreno = { terrenoId -> navController.navigate("terreno/$terrenoId") },
+                    origenAvisoBiofix = esAvisoBiofix,
+                    notificacionId = notifIdAviso,
+                    onAvisoBiofixConsumido = {
+                        if (avisoBiofixParaMonitoreo?.first == monitoreoId) {
+                            avisoBiofixParaMonitoreo = null
+                        }
+                    }
                 )
             }
             composable("ciclo/{ciclo_id}") { entry ->
@@ -1028,6 +1060,10 @@ fun AppNavigation(
             state = notificacionesState,
             onMarcarLeida = { notificacionesViewModel.marcarLeida(it) },
             onNavegar = { destino -> navController.navigate(destino) },
+            onNavegarAvisoBiofix = { monitoreoId, notificacionId ->
+                avisoBiofixParaMonitoreo = Pair(monitoreoId, notificacionId)
+                navController.navigate("monitoreo/$monitoreoId")
+            },
             onDismiss = {
                 mostrarNotificaciones = false
                 notificacionesViewModel.descartarError()
