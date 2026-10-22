@@ -491,7 +491,16 @@ data class PlagaAdmin(
     @SerializedName("monitoreos_activos")
     val monitoreos_activos: Int? = null,
     @SerializedName("referencia_termica")
-    val referencia_termica: ReferenciaTermica? = null
+    val referencia_termica: ReferenciaTermica? = null,
+    // "completo" | "incompleto": qué etapas se ofrecen al reportarla. Null: todas.
+    @SerializedName("tipo_desarrollo")
+    val tipo_desarrollo: String? = null,
+    // Base propia del huevo cuando la fuente la mide aparte; null: el huevo usa temp_base.
+    @SerializedName("temp_base_huevo")
+    val temp_base_huevo: Double? = null,
+    // "biofix" | "eclosion": desde dónde cuenta la fuente los grados-día hasta el adulto.
+    @SerializedName("gdd_generacion_desde")
+    val gdd_generacion_desde: String? = null
 ) {
     val estaActiva: Boolean get() = activo != false
 }
@@ -505,12 +514,34 @@ data class ReferenciaTermica(
     @SerializedName("estado")
     val estado: String? = null,
     @SerializedName("difiere")
-    val difiere: List<String>? = null
+    val difiere: List<String>? = null,
+    // Valores citados por campo: números (°C, GDD) o textos (tipo_desarrollo, gdd_generacion_desde).
+    @SerializedName("valores")
+    val valores: Map<String, Any?>? = null,
+    @SerializedName("fuentes")
+    val fuentes: List<FuenteTermica>? = null,
+    // Por qué no hay modelo, cuando estado es "sin_modelo".
+    @SerializedName("motivo")
+    val motivo: String? = null
 ) {
     val validada: Boolean get() = estado == "validado"
 }
 
-// En el PATCH solo se mandan los campos tocados: Gson omite los null.
+data class FuenteTermica(
+    @SerializedName("clave")
+    val clave: String,
+    @SerializedName("cita")
+    val cita: String,
+    @SerializedName("doi")
+    val doi: String? = null,
+    @SerializedName("url")
+    val url: String? = null
+) {
+    val enlace: String? get() = doi?.let { "https://doi.org/$it" } ?: url
+}
+
+// Alta de una plaga (Gson omite los null). La edición viaja como JSON armado a mano
+// (requestDeEdicion), porque tiene que poder mandar "temp_base_huevo": null.
 data class PlagaAdminRequest(
     @SerializedName("nombre")
     val nombre: String? = null,
@@ -527,7 +558,13 @@ data class PlagaAdminRequest(
     @SerializedName("cultivos_afectados")
     val cultivos_afectados: List<Int>? = null,
     @SerializedName("activo")
-    val activo: Boolean? = null
+    val activo: Boolean? = null,
+    @SerializedName("tipo_desarrollo")
+    val tipo_desarrollo: String? = null,
+    @SerializedName("temp_base_huevo")
+    val temp_base_huevo: Double? = null,
+    @SerializedName("gdd_generacion_desde")
+    val gdd_generacion_desde: String? = null
 )
 
 data class CultivoAdmin(

@@ -3,6 +3,7 @@ package com.example.plag_out
 import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
+import com.google.gson.JsonParser
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import okhttp3.MediaType.Companion.toMediaType
@@ -33,12 +34,13 @@ class AdminPlagasViewModelTest {
     private val carpocapsa = PlagaAdmin(
         id = 1, nombre = "Carpocapsa", nombre_cientifico = "Cydia pomonella",
         temp_base = 10.0, temp_max = 31.0, gdd_eclosion = 100.0, gdd_generacion = 550.0,
-        cultivos_afectados = listOf(1), activo = true, monitoreos_activos = 3
+        cultivos_afectados = listOf(1), activo = true, monitoreos_activos = 3,
+        tipo_desarrollo = "completo", temp_base_huevo = 11.0
     )
     private val formValido = FormularioPlaga(
         nombre = "Chicharrita", nombreCientifico = "Dalbulus maidis",
         tempBase = "10", tempMax = "32,5", gddEclosion = "120", gddGeneracion = "400",
-        cultivos = setOf(2)
+        tipoDesarrollo = "incompleto", cultivos = setOf(2)
     )
 
     @Before
@@ -129,6 +131,10 @@ class AdminPlagasViewModelTest {
         assertEquals(32.5, enviado.temp_max!!, 0.0)
         assertEquals(listOf(2), enviado.cultivos_afectados)
         assertNull(enviado.activo)
+        assertEquals("incompleto", enviado.tipo_desarrollo)
+        assertEquals("biofix", enviado.gdd_generacion_desde)
+        // Sin base propia del huevo no se manda: el backend usa la temperatura base.
+        assertNull(enviado.temp_base_huevo)
     }
 
     @Test
@@ -148,7 +154,7 @@ class AdminPlagasViewModelTest {
         viewModel.guardar(carpocapsa, FormularioPlaga.desde(carpocapsa).copy(gddEclosion = "110")) { }
 
         esperarEstado(viewModel.state) { it.plagas.first().gdd_eclosion == 110.0 }
-        assertEquals(PlagaAdminRequest(gdd_eclosion = 110.0), gddService.ultimaPlagaEnviada)
+        assertEquals(JsonParser.parseString("""{"gdd_eclosion":110.0}"""), gddService.ultimaEdicionPlaga)
     }
 
     @Test
@@ -185,7 +191,75 @@ class AdminPlagasViewModelTest {
         gddService.adminActualizarPlagaResult = { Response.success(carpocapsa) }
         viewModel.reactivar(carpocapsa.id)
         esperarEstado(viewModel.state) { it.plagas.first().estaActiva && !it.guardando }
-        assertEquals(PlagaAdminRequest(activo = true), gddService.ultimaPlagaEnviada)
+        assertEquals(JsonParser.parseString("""{"activo":true}"""), gddService.ultimaEdicionPlaga)
+    }
+
+    @Test
+    fun `vaciar la base del huevo manda null explicito para volver a la temperatura base`() {
+        gddService.adminGetPlagasResult = { Response.success(listOf(carpocapsa)) }
+        viewModel.cargar()
+        esperarEstado(viewModel.state) { it.cargado }
+        gddService.adminActualizarPlagaResult = { Response.success(carpocapsa.copy(temp_base_huevo = null)) }
+
+        viewModel.guardar(carpocapsa, FormularioPlaga.desde(carpocapsa).copy(tempBaseHuevo = "")) { }
+
+        esperarEstado(viewModel.state) { it.plagas.first().temp_base_huevo == null }
+        val enviado = gddService.ultimaEdicionPlaga!!
+        assertEquals(setOf("temp_base_huevo"), enviado.keySet())
+        assertTrue(enviado.get("temp_base_huevo").isJsonNull)
+    }
+
+    @Test
+    fun `cambiar la generacion y el tipo de desarrollo los manda como texto`() {
+        val cambios = requestDeEdicion(
+            carpocapsa,
+            FormularioPlaga.desde(carpocapsa).copy(generacionDesde = "eclosion", tipoDesarrollo = "incompleto")
+        )
+
+        assertEquals(
+            JsonParser.parseString("""{"gdd_generacion_desde":"eclosion","tipo_desarrollo":"incompleto"}"""),
+            cambios
+        )
+    }
+
+    @Test
+    fun `una plaga sin generacion declarada se toma como desde el biofix`() {
+        assertNull(requestDeEdicion(carpocapsa.copy(gdd_generacion_desde = null), FormularioPlaga.desde(carpocapsa)))
+    }
+
+    @Test
+    fun `valida rangos como el backend y exige el tipo de desarrollo`() {
+        val errores = validarPlaga(
+            formValido.copy(tempBase = "-51", tempMax = "61", tempBaseHuevo = "x", gddGeneracion = "100001", tipoDesarrollo = null)
+        )
+
+        assertEquals(
+            setOf(CampoPlaga.TEMP_BASE, CampoPlaga.TEMP_MAX, CampoPlaga.TEMP_BASE_HUEVO, CampoPlaga.GDD_GENERACION, CampoPlaga.TIPO_DESARROLLO),
+            errores.keys
+        )
+        assertTrue(validarPlaga(formValido.copy(tempBaseHuevo = "9,5")).isEmpty())
+        assertEquals(
+            "Tiene que ser menor que la máxima",
+            validarPlaga(formValido.copy(tempBaseHuevo = "33"))[CampoPlaga.TEMP_BASE_HUEVO]
+        )
+    }
+}
+
+class ParametrosCitadosTest {
+    @org.junit.Test
+    fun `muestra cada valor con su unidad y los textos con la etiqueta del panel`() {
+        org.junit.Assert.assertEquals("12,6 °C", mostrarValorTermico("temp_base", 12.6))
+        org.junit.Assert.assertEquals("648 GDD", mostrarValorTermico("gdd_generacion", 648.0))
+        org.junit.Assert.assertEquals("Desde la eclosión", mostrarValorTermico("gdd_generacion_desde", "eclosion"))
+        org.junit.Assert.assertEquals("Metamorfosis incompleta", mostrarValorTermico("tipo_desarrollo", "incompleto"))
+        org.junit.Assert.assertEquals("—", mostrarValorTermico("temp_base_huevo", null))
+    }
+
+    @org.junit.Test
+    fun `la fuente enlaza al doi y si no a su url`() {
+        org.junit.Assert.assertEquals("https://doi.org/10.1111/afe.12118", FuenteTermica("a", "Cita", doi = "10.1111/afe.12118").enlace)
+        org.junit.Assert.assertEquals("https://x.org", FuenteTermica("b", "Cita", url = "https://x.org").enlace)
+        org.junit.Assert.assertNull(FuenteTermica("c", "Cita").enlace)
     }
 }
 
