@@ -84,6 +84,7 @@ fun NotificacionesSheet(
     state: NotificacionesUIState,
     onMarcarLeida: (NotificacionResponse) -> Unit,
     onNavegar: (String) -> Unit,
+    onNavegarAvisoBiofix: ((monitoreoId: Int, notificacionId: Int) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     var visible by remember { mutableStateOf(false) }
@@ -200,7 +201,11 @@ fun NotificacionesSheet(
                                                 val destino = destinoDe(notificacion)
                                                 if (destino != null) {
                                                     cerrar()
-                                                    onNavegar(destino)
+                                                    if (onNavegarAvisoBiofix != null && notificacion.tipo.uppercase() in setOf("BIOFIX_CICLO", "BIOFIX", "ALERTA_BIOFIX") && notificacion.entidad_id != null) {
+                                                        onNavegarAvisoBiofix(notificacion.entidad_id, notificacion.id)
+                                                    } else {
+                                                        onNavegar(destino)
+                                                    }
                                                 }
                                             }
                                         )

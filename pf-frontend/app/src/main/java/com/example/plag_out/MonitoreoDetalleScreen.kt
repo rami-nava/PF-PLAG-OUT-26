@@ -64,7 +64,10 @@ fun MonitoreoDetalleScreen(
     /** El monitoreo ya no existe en el backend: hay que sacarlo también del listado en memoria. */
     onNoDisponible: (monitoreoId: Int) -> Unit = {},
     onVerPlantacion: (Int) -> Unit,
-    onVerTerreno: (Int) -> Unit
+    onVerTerreno: (Int) -> Unit,
+    origenAvisoBiofix: Boolean = false,
+    notificacionId: Int? = null,
+    onAvisoBiofixConsumido: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     var mostrarDialogoFinalizar by remember { mutableStateOf(false) }
@@ -125,7 +128,10 @@ fun MonitoreoDetalleScreen(
                     eliminando = state.eliminando,
                     onRefresh = { viewModel.cargar(monitoreoId, refresco = true) },
                     onFinalizarClick = { mostrarDialogoFinalizar = true },
-                    onEliminarClick = { mostrarDialogoEliminar = true }
+                    onEliminarClick = { mostrarDialogoEliminar = true },
+                    origenAvisoBiofix = origenAvisoBiofix,
+                    notificacionId = notificacionId,
+                    onAvisoBiofixConsumido = onAvisoBiofixConsumido
                 )
             }
         }
@@ -302,7 +308,10 @@ private fun ContenidoMonitoreoDetalle(
     eliminando: Boolean,
     onFinalizarClick: () -> Unit,
     onEliminarClick: () -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    origenAvisoBiofix: Boolean = false,
+    notificacionId: Int? = null,
+    onAvisoBiofixConsumido: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { 2 })
@@ -423,7 +432,10 @@ private fun ContenidoMonitoreoDetalle(
                 else -> CiclosTab(
                     monitoreo = monitoreo,
                     onRefresh = onRefresh,
-                    onVerInfoNivel = onVerInfoNivel
+                    onVerInfoNivel = onVerInfoNivel,
+                    origenAvisoBiofix = origenAvisoBiofix,
+                    notificacionId = notificacionId,
+                    onAvisoBiofixConsumido = onAvisoBiofixConsumido
                 )
             }
         }
@@ -673,7 +685,10 @@ private fun DetalleTab(
 private fun CiclosTab(
     monitoreo: MonitoreoResponse,
     onRefresh: () -> Unit,
-    onVerInfoNivel: () -> Unit
+    onVerInfoNivel: () -> Unit,
+    origenAvisoBiofix: Boolean = false,
+    notificacionId: Int? = null,
+    onAvisoBiofixConsumido: () -> Unit = {}
 ) {
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -695,7 +710,14 @@ private fun CiclosTab(
             )
         }
 
-        BiofixManual(monitoreo, onRefresh, Modifier.weight(1f))
+        BiofixManual(
+            monitoreo = monitoreo,
+            onRefresh = onRefresh,
+            modifier = Modifier.weight(1f),
+            avisoBiofixInicial = origenAvisoBiofix,
+            notificacionId = notificacionId,
+            onAvisoBiofixConsumido = onAvisoBiofixConsumido
+        )
     }
 }
 
