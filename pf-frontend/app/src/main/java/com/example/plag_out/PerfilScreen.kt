@@ -1115,7 +1115,7 @@ internal fun DialogoCambiarPassword(
     var enviando by remember { mutableStateOf(false) }
 
     val actualOk = actual.isNotBlank()
-    val largoOk = nueva.length >= 6
+    val largoOk = nueva.length >= PASSWORD_MINIMA
     val coinciden = repetir.isNotEmpty() && nueva == repetir
     val distintaDeActual = actual.isBlank() || nueva.isBlank() || actual != nueva
     val valido = actualOk && largoOk && coinciden && distintaDeActual
@@ -1164,7 +1164,7 @@ internal fun DialogoCambiarPassword(
         )
 
         Spacer(Modifier.height(12.dp))
-        RequisitoPassword("Al menos 6 caracteres", cumplido = largoOk)
+        RequisitoPassword("Al menos $PASSWORD_MINIMA caracteres", cumplido = largoOk)
         RequisitoPassword("Las dos contraseñas coinciden", cumplido = coinciden)
         if (actual.isNotBlank() && nueva.isNotBlank()) {
             RequisitoPassword("Distinta de la contraseña actual", cumplido = distintaDeActual)

@@ -8,13 +8,11 @@ import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.auth.FlowType
 
 object SupabaseProvider {
-    private const val SUPABASE_URL = "https://djhrmrvcffolxzvcqlux.supabase.co"
-    private const val SUPABASE_ANON_KEY = "sb_publishable_tB5w0haD6JUc2O4ORfWlqA_UWdh5yU9"
-
     val client: SupabaseClient by lazy {
         createSupabaseClient(
-            supabaseUrl = SUPABASE_URL,
-            supabaseKey = SUPABASE_ANON_KEY
+            // Vienen del build (app/build.gradle.kts): cambiar de proyecto no toca el código.
+            supabaseUrl = BuildConfig.SUPABASE_URL,
+            supabaseKey = BuildConfig.SUPABASE_PUBLISHABLE_KEY
         ) {
             install(Auth) {
                 scheme = "plagout"

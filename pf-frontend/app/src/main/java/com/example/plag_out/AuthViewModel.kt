@@ -77,6 +77,10 @@ private const val MENSAJE_PERFIL_INCOMPLETO =
 /** Tope para el logout remoto de Supabase */
 private const val TOPE_SIGN_OUT_MS = 5_000L
 
+
+/** Igual que el mínimo configurado en Supabase Auth: el servidor rechaza las más cortas. */
+const val PASSWORD_MINIMA = 12
+
 class AuthViewModel(
     private val supabaseClient: SupabaseClient,
     private val context: Context,
@@ -425,8 +429,8 @@ class AuthViewModel(
         val nueva = estado.nuevaPassword
         val repetir = estado.repetirPassword
 
-        if (nueva.length < 6) {
-            val errorMsg = "La contraseña debe tener al menos 6 caracteres"
+        if (nueva.length < PASSWORD_MINIMA) {
+            val errorMsg = "La contraseña debe tener al menos $PASSWORD_MINIMA caracteres"
             _recuperarPasswordState.value = estado.copy(error = errorMsg)
             onError(errorMsg)
             return
@@ -535,8 +539,8 @@ class AuthViewModel(
             onError("Ingresá tu contraseña actual")
             return
         }
-        if (nueva.length < 6) {
-            onError("La nueva contraseña debe tener al menos 6 caracteres")
+        if (nueva.length < PASSWORD_MINIMA) {
+            onError("La nueva contraseña debe tener al menos $PASSWORD_MINIMA caracteres")
             return
         }
         if (actual == nueva) {
