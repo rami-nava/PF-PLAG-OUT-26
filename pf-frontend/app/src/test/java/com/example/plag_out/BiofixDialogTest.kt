@@ -53,4 +53,23 @@ class BiofixDialogTest {
         assertEquals(true,result?.confirmar_ciclo_adicional)
         assertNull(result?.ciclo_id)
     }
+
+    @Test fun `tarjeta aviso biofix dispara confirmar y descartar`() {
+        var confirmado = false
+        var descartado = false
+        compose.setContent {
+            TarjetaAvisoBiofixPendiente(
+                onConfirmar = { confirmado = true },
+                onDescartar = { descartado = true }
+            )
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("tarjetaAvisoBiofixPendiente").assertIsDisplayed()
+        compose.onNodeWithTag("btnConfirmarAvisoBiofix").assertIsDisplayed().performClick()
+        assertTrue(confirmado)
+        assertFalse(descartado)
+
+        compose.onNodeWithTag("btnDescartarAvisoBiofix").assertIsDisplayed().performClick()
+        assertTrue(descartado)
+    }
 }

@@ -17,12 +17,20 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -320,14 +328,114 @@ private fun OpcionCiclo(
     }
 }
 
+@Composable
+fun TarjetaAvisoBiofixPendiente(
+    onConfirmar: () -> Unit,
+    onDescartar: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Opción 1: Ámbar suave con barra y etiqueta Terracotta, borde Sun y botón Forest
+    Surface(
+        color = Color(0xFFFFF8EC),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, PlagOutColors.Sun.copy(alpha = 0.55f)),
+        shadowElevation = 3.dp,
+        modifier = modifier.fillMaxWidth().testTag("tarjetaAvisoBiofixPendiente")
+    ) {
+        Row(Modifier.height(IntrinsicSize.Min)) {
+            Box(
+                Modifier
+                    .width(6.dp)
+                    .fillMaxHeight()
+                    .background(PlagOutColors.Terracotta)
+            )
+            Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 8.dp)) {
+                EtiquetaInfo(Icons.Outlined.NotificationsActive, "Seguimiento sugerido", PlagOutColors.Terracotta)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Posible nuevo biofix",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PlagOutColors.TextMain
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Se completó la generación anterior según los GDD. Si observaste adultos en el lote, confirmá el biofix para iniciar el próximo ciclo.",
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                    color = PlagOutColors.TextSecondary
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = onConfirmar,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PlagOutColors.Forest,
+                        contentColor = PlagOutColors.TextOnDark
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp)
+                        .testTag("btnConfirmarAvisoBiofix")
+                ) {
+                    Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Confirmar presencia", fontWeight = FontWeight.SemiBold, maxLines = 1)
+                }
+                TextButton(
+                    onClick = onDescartar,
+                    colors = ButtonDefaults.textButtonColors(contentColor = PlagOutColors.Bark),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("btnDescartarAvisoBiofix")
+                ) {
+                    Text("Ahora no", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: Modifier = Modifier) {
+fun BiofixManual(
+    monitoreo: MonitoreoResponse,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier,
+    avisoBiofixInicial: Boolean = false,
+    notificacionId: Int? = null,
+    onAvisoBiofixConsumido: () -> Unit = {}
+) {
     val context = LocalContext.current
     val dao = remember { AppDatabase.getDatabase(context).biofixDao() }
     val owner = SupabaseProvider.client.auth.currentUserOrNull()?.id
     val scope = rememberCoroutineScope()
     var mostrar by remember { mutableStateOf(false) }
+    // El aviso vive en AppNavigation (no acá) para que sobreviva a recomposiciones del pager
+    // y recargas del detalle: solo se cierra con "Ahora no" o al registrar el biofix.
+    val mostrarAvisoBiofix = avisoBiofixInicial
+    fun descartarAvisoBiofix() {
+        onAvisoBiofixConsumido()
+        scope.launch {
+            try {
+                if (notificacionId != null && notificacionId > 0) {
+                    RetrofitClient.gddService.marcarNotificacionLeida(notificacionId)
+                    NotificacionesEventBus.avisarNuevaNotificacion()
+                } else {
+                    val res = RetrofitClient.gddService.getNotificaciones()
+                    if (res.isSuccessful) {
+                        res.body()?.filter {
+                            !it.leido && it.entidad_id == monitoreo.monitoreo_id &&
+                            it.tipo.uppercase() in setOf("BIOFIX_CICLO", "BIOFIX", "ALERTA_BIOFIX")
+                        }?.forEach { notif ->
+                            RetrofitClient.gddService.marcarNotificacionLeida(notif.id)
+                        }
+                        NotificacionesEventBus.avisarNuevaNotificacion()
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
     var pendiente by remember { mutableStateOf<BiofixRequest?>(null) }
     var enviando by remember { mutableStateOf(false) }
     var pendienteCargado by remember { mutableStateOf(false) }
@@ -348,6 +456,7 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
                 resultado = event.result
                 if (event.result != null) {
                     mensaje = null
+                    onAvisoBiofixConsumido()
                     Avisos.exito("Presencia registrada automáticamente.")
                 }
                 onRefresh()
@@ -373,6 +482,15 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
                     resultado = response.body()
                     dao.delete(owner, monitoreo.monitoreo_id); pendiente = null
                     mensaje = null
+                    onAvisoBiofixConsumido()
+                    if (notificacionId != null && notificacionId > 0) {
+                        launch {
+                            try {
+                                RetrofitClient.gddService.marcarNotificacionLeida(notificacionId)
+                                NotificacionesEventBus.avisarNuevaNotificacion()
+                            } catch (_: Exception) {}
+                        }
+                    }
                     Avisos.exito(
                         if (resultado?.ciclo_creado == true) "Biofix registrado, se inició un nuevo ciclo."
                         else "Observación asociada al ciclo."
@@ -423,12 +541,26 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
                 Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
                     mensaje?.let {
                         EtiquetaInfo(Icons.Filled.ErrorOutline, it, PlagOutColors.RiskWarn)
                     }
                     if (monitoreo.activo) EstadoEsperandoBiofix(Modifier.fillMaxWidth())
                     else EstadoSinCiclos(Modifier.fillMaxWidth())
+                    AnimatedVisibility(
+                        visible = mostrarAvisoBiofix && monitoreo.activo,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        TarjetaAvisoBiofixPendiente(
+                            onConfirmar = { mostrar = true },
+                            onDescartar = { descartarAvisoBiofix() },
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                    }
                 }
             }
         } else {
@@ -447,6 +579,17 @@ fun BiofixManual(monitoreo: MonitoreoResponse, onRefresh: () -> Unit, modifier: 
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp)
             ) {
+                AnimatedVisibility(
+                    visible = mostrarAvisoBiofix && monitoreo.activo,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    TarjetaAvisoBiofixPendiente(
+                        onConfirmar = { mostrar = true },
+                        onDescartar = { descartarAvisoBiofix() },
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
                 mensaje?.let {
                     Spacer(Modifier.height(4.dp))
                     EtiquetaInfo(Icons.Filled.ErrorOutline, it, PlagOutColors.RiskWarn)
