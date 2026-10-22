@@ -25,7 +25,6 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Grass
-import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.LocalFlorist
@@ -104,7 +103,7 @@ fun AdminMetricasScreen(
                     Text(
                         when (state.pestañaActual) {
                             PestañaDashboard.PRODUCTOR -> "Monitoreo operativo de lotes, cultivos y superficie en riesgo"
-                            PestañaDashboard.AGRONOMO -> "Ventana óptima de control, estadios biológicos (GDD) y eficacia"
+                            PestañaDashboard.AGRONOMO -> "Etapas de la plaga y eficacia de tratamientos"
                             PestañaDashboard.HISTORICO -> "Evolución histórica y prevalencia de plagas por campaña agrícola"
                         },
                         fontSize = 12.sp,
@@ -118,7 +117,7 @@ fun AdminMetricasScreen(
                 titulo = "Tableros de Control",
                 subtitulo = when (state.pestañaActual) {
                     PestañaDashboard.PRODUCTOR -> "Monitoreo operativo de lotes, cultivos y superficie en riesgo"
-                    PestañaDashboard.AGRONOMO -> "Ventana óptima de control, estadios biológicos (GDD) y eficacia"
+                    PestañaDashboard.AGRONOMO -> "Etapas de la plaga y eficacia de tratamientos"
                     PestañaDashboard.HISTORICO -> "Evolución histórica y prevalencia de plagas por campaña agrícola"
                 }
             )
@@ -163,7 +162,7 @@ fun AdminMetricasScreen(
                     ) { pestaña ->
                         when (pestaña) {
                             PestañaDashboard.PRODUCTOR -> VistaDashboardProductor(state = state)
-                            PestañaDashboard.AGRONOMO -> VistaDashboardAgronomo(state = state)
+                            PestañaDashboard.AGRONOMO -> VistaDashboardAgronomo(state = state, global = global)
                             PestañaDashboard.HISTORICO -> VistaDashboardHistorico(
                                 state = state,
                                 onSeleccionarCampaña = viewModel::seleccionarCampaña
@@ -374,6 +373,15 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
                     modifier = Modifier.weight(1f)
                 )
             }
+
+            Spacer(Modifier.height(12.dp))
+            Text(
+                textoLotesFueraDelGrafico(semaforo),
+                fontSize = 11.sp,
+                color = PlagOutColors.TextSecondary,
+                lineHeight = 15.sp,
+                modifier = Modifier.testTag("txtLotesFueraDelGrafico")
+            )
         }
     }
 }
@@ -485,15 +493,15 @@ private fun TarjetaRankingLotesCriticos(lotes: List<LoteEnRiesgoCritico>) {
                 Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = PlagOutColors.Terracotta, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Prioridad de Acción por Lote", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
-                    Text("Ordenados por nivel de urgencia y nivel de alerta del lote", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
+                    Text("Lotes por etapa", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text("Del más avanzado al menos avanzado según la etapa y el avance hacia la eclosión", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
 
             Spacer(Modifier.height(14.dp))
 
             if (lotes.isEmpty()) {
-                Text("No hay lotes con alertas activas.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
+                Text("No hay monitoreos activos con mediciones.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
             } else {
                 lotes.take(5).forEachIndexed { index, lote ->
                     ItemFilaLoteCritico(lote = lote)
@@ -588,14 +596,6 @@ private fun ItemFilaLoteCritico(lote: LoteEnRiesgoCritico) {
                 color = PlagOutColors.TextMain
             )
         }
-
-        Spacer(Modifier.height(4.dp))
-        Text(
-            lote.urgenciaAccion,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = if (lote.nivelAlerta >= 2) PlagOutColors.RiskDanger else PlagOutColors.TextSecondary
-        )
     }
 }
 
@@ -707,157 +707,142 @@ private fun BloqueCultivoPlagas(cultivo: ResumenCultivoPlagas) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun VistaDashboardAgronomo(state: AdminMetricasUIState) {
+private fun VistaDashboardAgronomo(state: AdminMetricasUIState, global: Boolean) {
     LazyColumn(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize()
     ) {
-        // 1. Medidor de Ventana Óptima de Aplicación
         item {
             StaggeredAppear(index = 0) {
-                TarjetaVentanaOptimaAplicacion(ventanas = state.ventanasControl)
+                TarjetaEtapasMonitoreos(conteo = conteoPorEtapa(state.ventanasControl))
             }
         }
-
-        // 2. Eficacia de Tratamientos Fitosanitarios
-        state.eficaciaTratamientos?.let { eficacia ->
-            item {
-                StaggeredAppear(index = 1) {
-                    TarjetaEficaciaTratamientos(eficacia = eficacia)
-                }
+        item {
+            StaggeredAppear(index = 1) {
+                if (global) TarjetaTratamientos(tratamientos = state.tratamientos)
+                else TarjetaTratamientosDelProductor()
             }
         }
     }
 }
 
+/** Cuántos monitoreos activos hay en cada etapa, con el mismo texto que el panel. */
 @Composable
-private fun TarjetaVentanaOptimaAplicacion(ventanas: List<VentanaControlBiologico>) {
-    Surface(
-        color = PlagOutColors.Surface,
-        shape = RoundedCornerShape(22.dp),
-        shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
-        modifier = Modifier.fillMaxWidth()
+private fun TarjetaEtapasMonitoreos(conteo: Map<EstadoVentanaControl, Int>) {
+    TarjetaMetrica(
+        icono = Icons.Outlined.Schedule,
+        titulo = "Etapas de los monitoreos activos",
+        subtitulo = "Cuántos monitoreos con mediciones hay en cada etapa según los grados-día acumulados. El detalle por lote está en Productor."
     ) {
-        Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Schedule, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(10.dp))
-                Column {
-                    Text("Etapa de cada lote", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
-                    Text("Grados-día con parámetros citados. Aplicar se decide monitoreando el lote.", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
-                }
+        EstadoVentanaControl.entries.forEachIndexed { index, etapa ->
+            val (color, etiqueta) = when (etapa) {
+                EstadoVentanaControl.HUEVO -> PlagOutColors.RiskOk to "Huevo"
+                EstadoVentanaControl.ECLOSION_CERCA -> PlagOutColors.RiskWarn to "Eclosión cerca"
+                EstadoVentanaControl.ECLOSIONADA -> PlagOutColors.RiskDanger to "Eclosionó"
             }
-
-            Spacer(Modifier.height(14.dp))
-
-            if (ventanas.isEmpty()) {
-                Text("No hay monitoreos activos para evaluar estadios térmicos.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
-            } else {
-                ventanas.forEachIndexed { index, v ->
-                    FilaVentanaBiologica(ventana = v)
-                    if (index < ventanas.size - 1) {
-                        Spacer(Modifier.height(12.dp))
-                        HorizontalDivider(color = PlagOutColors.Divider.copy(alpha = 0.5f))
-                        Spacer(Modifier.height(12.dp))
-                    }
+            val cantidad = conteo[etapa] ?: 0
+            Column(Modifier.fillMaxWidth().testTag("etapa_${etapa.name}")) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+                    Spacer(Modifier.width(8.dp))
+                    Text(etiqueta, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = color, modifier = Modifier.weight(1f))
+                    Text(
+                        "$cantidad ${if (cantidad == 1) "monitoreo" else "monitoreos"}",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PlagOutColors.TextMain
+                    )
                 }
+                Text(
+                    textoDeEtapa(etapa),
+                    fontSize = 11.sp,
+                    color = PlagOutColors.TextSecondary,
+                    lineHeight = 15.sp,
+                    modifier = Modifier.padding(start = 16.dp, top = 2.dp)
+                )
+            }
+            if (index < EstadoVentanaControl.entries.size - 1) {
+                HorizontalDivider(color = PlagOutColors.Divider.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 10.dp))
             }
         }
     }
 }
 
+/** Los tratamientos de todos los productores, por producto (como Control del panel). */
 @Composable
-private fun FilaVentanaBiologica(ventana: VentanaControlBiologico) {
-    val (colorEstado, iconoEstado, etiquetaEstado) = when (ventana.estadoVentana) {
-        EstadoVentanaControl.HUEVO -> Triple(PlagOutColors.RiskOk, Icons.Outlined.HourglassEmpty, "EN HUEVO")
-        EstadoVentanaControl.ECLOSION_CERCA -> Triple(PlagOutColors.RiskWarn, Icons.Outlined.Schedule, "ECLOSIÓN CERCA")
-        EstadoVentanaControl.ECLOSIONADA -> Triple(PlagOutColors.RiskDanger, Icons.Outlined.Warning, "ECLOSIONÓ")
-    }
-
-    Column(Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
+private fun TarjetaTratamientos(tratamientos: TratamientosAdmin?) {
+    TarjetaMetrica(
+        icono = Icons.Outlined.Verified,
+        titulo = "Eficacia de tratamientos",
+        subtitulo = "Con franja sin tratar (testigo): eficacia de Henderson-Tilton. Sin testigo: reducción observada, que incluye la mortalidad natural y no es una eficacia."
+    ) {
+        if (tratamientos == null || tratamientos.registrados == 0) {
+            Text("Todavía no hay tratamientos registrados.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
+            return@TarjetaMetrica
+        }
+        Text(
+            "${tratamientos.registrados} registrados · ${tratamientos.evaluados} con conteo posterior · ${tratamientos.con_testigo} con testigo",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = PlagOutColors.TextMain
+        )
+        tratamientos.productos.forEach { producto ->
+            HorizontalDivider(color = PlagOutColors.Divider.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 10.dp))
+            Column(Modifier.fillMaxWidth().testTag("tratamiento_${producto.producto}")) {
+                Text(producto.producto, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
                 Text(
-                    "${ventana.plagaNombre} • ${ventana.cultivoNombre}",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PlagOutColors.TextMain
+                    "${producto.tratamientos} ${if (producto.tratamientos == 1) "tratamiento" else "tratamientos"} · ${producto.evaluados} evaluados",
+                    fontSize = 11.sp,
+                    color = PlagOutColors.TextSecondary
                 )
-                Text(ventana.terrenoNombre, fontSize = 12.sp, color = PlagOutColors.TextSecondary)
-            }
-
-            Surface(
-                color = colorEstado.copy(alpha = 0.12f),
-                shape = CircleShape
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(iconoEstado, contentDescription = null, tint = colorEstado, modifier = Modifier.size(12.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(etiquetaEstado, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = colorEstado)
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth()) {
+                    CifraTratamiento("Eficacia con testigo", producto.eficacia_promedio, Modifier.weight(1f))
+                    CifraTratamiento("Reducción sin testigo", producto.reduccion_observada_promedio, Modifier.weight(1f))
                 }
             }
         }
-
-        Spacer(Modifier.height(8.dp))
-
-        // Avance del huevo hacia la eclosión
-        BarraProgresoFasesBiologicas(progreso = ventana.progresoGdd, color = colorEstado)
-
-        Spacer(Modifier.height(6.dp))
-
         Text(
-            ventana.recomendacionTecnica,
-            fontSize = 11.sp,
+            "Promedios simples por producto. Un valor negativo indica que la plaga aumentó. Fuente: ${tratamientos.cita}.",
+            fontSize = 10.sp,
             color = PlagOutColors.TextSecondary,
-            lineHeight = 15.sp
+            lineHeight = 14.sp,
+            modifier = Modifier.padding(top = 12.dp)
         )
     }
 }
 
-/** Avance del acumulador del huevo hacia su constante de eclosión (parámetros citados). */
 @Composable
-private fun BarraProgresoFasesBiologicas(progreso: Float, color: Color) {
-    val fraccion = (progreso / 100f).coerceIn(0f, 1f)
-
-    Column(Modifier.fillMaxWidth()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(PlagOutColors.CreamDeep)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(fraccion)
-                    .background(color.copy(alpha = 0.7f))
-            )
-        }
-
-        Spacer(Modifier.height(3.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text("Huevo", fontSize = 9.sp, color = PlagOutColors.TextSecondary)
-            Text("${progreso.toInt()}% hacia la eclosión", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.Forest)
-            Text("Eclosión", fontSize = 9.sp, color = PlagOutColors.TextSecondary)
-        }
+private fun CifraTratamiento(etiqueta: String, porcentaje: Float?, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(
+            formatearPorcentajeTratamiento(porcentaje),
+            fontSize = 18.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = PlagOutColors.TextMain
+        )
+        Text(etiqueta, fontSize = 10.sp, color = PlagOutColors.TextSecondary)
     }
 }
 
+/** El productor ve y carga sus tratamientos en cada monitoreo, no acá. */
 @Composable
-private fun TarjetaEficaciaTratamientos(eficacia: EficaciaTratamientos) {
+private fun TarjetaTratamientosDelProductor() {
+    TarjetaMetrica(
+        icono = Icons.Outlined.Verified,
+        titulo = "Eficacia de tratamientos",
+        subtitulo = "Registrá cada tratamiento con el conteo de la plaga antes y después desde el detalle del monitoreo, en la pestaña Tratamientos. Ahí se calcula su eficacia."
+    ) {}
+}
+
+@Composable
+private fun TarjetaMetrica(
+    icono: ImageVector,
+    titulo: String,
+    subtitulo: String,
+    contenido: @Composable ColumnScope.() -> Unit
+) {
     Surface(
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(22.dp),
@@ -866,46 +851,16 @@ private fun TarjetaEficaciaTratamientos(eficacia: EficaciaTratamientos) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Verified, contentDescription = null, tint = PlagOutColors.RiskOk, modifier = Modifier.size(20.dp))
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(icono, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Eficacia de Tratamientos Aplicados", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
-                    Text("Evaluación de supresión poblacional tras archivar ciclos", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
+                    Text(titulo, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text(subtitulo, fontSize = 12.sp, color = PlagOutColors.TextSecondary, lineHeight = 16.sp)
                 }
             }
-
-            Spacer(Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        eficacia.tasaEficaciaPorcentaje?.let { String.format(LocalConfiguration.current.locales[0], "%.0f%%", it) } ?: "—",
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Black,
-                        color = PlagOutColors.RiskOk
-                    )
-                    Text("Tasa de éxito de control", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextSecondary)
-                }
-
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        "${eficacia.totalTratamientosArchivados} tratamientos evaluados",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PlagOutColors.TextMain
-                    )
-                    Text(
-                        "${eficacia.tratamientosExitosos} controlados sin reinfestación",
-                        fontSize = 11.sp,
-                        color = PlagOutColors.Forest
-                    )
-                }
-            }
+            Spacer(Modifier.height(14.dp))
+            contenido()
         }
     }
 }

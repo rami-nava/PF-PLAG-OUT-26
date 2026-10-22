@@ -298,60 +298,62 @@ class AdminMetricasModelTest {
     }
 
     @Test
-    fun `calcularEficaciaTratamientos distingue tratamientos exitosos de rebrotes`() {
-        val cicloArchivado = GddCicloResponse(
-            id = 2,
-            monitoreo_id = 1,
-            fecha_biofix = "2026-09-01",
-            estado = "archivado",
-            fecha_actualizacion = "2026-09-20",
-            gdd_acumulado = 100f,
-            gdd_diario = 5f,
-            gdd_eclosion = 100f,
-            gdd_generacion = 350f,
-            progreso = 100f,
-            estadio_biologico = "Controlado",
-            nivel_alerta = 0,
-            dias_pendientes = 0
+    fun `el semaforo cuenta aparte los lotes que esperan el biofix y los que no tienen monitoreo`() {
+        val terrenos = listOf(
+            TerrenoResponse(1, "Medido", -31.4f, -64.1f, 120f),
+            TerrenoResponse(2, "Esperando", -31.5f, -64.2f, 80f),
+            TerrenoResponse(3, "Sin monitoreo", -31.6f, -64.3f, 25.5f)
         )
-
-        // Monitoreo 1: ciclo archivado y nivel actual controlado (alerta 0) -> Exitoso
-        val m1 = monitoreoDePrueba(
-            monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
-            cultivo_nombre = "Maíz", plaga_nombre = "Oruga", gdd_diario = 10f, gdd_acumulado = 20f,
-            gdd_objetivo = 100f, progreso = 20f, nivel_alerta = 0, fecha_actualizacion = LocalDate.now(),
-            ciclos = listOf(cicloArchivado)
+        val ciclo = GddCicloResponse(
+            id = 1, monitoreo_id = 1, fecha_biofix = "2026-10-01", estado = "activo",
+            fecha_actualizacion = "2026-10-15", gdd_acumulado = 90f, gdd_diario = 12f,
+            gdd_eclosion = 100f, gdd_generacion = 350f, progreso = 90f, estadio_biologico = "Huevo",
+            nivel_alerta = 1, dias_pendientes = 0
         )
-
-        // Monitoreo 2: ciclo previo archivado pero nuevo ciclo activo con rebrote en alerta alta -> Rebrote
-        val cicloRebroteActivo = GddCicloResponse(
-            id = 3,
-            monitoreo_id = 2,
-            fecha_biofix = "2026-10-01",
-            estado = "activo",
-            fecha_actualizacion = "2026-10-15",
-            gdd_acumulado = 90f,
-            gdd_diario = 12f,
-            gdd_eclosion = 100f,
-            gdd_generacion = 350f,
-            progreso = 90f,
-            estadio_biologico = "Larva L3",
-            nivel_alerta = 2,
-            dias_pendientes = 1
-        )
-        val m2 = monitoreoDePrueba(
-            monitoreo_id = 2, plantacion_id = 2, terreno_id = 2, terreno_nombre = "Lote 2",
+        val medido = monitoreoDePrueba(
+            monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Medido",
             cultivo_nombre = "Soja", plaga_nombre = "Chinche", gdd_diario = 12f, gdd_acumulado = 90f,
-            gdd_objetivo = 100f, progreso = 90f, nivel_alerta = 2, fecha_actualizacion = LocalDate.now(),
-            ciclos = listOf(cicloArchivado, cicloRebroteActivo)
+            gdd_objetivo = 100f, progreso = 90f, nivel_alerta = 1, fecha_actualizacion = LocalDate.now(),
+            ciclos = listOf(ciclo)
+        )
+        val esperando = monitoreoDePrueba(
+            monitoreo_id = 2, plantacion_id = 2, terreno_id = 2, terreno_nombre = "Esperando",
+            cultivo_nombre = "Soja", plaga_nombre = "Chinche", gdd_diario = 0f, gdd_acumulado = 0f,
+            gdd_objetivo = 100f, progreso = 0f, nivel_alerta = 0, fecha_actualizacion = LocalDate.now(),
+            ciclos = emptyList()
         )
 
-        val eficacia = calcularEficaciaTratamientos(listOf(m1, m2))
+        val semaforo = calcularSemaforoHectareas(listOf(medido, esperando), terrenos)
 
-        assertEquals(2, eficacia.totalTratamientosArchivados)
-        assertEquals(1, eficacia.tratamientosExitosos)
-        assertEquals(1, eficacia.monitoreosConRebrote)
-        assertEquals(50f, eficacia.tasaEficaciaPorcentaje!!, 0.01f)
+        assertEquals(1, semaforo.totalLotes)
+        assertEquals(1, semaforo.lotesAmarillo)
+        assertEquals(1, semaforo.lotesEsperandoBiofix)
+        assertEquals(80f, semaforo.hectareasEsperandoBiofix, 0.01f)
+        assertEquals(1, semaforo.lotesSinMonitoreo)
+        assertEquals(25.5f, semaforo.hectareasSinMonitoreo, 0.01f)
+        assertEquals(
+            "3 lotes registrados: 1 con mediciones (en el gráfico), 1 esperando el biofix (80 ha) y " +
+                "1 sin monitoreos activos (25,5 ha). El biofix es el día en que se registra el inicio del ciclo " +
+                "de la plaga; hasta entonces no se calcula la etapa.",
+            textoLotesFueraDelGrafico(semaforo)
+        )
+    }
+
+    @Test
+    fun `las etapas se cuentan por monitoreo con el texto del panel`() {
+        fun ventana(id: Int, etapa: EstadoVentanaControl) = VentanaControlBiologico(
+            monitoreoId = id, terrenoNombre = "L", cultivoNombre = "Maíz", plagaNombre = "Cogollero",
+            plagaCientifico = null, progresoGdd = 0f, estadioEstimado = "Huevo", requiereRecorrida = false,
+            estadoVentana = etapa, recomendacionTecnica = ""
+        )
+        val conteo = conteoPorEtapa(
+            listOf(ventana(1, EstadoVentanaControl.ECLOSIONADA), ventana(2, EstadoVentanaControl.ECLOSIONADA), ventana(3, EstadoVentanaControl.HUEVO))
+        )
+
+        assertEquals(mapOf(EstadoVentanaControl.HUEVO to 1, EstadoVentanaControl.ECLOSION_CERCA to 0, EstadoVentanaControl.ECLOSIONADA to 2), conteo)
+        assertTrue(textoDeEtapa(EstadoVentanaControl.ECLOSIONADA).startsWith("Recorrer el lote"))
+        assertEquals("87,5 %", formatearPorcentajeTratamiento(87.5f))
+        assertEquals("—", formatearPorcentajeTratamiento(null))
     }
 
     @Test
@@ -392,7 +394,6 @@ class AdminMetricasModelTest {
         // Primero el de alerta 2
         assertEquals(2, ranking[0].monitoreoId)
         assertEquals(2, ranking[0].nivelAlerta)
-        assertTrue(ranking[0].urgenciaAccion.contains("Eclosionó"))
         assertEquals(16L, ranking[0].diasDesdeSiembra)
 
         // Segundo el de alerta 1

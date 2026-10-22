@@ -58,7 +58,12 @@ data class SemaforoHectareas(
     val lotesVerde: Int,
     val lotesAmarillo: Int,
     val lotesRojo: Int,
-    val totalLotes: Int
+    val totalLotes: Int,
+    // Fuera del gráfico y de los totales, como en el panel.
+    val lotesEsperandoBiofix: Int = 0,
+    val hectareasEsperandoBiofix: Float = 0f,
+    val lotesSinMonitoreo: Int = 0,
+    val hectareasSinMonitoreo: Float = 0f
 ) {
     val porcentajeVerde: Float get() = if (totalHectareas > 0f) (hectareasVerde * 100f / totalHectareas) else 0f
     val porcentajeAmarillo: Float get() = if (totalHectareas > 0f) (hectareasAmarillo * 100f / totalHectareas) else 0f
@@ -103,7 +108,6 @@ data class LoteEnRiesgoCritico(
     val progresoGdd: Float,
     val gddAcumulado: Float,
     val gddObjetivo: Float,
-    val urgenciaAccion: String,
     val diasDesdeSiembra: Long?
 )
 
@@ -124,12 +128,6 @@ fun etapaDeNivel(nivelAlerta: Int): EstadoVentanaControl = when {
     else -> EstadoVentanaControl.HUEVO
 }
 
-private fun claveDeEtapa(etapa: EstadoVentanaControl): String = when (etapa) {
-    EstadoVentanaControl.HUEVO -> "huevo"
-    EstadoVentanaControl.ECLOSION_CERCA -> "eclosion_cerca"
-    EstadoVentanaControl.ECLOSIONADA -> "eclosionada"
-}
-
 data class VentanaControlBiologico(
     val monitoreoId: Int,
     val terrenoNombre: String,
@@ -142,17 +140,6 @@ data class VentanaControlBiologico(
     val requiereRecorrida: Boolean,
     val estadoVentana: EstadoVentanaControl,
     val recomendacionTecnica: String
-)
-
-/**
- * Tasa de eficacia observada tras archivar tratamientos en ciclos previos.
- */
-data class EficaciaTratamientos(
-    val totalTratamientosArchivados: Int,
-    val tratamientosExitosos: Int,
-    // null: sin ciclos archivados la tasa es desconocida (solo en las métricas globales).
-    val tasaEficaciaPorcentaje: Float?,
-    val monitoreosConRebrote: Int
 )
 
 /**
@@ -174,7 +161,8 @@ data class AdminMetricasUIState(
     val lotesCriticos: List<LoteEnRiesgoCritico> = emptyList(),
     // Perspectiva Agrónomo
     val ventanasControl: List<VentanaControlBiologico> = emptyList(),
-    val eficaciaTratamientos: EficaciaTratamientos? = null,
+    // Solo en las métricas globales: los del productor se ven en el detalle de cada monitoreo.
+    val tratamientos: TratamientosAdmin? = null,
     val error: String? = null
 )
 
@@ -309,6 +297,12 @@ fun calcularSemaforoHectareas(
     val totalHa = haVerde + haAmarillo + haRojo
     val totalL = lVerde + lAmarillo + lRojo
 
+    // Lo que queda fuera del gráfico, como en el panel: lotes con monitoreos activos que
+    // esperan todos el biofix, y lotes registrados sin ningún monitoreo activo.
+    val conMonitoreo = activos.map { it.terreno_id }.toSet()
+    val esperando = conMonitoreo - alertaPorTerreno.keys
+    val sinMonitoreo = terrenos.filter { it.terreno_id !in conMonitoreo }
+
     return SemaforoHectareas(
         hectareasVerde = haVerde,
         hectareasAmarillo = haAmarillo,
@@ -317,9 +311,20 @@ fun calcularSemaforoHectareas(
         lotesVerde = lVerde,
         lotesAmarillo = lAmarillo,
         lotesRojo = lRojo,
-        totalLotes = totalL
+        totalLotes = totalL,
+        lotesEsperandoBiofix = esperando.size,
+        hectareasEsperandoBiofix = esperando.sumOf { (terrenosMap[it]?.terreno_area ?: 0f).toDouble() }.toFloat(),
+        lotesSinMonitoreo = sinMonitoreo.size,
+        hectareasSinMonitoreo = sinMonitoreo.sumOf { it.terreno_area.toDouble() }.toFloat()
     )
 }
+
+/** Cuántos monitoreos activos hay en cada etapa térmica (Control del panel). */
+fun conteoPorEtapa(ventanas: List<VentanaControlBiologico>): Map<EstadoVentanaControl, Int> =
+    EstadoVentanaControl.entries.associateWith { etapa -> ventanas.count { it.estadoVentana == etapa } }
+
+/** Texto de cada etapa, el mismo del panel (VENTANA en src/lib/metricas.ts). */
+fun textoDeEtapa(etapa: EstadoVentanaControl): String = recomendacion(etapa)
 
 /**
  * Agrupa las plagas que más afectaron a cada cultivo desde su fecha de siembra.
@@ -408,8 +413,6 @@ fun calcularRankingLotesCriticos(
         val progreso = progresoResuelto(m) ?: 0f
         val gddAcumulado = gddAcumuladoResuelto(m) ?: 0f
 
-        val urgencia = textoUrgencia(claveDeEtapa(etapaDeNivel(nivelAlerta)), progreso)
-
         LoteEnRiesgoCritico(
             monitoreoId = m.monitoreo_id,
             terrenoId = m.terreno_id,
@@ -422,7 +425,6 @@ fun calcularRankingLotesCriticos(
             progresoGdd = progreso,
             gddAcumulado = gddAcumulado,
             gddObjetivo = m.gdd_objetivo,
-            urgenciaAccion = urgencia,
             diasDesdeSiembra = diasSiembra
         )
     }.sortedWith(
@@ -467,40 +469,6 @@ fun calcularVentanasControlAgronomo(
 }
 
 /**
- * Evalúa la eficacia de tratamientos a partir de ciclos archivados y rebrotes.
- */
-fun calcularEficaciaTratamientos(
-    monitoreos: List<MonitoreoResponse>
-): EficaciaTratamientos {
-    var archivados = 0
-    var exitosos = 0
-    var rebrotes = 0
-
-    monitoreos.forEach { m ->
-        val ciclos = m.ciclos.orEmpty()
-        val ciclosArchivados = ciclos.filter { it.estado.equals("archivado", ignoreCase = true) }
-        archivados += ciclosArchivados.size
-
-        if (ciclosArchivados.isNotEmpty()) {
-            if ((nivelAlertaResuelto(m) ?: 0) < 2) {
-                exitosos += ciclosArchivados.size
-            } else {
-                rebrotes++
-            }
-        }
-    }
-
-    val tasa = if (archivados > 0) (exitosos * 100f / archivados) else 100f
-
-    return EficaciaTratamientos(
-        totalTratamientosArchivados = archivados,
-        tratamientosExitosos = exitosos,
-        tasaEficaciaPorcentaje = tasa,
-        monitoreosConRebrote = rebrotes
-    )
-}
-
-/**
  * El ciclo que describe el monitoreo: el activo o, si no hay, el de biofix más reciente (mismo
  * criterio que el backend). Null mientras espera el biofix: todavía no se midió nada.
  */
@@ -522,12 +490,6 @@ private fun medido(monitoreo: MonitoreoResponse): Boolean = cicloQueDescribe(mon
 // El backend ya las calcula sobre todos los productores; acá solo se pasan a los modelos
 // de la pantalla. Los lotes llegan anónimos, así que se numeran en el orden del ranking.
 
-fun textoUrgencia(urgencia: String, progreso: Float): String = when (urgencia) {
-    "eclosionada" -> "Eclosionó: recorrer el lote y contar"
-    "eclosion_cerca" -> "Eclosión cerca (${progreso.toInt()}% del huevo): planificar la recorrida"
-    else -> "En huevo: seguir el monitoreo habitual"
-}
-
 private fun estadoVentana(estado: String): EstadoVentanaControl = when (estado) {
     "eclosionada" -> EstadoVentanaControl.ECLOSIONADA
     "eclosion_cerca" -> EstadoVentanaControl.ECLOSION_CERCA
@@ -546,7 +508,7 @@ private fun recomendacion(estado: EstadoVentanaControl): String = when (estado) 
     EstadoVentanaControl.HUEVO ->
         "Según los grados-día acumulados todavía no eclosionó."
     EstadoVentanaControl.ECLOSION_CERCA ->
-        "Pasó el umbral de aviso: conviene planificar la recorrida del lote."
+        "Pasó el umbral de aviso del productor: conviene planificar la recorrida del lote."
     EstadoVentanaControl.ECLOSIONADA ->
         "Recorrer el lote: las larvas chicas son las más sensibles al control y la aplicación se decide con el umbral de daño del cultivo."
 }
@@ -595,7 +557,11 @@ fun AdminMetricasUIState.conMetricasGlobales(metricas: MetricasAdmin): AdminMetr
             lotesVerde = semaforo.verde.lotes,
             lotesAmarillo = semaforo.amarillo.lotes,
             lotesRojo = semaforo.rojo.lotes,
-            totalLotes = semaforo.total_lotes
+            totalLotes = semaforo.total_lotes,
+            lotesEsperandoBiofix = semaforo.esperando_biofix.lotes,
+            hectareasEsperandoBiofix = semaforo.esperando_biofix.hectareas,
+            lotesSinMonitoreo = semaforo.sin_monitoreo_activo?.lotes ?: 0,
+            hectareasSinMonitoreo = semaforo.sin_monitoreo_activo?.hectareas ?: 0f
         ),
         plagasPorCultivo = metricas.cultivos.map { cultivo ->
             ResumenCultivoPlagas(
@@ -632,7 +598,6 @@ fun AdminMetricasUIState.conMetricasGlobales(metricas: MetricasAdmin): AdminMetr
                 progresoGdd = lote.progreso,
                 gddAcumulado = lote.gdd_acumulado,
                 gddObjetivo = lote.gdd_objetivo,
-                urgenciaAccion = textoUrgencia(lote.urgencia, lote.progreso),
                 diasDesdeSiembra = lote.dias_desde_siembra
             )
         },
@@ -651,12 +616,23 @@ fun AdminMetricasUIState.conMetricasGlobales(metricas: MetricasAdmin): AdminMetr
                 recomendacionTecnica = recomendacion(estado)
             )
         },
-        eficaciaTratamientos = EficaciaTratamientos(
-            totalTratamientosArchivados = metricas.eficacia.ciclos_archivados,
-            tratamientosExitosos = metricas.eficacia.exitosos,
-            tasaEficaciaPorcentaje = metricas.eficacia.tasa,
-            monitoreosConRebrote = metricas.eficacia.monitoreos_con_rebrote
-        )
+        tratamientos = metricas.tratamientos
     )
 }
 
+
+private fun formatearDecimalAr(valor: Float): String =
+    if (valor % 1f == 0f) valor.toInt().toString() else String.format(java.util.Locale.US, "%.1f", valor).replace('.', ',')
+
+/** Los lotes que no entran en el gráfico, con el mismo texto que el panel. */
+fun textoLotesFueraDelGrafico(semaforo: SemaforoHectareas): String {
+    val registrados = semaforo.totalLotes + semaforo.lotesEsperandoBiofix + semaforo.lotesSinMonitoreo
+    return "$registrados ${if (registrados == 1) "lote registrado" else "lotes registrados"}: " +
+        "${semaforo.totalLotes} con mediciones (en el gráfico), " +
+        "${semaforo.lotesEsperandoBiofix} esperando el biofix (${formatearDecimalAr(semaforo.hectareasEsperandoBiofix)} ha) y " +
+        "${semaforo.lotesSinMonitoreo} sin monitoreos activos (${formatearDecimalAr(semaforo.hectareasSinMonitoreo)} ha). " +
+        "El biofix es el día en que se registra el inicio del ciclo de la plaga; hasta entonces no se calcula la etapa."
+}
+
+/** "87,5 %" o "—" cuando no hay cifra. */
+fun formatearPorcentajeTratamiento(valor: Float?): String = valor?.let { "${formatearDecimalAr(it)} %" } ?: "—"

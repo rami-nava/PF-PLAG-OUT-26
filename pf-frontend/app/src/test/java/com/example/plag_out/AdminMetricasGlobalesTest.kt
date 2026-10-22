@@ -41,6 +41,7 @@ class AdminMetricasGlobalesTest {
             "amarillo": {"lotes": 0, "hectareas": 0.0},
             "rojo": {"lotes": 1, "hectareas": 30.0},
             "esperando_biofix": {"lotes": 1, "hectareas": 5.0},
+            "sin_monitoreo_activo": {"lotes": 2, "hectareas": 7.5},
             "total_lotes": 2,
             "total_hectareas": 40.0
           },
@@ -64,6 +65,12 @@ class AdminMetricasGlobalesTest {
             "progreso": 100.0, "estadio": "Larva", "estado": "eclosionada"
           }],
           "eficacia": {"ciclos_archivados": 0, "exitosos": 0, "tasa": null, "monitoreos_con_rebrote": 0},
+          "tratamientos": {
+            "registrados": 2, "evaluados": 1, "con_testigo": 1,
+            "cita": "Henderson & Tilton 1955, J. Econ. Entomol. 48(2):157-161, doi:10.1093/jee/48.2.157",
+            "productos": [{"producto": "Clorantraniliprole", "tratamientos": 2, "evaluados": 1, "con_testigo": 1,
+                           "eficacia_promedio": 87.5, "reduccion_observada_promedio": null}]
+          },
           "historico": {"monitoreos": 4, "hectareas": 45.0, "campanias": 2, "plaga_lider": "Cogollero"},
           "campanias": [{
             "nombre": "2026/2027", "anio_inicio": 2026, "monitoreos": 3, "hectareas": 40.0,
@@ -88,7 +95,8 @@ class AdminMetricasGlobalesTest {
     fun `el contrato del backend se lee completo`() {
         assertEquals(1, metricas.monitoreos_esperando_biofix)
         assertEquals(LocalDate.of(2026, 9, 1), metricas.cultivos.single().fecha_siembra)
-        assertNull(metricas.eficacia.tasa)
+        assertEquals(87.5f, metricas.tratamientos!!.productos.single().eficacia_promedio!!, 0.01f)
+        assertNull(metricas.tratamientos!!.productos.single().reduccion_observada_promedio)
         assertNull(metricas.lotes_criticos.first().dias_desde_siembra)
     }
 
@@ -103,8 +111,8 @@ class AdminMetricasGlobalesTest {
 
         val (critico, inminente) = estado.lotesCriticos
         assertEquals("Lote anónimo 1", critico.terrenoNombre)
-        assertEquals("Eclosionó: recorrer el lote y contar", critico.urgenciaAccion)
-        assertEquals("Eclosión cerca (82% del huevo): planificar la recorrida", inminente.urgenciaAccion)
+        assertEquals(2, critico.nivelAlerta)
+        assertEquals(82f, inminente.progresoGdd, 0.01f)
         assertTrue(estado.lotesCriticos.all { it.monitoreoId < 0 })
 
         val ventana = estado.ventanasControl.single()
@@ -112,8 +120,11 @@ class AdminMetricasGlobalesTest {
         assertTrue(ventana.requiereRecorrida)
         assertEquals("Larva", ventana.estadioEstimado)
 
-        // Sin ciclos archivados la tasa es desconocida, no 100 %.
-        assertNull(estado.eficaciaTratamientos!!.tasaEficaciaPorcentaje)
+        // La eficacia sale de los tratamientos registrados, no de los ciclos archivados.
+        assertEquals(2, estado.tratamientos!!.registrados)
+        assertEquals(1, semaforo.lotesEsperandoBiofix)
+        assertEquals(2, semaforo.lotesSinMonitoreo)
+        assertEquals(7.5f, semaforo.hectareasSinMonitoreo, 0.01f)
 
         assertEquals(listOf("2026/2027", "2025/2026"), estado.campañas.map { it.nombre })
         assertEquals("2026/2027", estado.campañaSeleccionada?.nombre)

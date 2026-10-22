@@ -101,9 +101,9 @@ class AdminMetricasViewModel(
                 val plagasCultivo = calcularPlagasPorCultivo(monitoreos, terrenos, plantaciones)
                 val rankingCriticos = calcularRankingLotesCriticos(monitoreos, terrenos, plantaciones)
 
-                // 3. Perspectiva Agrónomo (Fenología, GDD & Eficacia)
+                // 3. Etapas (Control): la eficacia de los tratamientos del productor se ve en
+                // cada monitoreo, no acá.
                 val ventanas = calcularVentanasControlAgronomo(monitoreos)
-                val eficacia = calcularEficaciaTratamientos(monitoreos)
 
                 _state.value = _state.value.copy(
                     isLoading = false,
@@ -117,7 +117,6 @@ class AdminMetricasViewModel(
                     plagasPorCultivo = plagasCultivo,
                     lotesCriticos = rankingCriticos,
                     ventanasControl = ventanas,
-                    eficaciaTratamientos = eficacia,
                     error = null
                 )
             } catch (e: CancellationException) {
