@@ -656,6 +656,8 @@ data class SemaforoAdmin(
     @SerializedName("rojo") val rojo: NivelSemaforoAdmin,
     // Lotes cuyos monitoreos activos esperan el biofix: no entran en los totales.
     @SerializedName("esperando_biofix") val esperando_biofix: NivelSemaforoAdmin,
+    // Lotes registrados sin ningún monitoreo activo: tampoco entran en los totales.
+    @SerializedName("sin_monitoreo_activo") val sin_monitoreo_activo: NivelSemaforoAdmin? = null,
     @SerializedName("total_lotes") val total_lotes: Int,
     @SerializedName("total_hectareas") val total_hectareas: Float
 )
@@ -704,12 +706,23 @@ data class VentanaControlAdmin(
     @SerializedName("estado") val estado: String
 )
 
-data class EficaciaAdmin(
-    @SerializedName("ciclos_archivados") val ciclos_archivados: Int,
-    @SerializedName("exitosos") val exitosos: Int,
-    // null mientras no haya ciclos archivados: la tasa es desconocida.
-    @SerializedName("tasa") val tasa: Float?,
-    @SerializedName("monitoreos_con_rebrote") val monitoreos_con_rebrote: Int
+// Tratamientos que registran los productores (backend docs/tratamientos.md). Con testigo:
+// eficacia de Henderson-Tilton; sin testigo: reducción observada, que no es una eficacia.
+data class TratamientosPorProductoAdmin(
+    @SerializedName("producto") val producto: String,
+    @SerializedName("tratamientos") val tratamientos: Int,
+    @SerializedName("evaluados") val evaluados: Int,
+    @SerializedName("con_testigo") val con_testigo: Int,
+    @SerializedName("eficacia_promedio") val eficacia_promedio: Float?,
+    @SerializedName("reduccion_observada_promedio") val reduccion_observada_promedio: Float?
+)
+
+data class TratamientosAdmin(
+    @SerializedName("registrados") val registrados: Int,
+    @SerializedName("evaluados") val evaluados: Int,
+    @SerializedName("con_testigo") val con_testigo: Int,
+    @SerializedName("cita") val cita: String,
+    @SerializedName("productos") val productos: List<TratamientosPorProductoAdmin>
 )
 
 data class PlagaEnCampaniaAdmin(
@@ -749,7 +762,8 @@ data class MetricasAdmin(
     @SerializedName("cultivos") val cultivos: List<CultivoMetricasAdmin>,
     @SerializedName("lotes_criticos") val lotes_criticos: List<LoteCriticoAdmin>,
     @SerializedName("ventanas") val ventanas: List<VentanaControlAdmin>,
-    @SerializedName("eficacia") val eficacia: EficaciaAdmin,
+    // Ya no se lee "eficacia" (ciclos archivados): no medía ningún tratamiento.
+    @SerializedName("tratamientos") val tratamientos: TratamientosAdmin? = null,
     @SerializedName("historico") val historico: HistoricoAdmin,
     @SerializedName("campanias") val campanias: List<CampaniaAdmin>
 )
