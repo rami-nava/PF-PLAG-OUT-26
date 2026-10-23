@@ -887,7 +887,8 @@ data class BiofixRequest(
     val accion: String,
     val ciclo_id: Int? = null,
     val confirmar_ciclo_adicional: Boolean = false,
-    val version_contrato: String = "biofix-v1"
+    val version_contrato: String = "biofix-v1",
+    val nivel_severidad: String? = null
 )
 
 @Serializable
