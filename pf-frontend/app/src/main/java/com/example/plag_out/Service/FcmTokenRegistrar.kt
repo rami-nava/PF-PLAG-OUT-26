@@ -7,6 +7,8 @@ import com.example.plag_out.SupabaseProvider
 import com.example.plag_out.AlmacenamientoLocal.PreferenciasUsuario
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.CancellationException
+import com.google.android.gms.tasks.Task
+import com.google.firebase.installations.FirebaseInstallations
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -17,7 +19,11 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * Registra y desregistra el token FCM del dispositivo contra el backend.
+ * Registra y desregistra el dispositivo contra el backend por su Firebase installation ID (FID).
+ *
+ * Desde firebase-messaging 25.1.0 el registro es por FID: getToken()/deleteToken() quedan
+ * deshabilitados (flag firebase_messaging_installation_id_enabled del manifest), el SDK registra
+ * con FirebaseInstallations.getId() y avisa los cambios en onRegistered().
  */
 object FcmTokenRegistrar {
 
@@ -36,10 +42,10 @@ object FcmTokenRegistrar {
         TokenRegistrationCoordinator(
             owner = { SupabaseProvider.client.auth.currentUserOrNull()?.id },
             enabled = { context?.let { PreferenciasUsuario.notificacionesActivadas(it) } == true },
-            token = { obtenerTokenConReintentos() },
-            rotate = { eliminarTokenLocal() },
-            register = { token ->
-                val response = gddService.registrarDispositivo(DispositivoRequest(token, PLATAFORMA))
+            token = { obtenerFidConReintentos() },
+            rotate = { rotarFid() },
+            register = { fid ->
+                val response = gddService.registrarDispositivo(DispositivoRequest(fid, PLATAFORMA))
                 if (response.code() == 409 && response.errorBody()?.string()?.contains("device_token_conflict") != true) 500
                 else response.code()
             },
@@ -56,9 +62,9 @@ object FcmTokenRegistrar {
         catch (_: Exception) { Log.w(TAG, "Registro FCM pendiente; se reintentará con la sesión vigente") }
     }
 
-    // Read the current token instead of replaying a potentially stale onNewToken callback.
+    // Read the current FID instead of replaying a potentially stale onRegistered callback.
     @Suppress("UNUSED_PARAMETER")
-    suspend fun registrar(token: String) = registrar()
+    suspend fun registrar(fid: String) = registrar()
 
     suspend fun desregistrar(remote: Boolean = true) {
         try { coordinator.unregister(remote) }
@@ -66,23 +72,31 @@ object FcmTokenRegistrar {
         catch (_: Exception) { Log.w(TAG, "Retiro FCM pendiente") }
     }
 
-    private suspend fun eliminarTokenLocal(): Unit = suspendCancellableCoroutine { cont ->
-        FirebaseMessaging.getInstance().deleteToken()
-            .addOnSuccessListener { if (cont.isActive) cont.resume(Unit) }
-            .addOnFailureListener { if (cont.isActive) cont.resumeWithException(it) }
+    // Una vez por proceso alcanza: los cambios posteriores del FID llegan por onRegistered().
+    @Volatile private var registradoEnFcm = false
+
+    /**
+     * Un FID nuevo: se da de baja el actual en FCM y se borra la instalación, así el próximo
+     * usuario (o el reintento tras un 409 device_token_conflict) no hereda el anterior.
+     */
+    private suspend fun rotarFid() {
+        runCatching { FirebaseMessaging.getInstance().unregister().esperar() }
+            .onFailure { Log.w(TAG, "No se pudo dar de baja el FID en FCM: ${it.javaClass.simpleName}") }
+        registradoEnFcm = false
+        FirebaseInstallations.getInstance().delete().esperar()
     }
 
     /**
-     * Pide el token reintentando con backoff exponencial.
+     * Registra el dispositivo en FCM y devuelve su FID, reintentando con backoff exponencial.
      *
      * FCM devuelve SERVICE_NOT_AVAILABLE (envuelto en IOException) cuando Play
      * Services todavía no pudo hablar con sus servidores.
      */
-    private suspend fun obtenerTokenConReintentos(): String {
+    private suspend fun obtenerFidConReintentos(): String {
         var espera = ESPERA_INICIAL_MS
         repeat(MAX_INTENTOS - 1) { intento ->
             try {
-                return obtenerToken()
+                return obtenerFid()
             } catch (e: IOException) {
                 Log.w(TAG, "FCM no disponible (intento ${intento + 1}/$MAX_INTENTOS), reintento en ${espera}ms: ${e.message}")
                 delay(espera)
@@ -90,14 +104,21 @@ object FcmTokenRegistrar {
             }
         }
         // Último intento: si vuelve a fallar, que la excepción suba al catch de registrar()
-        return obtenerToken()
+        return obtenerFid()
     }
 
-    /** Envuelve el Task<String> de FCM en una función suspend. */
-    private suspend fun obtenerToken(): String =
+    private suspend fun obtenerFid(): String {
+        if (!registradoEnFcm) {
+            FirebaseMessaging.getInstance().register().esperar()
+            registradoEnFcm = true
+        }
+        return FirebaseInstallations.getInstance().id.esperar()
+    }
+
+    /** Envuelve un Task de Play Services en una función suspend. */
+    private suspend fun <T> Task<T>.esperar(): T =
         suspendCancellableCoroutine { cont ->
-            FirebaseMessaging.getInstance().token
-                .addOnSuccessListener { token -> if (cont.isActive) cont.resume(token) }
-                .addOnFailureListener { e -> if (cont.isActive) cont.resumeWithException(e) }
+            addOnSuccessListener { valor -> if (cont.isActive) cont.resume(valor) }
+            addOnFailureListener { e -> if (cont.isActive) cont.resumeWithException(e) }
         }
 }

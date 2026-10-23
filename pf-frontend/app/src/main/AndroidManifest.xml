@@ -52,6 +52,11 @@
             </intent-filter>
         </service>
 
+        <!-- Registro por Firebase installation ID (firebase-messaging 25.1.0+): getToken() y
+             deleteToken() quedan deshabilitados y el backend envía con Message(fid=...). -->
+        <meta-data
+            android:name="firebase_messaging_installation_id_enabled"
+            android:value="true" />
         <!-- Canal por defecto usado por FCM cuando la app está en background -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

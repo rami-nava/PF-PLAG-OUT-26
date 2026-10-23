@@ -167,6 +167,8 @@ dependencies {
     // Firebase Cloud Messaging (push notifications)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    // El FID con el que se registra el dispositivo (firebase-messaging 25.1.0+).
+    implementation(libs.firebase.installations)
 
     testImplementation(libs.androidx.ui.test.junit4)
     testImplementation(libs.junit)
