@@ -64,7 +64,7 @@ fun RecuperarPasswordScreen(
     }
 
     val passwordsValidas = remember(estado.nuevaPassword, estado.repetirPassword) {
-        estado.nuevaPassword.length >= 6 &&
+        estado.nuevaPassword.length >= PASSWORD_MINIMA &&
             estado.nuevaPassword == estado.repetirPassword
     }
 

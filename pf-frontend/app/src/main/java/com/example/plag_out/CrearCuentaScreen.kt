@@ -60,7 +60,7 @@ fun CrearCuentaScreen(
             state.apellido.isNotBlank() &&
             state.cargo != null &&
             state.email.isNotBlank() &&
-            state.password.isNotBlank() &&
+            state.password.length >= PASSWORD_MINIMA &&
             state.repetirPassword.isNotBlank() &&
             passwordsCoinciden
 
@@ -200,6 +200,7 @@ fun CrearCuentaScreen(
                         shape = RoundedCornerShape(16.dp),
                         visualTransformation = if (mostrarPassword) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        supportingText = { Text("Al menos $PASSWORD_MINIMA caracteres") },
                         colors = camposColors(),
                         modifier = Modifier.fillMaxWidth().testTag("txtPasswordRegistro")
                     )

@@ -8,6 +8,12 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
+// Valores públicos del proyecto Supabase vigente: la clave publicable está pensada para viajar
+// en la app. local.properties puede pisarlos (supabase.url / supabase.publishable.key), y en
+// la migración de proyecto se cambian acá.
+val supabaseUrlPorDefecto = "https://djhrmrvcffolxzvcqlux.supabase.co"
+val supabaseClavePorDefecto = "sb_publishable_tB5w0haD6JUc2O4ORfWlqA_UWdh5yU9"
+
 android {
     val localProperties = Properties().apply {
         val file = rootProject.file("local.properties")
@@ -15,12 +21,21 @@ android {
             file.inputStream().use { load(it) }
         }
     }
-    val testJwt = (localProperties.getProperty("test.jwt") ?: "").trim().trim('"')
-    var backendUrl = (localProperties.getProperty("backend.url") ?: "http://10.0.2.2:8000/").trim().trim('"')
-    if (backendUrl.isNotEmpty() && !backendUrl.endsWith("/")) {
+    fun local(clave: String) = (localProperties.getProperty(clave) ?: "").trim().trim('"')
+
+    var backendUrl = local("backend.url").ifEmpty { "http://10.0.2.2:8000/" }
+    if (!backendUrl.endsWith("/")) {
         backendUrl = "$backendUrl/"
     }
-   
+    val supabaseUrl = local("supabase.url").ifEmpty { supabaseUrlPorDefecto }
+    val supabaseClave = local("supabase.publishable.key").ifEmpty { supabaseClavePorDefecto }
+
+    // Firma del release: la clave del proyecto (CN=Plag Out Android Release). La ruta y las
+    // contraseñas viven solo en local.properties, que no se versiona.
+    val keystore = local("release.storeFile")
+    val firmaConfigurada = listOf(keystore, local("release.storePassword"), local("release.keyAlias"), local("release.keyPassword"))
+        .all { it.isNotEmpty() }
+
     namespace = "com.example.plag_out"
     compileSdk = 36
 
@@ -28,12 +43,25 @@ android {
         applicationId = "com.example.plag_out"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "TEST_JWT", "\"$testJwt\"")
         buildConfigField("String", "BACKEND_URL", "\"$backendUrl\"")
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$supabaseClave\"")
+    }
+
+    signingConfigs {
+        if (firmaConfigurada) {
+            create("release") {
+                storeFile = file(keystore)
+                storePassword = local("release.storePassword")
+                keyAlias = local("release.keyAlias")
+                keyPassword = local("release.keyPassword")
+                if (keystore.endsWith(".p12") || keystore.endsWith(".pfx")) storeType = "pkcs12"
+            }
+        }
     }
 
     buildTypes {
@@ -43,8 +71,28 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (firmaConfigurada) signingConfig = signingConfigs.getByName("release")
         }
     }
+
+    // Un release que se reparte no puede salir apuntando al emulador, sin HTTPS o sin firmar:
+    // la app quedaría muerta sin avisar (el tráfico en claro está bloqueado en release).
+    val problemasRelease = buildList {
+        if (!backendUrl.startsWith("https://")) add("backend.url tiene que ser https:// (hoy: $backendUrl)")
+        if (!supabaseUrl.startsWith("https://")) add("supabase.url tiene que ser https://")
+        if (!firmaConfigurada) add("faltan release.storeFile, release.storePassword, release.keyAlias o release.keyPassword")
+    }
+    val validarRelease = tasks.register("validarConfiguracionRelease") {
+        doLast {
+            if (problemasRelease.isNotEmpty()) {
+                throw GradleException(
+                    "El release no se puede compilar. Revisá pf-frontend/local.properties:\n- " +
+                        problemasRelease.joinToString("\n- ")
+                )
+            }
+        }
+    }
+    tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(validarRelease) }
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true

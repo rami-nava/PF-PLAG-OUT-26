@@ -111,8 +111,8 @@ class MainActivity : ComponentActivity() {
         
         SupabaseProvider.client.handleDeeplinks(
             intent = intent,
-            onSessionSuccess = { userSession ->
-                android.util.Log.d("MainActivity", "handleDeeplinks exitoso. Usuario: ${userSession.user?.email}")
+            onSessionSuccess = { _ ->
+                android.util.Log.d("MainActivity", "handleDeeplinks exitoso")
             },
             onError = { error ->
                 android.util.Log.e("MainActivity", "handleDeeplinks falló al procesar enlace", error)
@@ -162,8 +162,8 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         SupabaseProvider.client.handleDeeplinks(
             intent = intent,
-            onSessionSuccess = { userSession ->
-                android.util.Log.d("MainActivity", "onNewIntent handleDeeplinks exitoso. Usuario: ${userSession.user?.email}")
+            onSessionSuccess = { _ ->
+                android.util.Log.d("MainActivity", "onNewIntent handleDeeplinks exitoso")
             },
             onError = { error ->
                 android.util.Log.e("MainActivity", "onNewIntent handleDeeplinks falló al procesar enlace", error)
