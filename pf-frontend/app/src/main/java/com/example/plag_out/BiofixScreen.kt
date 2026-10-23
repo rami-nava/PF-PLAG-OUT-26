@@ -34,6 +34,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -104,6 +107,7 @@ fun BiofixDialog(monitoreoId: Int, onDismiss: () -> Unit, onConfirm: (BiofixRequ
     var fecha by remember { mutableStateOf(hoy) }
     var mostrarCalendario by remember { mutableStateOf(false) }
     var opcion by remember { mutableStateOf<Int?>(null) } // -1 = explicitly create another
+    var severidad by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(monitoreoId) {
         try {
@@ -152,7 +156,7 @@ fun BiofixDialog(monitoreoId: Int, onDismiss: () -> Unit, onConfirm: (BiofixRequ
         }
     }
 
-    val puedeConfirmar = monitor?.activo == true && valido && (activos.isEmpty() || opcion != null)
+    val puedeConfirmar = monitor?.activo == true && valido && severidad != null && (activos.isEmpty() || opcion != null)
 
     MarcoDialogo(tag = "dialogBiofix", onDismissRequest = onDismiss) { rebote ->
         InsigniaAccion(Icons.Outlined.BugReport, PlagOutColors.Forest, rebote)
@@ -214,6 +218,10 @@ fun BiofixDialog(monitoreoId: Int, onDismiss: () -> Unit, onConfirm: (BiofixRequ
             }
         }
 
+        Spacer(Modifier.height(18.dp))
+        EncabezadoSeccionBiofix("Severidad de la plaga adulta")
+        SelectorSeveridadBiofix(seleccionada = severidad, onSeleccionar = { severidad = it })
+
         if (monitor == null && error == null) {
             Spacer(Modifier.height(16.dp))
             CircularProgressIndicator(color = PlagOutColors.Forest, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
@@ -265,7 +273,8 @@ fun BiofixDialog(monitoreoId: Int, onDismiss: () -> Unit, onConfirm: (BiofixRequ
                     val asociar = activos.isNotEmpty() && opcion != -1
                     onConfirm(BiofixRequest(UUID.randomUUID().toString(), fecha.toString(),
                         if (asociar) "asociar_ciclo" else "iniciar_ciclo",
-                        if (asociar) opcion else null, activos.isNotEmpty() && !asociar))
+                        if (asociar) opcion else null, activos.isNotEmpty() && !asociar,
+                        nivel_severidad = severidad))
                 },
                 enabled = puedeConfirmar,
                 shape = RoundedCornerShape(14.dp),
@@ -293,6 +302,44 @@ private fun EncabezadoSeccionBiofix(texto: String) {
         color = PlagOutColors.TextSecondary,
         modifier = Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 8.dp)
     )
+}
+
+@Composable
+private fun SelectorSeveridadBiofix(seleccionada: String?, onSeleccionar: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("Bajo", "Medio", "Alto").forEach { nivel ->
+            val elegida = seleccionada == nivel
+            val color = when (nivel) {
+                "Bajo" -> PlagOutColors.RiskOk
+                "Medio" -> PlagOutColors.RiskWarn
+                else -> PlagOutColors.RiskDanger
+            }
+            Surface(
+                onClick = { onSeleccionar(nivel) },
+                shape = RoundedCornerShape(14.dp),
+                color = if (elegida) color else PlagOutColors.Surface,
+                border = BorderStroke(1.5.dp, color),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .semantics { role = Role.RadioButton; selected = elegida }
+                    .testTag("optSeveridadBiofix_$nivel")
+            ) {
+                Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    if (elegida) {
+                        Icon(Icons.Filled.Check, contentDescription = null, tint = PlagOutColors.TextOnDark, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Text(
+                        nivel,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (elegida) PlagOutColors.TextOnDark else color
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

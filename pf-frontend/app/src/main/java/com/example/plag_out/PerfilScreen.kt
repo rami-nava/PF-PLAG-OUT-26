@@ -546,7 +546,11 @@ private fun DrawerAjustes(
 
                 TarjetaZonaPeligro(onEliminarCuenta = onEliminarCuenta)
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(
+                    Modifier
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .height(96.dp)
+                )
             }
         }
     }
@@ -909,13 +913,6 @@ private fun TarjetaZonaPeligro(onEliminarCuenta: () -> Unit) {
                 tag = "btnEliminarCuenta",
                 acento = PlagOutColors.RiskDanger,
                 onClick = onEliminarCuenta
-            )
-            // La barra de navegación de la app flota por encima del menú: sin este espacio
-            // tapaba las últimas acciones.
-            Spacer(
-                Modifier
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .height(96.dp)
             )
         }
     }
