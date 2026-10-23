@@ -176,7 +176,7 @@ fun ordenarCiclosPorProgreso(ciclos: List<GddCicloResponse>): List<GddCicloRespo
     ciclos.sortedWith(compareByDescending<GddCicloResponse> { it.progreso }.thenBy { it.id })
 
 @RequiresApi(Build.VERSION_CODES.O)
-private fun formatearFechaCiclo(valor: String?): String =
+internal fun formatearFechaCiclo(valor: String?): String =
     fechaDeCiclo(valor)?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es")))
         ?: (valor ?: "—")
 
@@ -246,32 +246,46 @@ fun CicloCard(
                         .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    EstadisticaCompacta(
-                        "GDD actuales",
-                        "${acumuladoVisibleDelCiclo(ciclo, objetivo).toInt()}",
-                        Modifier.weight(1f)
-                    )
-                    SeparadorVertical()
-                    EstadisticaCompacta(
-                        "Objetivo",
-                        objetivo?.let { "${it.toInt()}" } ?: "—",
-                        Modifier.weight(1f)
-                    )
-                    SeparadorVertical()
-                    // Una vez que eclosionó no hay nada que proyectar: lo que importa es cuándo pasó.
-                    if (eclosiono) {
-                        EstadisticaCompacta(
-                            "Fecha eclosión",
-                            fechaEclosion?.let { formatearFechaCiclo(it) } ?: "Sin registrar",
-                            Modifier.weight(1f),
-                            colorValor = PlagOutColors.Forest
-                        )
+                    if (!activo) {
+                        // Finalizado: no se proyecta nada, queda cuándo arrancó y, si llegó, cuándo eclosionó.
+                        EstadisticaCompacta("Fecha inicio", formatearFechaCiclo(ciclo.fecha_biofix), Modifier.weight(1f))
+                        if (fechaEclosion != null) {
+                            SeparadorVertical()
+                            EstadisticaCompacta(
+                                "Fecha eclosión",
+                                formatearFechaCiclo(fechaEclosion),
+                                Modifier.weight(1f),
+                                colorValor = PlagOutColors.Forest
+                            )
+                        }
                     } else {
                         EstadisticaCompacta(
-                            "Al objetivo",
-                            dias?.let { "≈ $it d" } ?: "—",
+                            "GDD actuales",
+                            "${acumuladoVisibleDelCiclo(ciclo, objetivo).toInt()}",
                             Modifier.weight(1f)
                         )
+                        SeparadorVertical()
+                        EstadisticaCompacta(
+                            "Objetivo",
+                            objetivo?.let { "${it.toInt()}" } ?: "—",
+                            Modifier.weight(1f)
+                        )
+                        SeparadorVertical()
+                        // Una vez que eclosionó no hay nada que proyectar: lo que importa es cuándo pasó.
+                        if (eclosiono) {
+                            EstadisticaCompacta(
+                                "Fecha eclosión",
+                                fechaEclosion?.let { formatearFechaCiclo(it) } ?: "Sin registrar",
+                                Modifier.weight(1f),
+                                colorValor = PlagOutColors.Forest
+                            )
+                        } else {
+                            EstadisticaCompacta(
+                                "Al objetivo",
+                                dias?.let { "≈ $it d" } ?: "—",
+                                Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
 
@@ -279,8 +293,7 @@ fun CicloCard(
 
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     when {
-                        !activo -> EtiquetaInfo(Icons.Filled.Flag, "Finalizado", PlagOutColors.RiskUnknown)
-                        eclosiono -> Unit
+                        !activo || eclosiono -> Unit
                         enAlerta -> EtiquetaInfo(Icons.Filled.Flag, "Superó el umbral", PlagOutColors.RiskDanger)
                         ciclo.dias_pendientes > 0 -> EtiquetaInfo(
                             Icons.Outlined.HourglassEmpty,

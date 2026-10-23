@@ -35,7 +35,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Flag
@@ -174,10 +173,7 @@ fun MonitoreosScreen(
                 .padding(padding)
         ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            PanelDeCampo(
-                monitoreos = activos,
-                onIrATableros = { navController.navigate("tableros_control") }
-            )
+            PanelDeCampo(monitoreos = activos)
 
             val opciones = remember(state.monitoreos, activos) {
                 listOf(
@@ -287,10 +283,7 @@ fun MonitoreosScreen(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-private fun PanelDeCampo(
-    monitoreos: List<MonitoreoResponse>,
-    onIrATableros: () -> Unit = {}
-) {
+private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
     val total = monitoreos.size
     val bajo = monitoreos.count { nivelAlertaEfectivo(it) == 0 }
     val moderado = monitoreos.count { nivelAlertaEfectivo(it) == 1 }
@@ -358,32 +351,6 @@ private fun PanelDeCampo(
                     )
                 }
 
-                Surface(
-                    onClick = onIrATableros,
-                    shape = RoundedCornerShape(20.dp),
-                    color = PlagOutColors.TextOnDark.copy(alpha = 0.16f),
-                    border = BorderStroke(1.dp, PlagOutColors.TextOnDark.copy(alpha = 0.32f)),
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Insights,
-                            contentDescription = null,
-                            tint = PlagOutColors.TextOnDark,
-                            modifier = Modifier.size(17.dp)
-                        )
-                        Text(
-                            "Tableros",
-                            color = PlagOutColors.TextOnDark,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
             }
 
             Spacer(Modifier.height(18.dp))
@@ -563,14 +530,19 @@ fun MonitoreoCard(
                         Modifier.weight(1f)
                     )
                     SeparadorVertical()
-                    EstadisticaCompacta("Ciclos activos", "${activos.size}", Modifier.weight(1f))
-                    SeparadorVertical()
-                    EstadisticaCompacta(
-                        "En alerta",
-                        "$enAlerta",
-                        Modifier.weight(1f),
-                        colorValor = if (enAlerta > 0) PlagOutColors.RiskDanger else PlagOutColors.TextMain
-                    )
+                    if (monitoreo.activo) {
+                        EstadisticaCompacta("Ciclos activos", "${activos.size}", Modifier.weight(1f))
+                        SeparadorVertical()
+                        EstadisticaCompacta(
+                            "En alerta",
+                            "$enAlerta",
+                            Modifier.weight(1f),
+                            colorValor = if (enAlerta > 0) PlagOutColors.RiskDanger else PlagOutColors.TextMain
+                        )
+                    } else {
+                        // Finalizado: ya no hay ciclos activos ni alertas, lo que vale es el histórico.
+                        EstadisticaCompacta("Ciclos totales", "${monitoreo.ciclos.orEmpty().size}", Modifier.weight(1f))
+                    }
                 }
 
                 Spacer(Modifier.height(12.dp))

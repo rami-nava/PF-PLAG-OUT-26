@@ -721,35 +721,22 @@ fun BiofixManual(
         )
     }
     aFinalizar?.let { ciclo ->
-        AlertDialog(
-            onDismissRequest = { aFinalizar = null },
-            containerColor = PlagOutColors.Surface,
-            shape = RoundedCornerShape(26.dp),
-            title = {
-                Text(
-                    numeros[ciclo.id]?.let { "¿Finalizar el ciclo $it?" } ?: "¿Finalizar el ciclo?",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = PlagOutColors.TextMain
-                )
-            },
-            text = {
-                Text(
-                    "Esta acción no se puede deshacer.",
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    color = PlagOutColors.TextSecondary
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { aFinalizar = null; finalizar(ciclo) },
-                    modifier = Modifier.testTag("btnConfirmarFinalizarCiclo")
-                ) { Text("Finalizar", color = PlagOutColors.Forest, fontWeight = FontWeight.Bold) }
-            },
-            dismissButton = {
-                TextButton(onClick = { aFinalizar = null }) { Text("Cancelar", color = PlagOutColors.TextSecondary) }
-            }
+        DialogoConfirmarAccion(
+            titulo = numeros[ciclo.id]?.let { "¿Finalizar el ciclo $it?" } ?: "¿Finalizar el ciclo?",
+            colorAccion = PlagOutColors.RiskWarn,
+            iconoAccion = Icons.Filled.Flag,
+            textoConfirmar = "Finalizar",
+            icono = Icons.Outlined.Schedule,
+            nombre = numeros[ciclo.id]?.let { "Ciclo $it · ${monitoreo.plaga_nombre}" } ?: monitoreo.plaga_nombre,
+            detalle = "Biofix ${formatearFechaCiclo(ciclo.fecha_biofix)} · ${ciclo.progreso.toInt()}%",
+            encabezadoConsecuencias = "AL FINALIZARLO",
+            consecuencias = emptyList(),
+            aviso = "No se puede volver a activar.",
+            tagDialogo = "dialogFinalizarCiclo",
+            tagConfirmar = "btnConfirmarFinalizarCiclo",
+            tagCancelar = "btnCancelarFinalizarCiclo",
+            onConfirmar = { aFinalizar = null; finalizar(ciclo) },
+            onCancelar = { aFinalizar = null }
         )
     }
 }

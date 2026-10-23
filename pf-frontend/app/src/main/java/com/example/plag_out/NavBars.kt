@@ -65,12 +65,11 @@ import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.HelpOutline
 
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Surface
 
 data class BarItem(val nombre: String, val ruta: String, val icono: ImageVector)
 
-/** Alto de la píldora flotante; deja 5.dp de aire a cada lado del botón de 48.dp del medio. */
+/** Alto de la píldora flotante. */
 private val ALTO_BARRA = 58.dp
 private val INDICADOR_ANCHO = 44.dp
 private val INDICADOR_ALTO = 40.dp
@@ -78,26 +77,19 @@ private val INDICADOR_ALTO = 40.dp
 /**
  * Barra inferior flotante: píldora sobre el fondo de la pantalla, solo íconos, y un indicador
  * que se desliza de una ranura a otra en vez de aparecer y desaparecer.
- *
- * Las cinco ranuras son de igual ancho; la del medio la ocupa el botón de nuevo reporte, así que
- * los ítems navegables viven en las ranuras 0, 1, 3 y 4. El indicador se mueve con el mismo
- * `spring` que usa [rememberPressScale], para que todo el movimiento de la app se sienta igual.
  */
 @Composable
 fun BottomNavigationBar(navController: NavController) {
-    val currentDestination = navController.currentBackStackEntryAsState().value?.destination?.route
-
     BarraFlotante(
         navController = navController,
         items = listOf(
             0 to BarItem("Monitoreos", "monitoreos", Icons.Default.Science),
             1 to BarItem("Terrenos", "terrenos", Icons.Default.Terrain),
+            2 to BarItem("Tableros", "tableros_control", Icons.Default.Insights),
             3 to BarItem("Reportes", "reportes", Icons.Outlined.BugReport),
             4 to BarItem("Perfil", "perfil", Icons.Default.Person)
         ),
-        ranuras = 5,
-        ranuraCentral = 2,
-        contenidoCentral = { BotonNuevoReporte(navController, currentDestination) }
+        ranuras = 5
     )
 }
 
@@ -238,38 +230,6 @@ private fun RowScope.ItemDeBarra(item: BarItem, seleccionado: Boolean, onClick: 
                 .size(22.dp)
                 .graphicsLayer { scaleX = escala; scaleY = escala }
         )
-    }
-}
-
-/** Botón circular Sun del medio para crear un reporte: se mantiene tal cual estaba. */
-@Composable
-private fun RowScope.BotonNuevoReporte(navController: NavController, currentDestination: String?) {
-    Box(
-        modifier = Modifier.weight(1f),
-        contentAlignment = Alignment.Center
-    ) {
-        Surface(
-            onClick = {
-                if (currentDestination != "crear_reporte") {
-                    navController.navigate("crear_reporte")
-                }
-            },
-            shape = CircleShape,
-            color = PlagOutColors.Sun,
-            shadowElevation = 6.dp,
-            modifier = Modifier
-                .size(48.dp)
-                .testTag("btnNavBarCrearReporte")
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = "Nuevo Reporte",
-                    tint = PlagOutColors.ForestDark,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-        }
     }
 }
 
