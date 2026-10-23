@@ -710,7 +710,7 @@ private fun SeccionParametrosCitados(plaga: PlagaAdmin, referencia: ReferenciaTe
                         .padding(vertical = 5.dp)
                         .testTag("filaCitada_$campo")
                 ) {
-                    Text(etiqueta, fontSize = 13.sp, color = PlagOutColors.TextMain, modifier = Modifier.weight(1.3f))
+                    Text(etiqueta, fontSize = 13.sp, color = PlagOutColors.TextMain, modifier = Modifier.weight(1.3f).padding(end = 8.dp))
                     Text(
                         mostrarValorTermico(campo, valorDelCatalogo(plaga, campo)),
                         fontSize = 13.sp,

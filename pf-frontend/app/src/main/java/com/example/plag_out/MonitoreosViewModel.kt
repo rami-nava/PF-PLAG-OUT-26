@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.plag_out.AlmacenamientoLocal.BiofixDao
+import com.example.plag_out.AlmacenamientoLocal.TratamientoPendienteDao
 import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.Service.GDDService
@@ -40,7 +41,8 @@ class MonitoreosViewModel(
     context: Context,
     repository: MonitoreoRepository,
     private val gddService: GDDService = RetrofitClient.gddService,
-    private val biofixDao: BiofixDao? = null
+    private val biofixDao: BiofixDao? = null,
+    private val tratamientoDao: TratamientoPendienteDao? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MonitoreoUIState())
@@ -291,7 +293,11 @@ class MonitoreosViewModel(
             .distinct()
 
     private suspend fun descartarBiofixPendientes(monitoreoIds: List<Int>) {
-        if (monitoreoIds.isNotEmpty()) biofixDao?.deleteByMonitoreos(monitoreoIds)
+        if (monitoreoIds.isNotEmpty()) {
+            biofixDao?.deleteByMonitoreos(monitoreoIds)
+            // Sus tratamientos se borraron en cascada en el backend: lo que esperaba envío ya no tiene destino.
+            tratamientoDao?.borrarDeMonitoreos(monitoreoIds)
+        }
     }
 
     fun renombrarTerreno(terrenoId: Int, nombre: String) {
@@ -310,11 +316,12 @@ class MonitoreosViewModelFactory(
     private val context: Context,
     private val repository: MonitoreoRepository,
     private val gddService: GDDService = RetrofitClient.gddService,
-    private val biofixDao: BiofixDao? = null
+    private val biofixDao: BiofixDao? = null,
+    private val tratamientoDao: TratamientoPendienteDao? = null
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return MonitoreosViewModel(context, repository, gddService, biofixDao) as T
+        return MonitoreosViewModel(context, repository, gddService, biofixDao, tratamientoDao) as T
     }
 }

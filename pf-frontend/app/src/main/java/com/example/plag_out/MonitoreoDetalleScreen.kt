@@ -1,5 +1,8 @@
 package com.example.plag_out
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.plag_out.AlmacenamientoLocal.AppDatabase
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
@@ -269,7 +272,8 @@ private fun EstadoErrorDetalle(
 }
 
 private const val PAGINA_CICLOS = 0
-private const val PAGINA_DETALLE = 1
+private const val PAGINA_TRATAMIENTOS = 1
+private const val PAGINA_DETALLE = 2
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
@@ -296,7 +300,11 @@ private fun ContenidoMonitoreoDetalle(
     onAvisoBiofixConsumido: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
-    val pagerState = rememberPagerState(pageCount = { 2 })
+    val pagerState = rememberPagerState(pageCount = { 3 })
+    val context = LocalContext.current
+    val tratamientosViewModel: TratamientosViewModel = viewModel(
+        factory = remember { TratamientosViewModelFactory(AppDatabase.getDatabase(context).tratamientoPendienteDao()) }
+    )
 
     Column(Modifier.fillMaxSize()) {
         val formaHeader = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
@@ -392,6 +400,12 @@ private fun ContenidoMonitoreoDetalle(
                 modifier = Modifier.testTag("tabCiclos")
             )
             Tab(
+                selected = pagerState.currentPage == PAGINA_TRATAMIENTOS,
+                onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_TRATAMIENTOS) } },
+                text = { Text("Tratamientos", fontWeight = FontWeight.SemiBold, maxLines = 1) },
+                modifier = Modifier.testTag("tabTratamientos")
+            )
+            Tab(
                 selected = pagerState.currentPage == PAGINA_DETALLE,
                 onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_DETALLE) } },
                 text = { Text("Detalle", fontWeight = FontWeight.SemiBold) },
@@ -413,6 +427,7 @@ private fun ContenidoMonitoreoDetalle(
                     onVerInfoUmbral = onVerInfoUmbral,
                     onEditarObservaciones = onEditarObservaciones
                 )
+                PAGINA_TRATAMIENTOS -> TratamientosTab(monitoreo = monitoreo, viewModel = tratamientosViewModel)
                 else -> CiclosTab(
                     monitoreo = monitoreo,
                     onRefresh = onRefresh,

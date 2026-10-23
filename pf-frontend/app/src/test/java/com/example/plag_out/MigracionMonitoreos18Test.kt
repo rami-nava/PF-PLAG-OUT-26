@@ -48,7 +48,7 @@ class MigracionMonitoreos18Test {
         CacheTracker.marcarConsultado(context, CacheTracker.MONITOREOS)
 
         val migrada = Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .addMigrations(AppDatabase.migracion17a18(context))
+            .addMigrations(AppDatabase.migracion17a18(context), AppDatabase.MIGRATION_18_19)
             .allowMainThreadQueries()
             .build()
 

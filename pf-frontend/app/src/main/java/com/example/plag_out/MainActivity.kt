@@ -286,7 +286,7 @@ fun AppNavigation(
 
     val monitoreosViewModel: MonitoreosViewModel = viewModel(
         factory = remember(context, monitoreoRepository) {
-            MonitoreosViewModelFactory(context, monitoreoRepository, biofixDao = db.biofixDao())
+            MonitoreosViewModelFactory(context, monitoreoRepository, biofixDao = db.biofixDao(), tratamientoDao = db.tratamientoPendienteDao())
         }
     )
     val terrenosViewModel: TerrenosViewModel = viewModel(

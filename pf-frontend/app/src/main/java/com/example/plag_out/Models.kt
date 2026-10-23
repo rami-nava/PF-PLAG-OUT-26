@@ -896,3 +896,42 @@ data class BiofixResult(
     val reporte_creado: Boolean, val ciclo_id: Int,
     val ciclo_creado: Boolean, val ciclo: GddCicloResponse
 )
+
+// ── Tratamientos (backend docs/tratamientos.md) ─────────────────────────────
+// Los conteos de la plaga antes y después de aplicar. El testigo (franja sin tratar) es
+// opcional: con él el backend calcula la eficacia de Henderson-Tilton; sin él, solo la
+// reducción observada, que incluye la mortalidad natural.
+
+data class TratamientoRequest(
+    @SerializedName("idempotency_key") val idempotency_key: String,
+    @SerializedName("fecha_aplicacion") val fecha_aplicacion: String,
+    @SerializedName("producto") val producto: String,
+    @SerializedName("unidad_conteo") val unidad_conteo: String,
+    @SerializedName("conteo_antes") val conteo_antes: Double,
+    @SerializedName("fecha_conteo_antes") val fecha_conteo_antes: String,
+    @SerializedName("conteo_despues") val conteo_despues: Double? = null,
+    @SerializedName("fecha_conteo_despues") val fecha_conteo_despues: String? = null,
+    @SerializedName("testigo_antes") val testigo_antes: Double? = null,
+    @SerializedName("testigo_despues") val testigo_despues: Double? = null
+)
+
+data class TratamientoResponse(
+    @SerializedName("id") val id: Int,
+    @SerializedName("monitoreo_id") val monitoreo_id: Int,
+    @SerializedName("fecha_aplicacion") val fecha_aplicacion: String,
+    @SerializedName("producto") val producto: String,
+    @SerializedName("unidad_conteo") val unidad_conteo: String,
+    @SerializedName("conteo_antes") val conteo_antes: Double,
+    @SerializedName("fecha_conteo_antes") val fecha_conteo_antes: String,
+    @SerializedName("conteo_despues") val conteo_despues: Double? = null,
+    @SerializedName("fecha_conteo_despues") val fecha_conteo_despues: String? = null,
+    @SerializedName("testigo_antes") val testigo_antes: Double? = null,
+    @SerializedName("testigo_despues") val testigo_despues: Double? = null,
+    // "henderson_tilton" | "reduccion_observada" | null
+    @SerializedName("metodo") val metodo: String? = null,
+    @SerializedName("reduccion_observada_pct") val reduccion_observada_pct: Double? = null,
+    @SerializedName("eficacia_pct") val eficacia_pct: Double? = null,
+    // Por qué falta la cifra preferida (falta_conteo_despues, conteo_antes_cero, ...).
+    @SerializedName("sin_calculo") val sin_calculo: String? = null,
+    @SerializedName("cita") val cita: String? = null
+)

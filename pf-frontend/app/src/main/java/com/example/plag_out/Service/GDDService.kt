@@ -229,6 +229,27 @@ interface GDDService {
     @POST("/monitoreos/{id}/observaciones")
     suspend fun registrarBiofix(@Path("id") id: Int, @Body data: com.example.plag_out.BiofixRequest): Response<com.example.plag_out.BiofixResult>
 
+    // Tratamientos del monitoreo (backend docs/tratamientos.md). El alta es idempotente por
+    // idempotency_key: la cola offline puede reenviarla sin duplicar (201 nueva, 200 repetida).
+    @GET("/monitoreos/{id}/tratamientos")
+    suspend fun getTratamientos(@Path("id") monitoreoId: Int): Response<List<com.example.plag_out.TratamientoResponse>>
+
+    @POST("/monitoreos/{id}/tratamientos")
+    suspend fun registrarTratamiento(
+        @Path("id") monitoreoId: Int,
+        @Body data: com.example.plag_out.TratamientoRequest
+    ): Response<com.example.plag_out.TratamientoResponse>
+
+    // Solo los campos cambiados, con null explícito para deshacer un conteo posterior.
+    @PATCH("/tratamientos/{id}")
+    suspend fun actualizarTratamiento(
+        @Path("id") tratamientoId: Int,
+        @Body cambios: okhttp3.RequestBody
+    ): Response<com.example.plag_out.TratamientoResponse>
+
+    @DELETE("/tratamientos/{id}")
+    suspend fun eliminarTratamiento(@Path("id") tratamientoId: Int): Response<Unit>
+
     @GET("/ciclos/{id}")
     suspend fun getCiclo(@Path("id") id: Int): Response<com.example.plag_out.GddCicloResponse>
 

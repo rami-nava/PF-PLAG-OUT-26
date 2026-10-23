@@ -110,7 +110,7 @@ class PresenceRetryTest {
         sqlite.version = 13
         sqlite.close()
         val migrated = Room.databaseBuilder(context,AppDatabase::class.java,name)
-            .addMigrations(AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17, AppDatabase.migracion17a18(context)).allowMainThreadQueries().build()
+            .addMigrations(AppDatabase.MIGRATION_13_14, AppDatabase.MIGRATION_14_15, AppDatabase.MIGRATION_15_16, AppDatabase.MIGRATION_16_17, AppDatabase.migracion17a18(context), AppDatabase.MIGRATION_18_19).allowMainThreadQueries().build()
         val row = migrated.biofixDao().get("A",41)!!
         assertEquals("original-uuid-and-payload",row.payload)
         assertEquals("pendiente",row.estado)
