@@ -57,6 +57,7 @@ import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.SelloDeNivel
 import com.example.plag_out.ui.theme.SeparadorVertical
 import com.example.plag_out.ui.theme.estiloDeNivel
+import com.example.plag_out.ui.theme.estiloFinalizado
 import com.example.plag_out.ui.theme.rememberPressScale
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -194,7 +195,7 @@ fun CicloCard(
     finalizando: Boolean = false
 ) {
     val activo = cicloActivo(ciclo)
-    val estilo = estiloDeNivel(if (activo) ciclo.nivel_alerta else -1)
+    val estilo = if (activo) estiloDeNivel(ciclo.nivel_alerta) else estiloFinalizado()
     val enAlerta = activo && cicloEnAlerta(ciclo, umbralRiesgo)
     val objetivo = objetivoDelCiclo(ciclo, objetivoMonitoreo)
     val dias = diasEstimadosDelCiclo(ciclo, objetivoMonitoreo)

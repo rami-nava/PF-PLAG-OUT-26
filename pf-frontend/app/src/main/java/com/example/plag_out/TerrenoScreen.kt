@@ -456,7 +456,11 @@ fun TerrenoCard(
             Column(Modifier.padding(start = 17.dp, end = 18.dp, top = 16.dp, bottom = 14.dp)) {
                 Row(Modifier.fillMaxWidth()) {
                     Column(Modifier.weight(1f)) {
-                        SelloDeNivel(estilo, pulsante = nivelMax >= 2)
+                        if (nivelMax < 0 && esperando > 0) {
+                            EtiquetaInfo(Icons.Outlined.HourglassEmpty, "Esperando biofix", PlagOutColors.TextSecondary)
+                        } else {
+                            SelloDeNivel(estilo, pulsante = nivelMax >= 2)
+                        }
                         Spacer(Modifier.height(10.dp))
                         Text(
                             terreno.terreno_nombre,
