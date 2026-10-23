@@ -36,7 +36,7 @@ class RolesAdminTest {
     }
 
     @Test
-    fun `validacion exige temp base menor que la maxima, GDD positivos y cultivos`() {
+    fun `validacion exige temp base menor que la maxima, GDD positivos, tipo de desarrollo y cultivos`() {
         val errores = validarPlaga(
             FormularioPlaga(
                 nombre = "X", nombreCientifico = "Y",
@@ -44,7 +44,10 @@ class RolesAdminTest {
             )
         )
         assertEquals(
-            setOf(CampoPlaga.TEMP_MAX, CampoPlaga.GDD_ECLOSION, CampoPlaga.GDD_GENERACION, CampoPlaga.CULTIVOS),
+            setOf(
+                CampoPlaga.TEMP_MAX, CampoPlaga.GDD_ECLOSION, CampoPlaga.GDD_GENERACION,
+                CampoPlaga.TIPO_DESARROLLO, CampoPlaga.CULTIVOS
+            ),
             errores.keys
         )
     }
@@ -54,7 +57,7 @@ class RolesAdminTest {
         val errores = validarPlaga(
             FormularioPlaga(
                 nombre = "X", nombreCientifico = "Y", tempBase = "-2,5", tempMax = "30",
-                gddEclosion = "100", gddGeneracion = "500", cultivos = setOf(1)
+                gddEclosion = "100", gddGeneracion = "500", tipoDesarrollo = "completo", cultivos = setOf(1)
             )
         )
         assertTrue(errores.isEmpty())

@@ -398,6 +398,8 @@ class FakeGDDService : GDDService {
     var ultimoCultivoEnviado: CultivoAdminRequest? = null
         private set
     var ultimaPlagaEnviada: PlagaAdminRequest? = null
+    // El JSON exacto del PATCH, con los null explícitos.
+    var ultimaEdicionPlaga: com.google.gson.JsonObject? = null
         private set
     var ultimaBusquedaUsuarios: Pair<String?, Int>? = null
         private set
@@ -413,9 +415,11 @@ class FakeGDDService : GDDService {
         return adminCrearPlagaResult()
     }
 
-    override suspend fun adminActualizarPlaga(id: Int, data: PlagaAdminRequest): Response<PlagaAdmin> {
+    override suspend fun adminActualizarPlaga(id: Int, cambios: okhttp3.RequestBody): Response<PlagaAdmin> {
         llamadas += "adminActualizarPlaga"
-        ultimaPlagaEnviada = data
+        val buffer = okio.Buffer()
+        cambios.writeTo(buffer)
+        ultimaEdicionPlaga = com.google.gson.JsonParser.parseString(buffer.readUtf8()).asJsonObject
         return adminActualizarPlagaResult()
     }
 

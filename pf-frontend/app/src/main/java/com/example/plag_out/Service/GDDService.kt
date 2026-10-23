@@ -247,10 +247,11 @@ interface GDDService {
     @POST("/admin/plagas")
     suspend fun adminCrearPlaga(@Body data: PlagaAdminRequest): Response<PlagaAdmin>
 
+    // Solo los campos cambiados, como JSON con los null explícitos (ver requestDeEdicion).
     @PATCH("/admin/plagas/{id}")
     suspend fun adminActualizarPlaga(
         @Path("id") id: Int,
-        @Body data: PlagaAdminRequest
+        @Body cambios: okhttp3.RequestBody
     ): Response<PlagaAdmin>
 
     // Baja lógica: la plaga queda con activo = false. Se reactiva con PATCH {"activo": true}.
