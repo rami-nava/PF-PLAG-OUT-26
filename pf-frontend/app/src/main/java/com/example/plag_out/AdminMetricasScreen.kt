@@ -25,7 +25,6 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Grass
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.LocalFlorist
 import androidx.compose.material.icons.outlined.Schedule
@@ -374,14 +373,24 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
                 )
             }
 
-            Spacer(Modifier.height(12.dp))
-            Text(
-                textoLotesFueraDelGrafico(semaforo),
-                fontSize = 11.sp,
-                color = PlagOutColors.TextSecondary,
-                lineHeight = 15.sp,
-                modifier = Modifier.testTag("txtLotesFueraDelGrafico")
-            )
+            Spacer(Modifier.height(14.dp))
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxWidth().testTag("txtLotesFueraDelGrafico")
+            ) {
+                Text(
+                    textoLotesRegistrados(semaforo),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PlagOutColors.TextMain
+                )
+                puntosLotesDelSemaforo(semaforo).forEach { punto ->
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text("•", fontSize = 12.sp, color = PlagOutColors.TextSecondary, modifier = Modifier.padding(start = 2.dp, end = 8.dp))
+                        Text(punto, fontSize = 12.sp, color = PlagOutColors.TextSecondary, lineHeight = 16.sp)
+                    }
+                }
+            }
         }
     }
 }
@@ -733,7 +742,7 @@ private fun TarjetaEtapasMonitoreos(conteo: Map<EstadoVentanaControl, Int>) {
     TarjetaMetrica(
         icono = Icons.Outlined.Schedule,
         titulo = "Etapas de los monitoreos activos",
-        subtitulo = "Cuántos monitoreos con mediciones hay en cada etapa según los grados-día acumulados. El detalle por lote está en Lotes."
+        subtitulo = "Cuántos monitoreos con mediciones hay en cada etapa según los grados-día acumulados."
     ) {
         EstadoVentanaControl.entries.forEachIndexed { index, etapa ->
             val (color, etiqueta) = when (etapa) {
@@ -754,13 +763,6 @@ private fun TarjetaEtapasMonitoreos(conteo: Map<EstadoVentanaControl, Int>) {
                         color = PlagOutColors.TextMain
                     )
                 }
-                Text(
-                    textoDeEtapa(etapa),
-                    fontSize = 11.sp,
-                    color = PlagOutColors.TextSecondary,
-                    lineHeight = 15.sp,
-                    modifier = Modifier.padding(start = 16.dp, top = 2.dp)
-                )
             }
             if (index < EstadoVentanaControl.entries.size - 1) {
                 HorizontalDivider(color = PlagOutColors.Divider.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 10.dp))
@@ -1056,7 +1058,7 @@ private fun TarjetaPlagaPredominanteCampaña(campaña: CampañaHistorica) {
                     Text("PLAGA PREDOMINANTE DE LA CAMPAÑA", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.Leaf, letterSpacing = 0.5.sp)
                 }
 
-                Text("Campaña ${campaña.nombre}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextSecondary)
+                Text(campaña.nombre, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextSecondary)
             }
 
             Spacer(Modifier.height(14.dp))
@@ -1259,25 +1261,6 @@ private fun TarjetaEtapasCampaña(campaña: CampañaHistorica) {
                 ItemLeyendaRiesgo(color = PlagOutColors.RiskOk, titulo = estiloDeNivel(0).etiqueta, cantidad = campaña.riesgoBajo, porcentaje = campaña.porcentajeRiesgoBajo, modifier = Modifier.weight(1f))
                 ItemLeyendaRiesgo(color = PlagOutColors.RiskWarn, titulo = estiloDeNivel(1).etiqueta, cantidad = campaña.riesgoModerado, porcentaje = campaña.porcentajeRiesgoModerado, modifier = Modifier.weight(1f))
                 ItemLeyendaRiesgo(color = PlagOutColors.RiskDanger, titulo = estiloDeNivel(2).etiqueta, cantidad = campaña.riesgoAlto, porcentaje = campaña.porcentajeRiesgoAlto, modifier = Modifier.weight(1f))
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(PlagOutColors.Cream.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                    .padding(10.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Icon(Icons.Outlined.Info, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "La etapa sale del modelo térmico (grados-día con parámetros citados): en huevo, eclosión cerca (pasó el umbral de aviso) o eclosionó.",
-                    fontSize = 11.sp,
-                    color = PlagOutColors.TextSecondary,
-                    lineHeight = 15.sp
-                )
             }
         }
     }
