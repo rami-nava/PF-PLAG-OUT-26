@@ -11,8 +11,8 @@ plugins {
 // Valores públicos del proyecto Supabase vigente: la clave publicable está pensada para viajar
 // en la app. local.properties puede pisarlos (supabase.url / supabase.publishable.key), y en
 // la migración de proyecto se cambian acá.
-val supabaseUrlPorDefecto = "https://djhrmrvcffolxzvcqlux.supabase.co"
-val supabaseClavePorDefecto = "sb_publishable_tB5w0haD6JUc2O4ORfWlqA_UWdh5yU9"
+val supabaseUrlPorDefecto = "https://hlurqqxmnhwzpogmwbpj.supabase.co"
+val supabaseClavePorDefecto = "sb_publishable_0heoo5kZXP6qzOQZfZFniA_AwqjbE7T"
 
 android {
     val localProperties = Properties().apply {
