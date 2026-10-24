@@ -331,12 +331,40 @@ class AdminMetricasModelTest {
         assertEquals(80f, semaforo.hectareasEsperandoBiofix, 0.01f)
         assertEquals(1, semaforo.lotesSinMonitoreo)
         assertEquals(25.5f, semaforo.hectareasSinMonitoreo, 0.01f)
+        assertEquals("3 lotes registrados", textoLotesRegistrados(semaforo))
         assertEquals(
-            "3 lotes registrados: 1 con mediciones (en el gráfico), 1 esperando el biofix (80 ha) y " +
-                "1 sin monitoreos activos (25,5 ha). El biofix es el día en que se registra el inicio del ciclo " +
-                "de la plaga; hasta entonces no se calcula la etapa.",
-            textoLotesFueraDelGrafico(semaforo)
+            listOf(
+                "1 con ciclos activos · 120 ha",
+                "1 esperando biofix · 80 ha",
+                "1 sin monitoreos activos · 25,5 ha"
+            ),
+            puntosLotesDelSemaforo(semaforo)
         )
+    }
+
+    @Test
+    fun `un monitoreo activo con todos sus ciclos archivados no suma nivel en los tableros`() {
+        val terrenos = listOf(TerrenoResponse(1, "Lote 90", -31.4f, -64.1f, 90f))
+        val archivado = GddCicloResponse(
+            id = 1, monitoreo_id = 1, fecha_biofix = "2026-09-01", estado = "archivado",
+            fecha_actualizacion = "2026-10-15", gdd_acumulado = 90f, gdd_diario = 12f,
+            gdd_eclosion = 100f, gdd_generacion = 350f, progreso = 90f, estadio_biologico = "Huevo",
+            nivel_alerta = 1, dias_pendientes = 0
+        )
+        val monitoreo = monitoreoDePrueba(
+            monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 90",
+            cultivo_nombre = "Soja", plaga_nombre = "Chinche", gdd_diario = 12f, gdd_acumulado = 90f,
+            gdd_objetivo = 100f, progreso = 90f, nivel_alerta = 1, fecha_actualizacion = LocalDate.now(),
+            activo = true, ciclos = listOf(archivado)
+        )
+
+        // Igual que en Mis Monitoreos: sin ciclos activos espera el biofix, no está "cerca de eclosión".
+        val semaforo = calcularSemaforoHectareas(listOf(monitoreo), terrenos)
+        assertEquals(0f, semaforo.hectareasAmarillo, 0.01f)
+        assertEquals(1, semaforo.lotesEsperandoBiofix)
+        assertEquals(90f, semaforo.hectareasEsperandoBiofix, 0.01f)
+        assertTrue(calcularVentanasControlAgronomo(listOf(monitoreo)).isEmpty())
+        assertTrue(calcularRankingLotesCriticos(listOf(monitoreo), terrenos).isEmpty())
     }
 
     @Test

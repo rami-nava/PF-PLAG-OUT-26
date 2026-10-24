@@ -266,7 +266,7 @@ fun calcularSemaforoHectareas(
 
     // Lotes cuyos monitoreos esperan todos el biofix no tienen nivel: quedan fuera del semáforo.
     val alertaPorTerreno = activos.groupBy { it.terreno_id }
-        .mapNotNull { (terreno, ms) -> ms.mapNotNull(::nivelAlertaResuelto).maxOrNull()?.let { terreno to it } }
+        .mapNotNull { (terreno, ms) -> ms.mapNotNull(::nivelAlertaVigente).maxOrNull()?.let { terreno to it } }
         .toMap()
 
     var haVerde = 0f
@@ -398,7 +398,7 @@ fun calcularRankingLotesCriticos(
     plantaciones: List<PlantacionesResponse> = emptyList(),
     fechaReferencia: LocalDate = LocalDate.now()
 ): List<LoteEnRiesgoCritico> {
-    val activos = monitoreos.filter { it.activo && medido(it) }
+    val activos = monitoreos.filter { it.activo && cicloVigente(it) != null }
     val terrenosMap = terrenos.associateBy { it.terreno_id }
     val plantacionesMap = plantaciones.associateBy { it.plantacion_id }
 
@@ -409,9 +409,10 @@ fun calcularRankingLotesCriticos(
             ChronoUnit.DAYS.between(it, fechaReferencia).coerceAtLeast(0)
         }
 
-        val nivelAlerta = nivelAlertaResuelto(m) ?: 0
-        val progreso = progresoResuelto(m) ?: 0f
-        val gddAcumulado = gddAcumuladoResuelto(m) ?: 0f
+        val ciclo = cicloVigente(m)
+        val nivelAlerta = ciclo?.nivel_alerta ?: 0
+        val progreso = ciclo?.progreso ?: 0f
+        val gddAcumulado = ciclo?.gdd_acumulado ?: 0f
 
         LoteEnRiesgoCritico(
             monitoreoId = m.monitoreo_id,
@@ -439,14 +440,14 @@ fun calcularRankingLotesCriticos(
 fun calcularVentanasControlAgronomo(
     monitoreos: List<MonitoreoResponse>
 ): List<VentanaControlBiologico> {
-    val activos = monitoreos.filter { it.activo && medido(it) }
+    val activos = monitoreos.filter { it.activo && cicloVigente(it) != null }
 
     return activos.map { m ->
-        val cicloActivo = cicloQueDescribe(m)
+        val cicloActivo = cicloVigente(m)
         val progreso = cicloActivo?.progreso ?: 0f
         val estadioReal = cicloActivo?.estadio_biologico?.takeIf { it.isNotBlank() }
 
-        val estado = etapaDeNivel(nivelAlertaResuelto(m) ?: 0)
+        val estado = etapaDeNivel(cicloActivo?.nivel_alerta ?: 0)
         val estadio = estadioReal ?: estadioPorDefecto(estado)
         val recomendacion = recomendacion(estado)
 
@@ -480,11 +481,15 @@ fun cicloQueDescribe(monitoreo: MonitoreoResponse): GddCicloResponse? {
 
 fun nivelAlertaResuelto(monitoreo: MonitoreoResponse): Int? = cicloQueDescribe(monitoreo)?.nivel_alerta
 
+fun cicloVigente(monitoreo: MonitoreoResponse): GddCicloResponse? =
+    ciclosActivos(monitoreo).maxWithOrNull(compareBy<GddCicloResponse> { it.nivel_alerta }.thenBy { it.progreso })
+
+fun nivelAlertaVigente(monitoreo: MonitoreoResponse): Int? = cicloVigente(monitoreo)?.nivel_alerta
+
 fun progresoResuelto(monitoreo: MonitoreoResponse): Float? = cicloQueDescribe(monitoreo)?.progreso
 
 fun gddAcumuladoResuelto(monitoreo: MonitoreoResponse): Float? = cicloQueDescribe(monitoreo)?.gdd_acumulado
 
-private fun medido(monitoreo: MonitoreoResponse): Boolean = cicloQueDescribe(monitoreo) != null
 
 // ── Métricas globales del admin (GET /admin/metricas) ───────────────────────
 // El backend ya las calcula sobre todos los productores; acá solo se pasan a los modelos
@@ -624,14 +629,21 @@ fun AdminMetricasUIState.conMetricasGlobales(metricas: MetricasAdmin): AdminMetr
 private fun formatearDecimalAr(valor: Float): String =
     if (valor % 1f == 0f) valor.toInt().toString() else String.format(java.util.Locale.US, "%.1f", valor).replace('.', ',')
 
-/** Los lotes que no entran en el gráfico, con el mismo texto que el panel. */
-fun textoLotesFueraDelGrafico(semaforo: SemaforoHectareas): String {
+
+fun textoLotesRegistrados(semaforo: SemaforoHectareas): String {
     val registrados = semaforo.totalLotes + semaforo.lotesEsperandoBiofix + semaforo.lotesSinMonitoreo
-    return "$registrados ${if (registrados == 1) "lote registrado" else "lotes registrados"}: " +
-        "${semaforo.totalLotes} con mediciones (en el gráfico), " +
-        "${semaforo.lotesEsperandoBiofix} esperando el biofix (${formatearDecimalAr(semaforo.hectareasEsperandoBiofix)} ha) y " +
-        "${semaforo.lotesSinMonitoreo} sin monitoreos activos (${formatearDecimalAr(semaforo.hectareasSinMonitoreo)} ha). " +
-        "El biofix es el día en que se registra el inicio del ciclo de la plaga; hasta entonces no se calcula la etapa."
+    return "$registrados ${if (registrados == 1) "lote registrado" else "lotes registrados"}"
+}
+
+/** Una viñeta por grupo de lotes: los del gráfico y los que quedan fuera, con su superficie. */
+fun puntosLotesDelSemaforo(semaforo: SemaforoHectareas): List<String> {
+    fun punto(lotes: Int, estado: String, hectareas: Float) =
+        "$lotes $estado · ${formatearDecimalAr(hectareas)} ha"
+    return listOf(
+        punto(semaforo.totalLotes, "con ciclos activos", semaforo.totalHectareas),
+        punto(semaforo.lotesEsperandoBiofix, "esperando biofix", semaforo.hectareasEsperandoBiofix),
+        punto(semaforo.lotesSinMonitoreo, "sin monitoreos activos", semaforo.hectareasSinMonitoreo)
+    )
 }
 
 /** "87,5 %" o "—" cuando no hay cifra. */
