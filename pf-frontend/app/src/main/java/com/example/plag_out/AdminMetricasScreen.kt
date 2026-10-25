@@ -145,7 +145,11 @@ fun AdminMetricasScreen(
                 EstadoVacioFlotante(
                     icono = Icons.Outlined.Insights,
                     titulo = "Sin datos registrados",
-                    subtitulo = "Cuando los productores den de alta lotes y monitoreos, los tableros analíticos se generarán automáticamente."
+                    subtitulo = if (global) {
+                        "Cuando los productores den de alta lotes y monitoreos, los tableros analíticos se generarán automáticamente."
+                    } else {
+                        "Cuando des de alta lotes y monitoreos, tus tableros analíticos se generarán automáticamente."
+                    }
                 )
             }
             else -> {

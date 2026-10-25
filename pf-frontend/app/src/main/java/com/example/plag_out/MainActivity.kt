@@ -532,7 +532,7 @@ fun AppNavigation(
     val fullBleedScreens = listOf(
         "logIn", "crearCuenta", "recuperarPassword", "editarPerfil",
         "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "mapa_reportes",
-        RUTA_ADMIN_PLAGA_NUEVA, RUTA_ADMIN_PLAGA, RUTA_ADMIN_USUARIO
+        RUTA_ADMIN_PLAGA_NUEVA, RUTA_ADMIN_PLAGA, RUTA_ADMIN_CULTIVO_NUEVO, RUTA_ADMIN_CULTIVO, RUTA_ADMIN_USUARIO
     )
     val rutaActual = navBackStackEntry?.destination?.route
 
