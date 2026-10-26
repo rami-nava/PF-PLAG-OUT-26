@@ -1,5 +1,12 @@
 package com.example.plag_out
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
@@ -28,6 +35,9 @@ class AdminMetricasGlobalesTest {
 
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+
+    @get:Rule
+    val compose = createComposeRule()
 
     // Same shape the backend sends (api/modules/users/admin_schemas.py, MetricasAdmin).
     private val json = """
@@ -77,11 +87,13 @@ class AdminMetricasGlobalesTest {
             "plaga_predominante": "Cogollero", "riesgo_bajo": 1, "riesgo_moderado": 0, "riesgo_alto": 1,
             "esperando_biofix": 1,
             "plagas": [{"plaga": "Cogollero", "plaga_cientifico": null, "monitoreos": 3, "incidencia": 100.0,
-                        "riesgo_alto": 1, "porcentaje_riesgo_alto": null, "nivel_promedio": null}]
+                        "riesgo_alto": 1, "porcentaje_riesgo_alto": null, "nivel_promedio": null, "cultivos": ["Maíz"]}],
+            "cultivos": [{"cultivo": "Maíz", "cultivo_cientifico": "Zea mays", "monitoreos": 3, "hectareas": 40.0,
+                          "plagas": [{"plaga": "Cogollero", "plaga_cientifico": null, "monitoreos": 3, "porcentaje": 100.0}]}]
           }, {
             "nombre": "2025/2026", "anio_inicio": 2025, "monitoreos": 1, "hectareas": 5.0,
             "plaga_predominante": null, "riesgo_bajo": 0, "riesgo_moderado": 0, "riesgo_alto": 0,
-            "esperando_biofix": 0, "plagas": []
+            "esperando_biofix": 0, "plagas": [], "cultivos": []
           }]
         }
     """.trimIndent()
@@ -95,8 +107,9 @@ class AdminMetricasGlobalesTest {
     fun `el contrato del backend se lee completo`() {
         assertEquals(1, metricas.monitoreos_esperando_biofix)
         assertEquals(LocalDate.of(2026, 9, 1), metricas.cultivos.single().fecha_siembra)
-        assertEquals(87.5f, metricas.tratamientos!!.productos.single().eficacia_promedio!!, 0.01f)
-        assertNull(metricas.tratamientos!!.productos.single().reduccion_observada_promedio)
+        val producto = metricas.tratamientos!!.productos.single()
+        assertEquals(87.5f, producto.eficacia_promedio!!, 0.01f)
+        assertNull(producto.reduccion_observada_promedio)
         assertNull(metricas.lotes_criticos.first().dias_desde_siembra)
     }
 
@@ -129,6 +142,11 @@ class AdminMetricasGlobalesTest {
         assertEquals(listOf("2026/2027", "2025/2026"), estado.campañas.map { it.nombre })
         assertEquals("2026/2027", estado.campañaSeleccionada?.nombre)
         assertEquals("Cogollero", estado.campañas.first().plagaPredominante?.plagaNombre)
+        assertEquals(listOf("Maíz"), estado.campañas.first().plagaPredominante?.cultivosAfectados)
+        assertEquals(1, estado.campañas.first().cultivos.size)
+        assertEquals("Maíz", estado.campañas.first().cultivos.single().cultivoNombre)
+        assertEquals(3, estado.campañas.first().cultivos.single().totalMonitoreos)
+        assertEquals("Cogollero", estado.campañas.first().cultivos.single().plagas.single().plagaNombre)
         assertEquals(0f, estado.campañas.first().plagas.single().porcentajeRiesgoAlto)
         assertNull(estado.campañas.last().plagaPredominante)
         assertEquals("Cogollero", estado.plagaHistoricaLider)
@@ -169,5 +187,39 @@ class AdminMetricasGlobalesTest {
 
         val estado = esperarEstado(viewModel.state) { it.error != null }
         assertTrue(estado.campañas.isEmpty())
+    }
+
+    @Test
+    fun `la pantalla de tableros renderiza lotes sin dias de siembra y campanas con monitoreos por cultivo`() {
+        val gddService = FakeGDDService().apply {
+            adminGetMetricasResult = { Response.success(metricas) }
+        }
+        val viewModel = AdminMetricasViewModel(gddService, mainDispatcherRule.testDispatcher)
+
+        compose.setContent {
+            MaterialTheme {
+                AdminMetricasScreen(viewModel = viewModel, global = true)
+            }
+        }
+
+        // Pestaña Lotes: muestra plagas incidentes por cultivo sin "Sembrado hace X días"
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Plagas Incidentes por Cultivo"))
+        compose.onNodeWithText("Plagas Incidentes por Cultivo").assertExists()
+        compose.onNodeWithText("Sembrado hace", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("(30 días)", substring = true).assertDoesNotExist()
+
+        // Cambiar a pestaña Campañas
+        compose.onNodeWithText("Campañas").performClick()
+
+        // En Campañas: muestra cultivo que afecta y monitoreos por cultivo, sin etapas ni eclosionados
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("PLAGA PREDOMINANTE DE LA CAMPAÑA"))
+        compose.onNodeWithText("PLAGA PREDOMINANTE DE LA CAMPAÑA").assertExists()
+        compose.onNodeWithText("CULTIVO QUE AFECTA").assertExists()
+        compose.onNodeWithText("YA ECLOSIONADOS", ignoreCase = true).assertDoesNotExist()
+        compose.onNodeWithText("ETAPA TÍPICA", ignoreCase = true).assertDoesNotExist()
+        compose.onNodeWithText("Etapas de la campaña", ignoreCase = true).assertDoesNotExist()
+
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Monitoreos por Cultivo y Plaga"))
+        compose.onNodeWithText("Monitoreos por Cultivo y Plaga").assertExists()
     }
 }

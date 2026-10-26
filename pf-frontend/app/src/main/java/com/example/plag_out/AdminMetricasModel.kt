@@ -22,7 +22,30 @@ data class ResumenPlagaCampaña(
     val porcentajeIncidencia: Float,
     val enRiesgoAlto: Int,
     val porcentajeRiesgoAlto: Float,
-    val nivelRiesgoPromedio: Float
+    val nivelRiesgoPromedio: Float,
+    val cultivosAfectados: List<String> = emptyList()
+)
+
+/**
+ * Desglose de cantidad de monitoreos de una plaga dentro de un cultivo en una campaña.
+ */
+data class ResumenPlagaEnCultivoCampaña(
+    val plagaNombre: String,
+    val plagaCientifico: String? = null,
+    val totalMonitoreos: Int,
+    val porcentaje: Float
+)
+
+/**
+ * Total de monitoreos de un cultivo y su desglose por plaga dentro de una campaña agrícola
+ * (incluye tanto monitoreos activos como finalizados).
+ */
+data class ResumenCultivoCampaña(
+    val cultivoNombre: String,
+    val cultivoCientifico: String? = null,
+    val totalMonitoreos: Int,
+    val totalHectareas: Float = 0f,
+    val plagas: List<ResumenPlagaEnCultivoCampaña> = emptyList()
 )
 
 /**
@@ -38,7 +61,8 @@ data class CampañaHistorica(
     val plagas: List<ResumenPlagaCampaña>,
     val riesgoBajo: Int,
     val riesgoModerado: Int,
-    val riesgoAlto: Int
+    val riesgoAlto: Int,
+    val cultivos: List<ResumenCultivoCampaña> = emptyList()
 ) {
     val totalConRiesgo: Int get() = riesgoBajo + riesgoModerado + riesgoAlto
     val porcentajeRiesgoBajo: Float get() = if (totalConRiesgo > 0) (riesgoBajo * 100f / totalConRiesgo) else 0f
@@ -221,6 +245,14 @@ fun agruparPorCampaña(
             val niveles = items.mapNotNull { nivelAlertaResuelto(it) }
             val promedioNivel = if (niveles.isNotEmpty()) niveles.average().toFloat() else 0f
             val nombreCientifico = items.firstNotNullOfOrNull { it.plaga_nombre_cientifico }
+            val cultivosAfectados = items
+                .map { it.cultivo_nombre.trim() }
+                .filter { it.isNotEmpty() }
+                .groupingBy { it }
+                .eachCount()
+                .entries
+                .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+                .map { it.key }
 
             ResumenPlagaCampaña(
                 plagaNombre = nombrePlaga,
@@ -229,9 +261,41 @@ fun agruparPorCampaña(
                 porcentajeIncidencia = incidencia,
                 enRiesgoAlto = enAlto,
                 porcentajeRiesgoAlto = pctAlto,
-                nivelRiesgoPromedio = promedioNivel
+                nivelRiesgoPromedio = promedioNivel,
+                cultivosAfectados = cultivosAfectados
             )
-        }.sortedByDescending { it.totalMonitoreos }
+        }.sortedWith(compareByDescending<ResumenPlagaCampaña> { it.totalMonitoreos }.thenBy { it.plagaNombre })
+
+        val resumenCultivos = listaMonitoreos
+            .groupBy { it.cultivo_nombre.trim().ifEmpty { "Sin cultivo" } }
+            .map { (nombreCultivo, msCultivo) ->
+                val totalMsCultivo = msCultivo.size
+                val haCultivo = msCultivo
+                    .map { it.terreno_id }
+                    .distinct()
+                    .mapNotNull { terrenosMap[it]?.terreno_area }
+                    .sum()
+                val plagasDelCultivo = msCultivo
+                    .groupBy { it.plaga_nombre.trim().ifEmpty { "Sin especificar" } }
+                    .map { (nombrePlaga, msPlagaCultivo) ->
+                        val cientifico = msPlagaCultivo.firstNotNullOfOrNull { it.plaga_nombre_cientifico }
+                        ResumenPlagaEnCultivoCampaña(
+                            plagaNombre = nombrePlaga,
+                            plagaCientifico = cientifico,
+                            totalMonitoreos = msPlagaCultivo.size,
+                            porcentaje = if (totalMsCultivo > 0) (msPlagaCultivo.size * 100f / totalMsCultivo) else 0f
+                        )
+                    }
+                    .sortedWith(compareByDescending<ResumenPlagaEnCultivoCampaña> { it.totalMonitoreos }.thenBy { it.plagaNombre })
+
+                ResumenCultivoCampaña(
+                    cultivoNombre = nombreCultivo,
+                    totalMonitoreos = totalMsCultivo,
+                    totalHectareas = haCultivo,
+                    plagas = plagasDelCultivo
+                )
+            }
+            .sortedWith(compareByDescending<ResumenCultivoCampaña> { it.totalMonitoreos }.thenBy { it.cultivoNombre })
 
         val plagaLider = resumenPlagas.firstOrNull()
 
@@ -249,7 +313,8 @@ fun agruparPorCampaña(
             plagas = resumenPlagas,
             riesgoBajo = rBajo,
             riesgoModerado = rModerado,
-            riesgoAlto = rAlto
+            riesgoAlto = rAlto,
+            cultivos = resumenCultivos
         )
     }.sortedByDescending { it.añoInicio }
 }
@@ -522,7 +587,27 @@ private fun nombreLoteAnonimo(posicion: Int) = "Lote anónimo ${posicion + 1}"
 
 fun AdminMetricasUIState.conMetricasGlobales(metricas: MetricasAdmin): AdminMetricasUIState {
     val campañas = metricas.campanias.map { campaña ->
+        val cultivosCampaña = campaña.cultivos.orEmpty().map { c ->
+            ResumenCultivoCampaña(
+                cultivoNombre = c.cultivo,
+                cultivoCientifico = c.cultivo_cientifico,
+                totalMonitoreos = c.monitoreos,
+                totalHectareas = c.hectareas,
+                plagas = c.plagas.orEmpty().map { pc ->
+                    ResumenPlagaEnCultivoCampaña(
+                        plagaNombre = pc.plaga,
+                        plagaCientifico = pc.plaga_cientifico,
+                        totalMonitoreos = pc.monitoreos,
+                        porcentaje = pc.porcentaje
+                    )
+                }
+            )
+        }
         val plagas = campaña.plagas.map { plaga ->
+            val cultivosDePlaga = plaga.cultivos?.takeIf { it.isNotEmpty() }
+                ?: cultivosCampaña
+                    .filter { c -> c.plagas.any { it.plagaNombre == plaga.plaga } }
+                    .map { it.cultivoNombre }
             ResumenPlagaCampaña(
                 plagaNombre = plaga.plaga,
                 plagaCientifico = plaga.plaga_cientifico,
@@ -531,7 +616,8 @@ fun AdminMetricasUIState.conMetricasGlobales(metricas: MetricasAdmin): AdminMetr
                 enRiesgoAlto = plaga.riesgo_alto,
                 // Sin monitoreos medidos no hay porcentaje: se muestra 0.
                 porcentajeRiesgoAlto = plaga.porcentaje_riesgo_alto ?: 0f,
-                nivelRiesgoPromedio = plaga.nivel_promedio ?: 0f
+                nivelRiesgoPromedio = plaga.nivel_promedio ?: 0f,
+                cultivosAfectados = cultivosDePlaga
             )
         }
         CampañaHistorica(
@@ -543,7 +629,8 @@ fun AdminMetricasUIState.conMetricasGlobales(metricas: MetricasAdmin): AdminMetr
             plagas = plagas,
             riesgoBajo = campaña.riesgo_bajo,
             riesgoModerado = campaña.riesgo_moderado,
-            riesgoAlto = campaña.riesgo_alto
+            riesgoAlto = campaña.riesgo_alto,
+            cultivos = cultivosCampaña
         )
     }
     val semaforo = metricas.semaforo
