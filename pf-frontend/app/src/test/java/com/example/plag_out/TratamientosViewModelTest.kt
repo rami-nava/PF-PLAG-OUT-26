@@ -91,7 +91,7 @@ class TratamientosViewModelTest {
 
         viewModel.registrar(form) { resultado = it }
 
-        esperarEstado(viewModel.state, ESPERA_MS) { it.tratamientos.isNotEmpty() && !it.guardando }
+        esperarEstado(viewModel.state, ESPERA_MS) { it.tratamientos.isNotEmpty() && it.pendientes.isEmpty() && !it.guardando }
         assertTrue(resultado is EnvioTratamiento.Enviado)
         assertEquals("clave-1", service.tratamientosEnviados.single().idempotency_key)
         assertNull(filas())
@@ -137,7 +137,9 @@ class TratamientosViewModelTest {
 
         viewModel.registrar(form) { resultado = it }
 
-        val estado = esperarEstado(viewModel.state, ESPERA_MS) { it.items.isNotEmpty() && !it.guardando }
+        val estado = esperarEstado(viewModel.state, ESPERA_MS) {
+            !it.guardando && (it.items.singleOrNull() as? ItemTratamiento.SinEnviar)?.requiereRevision == true
+        }
         assertEquals(EnvioTratamiento.Rechazado("El monitoreo está finalizado: no admite tratamientos nuevos."), resultado)
         assertTrue((estado.items.single() as ItemTratamiento.SinEnviar).requiereRevision)
     }
