@@ -161,6 +161,56 @@ class AdminMetricasModelTest {
     }
 
     @Test
+    fun `agruparPorCampaña incluye monitoreos activos e inactivos en cultivos y ordena cultivos afectados`() {
+        val terreno1 = TerrenoResponse(1, "Lote 1", -31.4f, -64.1f, 50f)
+        val terreno2 = TerrenoResponse(2, "Lote 2", -31.5f, -64.2f, 30f)
+        val terreno3 = TerrenoResponse(3, "Lote 3", -31.6f, -64.3f, 40f)
+
+        val monitoreos = listOf(
+            monitoreoDePrueba(
+                monitoreo_id = 1, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
+                cultivo_nombre = "Maíz", plaga_nombre = "Cogollero",
+                fecha_actualizacion = LocalDate.of(2025, 11, 10), activo = true
+            ),
+            monitoreoDePrueba(
+                monitoreo_id = 2, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
+                cultivo_nombre = "Maíz", plaga_nombre = "Cogollero",
+                fecha_actualizacion = LocalDate.of(2025, 11, 20), activo = false
+            ),
+            monitoreoDePrueba(
+                monitoreo_id = 3, plantacion_id = 2, terreno_id = 2, terreno_nombre = "Lote 2",
+                cultivo_nombre = "Maíz", plaga_nombre = "Barrenador",
+                fecha_actualizacion = LocalDate.of(2025, 12, 1), activo = false
+            ),
+            monitoreoDePrueba(
+                monitoreo_id = 4, plantacion_id = 3, terreno_id = 3, terreno_nombre = "Lote 3",
+                cultivo_nombre = "Soja", plaga_nombre = "Cogollero",
+                fecha_actualizacion = LocalDate.of(2026, 1, 15), activo = false
+            )
+        )
+
+        val camp = agruparPorCampaña(monitoreos, listOf(terreno1, terreno2, terreno3)).single()
+
+        // Cogollero afecta Maíz (2 monitoreos) y Soja (1 monitoreo)
+        assertEquals("Cogollero", camp.plagaPredominante?.plagaNombre)
+        assertEquals(listOf("Maíz", "Soja"), camp.plagaPredominante?.cultivosAfectados)
+
+        // En cultivos de la campaña entran los 4 monitoreos (activos + finalizados) y las ha por lote no se duplican
+        assertEquals(2, camp.cultivos.size)
+        val maiz = camp.cultivos[0]
+        assertEquals("Maíz", maiz.cultivoNombre)
+        assertEquals(3, maiz.totalMonitoreos)
+        assertEquals(80f, maiz.totalHectareas, 0.01f)
+        assertEquals(listOf("Cogollero", "Barrenador"), maiz.plagas.map { it.plagaNombre })
+        assertEquals(listOf(2, 1), maiz.plagas.map { it.totalMonitoreos })
+
+        val soja = camp.cultivos[1]
+        assertEquals("Soja", soja.cultivoNombre)
+        assertEquals(1, soja.totalMonitoreos)
+        assertEquals(40f, soja.totalHectareas, 0.01f)
+    }
+
+    @Test
     fun `calcularSemaforoHectareas clasifica la superficie segun el peor estado de cada lote`() {
         val terreno1 = TerrenoResponse(1, "Lote 1", -31.4f, -64.1f, 100f) // Alerta alta (Rojo)
         val terreno2 = TerrenoResponse(2, "Lote 2", -31.5f, -64.2f, 50f)  // Alerta moderada (Amarillo)

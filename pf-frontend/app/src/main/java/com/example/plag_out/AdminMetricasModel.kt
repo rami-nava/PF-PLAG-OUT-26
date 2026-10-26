@@ -264,7 +264,7 @@ fun agruparPorCampaña(
                 nivelRiesgoPromedio = promedioNivel,
                 cultivosAfectados = cultivosAfectados
             )
-        }.sortedByDescending { it.totalMonitoreos }
+        }.sortedWith(compareByDescending<ResumenPlagaCampaña> { it.totalMonitoreos }.thenBy { it.plagaNombre })
 
         val resumenCultivos = listaMonitoreos
             .groupBy { it.cultivo_nombre.trim().ifEmpty { "Sin cultivo" } }

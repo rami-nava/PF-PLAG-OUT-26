@@ -97,8 +97,9 @@ class AdminMetricasGlobalesTest {
     fun `el contrato del backend se lee completo`() {
         assertEquals(1, metricas.monitoreos_esperando_biofix)
         assertEquals(LocalDate.of(2026, 9, 1), metricas.cultivos.single().fecha_siembra)
-        assertEquals(87.5f, metricas.tratamientos!!.productos.single().eficacia_promedio!!, 0.01f)
-        assertNull(metricas.tratamientos!!.productos.single().reduccion_observada_promedio)
+        val producto = metricas.tratamientos!!.productos.single()
+        assertEquals(87.5f, producto.eficacia_promedio!!, 0.01f)
+        assertNull(producto.reduccion_observada_promedio)
         assertNull(metricas.lotes_criticos.first().dias_desde_siembra)
     }
 
