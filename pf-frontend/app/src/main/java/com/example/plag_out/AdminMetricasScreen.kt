@@ -552,7 +552,7 @@ private fun ItemFilaLoteCritico(lote: LoteEnRiesgoCritico) {
                         )
                     }
                 }
-                val infoCultivo = if (lote.diasDesdeSiembra != null) {
+                val infoCultivo = if (lote.diasDesdeSiembra != null && lote.monitoreoId >= 0) {
                     "${lote.cultivoNombre} (${lote.diasDesdeSiembra} días) • ${lote.plagaNombre}"
                 } else {
                     "${lote.cultivoNombre} • ${lote.plagaNombre}"
@@ -627,7 +627,7 @@ private fun TarjetaPlagasPorCultivo(cultivos: List<ResumenCultivoPlagas>) {
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text("Plagas Incidentes por Cultivo", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
-                    Text("Prevalencia de plagas desde la fecha de siembra", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
+                    Text("Prevalencia de plagas en los lotes monitoreados", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
 
@@ -659,9 +659,6 @@ private fun BloqueCultivoPlagas(cultivo: ResumenCultivoPlagas) {
         ) {
             Column {
                 Text(cultivo.cultivoNombre, fontSize = 15.sp, fontWeight = FontWeight.Black, color = PlagOutColors.TextMain)
-                if (cultivo.diasDesdeSiembra != null) {
-                    Text("Sembrado hace ${cultivo.diasDesdeSiembra} días", fontSize = 11.sp, color = PlagOutColors.TextSecondary)
-                }
             }
             Text(
                 "${cultivo.totalLotes} ${if (cultivo.totalLotes == 1) "lote" else "lotes"} · ${cultivo.totalHectareas.toInt()} ha",
@@ -687,7 +684,7 @@ private fun BloqueCultivoPlagas(cultivo: ResumenCultivoPlagas) {
                     ) {
                         Text(plaga.plagaNombre, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
                         Text(
-                            "${plaga.totalLotes} lotes (${plaga.porcentaje.toInt()}%)",
+                            "${plaga.totalLotes} ${if (plaga.totalLotes == 1) "lote" else "lotes"} (${plaga.porcentaje.toInt()}%)",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = PlagOutColors.TextSecondary
@@ -706,7 +703,7 @@ private fun BloqueCultivoPlagas(cultivo: ResumenCultivoPlagas) {
                                 .fillMaxWidth((plaga.porcentaje / 100f).coerceIn(0f, 1f))
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(3.dp))
-                                .background(if (plaga.casosAlerta > 0) PlagOutColors.RiskDanger else PlagOutColors.Leaf)
+                                .background(PlagOutColors.Leaf)
                         )
                     }
                 }
@@ -924,7 +921,7 @@ private fun VistaDashboardHistorico(
             }
         }
 
-        // Plaga predominante en la campaña
+        // Plaga predominante y desgloses de la campaña
         seleccionada?.let { camp ->
             item {
                 StaggeredAppear(index = 1) {
@@ -934,13 +931,13 @@ private fun VistaDashboardHistorico(
 
             item {
                 StaggeredAppear(index = 2) {
-                    TarjetaPrevalenciaPlagas(campaña = camp)
+                    TarjetaMonitoreosPorCultivoCampaña(campaña = camp)
                 }
             }
 
             item {
                 StaggeredAppear(index = 3) {
-                    TarjetaEtapasCampaña(campaña = camp)
+                    TarjetaPrevalenciaPlagas(campaña = camp)
                 }
             }
         }
@@ -1079,10 +1076,30 @@ private fun TarjetaPlagaPredominanteCampaña(campaña: CampañaHistorica) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    MiniIndicador(titulo = "Incidencia", valor = String.format(LocalConfiguration.current.locales[0], "%.1f%%", lider.porcentajeIncidencia), detalle = "del total monitoreado", color = PlagOutColors.Forest, modifier = Modifier.weight(1f))
-                    MiniIndicador(titulo = "Ya eclosionados", valor = "${lider.enRiesgoAlto}", detalle = "${lider.porcentajeRiesgoAlto.toInt()}% de los medidos", color = if (lider.enRiesgoAlto > 0) PlagOutColors.RiskDanger else PlagOutColors.RiskOk, modifier = Modifier.weight(1f))
-                    val estiloSeveridad = estiloDeNivel(lider.nivelRiesgoPromedio.roundToInt())
-                    MiniIndicador(titulo = "Etapa típica", valor = estiloSeveridad.etiqueta, detalle = "promedio de la campaña", color = estiloSeveridad.color, modifier = Modifier.weight(1f))
+                    MiniIndicador(
+                        titulo = "Incidencia",
+                        valor = String.format(LocalConfiguration.current.locales[0], "%.1f%%", lider.porcentajeIncidencia),
+                        detalle = "${lider.totalMonitoreos} ${if (lider.totalMonitoreos == 1) "monitoreo" else "monitoreos"}",
+                        color = PlagOutColors.Forest,
+                        modifier = Modifier.weight(1f)
+                    )
+                    val cultivosTexto = if (lider.cultivosAfectados.isNotEmpty()) {
+                        lider.cultivosAfectados.joinToString(", ")
+                    } else {
+                        "—"
+                    }
+                    val detalleCultivos = when (lider.cultivosAfectados.size) {
+                        0 -> "sin cultivo asociado"
+                        1 -> "cultivo afectado"
+                        else -> "${lider.cultivosAfectados.size} cultivos afectados"
+                    }
+                    MiniIndicador(
+                        titulo = if (lider.cultivosAfectados.size <= 1) "Cultivo que afecta" else "Cultivos que afecta",
+                        valor = cultivosTexto,
+                        detalle = detalleCultivos,
+                        color = PlagOutColors.Leaf,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             } else {
                 Text("No se registraron plagas en esta campaña.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
@@ -1107,6 +1124,117 @@ private fun MiniIndicador(titulo: String, valor: String, detalle: String, color:
             Text(valor, fontSize = 16.sp, fontWeight = FontWeight.Black, color = PlagOutColors.TextMain)
             Spacer(Modifier.height(2.dp))
             Text(detalle, fontSize = 10.sp, color = PlagOutColors.TextSecondary, maxLines = 1)
+        }
+    }
+}
+
+// ── Tarjeta: Monitoreos por Cultivo y Plaga en la Campaña ───────────────────
+
+@Composable
+private fun TarjetaMonitoreosPorCultivoCampaña(campaña: CampañaHistorica) {
+    Surface(
+        color = PlagOutColors.Surface,
+        shape = RoundedCornerShape(22.dp),
+        shadowElevation = 2.dp,
+        border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.Grass, contentDescription = null, tint = PlagOutColors.Leaf, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text("Monitoreos por Cultivo y Plaga", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text("Total de monitoreos registrados en la campaña (activos y finalizados)", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            if (campaña.cultivos.isEmpty()) {
+                Text("No hay cultivos con monitoreos en esta campaña.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
+            } else {
+                campaña.cultivos.forEachIndexed { index, cultivo ->
+                    BloqueCultivoCampaña(cultivo = cultivo)
+                    if (index < campaña.cultivos.size - 1) {
+                        Spacer(Modifier.height(14.dp))
+                        HorizontalDivider(color = PlagOutColors.Divider.copy(alpha = 0.5f))
+                        Spacer(Modifier.height(14.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BloqueCultivoCampaña(cultivo: ResumenCultivoCampaña) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(cultivo.cultivoNombre, fontSize = 15.sp, fontWeight = FontWeight.Black, color = PlagOutColors.TextMain)
+                if (!cultivo.cultivoCientifico.isNullOrBlank()) {
+                    Text(cultivo.cultivoCientifico, fontSize = 11.sp, fontStyle = FontStyle.Italic, color = PlagOutColors.TextSecondary)
+                }
+            }
+            val textoMonitoreos = "${cultivo.totalMonitoreos} ${if (cultivo.totalMonitoreos == 1) "monitoreo" else "monitoreos"}"
+            val textoDetalle = if (cultivo.totalHectareas > 0f) {
+                "$textoMonitoreos · ${cultivo.totalHectareas.toInt()} ha"
+            } else {
+                textoMonitoreos
+            }
+            Text(
+                textoDetalle,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = PlagOutColors.Forest
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        cultivo.plagas.forEach { plaga ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(plaga.plagaNombre, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                        Text(
+                            "${plaga.totalMonitoreos} ${if (plaga.totalMonitoreos == 1) "monitoreo" else "monitoreos"} (${plaga.porcentaje.toInt()}%)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = PlagOutColors.TextSecondary
+                        )
+                    }
+                    Spacer(Modifier.height(3.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(5.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(PlagOutColors.CreamDeep)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth((plaga.porcentaje / 100f).coerceIn(0f, 1f))
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(PlagOutColors.Leaf)
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -1176,15 +1304,19 @@ private fun FilaPlagaPrevalencia(posicion: Int, plaga: ResumenPlagaCampaña) {
                 Spacer(Modifier.width(8.dp))
                 Column {
                     Text(plaga.plagaNombre, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
-                    if (!plaga.plagaCientifico.isNullOrBlank()) {
-                        Text(plaga.plagaCientifico, fontSize = 11.sp, fontStyle = FontStyle.Italic, color = PlagOutColors.TextSecondary)
+                    val subtitulo = buildList {
+                        if (!plaga.plagaCientifico.isNullOrBlank()) add(plaga.plagaCientifico)
+                        if (plaga.cultivosAfectados.isNotEmpty()) add("Afecta: ${plaga.cultivosAfectados.joinToString(", ")}")
+                    }.joinToString(" • ")
+                    if (subtitulo.isNotBlank()) {
+                        Text(subtitulo, fontSize = 11.sp, fontStyle = FontStyle.Italic, color = PlagOutColors.TextSecondary)
                     }
                 }
             }
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(String.format(LocalConfiguration.current.locales[0], "%.1f%%", plaga.porcentajeIncidencia), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.Forest)
-                Text("${plaga.totalMonitoreos} ${if (plaga.totalMonitoreos == 1) "lote" else "lotes"}", fontSize = 11.sp, color = PlagOutColors.TextSecondary)
+                Text("${plaga.totalMonitoreos} ${if (plaga.totalMonitoreos == 1) "monitoreo" else "monitoreos"}", fontSize = 11.sp, color = PlagOutColors.TextSecondary)
             }
         }
 
@@ -1205,108 +1337,5 @@ private fun FilaPlagaPrevalencia(posicion: Int, plaga: ResumenPlagaCampaña) {
                     .background(if (posicion == 1) PlagOutColors.Leaf else PlagOutColors.BarkLight)
             )
         }
-
-        if (plaga.enRiesgoAlto > 0) {
-            Spacer(Modifier.height(6.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .background(PlagOutColors.RiskDanger.copy(alpha = 0.08f), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            ) {
-                Icon(Icons.Outlined.Warning, contentDescription = null, tint = PlagOutColors.RiskDanger, modifier = Modifier.size(11.dp))
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    "${plaga.enRiesgoAlto} ${if (plaga.enRiesgoAlto == 1) "caso ya eclosionó" else "casos ya eclosionaron"} (${plaga.porcentajeRiesgoAlto.toInt()}%)",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PlagOutColors.RiskDanger
-                )
-            }
-        }
-    }
-}
-
-// ── Tarjeta: etapas de la campaña ─────────────────────────────────────────────
-
-@Composable
-private fun TarjetaEtapasCampaña(campaña: CampañaHistorica) {
-    Surface(
-        color = PlagOutColors.Surface,
-        shape = RoundedCornerShape(22.dp),
-        shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Shield, contentDescription = null, tint = PlagOutColors.Terracotta, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(10.dp))
-                Column {
-                    Text("Etapas en la campaña", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
-                    Text("Monitoreos con mediciones según su etapa térmica", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            BarraSegmentadaDistribucionRiesgo(
-                porcBajo = campaña.porcentajeRiesgoBajo,
-                porcModerado = campaña.porcentajeRiesgoModerado,
-                porcAlto = campaña.porcentajeRiesgoAlto
-            )
-
-            Spacer(Modifier.height(14.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                ItemLeyendaRiesgo(color = PlagOutColors.RiskOk, titulo = estiloDeNivel(0).etiqueta, cantidad = campaña.riesgoBajo, porcentaje = campaña.porcentajeRiesgoBajo, modifier = Modifier.weight(1f))
-                ItemLeyendaRiesgo(color = PlagOutColors.RiskWarn, titulo = estiloDeNivel(1).etiqueta, cantidad = campaña.riesgoModerado, porcentaje = campaña.porcentajeRiesgoModerado, modifier = Modifier.weight(1f))
-                ItemLeyendaRiesgo(color = PlagOutColors.RiskDanger, titulo = estiloDeNivel(2).etiqueta, cantidad = campaña.riesgoAlto, porcentaje = campaña.porcentajeRiesgoAlto, modifier = Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun BarraSegmentadaDistribucionRiesgo(porcBajo: Float, porcModerado: Float, porcAlto: Float) {
-    var iniciado by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { iniciado = true }
-
-    val animBajo by animateFloatAsState(if (iniciado) porcBajo / 100f else 0f, tween(700), label = "animBajo")
-    val animModerado by animateFloatAsState(if (iniciado) porcModerado / 100f else 0f, tween(700), label = "animModerado")
-    val animAlto by animateFloatAsState(if (iniciado) porcAlto / 100f else 0f, tween(700), label = "animAlto")
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(14.dp)
-            .clip(RoundedCornerShape(7.dp))
-            .background(PlagOutColors.CreamDeep)
-    ) {
-        if (animBajo > 0f) {
-            Box(Modifier.fillMaxHeight().weight(animBajo.coerceAtLeast(0.001f)).background(PlagOutColors.RiskOk))
-        }
-        if (animModerado > 0f) {
-            Box(Modifier.fillMaxHeight().weight(animModerado.coerceAtLeast(0.001f)).background(PlagOutColors.RiskWarn))
-        }
-        if (animAlto > 0f) {
-            Box(Modifier.fillMaxHeight().weight(animAlto.coerceAtLeast(0.001f)).background(PlagOutColors.RiskDanger))
-        }
-    }
-}
-
-@Composable
-private fun ItemLeyendaRiesgo(color: Color, titulo: String, cantidad: Int, porcentaje: Float, modifier: Modifier = Modifier) {
-    Column(modifier = modifier.padding(horizontal = 4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(color))
-            Spacer(Modifier.width(5.dp))
-            Text(titulo, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
-        }
-        Spacer(Modifier.height(2.dp))
-        Text("$cantidad (${porcentaje.toInt()}%)", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = color, modifier = Modifier.padding(start = 13.dp))
     }
 }

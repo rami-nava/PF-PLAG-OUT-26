@@ -133,6 +133,17 @@ class AdminMetricasModelTest {
         assertEquals(2, c2025.plagaPredominante?.totalMonitoreos)
         assertEquals(66.66f, c2025.plagaPredominante?.porcentajeIncidencia ?: 0f, 0.1f)
         assertEquals(1, c2025.plagaPredominante?.enRiesgoAlto)
+        assertEquals(listOf("Maíz"), c2025.plagaPredominante?.cultivosAfectados)
+
+        assertEquals(2, c2025.cultivos.size)
+        assertEquals("Maíz", c2025.cultivos[0].cultivoNombre)
+        assertEquals(2, c2025.cultivos[0].totalMonitoreos)
+        assertEquals(1, c2025.cultivos[0].plagas.size)
+        assertEquals("Oruga cogollera", c2025.cultivos[0].plagas[0].plagaNombre)
+        assertEquals(2, c2025.cultivos[0].plagas[0].totalMonitoreos)
+        assertEquals(100f, c2025.cultivos[0].plagas[0].porcentaje, 0.01f)
+        assertEquals("Soja", c2025.cultivos[1].cultivoNombre)
+        assertEquals(1, c2025.cultivos[1].totalMonitoreos)
 
         assertEquals(1, c2025.riesgoBajo)
         assertEquals(1, c2025.riesgoModerado)

@@ -727,6 +727,21 @@ data class TratamientosAdmin(
     @SerializedName("productos") val productos: List<TratamientosPorProductoAdmin>
 )
 
+data class PlagaEnCultivoCampaniaAdmin(
+    @SerializedName("plaga") val plaga: String,
+    @SerializedName("plaga_cientifico") val plaga_cientifico: String? = null,
+    @SerializedName("monitoreos") val monitoreos: Int,
+    @SerializedName("porcentaje") val porcentaje: Float
+)
+
+data class CultivoEnCampaniaAdmin(
+    @SerializedName("cultivo") val cultivo: String,
+    @SerializedName("cultivo_cientifico") val cultivo_cientifico: String? = null,
+    @SerializedName("monitoreos") val monitoreos: Int,
+    @SerializedName("hectareas") val hectareas: Float = 0f,
+    @SerializedName("plagas") val plagas: List<PlagaEnCultivoCampaniaAdmin>? = null
+)
+
 data class PlagaEnCampaniaAdmin(
     @SerializedName("plaga") val plaga: String,
     @SerializedName("plaga_cientifico") val plaga_cientifico: String?,
@@ -734,7 +749,8 @@ data class PlagaEnCampaniaAdmin(
     @SerializedName("incidencia") val incidencia: Float,
     @SerializedName("riesgo_alto") val riesgo_alto: Int,
     @SerializedName("porcentaje_riesgo_alto") val porcentaje_riesgo_alto: Float?,
-    @SerializedName("nivel_promedio") val nivel_promedio: Float?
+    @SerializedName("nivel_promedio") val nivel_promedio: Float?,
+    @SerializedName("cultivos") val cultivos: List<String>? = null
 )
 
 data class CampaniaAdmin(
@@ -747,7 +763,8 @@ data class CampaniaAdmin(
     @SerializedName("riesgo_moderado") val riesgo_moderado: Int,
     @SerializedName("riesgo_alto") val riesgo_alto: Int,
     @SerializedName("esperando_biofix") val esperando_biofix: Int,
-    @SerializedName("plagas") val plagas: List<PlagaEnCampaniaAdmin>
+    @SerializedName("plagas") val plagas: List<PlagaEnCampaniaAdmin>,
+    @SerializedName("cultivos") val cultivos: List<CultivoEnCampaniaAdmin>? = null
 )
 
 data class HistoricoAdmin(

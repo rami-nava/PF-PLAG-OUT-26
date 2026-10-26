@@ -77,11 +77,13 @@ class AdminMetricasGlobalesTest {
             "plaga_predominante": "Cogollero", "riesgo_bajo": 1, "riesgo_moderado": 0, "riesgo_alto": 1,
             "esperando_biofix": 1,
             "plagas": [{"plaga": "Cogollero", "plaga_cientifico": null, "monitoreos": 3, "incidencia": 100.0,
-                        "riesgo_alto": 1, "porcentaje_riesgo_alto": null, "nivel_promedio": null}]
+                        "riesgo_alto": 1, "porcentaje_riesgo_alto": null, "nivel_promedio": null, "cultivos": ["Maíz"]}],
+            "cultivos": [{"cultivo": "Maíz", "cultivo_cientifico": "Zea mays", "monitoreos": 3, "hectareas": 40.0,
+                          "plagas": [{"plaga": "Cogollero", "plaga_cientifico": null, "monitoreos": 3, "porcentaje": 100.0}]}]
           }, {
             "nombre": "2025/2026", "anio_inicio": 2025, "monitoreos": 1, "hectareas": 5.0,
             "plaga_predominante": null, "riesgo_bajo": 0, "riesgo_moderado": 0, "riesgo_alto": 0,
-            "esperando_biofix": 0, "plagas": []
+            "esperando_biofix": 0, "plagas": [], "cultivos": []
           }]
         }
     """.trimIndent()
@@ -129,6 +131,11 @@ class AdminMetricasGlobalesTest {
         assertEquals(listOf("2026/2027", "2025/2026"), estado.campañas.map { it.nombre })
         assertEquals("2026/2027", estado.campañaSeleccionada?.nombre)
         assertEquals("Cogollero", estado.campañas.first().plagaPredominante?.plagaNombre)
+        assertEquals(listOf("Maíz"), estado.campañas.first().plagaPredominante?.cultivosAfectados)
+        assertEquals(1, estado.campañas.first().cultivos.size)
+        assertEquals("Maíz", estado.campañas.first().cultivos.single().cultivoNombre)
+        assertEquals(3, estado.campañas.first().cultivos.single().totalMonitoreos)
+        assertEquals("Cogollero", estado.campañas.first().cultivos.single().plagas.single().plagaNombre)
         assertEquals(0f, estado.campañas.first().plagas.single().porcentajeRiesgoAlto)
         assertNull(estado.campañas.last().plagaPredominante)
         assertEquals("Cogollero", estado.plagaHistoricaLider)
