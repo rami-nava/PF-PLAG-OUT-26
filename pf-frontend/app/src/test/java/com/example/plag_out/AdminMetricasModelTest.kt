@@ -186,28 +186,31 @@ class AdminMetricasModelTest {
                 monitoreo_id = 4, plantacion_id = 3, terreno_id = 3, terreno_nombre = "Lote 3",
                 cultivo_nombre = "Soja", plaga_nombre = "Cogollero",
                 fecha_actualizacion = LocalDate.of(2026, 1, 15), activo = false
+            ),
+            monitoreoDePrueba(
+                monitoreo_id = 5, plantacion_id = 4, terreno_id = 3, terreno_nombre = "Lote 3",
+                cultivo_nombre = "   ", plaga_nombre = "Cogollero",
+                fecha_actualizacion = LocalDate.of(2026, 1, 16), activo = false
             )
         )
 
         val camp = agruparPorCampaña(monitoreos, listOf(terreno1, terreno2, terreno3)).single()
 
-        // Cogollero afecta Maíz (2 monitoreos) y Soja (1 monitoreo)
+        // Cogollero afecta Maíz (2 monitoreos) y Soja (1 monitoreo); nombres vacíos se descartan en ambos lados
         assertEquals("Cogollero", camp.plagaPredominante?.plagaNombre)
         assertEquals(listOf("Maíz", "Soja"), camp.plagaPredominante?.cultivosAfectados)
 
-        // En cultivos de la campaña entran los 4 monitoreos (activos + finalizados) y las ha por lote no se duplican
+        // En cultivos de la campaña entran los monitoreos con cultivo no vacío (activos + finalizados)
         assertEquals(2, camp.cultivos.size)
         val maiz = camp.cultivos[0]
         assertEquals("Maíz", maiz.cultivoNombre)
         assertEquals(3, maiz.totalMonitoreos)
-        assertEquals(80f, maiz.totalHectareas, 0.01f)
         assertEquals(listOf("Cogollero", "Barrenador"), maiz.plagas.map { it.plagaNombre })
         assertEquals(listOf(2, 1), maiz.plagas.map { it.totalMonitoreos })
 
         val soja = camp.cultivos[1]
         assertEquals("Soja", soja.cultivoNombre)
         assertEquals(1, soja.totalMonitoreos)
-        assertEquals(40f, soja.totalHectareas, 0.01f)
     }
 
     @Test

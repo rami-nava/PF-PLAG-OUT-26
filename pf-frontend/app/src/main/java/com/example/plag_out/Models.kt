@@ -738,7 +738,6 @@ data class CultivoEnCampaniaAdmin(
     @SerializedName("cultivo") val cultivo: String,
     @SerializedName("cultivo_cientifico") val cultivo_cientifico: String? = null,
     @SerializedName("monitoreos") val monitoreos: Int,
-    @SerializedName("hectareas") val hectareas: Float = 0f,
     @SerializedName("plagas") val plagas: List<PlagaEnCultivoCampaniaAdmin>? = null
 )
 

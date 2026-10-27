@@ -88,7 +88,7 @@ class AdminMetricasGlobalesTest {
             "esperando_biofix": 1,
             "plagas": [{"plaga": "Cogollero", "plaga_cientifico": null, "monitoreos": 3, "incidencia": 100.0,
                         "riesgo_alto": 1, "porcentaje_riesgo_alto": null, "nivel_promedio": null, "cultivos": ["Maíz"]}],
-            "cultivos": [{"cultivo": "Maíz", "cultivo_cientifico": "Zea mays", "monitoreos": 3, "hectareas": 40.0,
+            "cultivos": [{"cultivo": "Maíz", "cultivo_cientifico": "Zea mays", "monitoreos": 3,
                           "plagas": [{"plaga": "Cogollero", "plaga_cientifico": null, "monitoreos": 3, "porcentaje": 100.0}]}]
           }, {
             "nombre": "2025/2026", "anio_inicio": 2025, "monitoreos": 1, "hectareas": 5.0,
