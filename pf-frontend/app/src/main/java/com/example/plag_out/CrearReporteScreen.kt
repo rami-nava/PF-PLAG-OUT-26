@@ -153,7 +153,7 @@ fun CrearReporteScreen(
                             PasoTag(numero = 1)
                             Spacer(Modifier.width(10.dp))
                             Text(
-                                "Terreno del Reporte",
+                                "Terreno de la Alerta",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = PlagOutColors.TextMain
@@ -252,8 +252,8 @@ fun CrearReporteScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             val plantacionTexto = when {
-                                state.terrenoSeleccionado == null -> "Seleccioná un terreno primero"
-                                state.plantacionSeleccionada != null -> "${state.plantacionSeleccionada!!.cultivo_nombre} (${state.terrenoSeleccionado!!.terreno_nombre})"
+                                state.terrenoSeleccionado != null && state.plantacionSeleccionada != null ->
+                                    "${state.plantacionSeleccionada!!.cultivo_nombre} (${state.terrenoSeleccionado!!.terreno_nombre})"
                                 else -> ""
                             }
 
@@ -262,7 +262,12 @@ fun CrearReporteScreen(
                                 value = plantacionTexto,
                                 onValueChange = {},
                                 enabled = state.terrenoSeleccionado != null,
-                                label = { Text("Seleccioná un cultivo") },
+                                label = {
+                                    Text(
+                                        if (state.terrenoSeleccionado != null) "Seleccioná un cultivo"
+                                        else "Elegí un terreno primero"
+                                    )
+                                },
                                 leadingIcon = {
                                     Icon(
                                         Icons.Outlined.Grass,
@@ -457,10 +462,15 @@ fun CrearReporteScreen(
                         ) {
                             OutlinedTextField(
                                 readOnly = true,
-                                value = if (state.plagaSeleccionada == null) "Seleccioná una plaga primero" else state.etapaBiologica.takeIf { it.isNotEmpty() }?.let(::etiquetaEtapa) ?: "Elegí la etapa",
+                                value = if (state.plagaSeleccionada == null) "" else state.etapaBiologica.takeIf { it.isNotEmpty() }?.let(::etiquetaEtapa) ?: "",
                                 onValueChange = {},
                                 enabled = state.plagaSeleccionada != null,
-                                label = { Text("Etapa Biológica") },
+                                label = {
+                                    Text(
+                                        if (state.plagaSeleccionada != null) "Seleccioná una etapa"
+                                        else "Elegí una plaga primero"
+                                    )
+                                },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownEtapaExpanded) },
                                 shape = RoundedCornerShape(16.dp),
                                 colors = camposColors(),
@@ -750,7 +760,7 @@ fun CrearReporteScreen(
                     } else {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Enviar Reporte", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text("Enviar Alerta", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -812,14 +822,14 @@ private fun HeaderCrearReporte(onBack: () -> Unit) {
             }
             Column {
                 Text(
-                    text = "Reporte de plagas",
+                    text = "Alerta de plagas",
                     color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     letterSpacing = 0.3.sp
                 )
                 Text(
-                    text = "Nuevo Reporte", 
+                    text = "Nueva Alerta",
                     color = PlagOutColors.TextOnDark,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.ExtraBold

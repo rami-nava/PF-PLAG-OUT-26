@@ -487,8 +487,8 @@ class MisReportesViewModel(
                     errorDeRespuesta(
                         response,
                         porCodigo = mapOf(
-                            404 to "El reporte ya no existe.",
-                            500 to "No se pudo eliminar el reporte. Intentá de nuevo."
+                            404 to "La alerta ya no existe.",
+                            500 to "No se pudo eliminar la alerta. Intentá de nuevo."
                         )
                     ).mensaje
                 }

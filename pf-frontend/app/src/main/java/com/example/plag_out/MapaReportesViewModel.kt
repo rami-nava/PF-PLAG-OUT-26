@@ -190,9 +190,9 @@ class MapaReportesViewModel(
                     else -> {
                         Log.w("MAPA_REPORTES", "Error al obtener reportes del mapa: ${response.code()}")
                         val mensaje = if (response.code() == 404 || response.code() == 405) {
-                            "El mapa de reportes todavía no está disponible en el servidor."
+                            "El mapa de alertas todavía no está disponible en el servidor."
                         } else {
-                            "No se pudieron obtener los reportes del servidor."
+                            "No se pudieron obtener las alertas del servidor."
                         }
                         _state.update { it.copy(cargando = false, actualizando = false, error = mensaje) }
                     }
@@ -202,7 +202,7 @@ class MapaReportesViewModel(
             } catch (e: Exception) {
                 Log.e("MAPA_REPORTES", "Excepción cargando el mapa: ${e.message}", e)
                 _state.update {
-                    it.copy(cargando = false, actualizando = false, error = "Error de conexión al cargar reportes.")
+                    it.copy(cargando = false, actualizando = false, error = "Error de conexión al cargar alertas.")
                 }
             }
         }

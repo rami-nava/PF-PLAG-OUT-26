@@ -238,7 +238,7 @@ class MapaReportesViewModelTest {
         viewModel.actualizarVista(vistaPais)
 
         val estado = esperarEstado(viewModel.state) { !it.cargando }
-        assertEquals("El mapa de reportes todavía no está disponible en el servidor.", estado.error)
+        assertEquals("El mapa de alertas todavía no está disponible en el servidor.", estado.error)
         assertTrue(estado.grupos.isEmpty() && estado.reportes.isEmpty())
         assertEquals(0, gddService.vecesLlamado("getReportes"))
     }
@@ -250,7 +250,7 @@ class MapaReportesViewModelTest {
         viewModel.actualizarVista(vistaCerca)
 
         val estado = esperarEstado(viewModel.state) { !it.cargando }
-        assertEquals("No se pudieron obtener los reportes del servidor.", estado.error)
+        assertEquals("No se pudieron obtener las alertas del servidor.", estado.error)
     }
 
     @Test

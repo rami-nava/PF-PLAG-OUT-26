@@ -178,7 +178,7 @@ private fun ContenidoVerReporte(
                         opciones = listOf(
                             OpcionMenuAccion(
                                 icono = Icons.Outlined.DeleteOutline,
-                                titulo = "Eliminar reporte",
+                                titulo = "Eliminar alerta",
                                 detalle = "Deja de verse para los productores de tu zona",
                                 color = PlagOutColors.RiskDanger,
                                 tag = "btnEliminarReporte",
@@ -253,7 +253,7 @@ private fun ContenidoVerReporte(
                             shape = CircleShape
                         ) {
                             Text(
-                                text = if (esPropio) "Propio" else "Reporte comunidad",
+                                text = if (esPropio) "Propio" else "Alerta comunidad",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (esPropio) PlagOutColors.Forest else Color(0xFF1565C0),
@@ -295,7 +295,7 @@ private fun ContenidoVerReporte(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        "Datos del reporte",
+                        "Datos de la alerta",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = PlagOutColors.TextMain
@@ -447,7 +447,7 @@ private fun ContenidoVerReporte(
                 ) {
                     Column(Modifier.padding(20.dp)) {
                         Text(
-                            "Ubicación del reporte",
+                            "Ubicación de la alerta",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = PlagOutColors.TextMain
@@ -481,7 +481,7 @@ private fun ContenidoVerReporte(
 
                                         val marker = Marker(this)
                                         marker.position = geoPoint
-                                        marker.title = "Ubicación del reporte"
+                                        marker.title = "Ubicación de la alerta"
                                         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                                         marker.icon = MapMarkerUtils.getMarkerIcon(ctx, isGreen = false)
                                         overlays.add(marker)
@@ -495,7 +495,7 @@ private fun ContenidoVerReporte(
                                     map.overlays.removeAll { it is Marker }
                                     val marker = Marker(map)
                                     marker.position = geoPoint
-                                    marker.title = "Ubicación del reporte"
+                                    marker.title = "Ubicación de la alerta"
                                     marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                                     marker.icon = MapMarkerUtils.getMarkerIcon(map.context, isGreen = false)
                                     map.overlays.add(marker)
@@ -537,7 +537,7 @@ private fun ContenidoVerReporte(
                                                 Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = PlagOutColors.TextMain)
                                             }
                                             Text(
-                                                "Ubicación del reporte",
+                                                "Ubicación de la alerta",
                                                 fontSize = 18.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = PlagOutColors.TextMain,
@@ -671,7 +671,7 @@ private fun ContenidoVerReporte(
                 ) {
                     CircularProgressIndicator(color = PlagOutColors.Forest, modifier = Modifier.size(28.dp))
                     Text(
-                        text = "Eliminando reporte...",
+                        text = "Eliminando alerta...",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
                         color = PlagOutColors.TextMain
@@ -837,14 +837,14 @@ private fun HeaderVerReporte(onBack: () -> Unit, acciones: @Composable () -> Uni
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "Reportes colaborativos",
+                    "Alertas colaborativas",
                     color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     letterSpacing = 0.3.sp
                 )
                 Text(
-                    "Detalle de Reporte",
+                    "Detalle de Alerta",
                     color = PlagOutColors.TextOnDark,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.ExtraBold

@@ -648,7 +648,7 @@ fun DialogoEliminarMonitoreo(monitoreo: MonitoreoResponse, onConfirmar: () -> Un
 @Composable
 fun DialogoEliminarReporte(reporte: ReporteDetalleResponse, onConfirmar: () -> Unit, onCancelar: () -> Unit) =
     DialogoConfirmarEliminacion(
-        titulo = "¿Eliminar este reporte?",
+        titulo = "¿Eliminar esta alerta?",
         icono = Icons.Outlined.Campaign,
         nombre = reporte.plaga_nombre,
         detalle = listOfNotNull(reporte.cultivo_nombre, reporte.terreno_nombre)

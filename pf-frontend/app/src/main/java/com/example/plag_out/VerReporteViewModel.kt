@@ -155,7 +155,7 @@ class VerReporteViewModel(
                     if (curr is VerReporteUiState.Exito) {
                         _state.value = curr.copy(
                             isEliminando = false,
-                            errorEliminacion = "Error al eliminar el reporte."
+                            errorEliminacion = "Error al eliminar la alerta."
                         )
                     }
                 }
@@ -165,7 +165,7 @@ class VerReporteViewModel(
                 if (curr is VerReporteUiState.Exito) {
                     _state.value = curr.copy(
                         isEliminando = false,
-                        errorEliminacion = e.message ?: "Error de conexión al eliminar el reporte."
+                        errorEliminacion = e.message ?: "Error de conexión al eliminar la alerta."
                     )
                 }
             }
@@ -174,7 +174,7 @@ class VerReporteViewModel(
 
     private suspend fun usarFallback(reporteJsonFallback: String?, ignorarLimite: Boolean = false) {
         if (reporteJsonFallback.isNullOrBlank()) {
-            _state.value = VerReporteUiState.Error("No se pudieron cargar los datos del reporte.")
+            _state.value = VerReporteUiState.Error("No se pudieron cargar los datos de la alerta.")
             return
         }
         try {
@@ -241,7 +241,7 @@ class VerReporteViewModel(
             }
         } catch (e: Exception) {
             Log.e("VER_REPORTE", "Error deserializando fallback JSON: ${e.message}")
-            _state.value = VerReporteUiState.Error("No se pudieron cargar los datos del reporte.")
+            _state.value = VerReporteUiState.Error("No se pudieron cargar los datos de la alerta.")
         }
     }
 }

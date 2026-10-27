@@ -159,9 +159,9 @@ fun MisReportesScreen(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Crear Reporte", modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.Add, contentDescription = "Crear Alerta", modifier = Modifier.size(24.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Nuevo Reporte", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("Nueva Alerta", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
             }
         }
@@ -202,7 +202,7 @@ fun MisReportesScreen(
                             expandido = filtrosExpandidos,
                             onToggleExpandido = { filtrosExpandidos = !filtrosExpandidos },
                             hayFiltroActivo = hayFiltroActivo,
-                            etiquetaAbrir = if (esComunidad) "Filtrar reportes cercanos" else "Filtrar mis reportes",
+                            etiquetaAbrir = if (esComunidad) "Filtrar alertas cercanas" else "Filtrar mis alertas",
                             resumen = if (hayFiltroActivo) "Filtros activos" else null,
                             onLimpiar = viewModel::limpiarFiltros
                         ) {
@@ -315,14 +315,14 @@ fun MisReportesScreen(
                                 if (esComunidad) {
                                     EstadoVacioFlotante(
                                         icono = Icons.Filled.Group,
-                                        titulo = "No hay reportes cerca de tus terrenos",
+                                        titulo = "No hay alertas cerca de tus terrenos",
                                         subtitulo = "Acá vas a ver lo que reportan otros productores en la zona de tus terrenos."
                                     )
                                 } else {
                                     EstadoVacioFlotante(
                                         icono = Icons.Outlined.BugReport,
-                                        titulo = "No tenés reportes cargados",
-                                        subtitulo = "Tocá «Nuevo Reporte» para registrar la presencia de plagas en tus terrenos."
+                                        titulo = "No tenés alertas cargadas",
+                                        subtitulo = "Tocá «Nueva Alerta» para registrar la presencia de plagas en tus terrenos."
                                     )
                                 }
                             }
@@ -353,7 +353,7 @@ fun MisReportesScreen(
                                         }
                                     }
                                 }
-                                EstadoSinResultados(subtitulo = "No hay reportes con $detalleFiltro.")
+                                EstadoSinResultados(subtitulo = "No hay alertas con $detalleFiltro.")
                             }
 
                             else -> {
@@ -427,7 +427,7 @@ fun MisReportesScreen(
                                                 onClick = viewModel::cargarMas,
                                                 modifier = Modifier.testTag("btnVerMasReportes")
                                             ) {
-                                                Text("Ver más reportes", color = PlagOutColors.Forest, fontWeight = FontWeight.Bold)
+                                                Text("Ver más alertas", color = PlagOutColors.Forest, fontWeight = FontWeight.Bold)
                                             }
                                         }
                                     }
@@ -447,7 +447,7 @@ fun MisReportesScreen(
             onConfirmar = {
                 reporteAEliminar = null
                 viewModel.eliminarReporte(reporte.id) { error ->
-                    if (error != null) Avisos.error(error) else Avisos.exito("Reporte eliminado.")
+                    if (error != null) Avisos.error(error) else Avisos.exito("Alerta eliminada.")
                 }
             },
             onCancelar = { reporteAEliminar = null }
@@ -577,7 +577,7 @@ private fun PanelHeaderReportes(
                         letterSpacing = 0.4.sp
                     )
                     Text(
-                        "Reportes",
+                        "Alertas",
                         color = PlagOutColors.TextOnDark,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.ExtraBold
@@ -625,7 +625,7 @@ private fun PanelHeaderReportes(
                         ) {
                             Icon(
                                 Icons.Outlined.Map,
-                                contentDescription = "Ver reportes en el mapa",
+                                contentDescription = "Ver alertas en el mapa",
                                 tint = PlagOutColors.TextOnDark,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -658,7 +658,7 @@ private fun PanelHeaderReportes(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("$totalAnimado", color = PlagOutColors.TextOnDark, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
                         Text(
-                            if (totalReportes == 1) "reporte" else "reportes",
+                            if (totalReportes == 1) "alerta" else "alertas",
                             color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium

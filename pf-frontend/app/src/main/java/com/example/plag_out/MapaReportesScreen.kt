@@ -316,10 +316,10 @@ fun MapaReportesScreen(
         )
 
         val aviso = when {
-            state.cargando -> "Cargando reportes…"
+            state.cargando -> "Cargando alertas…"
             state.error != null -> state.error
-            state.total == 0 && filtros.activos > 0 -> "Ningún reporte entra en los filtros"
-            state.total == 0 -> "No hay reportes en esta zona"
+            state.total == 0 && filtros.activos > 0 -> "Ninguna alerta entra en los filtros"
+            state.total == 0 -> "No hay alertas en esta zona"
             state.actualizando -> "Actualizando la zona…"
             else -> null
         }
@@ -648,9 +648,9 @@ private fun HojaFiltrosMapa(
                             1 -> "Aplicar 1 filtro"
                             else -> "Aplicar ${borrador.activos} filtros"
                         } else if (actualizando) "Actualizando…" else when (totalVisible) {
-                            0 -> "Ningún reporte coincide"
-                            1 -> "Ver 1 reporte en el mapa"
-                            else -> "Ver $totalVisible reportes en el mapa"
+                            0 -> "Ninguna alerta coincide"
+                            1 -> "Ver 1 alerta en el mapa"
+                            else -> "Ver $totalVisible alertas en el mapa"
                         },
                         color = PlagOutColors.TextOnDark,
                         fontSize = 15.sp,
@@ -1599,7 +1599,7 @@ private fun ControlesMapa(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        BotonMapa(Icons.Outlined.CenterFocusStrong, "Centrar en mis lotes y reportes", onCentrar, "btnCentrarMapa")
+        BotonMapa(Icons.Outlined.CenterFocusStrong, "Centrar en mis lotes y alertas", onCentrar, "btnCentrarMapa")
         BotonMapa(Icons.Default.Add, "Acercar", onZoomIn, "btnZoomInMapa")
         BotonMapa(Icons.Default.Remove, "Alejar", onZoomOut, "btnZoomOutMapa")
     }
@@ -1704,7 +1704,7 @@ private fun LeyendaMapa(modo: ModoMapa, modifier: Modifier = Modifier) {
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Text(
-                if (modo == ModoMapa.PINES) "Severidad" else "Reportes por zona",
+                if (modo == ModoMapa.PINES) "Severidad" else "Alertas por zona",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = PlagOutColors.TextSecondary,
@@ -1826,9 +1826,9 @@ private fun TarjetaSeleccionMapa(
                 Spacer(Modifier.width(10.dp))
                 Text(
                     when {
-                        cluster.reportes.isEmpty() && cluster.cantidad == 1 -> "1 reporte en la zona"
-                        cluster.cantidad == 1 -> "Reporte"
-                        else -> "${cluster.cantidad} reportes en la zona"
+                        cluster.reportes.isEmpty() && cluster.cantidad == 1 -> "1 alerta en la zona"
+                        cluster.cantidad == 1 -> "Alerta"
+                        else -> "${cluster.cantidad} alertas en la zona"
                     },
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
@@ -1858,7 +1858,7 @@ private fun TarjetaSeleccionMapa(
             if (cluster.reportes.isEmpty()) {
                 // Grupo armado por el servidor: de lejos solo se sabe cuántos hay.
                 Text(
-                    "Acercá el mapa para ver cada reporte de esta zona.",
+                    "Acercá el mapa para ver cada alerta de esta zona.",
                     fontSize = 13.sp,
                     color = PlagOutColors.TextSecondary,
                     modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp)
@@ -1868,7 +1868,7 @@ private fun TarjetaSeleccionMapa(
 
             if (cluster.reportes.size > FILAS_VISIBLES_SELECCION) {
                 Text(
-                    "Deslizá para ver los ${cluster.reportes.size}",
+                    "Deslizá para ver las ${cluster.reportes.size}",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = PlagOutColors.TextSecondary,

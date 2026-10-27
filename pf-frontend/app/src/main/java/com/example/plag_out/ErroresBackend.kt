@@ -114,7 +114,7 @@ private fun mensajeDeValidacion(campo: String, code: String): String {
         "fecha_siembra_too_old" -> "La fecha de siembra no puede ser de hace más de un año."
         "report_observed_in_future" ->
             "La fecha y hora del celular están adelantadas. Corregilas y volvé a intentar."
-        "report_observed_too_old" -> "El reporte no puede ser de hace más de un año."
+        "report_observed_too_old" -> "La alerta no puede ser de hace más de un año."
         "missing" -> "Falta completar $nombre."
         "string_too_short" -> "Revisá $nombre: no puede quedar en blanco."
         "string_too_long" -> "Revisá $nombre: tiene demasiados caracteres."
@@ -143,5 +143,5 @@ private val ETIQUETAS_CAMPOS = mapOf(
     "umbral_riesgo" to "el umbral de riesgo",
     "radio_notificacion_km" to "el radio de notificación",
     "observaciones" to "las observaciones",
-    "timestamp_ms" to "la fecha del reporte"
+    "timestamp_ms" to "la fecha de la alerta"
 )
