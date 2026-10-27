@@ -107,7 +107,7 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
             )
             PasoAyuda(
                 5,
-                "Realizá reportes",
+                "Creá alertas",
                 "Registrá lo que ves a campo: plaga, etapa " +
                         "biológica, severidad, ubicación y fecha. Queda un registro de lo que pasó " +
                         "y notifica a usuarios cercanos."
@@ -115,10 +115,10 @@ fun ComoFuncionaSheet(onDismiss: () -> Unit) {
             )
             PasoAyuda(
                 6,
-                "Recibí alertas",
+                "Recibí notificaciones",
                 "Te avisamos si el desarrollo de un monitoreo " +
                     "supera tu umbral, si detectamos un " +
-                    "posible biofix y si realizan reportes cercanos a vos.",
+                    "posible biofix y si crean alertas cercanas a vos.",
                 ultimo = true
             )
 

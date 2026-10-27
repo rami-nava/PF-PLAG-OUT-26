@@ -102,12 +102,12 @@ fun AyudaRapidaSheet(onDismiss: () -> Unit, onVerGuiaCompleta: () -> Unit) {
             )
             PasoRapido(
                 Icons.Outlined.BugReport,
-                "Realizá reportes",
+                "Creá alertas",
                 "Registrá lo que ves a campo."
             )
             PasoRapido(
                 Icons.Default.Notifications,
-                "Recibí alertas",
+                "Recibí notificaciones",
                 "Te avisamos ante un posible biofix y cuando el riesgo sube.",
                 ultimo = true
             )

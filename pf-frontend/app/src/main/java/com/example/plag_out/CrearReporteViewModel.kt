@@ -238,7 +238,7 @@ class CrearReporteViewModel(
 
         val owner = currentOwner()
         if (owner == null || (reportOwner != null && reportOwner != owner)) {
-            _state.value = _state.value.copy(error = "La sesión cambió. Iniciá un nuevo reporte con tu cuenta actual.")
+            _state.value = _state.value.copy(error = "La sesión cambió. Iniciá una nueva alerta con tu cuenta actual.")
             return
         }
         reportOwner = owner
@@ -260,7 +260,7 @@ class CrearReporteViewModel(
                 }
                 if (currentOwner() != owner) {
                     _state.value = _state.value.copy(isGuardando = false,
-                        error = "La sesión cambió. Iniciá un nuevo reporte con tu cuenta actual.")
+                        error = "La sesión cambió. Iniciá una nueva alerta con tu cuenta actual.")
                     return@launch
                 }
 
@@ -270,7 +270,7 @@ class CrearReporteViewModel(
                         body.plantacion_id != plantacion.plantacion_id) {
                         _state.value = _state.value.copy(
                             isGuardando = false,
-                            error = "El servidor no devolvió datos del reporte creado."
+                            error = "El servidor no devolvió datos de la alerta creada."
                         )
                         return@launch
                     }
@@ -289,7 +289,7 @@ class CrearReporteViewModel(
                         reporteNavPayload = navPayload
                     )
                     // 200: el backend reutilizó un reporte equivalente reciente en vez de crear otro
-                    Avisos.exito(if (response.code() == 201) "Reporte enviado." else "Ya existía un reporte similar.")
+                    Avisos.exito(if (response.code() == 201) "Alerta enviada." else "Ya existía una alerta similar.")
                     withContext(Dispatchers.Main) { onSuccess() }
                 } else {
                     val fallo = errorDeRespuesta(response, ERRORES_CREAR_REPORTE, ERRORES_CREAR_REPORTE_CODIGO)
@@ -313,9 +313,9 @@ class CrearReporteViewModel(
 }
 
 private val ERRORES_CREAR_REPORTE = ERRORES_REPORTE + mapOf(
-    "report_create_failed" to "No se pudo registrar el reporte. Verificá los datos e intentá de nuevo."
+    "report_create_failed" to "No se pudo registrar la alerta. Verificá los datos e intentá de nuevo."
 )
-private val ERRORES_CREAR_REPORTE_CODIGO = mapOf(500 to "No se pudo enviar el reporte. Intentá de nuevo.")
+private val ERRORES_CREAR_REPORTE_CODIGO = mapOf(500 to "No se pudo enviar la alerta. Intentá de nuevo.")
 
 class CrearReporteViewModelFactory(
     private val context: Context,

@@ -67,7 +67,7 @@ internal fun EstadoErrorReportes(
         }
         Spacer(Modifier.height(16.dp))
         Text(
-            if (sinConexion) "Sin conexión" else "No pudimos cargar los reportes",
+            if (sinConexion) "Sin conexión" else "No pudimos cargar las alertas",
             color = PlagOutColors.TextMain,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
@@ -148,7 +148,7 @@ internal fun ErrorCargaReportes(
                     color = PlagOutColors.TextMain
                 )
                 Text(
-                    if (sinConexion) "Mostrando los reportes que ya estaban cargados" else mensaje,
+                    if (sinConexion) "Mostrando las alertas que ya estaban cargadas" else mensaje,
                     fontSize = 12.sp,
                     color = PlagOutColors.TextSecondary
                 )
