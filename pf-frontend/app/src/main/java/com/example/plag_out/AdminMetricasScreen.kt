@@ -1174,13 +1174,8 @@ private fun BloqueCultivoCampaña(cultivo: ResumenCultivoCampaña) {
                 }
             }
             val textoMonitoreos = "${cultivo.totalMonitoreos} ${if (cultivo.totalMonitoreos == 1) "monitoreo" else "monitoreos"}"
-            val textoDetalle = if (cultivo.totalHectareas > 0f) {
-                "$textoMonitoreos · ${cultivo.totalHectareas.toInt()} ha"
-            } else {
-                textoMonitoreos
-            }
             Text(
-                textoDetalle,
+                textoMonitoreos,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = PlagOutColors.Forest
