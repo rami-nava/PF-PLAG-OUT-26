@@ -1,6 +1,7 @@
 package com.example.plag_out
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -24,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,19 +68,25 @@ object Avisos {
 @Composable
 fun AvisosHost() {
     var actual by remember { mutableStateOf<Aviso?>(null) }
-    var visible by remember { mutableStateOf(false) }
+    val visibilidad = remember { MutableTransitionState(false) }
 
     LaunchedEffect(Unit) {
         Avisos.eventos.collect {
             actual = it
-            visible = true
+            visibilidad.targetState = true
         }
     }
     LaunchedEffect(actual?.id) {
         val aviso = actual ?: return@LaunchedEffect
         // Los errores suelen ser más largos y conviene darles más tiempo de lectura
         delay(if (aviso.tipo == TipoAviso.ERROR) 4500 else 2500)
-        visible = false
+        visibilidad.targetState = false
+    }
+    // Al terminar la salida hay que desmontar el Popup: si queda vivo con el contenido vacío, su
+    // ventana conserva el último cuadro de la animación y queda un aviso fantasma semitransparente.
+    LaunchedEffect(visibilidad) {
+        snapshotFlow { visibilidad.isIdle && !visibilidad.currentState }
+            .collect { termino -> if (termino) actual = null }
     }
 
     val aviso = actual ?: return
@@ -91,7 +99,7 @@ fun AvisosHost() {
         properties = PopupProperties(focusable = false)
     ) {
         AnimatedVisibility(
-            visible = visible,
+            visibleState = visibilidad,
             enter = fadeIn() + slideInVertically { it / 2 },
             exit = fadeOut() + slideOutVertically { it / 2 }
         ) {
@@ -104,7 +112,7 @@ fun AvisosHost() {
                     .shadow(6.dp, forma)
                     .clip(forma)
                     .background(if (esError) PlagOutColors.RiskDanger else PlagOutColors.Forest)
-                    .clickable { visible = false }
+                    .clickable { visibilidad.targetState = false }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
