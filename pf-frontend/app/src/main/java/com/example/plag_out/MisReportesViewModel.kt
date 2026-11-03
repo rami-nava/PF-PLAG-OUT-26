@@ -93,6 +93,8 @@ data class MisReportesUiState(
     val fechaHasta: LocalDate = LocalDate.now(),
     val distanciaListadoKm: Int? = null,
     val radioNotificacionKm: Double = 20.0,
+    // false hasta que llega el radio real (cache o backend); mientras tanto se muestra el default.
+    val radioCargado: Boolean = false,
     val mostrarDialogoRadio: Boolean = false,
     val radioTemporalKm: Float = 20f,
     val guardandoRadio: Boolean = false,
@@ -137,32 +139,38 @@ class MisReportesViewModel(
         cargarRadioNotificacion()
     }
 
+    private var cargaRadio: Job? = null
+
     fun cargarRadioNotificacion() {
-        viewModelScope.launch {
-            val cacheado = withContext(Dispatchers.IO) {
-                usuarioRepository?.obtenerUsuario()
-            }
-            if (cacheado != null) {
-                _state.value = _state.value.copy(
-                    radioNotificacionKm = cacheado.radio_notificacion_km,
-                    radioTemporalKm = cacheado.radio_notificacion_km.toFloat()
-                )
-            } else {
-                try {
-                    val response = withContext(Dispatchers.IO) { gddService.getUsuarioActual() }
-                    if (response.isSuccessful && response.body() != null) {
-                        val user = response.body()!!
-                        _state.value = _state.value.copy(
-                            radioNotificacionKm = user.radio_notificacion_km,
-                            radioTemporalKm = user.radio_notificacion_km.toFloat()
-                        )
-                        withContext(Dispatchers.IO) { usuarioRepository?.guardarUsuario(user) }
-                    }
-                } catch (e: Exception) {
-                    Log.w("MIS_REPORTES", "No se pudo precargar radio del usuario: ${e.message}")
+        if (cargaRadio?.isActive == true) return
+        cargaRadio = viewModelScope.launch {
+            val cacheado = withContext(Dispatchers.IO) { usuarioRepository?.obtenerUsuario() }
+            if (cacheado != null) aplicarRadio(cacheado.radio_notificacion_km)
+            try {
+                val response = withContext(Dispatchers.IO) { gddService.getUsuarioActual() }
+                val user = response.body()
+                if (response.isSuccessful && user != null) {
+                    aplicarRadio(user.radio_notificacion_km)
+                    withContext(Dispatchers.IO) { usuarioRepository?.guardarUsuario(user) }
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("MIS_REPORTES", "No se pudo cargar el radio del usuario: ${e.message}")
             }
         }
+    }
+
+    private fun aplicarRadio(radioKm: Double) {
+        val estado = _state.value
+        // Mientras se guarda un radio nuevo, la respuesta de guardarRadioNotificacion manda.
+        if (estado.guardandoRadio) return
+        _state.value = estado.copy(
+            radioNotificacionKm = radioKm,
+            radioCargado = true,
+            // Con el diálogo abierto no se pisa lo que el usuario está moviendo en el slider.
+            radioTemporalKm = if (estado.mostrarDialogoRadio) estado.radioTemporalKm else radioKm.toFloat()
+        )
     }
 
     fun abrirConfiguracionRadio() {
@@ -199,6 +207,7 @@ class MisReportesViewModel(
                     }
                     _state.value = _state.value.copy(
                         radioNotificacionKm = radioFinal,
+                        radioCargado = true,
                         radioTemporalKm = radioFinal.toFloat(),
                         guardandoRadio = false,
                         mostrarDialogoRadio = false
@@ -234,6 +243,8 @@ class MisReportesViewModel(
 
 
     fun cargarReportes(forzar: Boolean = false, avisarSiFalla: Boolean = false) {
+        // Después de limpiar() (cierre de sesión) el radio vuelve al valor por defecto.
+        if (!_state.value.radioCargado) cargarRadioNotificacion()
         val ambito = _state.value.ambito
         if (forzar || !_state.value.listado(ambito).cargado && cargas[ambito]?.isActive != true) {
             cargarPrimeraPagina(ambito, avisarSiFalla)
@@ -257,6 +268,7 @@ class MisReportesViewModel(
         if (_state.value.listado(otro).cargado) actualizar(otro) { it.copy(desactualizado = true) }
         cargarPrimeraPagina(ambito, avisarSiFalla = true)
         cargarOpcionesFiltros()
+        cargarRadioNotificacion()
     }
 
 
@@ -550,6 +562,8 @@ class MisReportesViewModel(
         cargasResumen.clear()
         cargaOpciones?.cancel()
         cargaOpciones = null
+        cargaRadio?.cancel()
+        cargaRadio = null
         _state.value = MisReportesUiState()
     }
 
