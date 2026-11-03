@@ -292,6 +292,44 @@ class MisReportesViewModelTest {
     }
 
     @Test
+    fun `refrescar vuelve a pedir el radio al backend`() {
+        gddService.reportesServidor = emptyList()
+        gddService.getUsuarioActualResult = { Response.success(Fixtures.usuario().copy(radio_notificacion_km = 35.0)) }
+
+        viewModel.refrescar()
+
+        val estado = esperarEstado(viewModel.state) { it.radioNotificacionKm == 35.0 }
+        assertEquals(35f, estado.radioTemporalKm)
+        assertEquals(2, gddService.vecesLlamado("getUsuarioActual"))
+    }
+
+    @Test
+    fun `refrescar no pisa el radio que se esta editando en el dialogo`() {
+        gddService.reportesServidor = emptyList()
+        gddService.getUsuarioActualResult = { Response.success(Fixtures.usuario().copy(radio_notificacion_km = 35.0)) }
+        viewModel.abrirConfiguracionRadio()
+        viewModel.onRadioTemporalChange(60f)
+
+        viewModel.refrescar()
+
+        val estado = esperarEstado(viewModel.state) { it.radioNotificacionKm == 35.0 }
+        assertEquals(60f, estado.radioTemporalKm)
+    }
+
+    @Test
+    fun `despues de limpiar, entrar a la pantalla vuelve a cargar el radio`() {
+        gddService.reportesServidor = emptyList()
+        viewModel.limpiar()
+        assertEquals(false, viewModel.state.value.radioCargado)
+        gddService.getUsuarioActualResult = { Response.success(Fixtures.usuario().copy(radio_notificacion_km = 70.0)) }
+
+        viewModel.cargarReportes()
+
+        val estado = esperarEstado(viewModel.state) { it.radioCargado }
+        assertEquals(70.0, estado.radioNotificacionKm, 0.001)
+    }
+
+    @Test
     fun `guardarRadioNotificacion no recarga si el listado usa una distancia propia`() {
         gddService.reportesServidor = listOf(ajeno(1))
         viewModel.seleccionarAmbito(AmbitoReportes.COMUNIDAD)

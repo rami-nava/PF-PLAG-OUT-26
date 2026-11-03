@@ -299,7 +299,7 @@ fun AppNavigation(
         factory = remember(context, terrenoRepository) { NuevoTerrenoViewModelFactory(context, terrenoRepository) }
     )
     val misReportesViewModel: MisReportesViewModel = viewModel(
-        factory = MisReportesViewModelFactory()
+        factory = remember(usuarioRepository) { MisReportesViewModelFactory(usuarioRepository = usuarioRepository) }
     )
     val mapaReportesViewModel: MapaReportesViewModel = viewModel(
         factory = MapaReportesViewModelFactory()
