@@ -71,4 +71,60 @@ class TokenRegistrationCoordinatorTest {
         assertEquals(listOf("B"), calls)
         assertFalse(coordinator.pending)
     }
+
+    @Test fun slowRotationDoesNotHoldTheLogoutNorLeakTheOldFid() = runTest {
+        var owner = "A"
+        var token = "old"
+        val rotation = CompletableDeferred<Unit>()
+        val retired = mutableListOf<String>()
+        val registered = mutableListOf<String>()
+        val coordinator = TokenRegistrationCoordinator({ owner }, { true }, { token },
+            { rotation.await(); token = "new" }, { registered += it; 200 }, { retired += it })
+
+        val finished = coordinator.unregister(remote = true, scope = backgroundScope, waitMs = 5_000)
+
+        assertFalse("logout must not wait for Firebase", finished)
+        assertEquals(5_000, testScheduler.currentTime)
+        assertEquals(listOf("old"), retired)
+        // B signs in while the rotation is still running: its registration waits for it.
+        owner = "B"
+        coordinator.beginSession()
+        val registration = launch { coordinator.register() }
+        testScheduler.runCurrent()
+        assertTrue(registered.isEmpty())
+        rotation.complete(Unit)
+        registration.join()
+        assertEquals(listOf("new"), registered)
+    }
+
+    @Test fun fastRetirementFinishesBeforeTheLogoutContinues() = runTest {
+        var rotations = 0
+        val retired = mutableListOf<String>()
+        val coordinator = TokenRegistrationCoordinator({ "A" }, { true }, { "fid" },
+            { rotations++ }, { 200 }, { retired += it })
+
+        assertTrue(coordinator.unregister(remote = true, scope = backgroundScope, waitMs = 5_000))
+        assertEquals(listOf("fid"), retired)
+        assertEquals(1, rotations)
+    }
+
+    @Test fun aFailedBackendRetirementStillRotatesTheFid() = runTest {
+        var rotations = 0
+        val failures = mutableListOf<Throwable>()
+        val coordinator = TokenRegistrationCoordinator({ "A" }, { true }, { "fid" },
+            { rotations++ }, { 200 }, { throw java.io.IOException("offline") })
+
+        assertTrue(coordinator.unregister(true, backgroundScope, 5_000) { failures += it })
+        assertEquals(1, rotations)
+        assertEquals(1, failures.size)
+    }
+
+    @Test fun accountDeletionSkipsTheBackendButRotates() = runTest {
+        var rotations = 0
+        val coordinator = TokenRegistrationCoordinator({ "A" }, { true }, { error("no token needed") },
+            { rotations++ }, { 200 }, { error("no backend call") })
+
+        assertTrue(coordinator.unregister(remote = false, scope = backgroundScope, waitMs = 5_000))
+        assertEquals(1, rotations)
+    }
 }

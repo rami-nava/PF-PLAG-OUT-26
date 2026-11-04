@@ -1,7 +1,11 @@
 package com.example.plag_out.Service
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Serializes one installation's token work; queued work belongs to a session generation. */
 internal class TokenRegistrationCoordinator(
@@ -43,14 +47,40 @@ internal class TokenRegistrationCoordinator(
         }
     }
 
-    suspend fun unregister(remote: Boolean) {
+    /**
+     * Retires this installation: the backend record first (while the JWT is still valid), then a
+     * new FID. The work runs in [scope] and the caller waits at most [waitMs]: closing a session
+     * must not hang on Firebase. Whatever is left keeps running, still under the mutex, so the next
+     * session's register() only starts after the rotation and never inherits the old FID.
+     *
+     * Returns true when everything finished within [waitMs].
+     */
+    suspend fun unregister(
+        remote: Boolean,
+        scope: CoroutineScope,
+        waitMs: Long,
+        onFailure: (Throwable) -> Unit = {},
+    ): Boolean {
         invalidateSession()
-        mutex.withLock {
-            try {
-                if (remote) unregister(token())
-            } finally {
-                rotate()
+        val work = scope.launch {
+            mutex.withLock {
+                try {
+                    if (remote) unregister(token())
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    onFailure(e)
+                } finally {
+                    try {
+                        rotate()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        onFailure(e)
+                    }
+                }
             }
         }
+        return withTimeoutOrNull(waitMs) { work.join() } != null
     }
 }
