@@ -893,7 +893,10 @@ data class GddCicloResponse(
     val fecha_eclosion: String? = null,
     // El huevo acumula con su propia temperatura base hasta la eclosión; gdd_acumulado es el
     // desarrollo hasta el adulto. Sin dato, el huevo usa la base del ciclo.
-    val gdd_acumulado_huevo: Float? = null
+    val gdd_acumulado_huevo: Float? = null,
+    // Qué hito miden progreso y nivel_alerta: "eclosion", o "generacion" para los pulgones
+    // vivíparos, que no tienen huevo. Sin dato (backend anterior) se toma "eclosion".
+    val hito: String? = null
 )
 
 @Serializable

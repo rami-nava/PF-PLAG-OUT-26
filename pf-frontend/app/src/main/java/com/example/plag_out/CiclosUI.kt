@@ -114,6 +114,9 @@ fun nivelAlertaDeCiclos(monitoreo: MonitoreoResponse): Int? =
 
 fun nivelAlertaEfectivo(monitoreo: MonitoreoResponse): Int = nivelAlertaDeCiclos(monitoreo) ?: -1
 
+/** El hito de los ciclos activos: un monitoreo sigue una sola plaga, así que lo comparten. */
+fun hitoDeCiclos(monitoreo: MonitoreoResponse): String? = ciclosActivos(monitoreo).firstOrNull()?.hito
+
 fun cicloEnAlerta(ciclo: GddCicloResponse, umbralRiesgo: Int?): Boolean =
     ciclo.progreso >= (umbralRiesgo ?: 100).toFloat()
 
@@ -195,7 +198,7 @@ fun CicloCard(
     finalizando: Boolean = false
 ) {
     val activo = cicloActivo(ciclo)
-    val estilo = if (activo) estiloDeNivel(ciclo.nivel_alerta) else estiloFinalizado()
+    val estilo = if (activo) estiloDeNivel(ciclo.nivel_alerta, ciclo.hito) else estiloFinalizado()
     val enAlerta = activo && cicloEnAlerta(ciclo, umbralRiesgo)
     val objetivo = objetivoDelCiclo(ciclo, objetivoMonitoreo)
     val dias = diasEstimadosDelCiclo(ciclo, objetivoMonitoreo)

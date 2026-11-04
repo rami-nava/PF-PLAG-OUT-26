@@ -838,7 +838,7 @@ fun PlantacionCard(
 @Composable
 private fun PlagaMiniFila(monitoreo: MonitoreoResponse) {
     val esperando = esperandoBiofix(monitoreo)
-    val estilo = if (esperando) estiloEsperandoBiofix() else estiloDeNivel(nivelAlertaEfectivo(monitoreo))
+    val estilo = if (esperando) estiloEsperandoBiofix() else estiloDeNivel(nivelAlertaEfectivo(monitoreo), hitoDeCiclos(monitoreo))
     Row(
         modifier = Modifier
             .fillMaxWidth()
