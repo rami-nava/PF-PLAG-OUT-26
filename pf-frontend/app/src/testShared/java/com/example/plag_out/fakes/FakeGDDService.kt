@@ -138,7 +138,7 @@ class FakeGDDService : GDDService {
         val filtrados = filtrarServidor(consulta)
         return Response.success(Pagina(filtrados.drop(consulta.offset).take(consulta.limit), filtrados.size))
     }
-    var getReportesMapaResult: () -> Response<ReportesMapaResponse> = { noDeclarado("getReportesMapa") }
+    var getReportesMapaResult: suspend () -> Response<ReportesMapaResponse> = { noDeclarado("getReportesMapa") }
     var deleteReporteResult: () -> Response<Unit> = { Response.success(Unit) }
     var getPrediccionResult: () -> Response<PrediccionDetalleResponse> = { noDeclarado("getPrediccion") }
     var confirmarPrediccionResult: () -> Response<PrediccionConfirmacionResponse> = { noDeclarado("confirmarPrediccion") }

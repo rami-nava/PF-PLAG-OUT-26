@@ -36,9 +36,11 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -301,10 +303,6 @@ fun AppNavigation(
     val misReportesViewModel: MisReportesViewModel = viewModel(
         factory = remember(usuarioRepository) { MisReportesViewModelFactory(usuarioRepository = usuarioRepository) }
     )
-    val mapaReportesViewModel: MapaReportesViewModel = viewModel(
-        factory = MapaReportesViewModelFactory()
-    )
-
     val authViewModel: AuthViewModel = viewModel(
         factory = remember(context, monitoreoRepository, terrenoRepository, plantacionRepository, usuarioRepository) {
             AuthViewModel.AuthViewModelFactory(
@@ -336,6 +334,21 @@ fun AppNavigation(
     // falta). Mientras tanto el estado es Initializing: mostramos un splash y recién
     // después decidimos si arrancar en el home o en el login.
     val sessionStatus by SupabaseProvider.client.auth.sessionStatus.collectAsState()
+    val usuarioMapaId = if (sessionStatus is SessionStatus.Authenticated) {
+        SupabaseProvider.client.auth.currentUserOrNull()?.id
+    } else {
+        null
+    }
+    // Los pines propios contienen coordenadas exactas. Cada cuenta tiene su propia caché.
+    val mapaReportesViewModel: MapaReportesViewModel? = if (usuarioMapaId == null) {
+        null
+    } else {
+        viewModel(key = "mapa-reportes/$usuarioMapaId", factory = MapaReportesViewModelFactory())
+    }
+    DisposableEffect(mapaReportesViewModel) {
+        onDispose { mapaReportesViewModel?.limpiar() }
+    }
+    val mapaReportesDeSesion by rememberUpdatedState(mapaReportesViewModel)
 
     // Si el token guardado está vencido, Supabase necesita red para renovarlo. Sin red (o con
     // el DNS caído) esa renovación no termina nunca y el estado se queda en Initializing: sin
@@ -545,6 +558,7 @@ fun AppNavigation(
     val limpiarSesion: (Boolean, () -> Unit) -> Unit = limpiar@{ desregistrarDispositivo, despues ->
         if (cerrandoSesion) return@limpiar
         cerrandoSesion = true
+        mapaReportesViewModel?.limpiar()
         authViewModel.cerrarSesion(desregistrarDispositivo) {
             userViewModel.limpiar()
             monitoreosViewModel.limpiar()
@@ -1089,12 +1103,17 @@ fun AppNavigation(
             }
 
             composable("mapa_reportes") {
-                MapaReportesScreen(
-                    viewModel = mapaReportesViewModel,
-                    terrenosViewModel = terrenosViewModel,
-                    navController = navController,
-                    onBack = { navController.popBackStack() }
-                )
+                val mapa = mapaReportesDeSesion
+                if (!cerrandoSesion && mapa != null) {
+                    key(mapa) {
+                        MapaReportesScreen(
+                            viewModel = mapa,
+                            terrenosViewModel = terrenosViewModel,
+                            navController = navController,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                }
             }
         }
     }

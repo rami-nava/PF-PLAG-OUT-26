@@ -7,14 +7,17 @@ import androidx.lifecycle.viewModelScope
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.Service.RetrofitClient
 import com.example.plag_out.Service.todosLosTerrenos
+import com.google.gson.stream.MalformedJsonException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.example.plag_out.TerrenoResponse
-import kotlinx.serialization.json.Json
+import java.io.IOException
+
+private const val ERROR_CARGA_ALERTA = "No se pudieron cargar los datos de la alerta."
 
 sealed class VerReporteUiState {
     object Cargando : VerReporteUiState()
@@ -47,15 +50,7 @@ class VerReporteViewModel(
     private val _state = MutableStateFlow<VerReporteUiState>(VerReporteUiState.Cargando)
     val state: StateFlow<VerReporteUiState> = _state.asStateFlow()
 
-    /**
-     * Carga el detalle del reporte.
-     *
-     * Orden de intentos:
-     * 1. GET /reportes/{reporteId} — fuente primaria. [plaga_nombre] viene del servidor.
-     * 2. Si la llamada falla (excepcion de red, timeout, codigo != 2xx) -> decodifica
-     *    [reporteJsonFallback] y usa [ReporteNavPayload.plaga_nombre] capturado en la UI.
-     * 3. Si el JSON de fallback tambien es nulo/corrupto -> [VerReporteUiState.Error].
-     */
+    /** Conserva la ficha de navegación durante fallas transitorias de red o del servidor. */
     fun cargar(reporteId: Int, reporteJsonFallback: String?, ignorarLimite: Boolean = false) {
         viewModelScope.launch {
             _state.value = VerReporteUiState.Cargando
@@ -108,6 +103,8 @@ class VerReporteViewModel(
                                 _state.value = VerReporteUiState.Exito(detalleActualizado, terrenoRef, terrenosAfectados)
                                 return@launch
                             }
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             Log.w("VER_REPORTE", "Fallo al obtener terrenos para referencia: ${e.message}")
                         }
@@ -116,13 +113,26 @@ class VerReporteViewModel(
                     _state.value = VerReporteUiState.Exito(detalle, terrenoReferencia = null, terrenosAfectados = emptyList())
                     return@launch
                 }
-                Log.w("VER_REPORTE", "GET /reportes/$reporteId -> ${res.code()}, usando fallback")
-            } catch (e: Exception) {
+                val codigo = res.code()
+                if (codigo != 408 && codigo != 429 && codigo !in 500..599) {
+                    _state.value = VerReporteUiState.Error(ERROR_CARGA_ALERTA)
+                    return@launch
+                }
+                Log.w("VER_REPORTE", "GET /reportes/$reporteId -> $codigo, usando fallback")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                if (e is MalformedJsonException) {
+                    _state.value = VerReporteUiState.Error(ERROR_CARGA_ALERTA)
+                    return@launch
+                }
                 Log.w("VER_REPORTE", "GET /reportes/$reporteId fallo: ${e.message}, usando fallback")
+            } catch (e: Exception) {
+                Log.w("VER_REPORTE", "GET /reportes/$reporteId fallo: ${e.message}")
+                _state.value = VerReporteUiState.Error(ERROR_CARGA_ALERTA)
+                return@launch
             }
 
-            // Intento 2: fallback JSON de navegacion
-            // plaga_nombre aqui siempre proviene de CrearReporteUIState.plagaSeleccionada.nombre
             usarFallback(reporteJsonFallback, ignorarLimite)
         }
     }
@@ -174,7 +184,7 @@ class VerReporteViewModel(
 
     private suspend fun usarFallback(reporteJsonFallback: String?, ignorarLimite: Boolean = false) {
         if (reporteJsonFallback.isNullOrBlank()) {
-            _state.value = VerReporteUiState.Error("No se pudieron cargar los datos de la alerta.")
+            _state.value = VerReporteUiState.Error(ERROR_CARGA_ALERTA)
             return
         }
         try {
@@ -235,13 +245,17 @@ class VerReporteViewModel(
                             _state.value = VerReporteUiState.Exito(detalleFinal, terrenoRef, terrenosAfectados)
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.w("VER_REPORTE", "No se pudo obtener terrenos para enriquecer fallback: ${e.message}")
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("VER_REPORTE", "Error deserializando fallback JSON: ${e.message}")
-            _state.value = VerReporteUiState.Error("No se pudieron cargar los datos de la alerta.")
+            _state.value = VerReporteUiState.Error(ERROR_CARGA_ALERTA)
         }
     }
 }

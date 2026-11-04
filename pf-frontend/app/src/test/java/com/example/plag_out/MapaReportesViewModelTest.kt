@@ -4,8 +4,11 @@ import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.fakes.Fixtures
 import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -46,6 +49,53 @@ class MapaReportesViewModelTest {
     fun `sin vista todavia no pide nada`() {
         assertEquals(0, gddService.llamadas.size)
         assertTrue(viewModel.state.value.cargando)
+    }
+
+    @Test
+    fun `al cambiar de cuenta la misma vista se pide sin usar los pines propios previos`() {
+        val propioA = Fixtures.reporteDetalle(id = 42, latitud = -34.60123, longitud = -58.40123)
+        val comunitarioB = propioA.copy(es_propio = false, latitud = -34.65, longitud = -58.45)
+        gddService.getReportesMapaResult = {
+            Response.success(ReportesMapaResponse(reportes = listOf(propioA)))
+        }
+        viewModel.actualizarVista(vistaCerca)
+        assertEquals(propioA, esperarEstado(viewModel.state) { !it.cargando }.reportes.single())
+
+        viewModel.limpiar()
+        assertTrue(viewModel.state.value.reportes.isEmpty())
+        gddService.getReportesMapaResult = {
+            Response.success(ReportesMapaResponse(reportes = listOf(comunitarioB)))
+        }
+        viewModel.actualizarVista(vistaCerca)
+
+        val mapaB = esperarEstado(viewModel.state) { !it.cargando }
+        assertEquals(comunitarioB, mapaB.reportes.single())
+        assertEquals(2, gddService.vecesLlamado("getReportesMapa"))
+    }
+
+    @Test
+    fun `al cerrar sesion se cancela la solicitud en vuelo del mapa`() {
+        val iniciada = CompletableDeferred<Unit>()
+        val cancelada = CompletableDeferred<Unit>()
+        val respuesta = CompletableDeferred<Response<ReportesMapaResponse>>()
+        gddService.getReportesMapaResult = {
+            iniciada.complete(Unit)
+            try {
+                respuesta.await()
+            } finally {
+                cancelada.complete(Unit)
+            }
+        }
+
+        try {
+            viewModel.actualizarVista(vistaCerca)
+            runBlocking { withTimeout(3000) { iniciada.await() } }
+            viewModel.limpiar()
+            runBlocking { withTimeout(3000) { cancelada.await() } }
+            assertTrue(viewModel.state.value.reportes.isEmpty())
+        } finally {
+            respuesta.cancel()
+        }
     }
 
     @Test
