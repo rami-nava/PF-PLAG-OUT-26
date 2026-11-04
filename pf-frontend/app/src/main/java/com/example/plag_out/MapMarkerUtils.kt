@@ -42,14 +42,40 @@ fun MapView.agregarAtribucionOsm() {
     overlays.add(CopyrightOverlay(context))
 }
 
+/**
+ * Imágenes de íconos ya dibujadas. El mapa rehace sus marcadores en cada cambio de zoom, selección
+ * o datos: sin esto cada ícono se volvía a pintar (el pin, píxel por píxel) en el hilo de la
+ * interfaz. Se comparte el Bitmap; cada marcador recibe su propio Drawable.
+ */
+internal object CacheIconos {
+    private val cache = android.util.LruCache<String, Bitmap>(128)
+
+    fun buscar(clave: String): Bitmap? = synchronized(cache) { cache.get(clave) }
+
+    fun guardar(clave: String, bitmap: Bitmap): Bitmap {
+        synchronized(cache) { cache.put(clave, bitmap) }
+        return bitmap
+    }
+
+    fun obtener(clave: String, crear: () -> Bitmap): Bitmap = buscar(clave) ?: guardar(clave, crear())
+}
+
 object MapMarkerUtils {
 
     fun getMarkerIcon(context: Context, isGreen: Boolean): Drawable =
         getMarkerIcon(context, if (isGreen) 125f else 0f)
 
     fun getMarkerIcon(context: Context, hue: Float): Drawable {
+        val densidad = context.resources.displayMetrics.density
+        val clave = "pin:$hue:$densidad"
+        val bitmap = CacheIconos.buscar(clave)
+            ?: CacheIconos.guardar(clave, pintarPin(context, hue) ?: return ColorDrawable(AndroidColor.TRANSPARENT))
+        return BitmapDrawable(context.resources, bitmap)
+    }
+
+    private fun pintarPin(context: Context, hue: Float): Bitmap? {
         val original = ContextCompat.getDrawable(context, org.osmdroid.library.R.drawable.marker_default)
-            ?: return ColorDrawable(AndroidColor.TRANSPARENT)
+            ?: return null
 
         val width = original.intrinsicWidth.coerceAtLeast(1)
         val height = original.intrinsicHeight.coerceAtLeast(1)
@@ -78,6 +104,6 @@ object MapMarkerUtils {
         }
 
         bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
-        return BitmapDrawable(context.resources, bitmap)
+        return bitmap
     }
 }
