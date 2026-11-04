@@ -98,6 +98,7 @@ class MainActivity : ComponentActivity() {
     private val deepLinkMonitoreoId = mutableStateOf<String?>(null)
     private val deepLinkAvisoBiofix = mutableStateOf(false)
     private val deepLinkNotificacionId = mutableStateOf<Int?>(null)
+    private val deepLinkLeerNotificacionId = mutableStateOf<Int?>(null)
     private val deepLinkReporteId = mutableStateOf<String?>(null)
     private val deepLinkPlantacionId = mutableStateOf<String?>(null)
     private val deepLinkCicloId = mutableStateOf<String?>(null)
@@ -151,7 +152,9 @@ class MainActivity : ComponentActivity() {
                         deepLinkCicloId = deepLinkCicloId.value,
                         onDeepLinkCicloConsumido = { deepLinkCicloId.value = null },
                         deepLinkPrediccionId = deepLinkPrediccionId.value,
-                        onDeepLinkPrediccionConsumido = { deepLinkPrediccionId.value = null }
+                        onDeepLinkPrediccionConsumido = { deepLinkPrediccionId.value = null },
+                        deepLinkLeerNotificacionId = deepLinkLeerNotificacionId.value,
+                        onDeepLinkLeerNotificacionConsumido = { deepLinkLeerNotificacionId.value = null }
                     )
                 }
             }
@@ -238,6 +241,9 @@ class MainActivity : ComponentActivity() {
         val id = destino.substringAfterLast('/')
         val tipoPush = intent.getStringExtra(PlagOutMessagingService.EXTRA_TIPO)?.uppercase()
         val notifId = intent.getStringExtra(PlagOutMessagingService.EXTRA_NOTIFICACION_ID)?.toIntOrNull()
+        val avisoBiofix = destino.startsWith("monitoreo/") && tipoPush in setOf("BIOFIX_CICLO", "BIOFIX", "ALERTA_BIOFIX")
+        // El aviso de biofix se marca leído al resolverlo en su diálogo; el resto, al tocar el push.
+        if (notifId != null && !avisoBiofix) deepLinkLeerNotificacionId.value = notifId
         when {
             destino.startsWith("ciclo/") -> deepLinkCicloId.value = id
             destino.startsWith("prediccion/") -> deepLinkPrediccionId.value = id
@@ -272,7 +278,9 @@ fun AppNavigation(
     deepLinkPlantacionId: String? = null,
     onDeepLinkPlantacionConsumido: () -> Unit = {},
     deepLinkPrediccionId: String? = null,
-    onDeepLinkPrediccionConsumido: () -> Unit = {}
+    onDeepLinkPrediccionConsumido: () -> Unit = {},
+    deepLinkLeerNotificacionId: Int? = null,
+    onDeepLinkLeerNotificacionConsumido: () -> Unit = {}
 ) {
     val context = LocalContext.current.applicationContext
     val db = remember(context) { AppDatabase.getDatabase(context) }
@@ -493,6 +501,13 @@ fun AppNavigation(
             onDeepLinkCicloConsumido()
         }
     }
+    LaunchedEffect(deepLinkLeerNotificacionId, sessionStatus) {
+        if (deepLinkLeerNotificacionId != null && sessionStatus is SessionStatus.Authenticated && !PreferenciasUsuario.esAdmin(context)) {
+            notificacionesViewModel.marcarLeidaPorId(deepLinkLeerNotificacionId)
+            onDeepLinkLeerNotificacionConsumido()
+        }
+    }
+
     LaunchedEffect(deepLinkPrediccionId, sessionStatus) {
         if (deepLinkPrediccionId != null && sessionStatus is SessionStatus.Authenticated && !PreferenciasUsuario.esAdmin(context)) {
             navController.navigate("prediccion/$deepLinkPrediccionId")

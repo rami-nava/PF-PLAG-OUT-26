@@ -6,17 +6,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,6 +37,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -66,7 +73,8 @@ fun PrediccionDetalleScreen(
     }
     LaunchedEffect(prediccionId) { viewModel.cargar(prediccionId) }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+    // Pantalla full-bleed: el Scaffold no reserva las barras del sistema.
+    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars).padding(horizontal = 20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = PlagOutColors.TextMain)
@@ -145,7 +153,10 @@ private fun ContenidoPrediccion(
             }
         }
 
-        state.biofixResultado?.let { CicloCard(it.ciclo) }
+        state.biofixResultado?.let {
+            Spacer(Modifier.height(12.dp))
+            CicloCard(it.ciclo)
+        }
         Spacer(Modifier.height(14.dp))
         when (prediccion.confirmacion.estado) {
             "pendiente" -> if (state.feedbackPendiente == null || state.feedbackPendiente.estado == "requiere_revision") {
@@ -170,11 +181,13 @@ private fun ContenidoPrediccion(
             }
             "respondida" -> EstadoPrediccion(
                 "Respuesta guardada",
-                etiquetaRespuesta(prediccion.confirmacion.respuesta)
+                etiquetaRespuesta(prediccion.confirmacion.respuesta),
+                icono = IconoEstado.Guardado
             )
             "vencida" -> EstadoPrediccion(
                 "La solicitud venció",
-                "El período para responder esta alerta ya terminó."
+                "El período para responder esta alerta ya terminó.",
+                icono = IconoEstado.Vencido
             )
             else -> EstadoPrediccion(
                 "No requiere respuesta",
@@ -217,13 +230,14 @@ private fun EstadoPrediccion(
     detalle: String,
     onReintentar: (() -> Unit)? = null,
     cargando: Boolean = false,
-    textoReintentar: String = "Reintentar envío"
+    textoReintentar: String = "Reintentar envío",
+    icono: IconoEstado = IconoEstado.Aviso
 ) {
     Column(
         Modifier.fillMaxWidth().padding(vertical = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(Icons.Outlined.ErrorOutline, null, tint = PlagOutColors.RiskUnknown)
+        Icon(icono.vector, null, tint = icono.tinte, modifier = Modifier.testTag("estadoPrediccion_${icono.name}"))
         Text(titulo, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain, modifier = Modifier.padding(top = 8.dp))
         Text(detalle, color = PlagOutColors.TextSecondary, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
         if (onReintentar != null) {
@@ -238,6 +252,13 @@ private fun EstadoPrediccion(
             }
         }
     }
+}
+
+/** Un éxito no puede mostrarse con el signo de advertencia. */
+private enum class IconoEstado(val vector: ImageVector, val tinte: Color) {
+    Aviso(Icons.Outlined.ErrorOutline, PlagOutColors.RiskUnknown),
+    Guardado(Icons.Outlined.CheckCircle, PlagOutColors.Forest),
+    Vencido(Icons.Outlined.Schedule, PlagOutColors.TextSecondary)
 }
 
 private fun porcentaje(valor: Float): String = String.format(Locale.US, "%.2f%%", valor).replace('.', ',')

@@ -3,6 +3,7 @@ package com.example.plag_out
 import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
@@ -79,5 +80,17 @@ class PrediccionWorkflowScreenTest {
         compose.waitUntil(timeoutMillis = 5000) { vm.state.value.prediccion?.confirmacion?.estado == "respondida" }
         compose.onNodeWithText("Respuesta guardada").assertIsDisplayed()
         org.junit.Assert.assertEquals(key, service.ultimaConfirmacionPrediccion?.idempotency_key)
+    }
+
+    @Test fun `respuesta guardada se muestra como exito y no como advertencia`() {
+        val service = FakeGDDService().apply {
+            getPrediccionResult = { Response.success(Fixtures.prediccion(estado = "respondida", respuesta = "presente")) }
+        }
+        val vm = viewModel(service)
+        compose.setContent { PrediccionDetalleScreen(41, vm, {}) }
+        compose.waitUntil(timeoutMillis = 5000) { vm.state.value.prediccion != null }
+        compose.onNodeWithText("Respuesta guardada").assertIsDisplayed()
+        compose.onNodeWithTag("estadoPrediccion_Guardado", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("estadoPrediccion_Aviso", useUnmergedTree = true).assertDoesNotExist()
     }
 }
