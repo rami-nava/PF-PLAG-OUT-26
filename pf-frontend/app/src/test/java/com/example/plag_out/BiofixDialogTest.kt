@@ -13,6 +13,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
+import java.time.LocalDate
+import java.time.ZoneId
 import retrofit2.Response
 
 @RunWith(RobolectricTestRunner::class)
@@ -89,5 +93,28 @@ class BiofixDialogTest {
 
         compose.onNodeWithTag("btnDescartarAvisoBiofix").assertIsDisplayed().performClick()
         assertTrue(descartado)
+    }
+
+    @Test fun `monitoreo que empezo hoy no ofrece un calendario sin otras fechas`() {
+        val hoy = LocalDate.now(ZoneId.of("America/Argentina/Buenos_Aires"))
+        val service = FakeGDDService().apply {
+            getMonitoreoResult = { Response.success(Fixtures.monitoreo(fechaInicio = hoy).copy(ciclos = emptyList())) }
+        }
+        compose.setContent { BiofixDialog(1, {}, {}, service) }
+        compose.waitForIdle()
+        compose.onNodeWithText("Hoy · el monitoreo empezó hoy").assertExists()
+        compose.onNodeWithTag("btnFechaBiofix").assertIsNotEnabled()
+    }
+
+    @Test fun `las etiquetas de los botones no se parten en dos lineas`() {
+        val service = FakeGDDService().apply { getMonitoreoResult = { Response.success(Fixtures.monitoreo().copy(ciclos = emptyList())) } }
+        compose.setContent { BiofixDialog(1, {}, {}, service) }
+        compose.waitForIdle()
+        for (etiqueta in listOf("Confirmar", "Cancelar")) {
+            val layouts = mutableListOf<TextLayoutResult>()
+            compose.onNodeWithText(etiqueta).performScrollTo().fetchSemanticsNode()
+                .config[SemanticsActions.GetTextLayoutResult].action?.invoke(layouts)
+            assertEquals("$etiqueta en una sola línea", 1, layouts.single().lineCount)
+        }
     }
 }

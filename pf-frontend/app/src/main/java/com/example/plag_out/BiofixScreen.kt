@@ -121,6 +121,8 @@ fun BiofixDialog(monitoreoId: Int, onDismiss: () -> Unit, onConfirm: (BiofixRequ
     val numeros = numerosDeCiclo(monitor?.ciclos.orEmpty())
     val inicio = monitor?.fecha_inicio
     val valido = inicio != null && !fecha.isBefore(inicio) && !fecha.isAfter(hoy)
+    // Un monitoreo que empezó hoy sólo admite hoy: no ofrecer un calendario sin otras opciones.
+    val unicaFecha = inicio != null && !inicio.isBefore(hoy)
 
     if (mostrarCalendario) {
         val calendario = rememberDatePickerState(
@@ -184,7 +186,7 @@ fun BiofixDialog(monitoreoId: Int, onDismiss: () -> Unit, onConfirm: (BiofixRequ
         EncabezadoSeccionBiofix("Fecha de observación")
         Surface(
             onClick = { mostrarCalendario = true },
-            enabled = monitor != null,
+            enabled = monitor != null && !unicaFecha,
             color = PlagOutColors.Cream,
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, if (valido || monitor == null) PlagOutColors.CreamDeep else PlagOutColors.RiskDanger),
@@ -209,12 +211,18 @@ fun BiofixDialog(monitoreoId: Int, onDismiss: () -> Unit, onConfirm: (BiofixRequ
                         color = PlagOutColors.TextMain
                     )
                     Text(
-                        if (fecha == hoy) "Hoy · tocá para cambiarla" else "Tocá para cambiarla",
+                        when {
+                            unicaFecha -> "Hoy · el monitoreo empezó hoy"
+                            fecha == hoy -> "Hoy · tocá para cambiarla"
+                            else -> "Tocá para cambiarla"
+                        },
                         fontSize = 12.sp,
                         color = PlagOutColors.TextSecondary
                     )
                 }
-                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(18.dp))
+                if (!unicaFecha) {
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(18.dp))
+                }
             }
         }
 
@@ -264,9 +272,10 @@ fun BiofixDialog(monitoreoId: Int, onDismiss: () -> Unit, onConfirm: (BiofixRequ
                 shape = RoundedCornerShape(14.dp),
                 border = BorderStroke(1.dp, PlagOutColors.Divider),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PlagOutColors.TextMain),
+                contentPadding = PaddingValues(horizontal = 12.dp),
                 modifier = Modifier.weight(1f).height(50.dp).testTag("btnCancelarBiofix")
             ) {
-                Text("Cancelar", fontWeight = FontWeight.SemiBold)
+                Text("Cancelar", fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
             }
             Button(
                 onClick = {
@@ -282,11 +291,11 @@ fun BiofixDialog(monitoreoId: Int, onDismiss: () -> Unit, onConfirm: (BiofixRequ
                     containerColor = PlagOutColors.Forest,
                     contentColor = PlagOutColors.TextOnDark
                 ),
+                contentPadding = PaddingValues(horizontal = 12.dp),
                 modifier = Modifier.weight(1f).height(50.dp).testTag("btnConfirmarBiofix")
             ) {
-                Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Confirmar", fontWeight = FontWeight.Bold)
+                // Sin ícono: en medio diálogo de un teléfono de 320–360 dp el texto no entra junto a él.
+                Text("Confirmar", fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
             }
         }
     }
