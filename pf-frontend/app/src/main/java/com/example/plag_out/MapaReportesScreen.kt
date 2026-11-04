@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Point
-import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
@@ -104,6 +103,7 @@ import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.util.TileSystem
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.Projection
@@ -115,10 +115,12 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.hypot
 import kotlin.math.ln
 import kotlin.math.pow
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 
@@ -961,6 +963,13 @@ private fun LienzoMapa(
     modifier: Modifier = Modifier
 ) {
     val densidad = LocalContext.current.resources.displayMetrics.density
+    // La capa de densidad sobrevive a los redibujos: guarda su cálculo y solo lo rehace cuando
+    // cambian los datos o el zoom. Los grupos y el tap se leen siempre actualizados.
+    val clustersActuales by rememberUpdatedState(clusters)
+    val seleccionActual by rememberUpdatedState(onSeleccion)
+    val capaCalor = remember(densidad) {
+        CalorReportesOverlay(densidad, clusters = { clustersActuales }, onTap = { seleccionActual(it) })
+    }
 
     AndroidView(
         modifier = modifier,
@@ -1019,14 +1028,7 @@ private fun LienzoMapa(
             // Los reportes caen justo sobre su lote. De cerca la mancha es más grande que el ícono:
             // va abajo para no taparlo y asoma alrededor. De lejos es más chica que el ícono y,
             // abajo, quedaría escondida: va arriba y al ser translúcida deja ver el lote.
-            val calor = if (modo == ModoMapa.NUBES) {
-                CalorReportesOverlay(
-                    puntos = puntos,
-                    clusters = clusters,
-                    densidad = densidad,
-                    onTap = onSeleccion
-                )
-            } else null
+            val calor = if (modo == ModoMapa.NUBES) capaCalor.also { it.puntos = puntos } else null
             val calorDebajo = zoom >= ZOOM_CALOR_DEBAJO
             if (calor != null && calorDebajo) map.overlays.add(calor)
             val nombreVisible = zoom >= ZOOM_NOMBRE_LOTE
@@ -1267,96 +1269,211 @@ private const val ALFA_CALOR_MAX = 225
 private const val CALOR_MINIMO_TAP = 0.15f
 
 
+/** Lo que se calcula y lo que se ve más allá de los bordes: un paneo no obliga a recalcular. */
+private const val MARGEN_CALOR = 0.5
+
+/** Un solo hilo: los cálculos se encolan y uno viejo nunca pisa a uno nuevo en pantalla. */
+private val HILO_CALOR = java.util.concurrent.Executors.newSingleThreadExecutor { tarea ->
+    Thread(tarea, "calor-mapa").apply { isDaemon = true }
+}
+
+private const val RADIO_TIERRA_M = 6_378_137.0
+
+/** Posición Mercator en píxeles de un mundo de [mapaPx] de lado (el de osmdroid: TileSystem.MapSize). */
+internal fun xMundo(longitud: Double, mapaPx: Double): Double = (longitud + 180.0) / 360.0 * mapaPx
+
+internal fun yMundo(latitud: Double, mapaPx: Double): Double {
+    val s = sin(Math.toRadians(latitud.coerceIn(-85.05112878, 85.05112878)))
+    return (0.5 - ln((1 + s) / (1 - s)) / (4 * Math.PI)) * mapaPx
+}
+
+/** Metros en píxeles a esa latitud, como `Projection.metersToPixels`. */
+internal fun metrosAPixeles(metros: Float, latitud: Double, mapaPx: Double): Float =
+    (metros / (cos(Math.toRadians(latitud)) * 2 * Math.PI * RADIO_TIERRA_M / mapaPx)).toFloat()
+
+/** Calor por celda de [paso] píxeles; la celda (0, 0) empieza en ([origenX], [origenY]) del mundo. */
+internal class GrillaCalor(val ancho: Int, val alto: Int, val calor: FloatArray) {
+    operator fun get(x: Int, y: Int): Float = calor[y * ancho + x]
+}
+
+/**
+ * La mancha de cada punto sumada sobre la grilla. Es puro: corre fuera del hilo de la interfaz y
+ * el resultado sirve para cualquier desplazamiento dentro de la grilla, porque se calcula en
+ * coordenadas del mundo y no de la pantalla.
+ */
+internal fun calcularCalor(
+    puntos: List<PuntoMapa>,
+    zoom: Double,
+    mapaPx: Double,
+    origenX: Double,
+    origenY: Double,
+    ancho: Int,
+    alto: Int,
+    densidad: Float,
+    paso: Int = PASO_CALOR_PX
+): GrillaCalor {
+    val grilla = GrillaCalor(ancho, alto, FloatArray(ancho * alto))
+    val acercamiento = ((zoom - ZOOM_CALOR_LEJOS) / (ZOOM_CALOR_CERCA - ZOOM_CALOR_LEJOS)).toFloat().coerceIn(0f, 1f)
+    val radioMin = (RADIO_CALOR_MIN_LEJOS_DP + (RADIO_CALOR_MIN_CERCA_DP - RADIO_CALOR_MIN_LEJOS_DP) * acercamiento) * densidad
+    val radioMax = RADIO_CALOR_MAX_DP * densidad
+    puntos.forEach { p ->
+        val alcance = metrosAPixeles(ALCANCE_REPORTE_M, p.latitud, mapaPx).coerceIn(radioMin, radioMax)
+        val crecimiento = (1f + 0.15f * ln(p.cantidad.toFloat())).coerceAtMost(CRECIMIENTO_GRUPO_MAX)
+        val x = xMundo(p.longitud, mapaPx) - origenX
+        val y = (yMundo(p.latitud, mapaPx) - origenY).toFloat()
+        // Con zoom lejano la grilla puede abarcar más de una vuelta al mundo.
+        for (vuelta in -1..1) {
+            sumarCalor(
+                grilla, ((x + vuelta * mapaPx) / paso).toFloat(), y / paso,
+                alcance * crecimiento / paso, p.cantidad.toFloat()
+            )
+        }
+    }
+    return grilla
+}
+
+private fun sumarCalor(grilla: GrillaCalor, cx: Float, cy: Float, radio: Float, peso: Float) {
+    if (radio <= 0f) return
+    if (cx + radio < 0 || cy + radio < 0 || cx - radio >= grilla.ancho || cy - radio >= grilla.alto) return
+    val r2 = radio * radio
+    val y0 = floor(cy - radio).toInt().coerceAtLeast(0)
+    val y1 = ceil(cy + radio).toInt().coerceAtMost(grilla.alto - 1)
+    val x0 = floor(cx - radio).toInt().coerceAtLeast(0)
+    val x1 = ceil(cx + radio).toInt().coerceAtMost(grilla.ancho - 1)
+    for (y in y0..y1) {
+        val dy = y + 0.5f - cy
+        val fila = y * grilla.ancho
+        for (x in x0..x1) {
+            val dx = x + 0.5f - cx
+            val d2 = dx * dx + dy * dy
+            if (d2 >= r2) continue
+            val t = 1f - d2 / r2
+            grilla.calor[fila + x] += peso * t * t
+        }
+    }
+}
+
+/**
+ * La capa de densidad. Antes recalculaba toda la grilla en cada cuadro, en el hilo de la interfaz
+ * (en un teléfono, uno de cada diez cuadros llegaba tarde al mover el mapa). Ahora calcula en otro
+ * hilo, con un margen de media pantalla alrededor de lo visible, y en cada cuadro solo dibuja ese
+ * resultado desplazado (y escalado mientras se pellizca). Recalcula cuando cambian los datos o el
+ * zoom, o cuando la vista sale de lo calculado; mientras tanto se ve el cálculo anterior.
+ */
 private class CalorReportesOverlay(
-    private val puntos: List<PuntoMapa>,
-    private val clusters: List<ClusterReportes>,
     private val densidad: Float,
+    private val clusters: () -> List<ClusterReportes>,
     private val onTap: (ClusterReportes) -> Unit
 ) : Overlay() {
 
-    private var anchoGrilla = 0
-    private var altoGrilla = 0
-    private var calor = FloatArray(0)
-    private var colores = IntArray(0)
-    private var bitmap: Bitmap? = null
+    private class Calculo(
+        val grilla: GrillaCalor,
+        val imagen: Bitmap,
+        val version: Int,
+        val zoom: Double,
+        /** El centro de la pantalla al pedirlo y su posición en píxeles desde el origen de la grilla. */
+        val centro: GeoPoint,
+        val centroX: Double,
+        val centroY: Double
+    )
+
+    /** Solo se tocan desde el hilo de la interfaz. */
+    private var version = 0
+    private var listo: Calculo? = null
+    private var pendiente = false
+    private var mapa: MapView? = null
     private val pincel = Paint(Paint.FILTER_BITMAP_FLAG)
-    private val destino = Rect()
+    private val destino = RectF()
     private val punto = Point()
+
+    var puntos: List<PuntoMapa> = emptyList()
+        set(valor) {
+            if (valor !== field) {
+                field = valor
+                version++
+            }
+        }
+
+    override fun draw(pCanvas: Canvas, pMapView: MapView, pShadow: Boolean) {
+        if (pShadow) return
+        mapa = pMapView
+        draw(pCanvas, pMapView.projection)
+    }
 
     override fun draw(pCanvas: Canvas, pProjection: Projection) {
         val ancho = pProjection.width
         val alto = pProjection.height
         if (ancho <= 0 || alto <= 0 || puntos.isEmpty()) return
-        prepararGrilla(ancho, alto)
-        calor.fill(0f)
-
         val zoom = pProjection.zoomLevel
-        val acercamiento = ((zoom - ZOOM_CALOR_LEJOS) / (ZOOM_CALOR_CERCA - ZOOM_CALOR_LEJOS)).toFloat().coerceIn(0f, 1f)
-        val radioMin = (RADIO_CALOR_MIN_LEJOS_DP + (RADIO_CALOR_MIN_CERCA_DP - RADIO_CALOR_MIN_LEJOS_DP) * acercamiento) * densidad
-        val radioMax = RADIO_CALOR_MAX_DP * densidad
-        puntos.forEach { p ->
-            pProjection.toPixels(GeoPoint(p.latitud, p.longitud), punto)
-            val alcance = pProjection.metersToPixels(ALCANCE_REPORTE_M, p.latitud, zoom).coerceIn(radioMin, radioMax)
-            val crecimiento = (1f + 0.15f * ln(p.cantidad.toFloat())).coerceAtMost(CRECIMIENTO_GRUPO_MAX)
-            sumarCalor(
-                punto.x.toFloat() / PASO_CALOR_PX,
-                punto.y.toFloat() / PASO_CALOR_PX,
-                alcance * crecimiento / PASO_CALOR_PX,
-                p.cantidad.toFloat()
-            )
+        val actual = listo
+        var alcanza = false
+        if (actual != null) {
+            ubicar(actual, pProjection, zoom)
+            pCanvas.drawBitmap(actual.imagen, null, destino, pincel)
+            alcanza = actual.version == version && abs(zoom - actual.zoom) < 1e-3 &&
+                destino.left <= 0f && destino.top <= 0f && destino.right >= ancho && destino.bottom >= alto
         }
-
-        for (i in calor.indices) colores[i] = colorCalor(calor[i])
-        val lienzo = bitmap ?: return
-        lienzo.setPixels(colores, 0, anchoGrilla, 0, 0, anchoGrilla, altoGrilla)
-        destino.set(0, 0, anchoGrilla * PASO_CALOR_PX, altoGrilla * PASO_CALOR_PX)
-        pCanvas.drawBitmap(lienzo, null, destino, pincel)
+        if (!alcanza) pedir(pProjection, zoom, ancho, alto)
     }
 
-    private fun prepararGrilla(ancho: Int, alto: Int) {
-        val w = (ancho + PASO_CALOR_PX - 1) / PASO_CALOR_PX
-        val h = (alto + PASO_CALOR_PX - 1) / PASO_CALOR_PX
-        if (w == anchoGrilla && h == altoGrilla && bitmap != null) return
-        anchoGrilla = w
-        altoGrilla = h
-        calor = FloatArray(w * h)
-        colores = IntArray(w * h)
-        bitmap?.recycle()
-        bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    /** Deja en [destino] dónde cae hoy en pantalla la grilla calculada. */
+    private fun ubicar(calculo: Calculo, proyeccion: Projection, zoom: Double) {
+        val escala = 2.0.pow(zoom - calculo.zoom)
+        proyeccion.toPixels(calculo.centro, punto)
+        val izquierda = punto.x - calculo.centroX * escala
+        val arriba = punto.y - calculo.centroY * escala
+        val lado = PASO_CALOR_PX * escala
+        destino.set(
+            izquierda.toFloat(), arriba.toFloat(),
+            (izquierda + calculo.grilla.ancho * lado).toFloat(), (arriba + calculo.grilla.alto * lado).toFloat()
+        )
     }
 
-
-    private fun sumarCalor(cx: Float, cy: Float, radio: Float, peso: Float) {
-        if (radio <= 0f) return
-        if (cx + radio < 0 || cy + radio < 0 || cx - radio >= anchoGrilla || cy - radio >= altoGrilla) return
-        val r2 = radio * radio
-        val y0 = floor(cy - radio).toInt().coerceAtLeast(0)
-        val y1 = ceil(cy + radio).toInt().coerceAtMost(altoGrilla - 1)
-        val x0 = floor(cx - radio).toInt().coerceAtLeast(0)
-        val x1 = ceil(cx + radio).toInt().coerceAtMost(anchoGrilla - 1)
-        for (y in y0..y1) {
-            val dy = y + 0.5f - cy
-            val fila = y * anchoGrilla
-            for (x in x0..x1) {
-                val dx = x + 0.5f - cx
-                val d2 = dx * dx + dy * dy
-                if (d2 >= r2) continue
-                val t = 1f - d2 / r2
-                calor[fila + x] += peso * t * t
+    private fun pedir(proyeccion: Projection, zoom: Double, ancho: Int, alto: Int) {
+        val vista = mapa ?: return
+        if (pendiente) return
+        pendiente = true
+        val datos = puntos
+        val versionPedida = version
+        val mapaPx = TileSystem.MapSize(zoom)
+        val enCentro = proyeccion.fromPixels(ancho / 2, alto / 2)
+        val centro = GeoPoint(enCentro.latitude, enCentro.longitude)
+        val margenX = ancho * MARGEN_CALOR
+        val margenY = alto * MARGEN_CALOR
+        val origenX = xMundo(centro.longitude, mapaPx) - ancho / 2.0 - margenX
+        val origenY = yMundo(centro.latitude, mapaPx) - alto / 2.0 - margenY
+        val columnas = ceil((ancho + 2 * margenX) / PASO_CALOR_PX).toInt()
+        val filas = ceil((alto + 2 * margenY) / PASO_CALOR_PX).toInt()
+        HILO_CALOR.execute {
+            val grilla = calcularCalor(datos, zoom, mapaPx, origenX, origenY, columnas, filas, densidad)
+            val colores = IntArray(grilla.calor.size) { colorCalor(grilla.calor[it]) }
+            val imagen = Bitmap.createBitmap(colores, columnas, filas, Bitmap.Config.ARGB_8888)
+            val calculo = Calculo(
+                grilla, imagen, versionPedida, zoom, centro,
+                xMundo(centro.longitude, mapaPx) - origenX, yMundo(centro.latitude, mapaPx) - origenY
+            )
+            vista.post {
+                listo = calculo
+                pendiente = false
+                vista.invalidate()
             }
         }
     }
 
     override fun onSingleTapConfirmed(e: MotionEvent?, mapView: MapView?): Boolean {
-        if (e == null || mapView == null || anchoGrilla == 0) return false
-        val gx = (e.x / PASO_CALOR_PX).toInt()
-        val gy = (e.y / PASO_CALOR_PX).toInt()
-        if (gx !in 0 until anchoGrilla || gy !in 0 until altoGrilla) return false
-        if (calor[gy * anchoGrilla + gx] < CALOR_MINIMO_TAP) return false
+        if (e == null || mapView == null) return false
+        val actual = listo ?: return false
+        val proyeccion = mapView.projection
+        ubicar(actual, proyeccion, proyeccion.zoomLevel)
+        val lado = destino.width() / actual.grilla.ancho
+        if (lado <= 0f) return false
+        val gx = floor((e.x - destino.left) / lado).toInt()
+        val gy = floor((e.y - destino.top) / lado).toInt()
+        if (gx !in 0 until actual.grilla.ancho || gy !in 0 until actual.grilla.alto) return false
+        if (actual.grilla[gx, gy] < CALOR_MINIMO_TAP) return false
 
         // La mancha puede ser la suma de varios grupos: se elige el más cercano al dedo.
-        val proyeccion = mapView.projection
-        val elegido = clusters.minByOrNull { c ->
+        val elegido = clusters().minByOrNull { c ->
             proyeccion.toPixels(GeoPoint(c.latitud, c.longitud), Point()).let { p ->
                 hypot((p.x - e.x).toDouble(), (p.y - e.y).toDouble())
             }
@@ -1366,12 +1483,11 @@ private class CalorReportesOverlay(
     }
 
     override fun onDetach(mapView: MapView?) {
-        bitmap?.recycle()
-        bitmap = null
+        listo = null
+        mapa = null
         super.onDetach(mapView)
     }
 }
-
 
 private fun colorCalor(calor: Float): Int {
     if (calor < 0.02f) return 0
@@ -1389,15 +1505,26 @@ private fun conAlfa(color: Int, alfa: Int): Int =
 
 // ── Íconos ────────────────────────────────────────────────────────────────────
 
+/** El ícono depende solo del texto, el tamaño, el color y el resaltado: se dibuja una vez. */
 private fun iconoCluster(context: Context, cantidad: Int, color: Int, resaltado: Boolean): Drawable {
     val densidad = context.resources.displayMetrics.density
-    val radio = when {
-        cantidad >= 50 -> 29f
-        cantidad >= 20 -> 26f
-        cantidad >= 10 -> 23f
-        cantidad >= 5 -> 20f
-        else -> 18f
-    } * densidad
+    val texto = if (cantidad > 99) "99+" else cantidad.toString()
+    val bitmap = CacheIconos.obtener("grupo:$texto:${radioCluster(cantidad)}:$color:$resaltado:$densidad") {
+        pintarCluster(densidad, cantidad, texto, color, resaltado)
+    }
+    return BitmapDrawable(context.resources, bitmap)
+}
+
+private fun radioCluster(cantidad: Int): Float = when {
+    cantidad >= 50 -> 29f
+    cantidad >= 20 -> 26f
+    cantidad >= 10 -> 23f
+    cantidad >= 5 -> 20f
+    else -> 18f
+}
+
+private fun pintarCluster(densidad: Float, cantidad: Int, texto: String, color: Int, resaltado: Boolean): Bitmap {
+    val radio = radioCluster(cantidad) * densidad
     val halo = radio * 1.55f
     val lado = (halo * 2f).toInt().coerceAtLeast(1)
 
@@ -1424,14 +1551,18 @@ private fun iconoCluster(context: Context, cantidad: Int, color: Int, resaltado:
     pincel.textSize = (if (cantidad > 99) 11f else 13f) * densidad
     pincel.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     val metricas = pincel.fontMetrics
-    val texto = if (cantidad > 99) "99+" else cantidad.toString()
     lienzo.drawText(texto, centro, centro - (metricas.ascent + metricas.descent) / 2f, pincel)
 
-    return BitmapDrawable(context.resources, bitmap)
+    return bitmap
 }
 
 private fun iconoTerreno(context: Context, nombre: String, conNombre: Boolean): Drawable {
     val d = context.resources.displayMetrics.density
+    val bitmap = CacheIconos.obtener("lote:$conNombre:$d:$nombre") { pintarTerreno(d, nombre, conNombre) }
+    return BitmapDrawable(context.resources, bitmap)
+}
+
+private fun pintarTerreno(d: Float, nombre: String, conNombre: Boolean): Bitmap {
     val lado = 30f * d
 
     val pincel = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -1509,7 +1640,7 @@ private fun iconoTerreno(context: Context, nombre: String, conNombre: Boolean): 
         lienzo.drawText(etiqueta, cx, cajaTexto.centerY() - (metricas.ascent + metricas.descent) / 2f, pincel)
     }
 
-    return BitmapDrawable(context.resources, bitmap)
+    return bitmap
 }
 
 
