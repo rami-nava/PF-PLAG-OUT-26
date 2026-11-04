@@ -1,5 +1,7 @@
 package com.example.plag_out
 
+import com.example.plag_out.fakes.Fixtures
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -446,6 +448,32 @@ class AdminMetricasModelTest {
         assertTrue(textoDeEtapa(EstadoVentanaControl.ECLOSIONADA).startsWith("Recorrer el lote"))
         assertEquals("87,5 %", formatearPorcentajeTratamiento(87.5f))
         assertEquals("—", formatearPorcentajeTratamiento(null))
+    }
+
+    @Test
+    fun `un pulgón vivíparo se cuenta hacia una nueva generación y no hacia la eclosión`() {
+        fun ventana(id: Int, etapa: EstadoVentanaControl, hito: String?) = VentanaControlBiologico(
+            monitoreoId = id, terrenoNombre = "L", cultivoNombre = "Trigo", plagaNombre = "P",
+            plagaCientifico = null, progresoGdd = 0f, estadioEstimado = "", requiereRecorrida = false,
+            estadoVentana = etapa, recomendacionTecnica = "", hito = hito
+        )
+        val soloHuevo = listOf(ventana(1, EstadoVentanaControl.HUEVO, "eclosion"), ventana(2, EstadoVentanaControl.HUEVO, null))
+        val soloPulgon = listOf(ventana(3, EstadoVentanaControl.ECLOSION_CERCA, "generacion"))
+        val mezcla = soloHuevo + ventana(4, EstadoVentanaControl.HUEVO, "generacion")
+
+        assertEquals("Huevo", etiquetaDeEtapa(EstadoVentanaControl.HUEVO, soloHuevo))
+        assertEquals("Generación cerca", etiquetaDeEtapa(EstadoVentanaControl.ECLOSION_CERCA, soloPulgon))
+        assertEquals("En desarrollo", etiquetaDeEtapa(EstadoVentanaControl.HUEVO, mezcla))
+
+        val pulgon = monitoreoDePrueba(
+            monitoreo_id = 9, plantacion_id = 1, terreno_id = 1, terreno_nombre = "Lote 1",
+            cultivo_nombre = "Trigo", plaga_nombre = "Pulgón de la espiga", activo = true,
+            ciclos = listOf(Fixtures.ciclo(id = 900, monitoreoId = 9, estadioBiologico = "", nivelAlerta = 0, hito = "generacion"))
+        )
+        val (unica) = calcularVentanasControlAgronomo(listOf(pulgon))
+        assertEquals("Ninfa", unica.estadioEstimado)
+        assertEquals("generacion", unica.hito)
+        assertTrue(unica.recomendacionTecnica, "eclosion" !in unica.recomendacionTecnica.lowercase().replace("ó", "o"))
     }
 
     @Test

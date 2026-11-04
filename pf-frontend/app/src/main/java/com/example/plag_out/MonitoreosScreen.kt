@@ -178,9 +178,9 @@ fun MonitoreosScreen(
             val opciones = remember(state.monitoreos, activos) {
                 listOf(
                     OpcionFiltro(-1, "Activos", activos.size),
-                    OpcionFiltro(0, estiloDeNivel(0).etiqueta, activos.count { nivelAlertaEfectivo(it) == 0 }, estiloDeNivel(0).icono, estiloDeNivel(0).color),
-                    OpcionFiltro(1, estiloDeNivel(1).etiqueta, activos.count { nivelAlertaEfectivo(it) == 1 }, estiloDeNivel(1).icono, estiloDeNivel(1).color),
-                    OpcionFiltro(2, estiloDeNivel(2).etiqueta, activos.count { nivelAlertaEfectivo(it) >= 2 }, estiloDeNivel(2).icono, estiloDeNivel(2).color),
+                    OpcionFiltro(0, estiloDeNivelPara(0, activos).etiqueta, activos.count { nivelAlertaEfectivo(it) == 0 }, estiloDeNivel(0).icono, estiloDeNivel(0).color),
+                    OpcionFiltro(1, estiloDeNivelPara(1, activos).etiqueta, activos.count { nivelAlertaEfectivo(it) == 1 }, estiloDeNivel(1).icono, estiloDeNivel(1).color),
+                    OpcionFiltro(2, estiloDeNivelPara(2, activos).etiqueta, activos.count { nivelAlertaEfectivo(it) >= 2 }, estiloDeNivel(2).icono, estiloDeNivel(2).color),
                     OpcionFiltro(FILTRO_ESPERANDO_BIOFIX, "Esperando biofix", activos.count { esperandoBiofix(it) }, Icons.Outlined.HourglassEmpty, PlagOutColors.TextSecondary),
                     OpcionFiltro(FILTRO_FINALIZADOS, "Finalizados", state.monitoreos.count { !it.activo }, Icons.Filled.Flag, PlagOutColors.TextSecondary)
                 )
@@ -388,9 +388,9 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.8.sp
                     )
-                    LeyendaEstado(estiloDeNivel(0), bajo)
-                    LeyendaEstado(estiloDeNivel(1), moderado)
-                    LeyendaEstado(estiloDeNivel(2), alto)
+                    LeyendaEstado(estiloDeNivelPara(0, monitoreos), bajo)
+                    LeyendaEstado(estiloDeNivelPara(1, monitoreos), moderado)
+                    LeyendaEstado(estiloDeNivelPara(2, monitoreos), alto)
                     LeyendaEstado(estiloEsperandoBiofix(), esperando)
                 }
             }
@@ -868,9 +868,9 @@ private fun InformacionPlantacionTab(
             }
             Spacer(Modifier.width(20.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                LeyendaEstadoTerrenoClaro(estiloDeNivel(0), sanos)
-                LeyendaEstadoTerrenoClaro(estiloDeNivel(1), atencion)
-                LeyendaEstadoTerrenoClaro(estiloDeNivel(2), criticos)
+                LeyendaEstadoTerrenoClaro(estiloDeNivelPara(0, activos), sanos)
+                LeyendaEstadoTerrenoClaro(estiloDeNivelPara(1, activos), atencion)
+                LeyendaEstadoTerrenoClaro(estiloDeNivelPara(2, activos), criticos)
                 LeyendaEstadoTerrenoClaro(estiloEsperandoBiofix(), esperando)
                 // Fuera del anillo a propósito: son historial, no estado actual.
                 if (finalizados > 0) {

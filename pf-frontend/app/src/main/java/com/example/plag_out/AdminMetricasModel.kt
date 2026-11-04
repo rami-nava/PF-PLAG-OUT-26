@@ -1,5 +1,7 @@
 package com.example.plag_out
 
+import com.example.plag_out.ui.theme.estiloDeNivelAgregado
+import com.example.plag_out.ui.theme.HITO_GENERACION
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -131,7 +133,8 @@ data class LoteEnRiesgoCritico(
     val progresoGdd: Float,
     val gddAcumulado: Float,
     val gddObjetivo: Float,
-    val diasDesdeSiembra: Long?
+    val diasDesdeSiembra: Long?,
+    val hito: String? = null
 )
 
 /**
@@ -162,7 +165,8 @@ data class VentanaControlBiologico(
     /** Ya eclosionó: toca recorrer el lote. */
     val requiereRecorrida: Boolean,
     val estadoVentana: EstadoVentanaControl,
-    val recomendacionTecnica: String
+    val recomendacionTecnica: String,
+    val hito: String? = null
 )
 
 /**
@@ -382,6 +386,17 @@ fun calcularSemaforoHectareas(
 fun conteoPorEtapa(ventanas: List<VentanaControlBiologico>): Map<EstadoVentanaControl, Int> =
     EstadoVentanaControl.entries.associateWith { etapa -> ventanas.count { it.estadoVentana == etapa } }
 
+/** El rótulo de una etapa del resumen: el de siempre, salvo que la cuenten pulgones vivíparos. */
+fun etiquetaDeEtapa(etapa: EstadoVentanaControl, ventanas: List<VentanaControlBiologico>): String {
+    val hitos = ventanas.filter { it.estadoVentana == etapa }.map { it.hito }
+    if (hitos.none { it == HITO_GENERACION }) return when (etapa) {
+        EstadoVentanaControl.HUEVO -> "Huevo"
+        EstadoVentanaControl.ECLOSION_CERCA -> "Eclosión cerca"
+        EstadoVentanaControl.ECLOSIONADA -> "Eclosionó"
+    }
+    return estiloDeNivelAgregado(etapa.ordinal, hitos).etiqueta
+}
+
 /** Texto de cada etapa, el mismo del panel (VENTANA en src/lib/metricas.ts). */
 fun textoDeEtapa(etapa: EstadoVentanaControl): String = recomendacion(etapa)
 
@@ -485,7 +500,8 @@ fun calcularRankingLotesCriticos(
             progresoGdd = progreso,
             gddAcumulado = gddAcumulado,
             gddObjetivo = m.gdd_objetivo,
-            diasDesdeSiembra = diasSiembra
+            diasDesdeSiembra = diasSiembra,
+            hito = ciclo?.hito
         )
     }.sortedWith(
         compareByDescending<LoteEnRiesgoCritico> { it.nivelAlerta }
@@ -507,8 +523,9 @@ fun calcularVentanasControlAgronomo(
         val estadioReal = cicloActivo?.estadio_biologico?.takeIf { it.isNotBlank() }
 
         val estado = etapaDeNivel(cicloActivo?.nivel_alerta ?: 0)
-        val estadio = estadioReal ?: estadioPorDefecto(estado)
-        val recomendacion = recomendacion(estado)
+        val hito = cicloActivo?.hito
+        val estadio = estadioReal ?: estadioPorDefecto(estado, hito)
+        val recomendacion = recomendacion(estado, hito)
 
         VentanaControlBiologico(
             monitoreoId = m.monitoreo_id,
@@ -520,7 +537,8 @@ fun calcularVentanasControlAgronomo(
             estadioEstimado = estadio,
             requiereRecorrida = estado == EstadoVentanaControl.ECLOSIONADA,
             estadoVentana = estado,
-            recomendacionTecnica = recomendacion
+            recomendacionTecnica = recomendacion,
+            hito = hito
         )
     }.sortedWith(
         compareByDescending<VentanaControlBiologico> { it.estadoVentana.ordinal }
@@ -560,15 +578,30 @@ private fun estadoVentana(estado: String): EstadoVentanaControl = when (estado) 
     else -> EstadoVentanaControl.HUEVO
 }
 
-private fun estadioPorDefecto(estado: EstadoVentanaControl): String = when (estado) {
-    EstadoVentanaControl.HUEVO -> "Huevo"
-    EstadoVentanaControl.ECLOSION_CERCA -> "Huevo, eclosión cerca"
-    EstadoVentanaControl.ECLOSIONADA -> "Larva o ninfa"
-}
+private fun estadioPorDefecto(estado: EstadoVentanaControl, hito: String? = null): String =
+    if (hito == HITO_GENERACION) when (estado) {
+        EstadoVentanaControl.HUEVO -> "Ninfa"
+        EstadoVentanaControl.ECLOSION_CERCA -> "Ninfa, generación cerca"
+        EstadoVentanaControl.ECLOSIONADA -> "Adulto"
+    } else when (estado) {
+        EstadoVentanaControl.HUEVO -> "Huevo"
+        EstadoVentanaControl.ECLOSION_CERCA -> "Huevo, eclosión cerca"
+        EstadoVentanaControl.ECLOSIONADA -> "Larva o ninfa"
+    }
 
 // Las larvas chicas son las más sensibles al control, y aplicar se decide con el umbral de
 // daño del cultivo (Gamundi y Perotti, INTA 2007), no con el modelo.
-private fun recomendacion(estado: EstadoVentanaControl): String = when (estado) {
+private fun recomendacion(estado: EstadoVentanaControl, hito: String? = null): String =
+    if (hito == HITO_GENERACION) when (estado) {
+        EstadoVentanaControl.HUEVO ->
+            "Según los grados-día acumulados todavía no se completó una nueva generación."
+        EstadoVentanaControl.ECLOSION_CERCA ->
+            "Pasó el umbral de aviso del productor: conviene planificar la recorrida del lote."
+        EstadoVentanaControl.ECLOSIONADA ->
+            "Recorrer el lote y contar pulgones: la aplicación se decide con el umbral de daño del cultivo."
+    } else recomendacionConHuevo(estado)
+
+private fun recomendacionConHuevo(estado: EstadoVentanaControl): String = when (estado) {
     EstadoVentanaControl.HUEVO ->
         "Según los grados-día acumulados todavía no eclosionó."
     EstadoVentanaControl.ECLOSION_CERCA ->
@@ -679,7 +712,8 @@ fun AdminMetricasUIState.conMetricasGlobales(metricas: MetricasAdmin): AdminMetr
                 progresoGdd = lote.progreso,
                 gddAcumulado = lote.gdd_acumulado,
                 gddObjetivo = lote.gdd_objetivo,
-                diasDesdeSiembra = lote.dias_desde_siembra
+                diasDesdeSiembra = lote.dias_desde_siembra,
+                hito = lote.hito
             )
         },
         ventanasControl = metricas.ventanas.mapIndexed { posicion, ventana ->
@@ -694,7 +728,8 @@ fun AdminMetricasUIState.conMetricasGlobales(metricas: MetricasAdmin): AdminMetr
                 estadioEstimado = ventana.estadio,
                 requiereRecorrida = estado == EstadoVentanaControl.ECLOSIONADA,
                 estadoVentana = estado,
-                recomendacionTecnica = recomendacion(estado)
+                recomendacionTecnica = recomendacion(estado, ventana.hito),
+                hito = ventana.hito
             )
         },
         tratamientos = metricas.tratamientos

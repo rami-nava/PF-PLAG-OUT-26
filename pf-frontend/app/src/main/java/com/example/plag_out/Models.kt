@@ -695,7 +695,9 @@ data class LoteCriticoAdmin(
     @SerializedName("gdd_objetivo") val gdd_objetivo: Float,
     // huevo | eclosion_cerca | eclosionada (etapa térmica del ciclo)
     @SerializedName("urgencia") val urgencia: String,
-    @SerializedName("dias_desde_siembra") val dias_desde_siembra: Long?
+    @SerializedName("dias_desde_siembra") val dias_desde_siembra: Long?,
+    // eclosion | generacion: qué hito mide urgencia (los pulgones vivíparos no tienen huevo).
+    @SerializedName("hito") val hito: String? = null
 )
 
 data class VentanaControlAdmin(
@@ -704,8 +706,10 @@ data class VentanaControlAdmin(
     @SerializedName("plaga_cientifico") val plaga_cientifico: String?,
     @SerializedName("progreso") val progreso: Float,
     @SerializedName("estadio") val estadio: String,
-    // incubacion | ventana_optima | ventana_cerrada
-    @SerializedName("estado") val estado: String
+    // huevo | eclosion_cerca | eclosionada (etapa térmica del ciclo)
+    @SerializedName("estado") val estado: String,
+    // eclosion | generacion, como en LoteCriticoAdmin.
+    @SerializedName("hito") val hito: String? = null
 )
 
 // Tratamientos que registran los productores (backend docs/tratamientos.md). Con testigo:
