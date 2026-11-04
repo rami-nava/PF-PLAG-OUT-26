@@ -130,6 +130,33 @@ fun estiloDeNivel(nivel: Int): NivelEstilo = when {
     )
 }
 
+const val HITO_GENERACION = "generacion"
+
+/**
+ * El estilo de un nivel según el hito que mide el ciclo. Para los pulgones vivíparos
+ * ([HITO_GENERACION]) no hay huevo ni eclosión: el nivel cuenta el avance hacia una nueva
+ * generación. Colores e íconos no cambian; cualquier otro hito usa [estiloDeNivel].
+ */
+fun estiloDeNivel(nivel: Int, hito: String?): NivelEstilo {
+    val base = estiloDeNivel(nivel)
+    if (hito != HITO_GENERACION || nivel < 0) return base
+    return when (nivel) {
+        0 -> base.copy(
+            etiqueta = "En desarrollo",
+            descripcion = "Según los grados-día acumulados, la colonia se sigue desarrollando y falta para una nueva generación."
+        )
+        1 -> base.copy(
+            etiqueta = "Generación cerca",
+            descripcion = "Pasó tu umbral de aviso: la nueva generación estimada está cerca."
+        )
+        else -> base.copy(
+            etiqueta = "Nueva generación",
+            descripcion = "Según el modelo térmico ya se completó una generación: puede haber más pulgones en el lote.",
+            recomendacion = "Recorré el lote y contá; si aplicar o no se decide con el umbral de daño de tu cultivo."
+        )
+    }
+}
+
 /** Estilo fijo para un monitoreo finalizado: prevalece por sobre su nivel de alerta. */
 fun estiloFinalizado(): NivelEstilo =
     NivelEstilo(

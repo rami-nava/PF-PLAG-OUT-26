@@ -443,7 +443,7 @@ fun MonitoreoCard(
     val activos = ciclosActivos(monitoreo)
     val estilo =
         if (!monitoreo.activo) estiloFinalizado()
-        else estiloDeNivel(nivelAlertaDeCiclos(monitoreo) ?: -1)
+        else estiloDeNivel(nivelAlertaDeCiclos(monitoreo) ?: -1, hitoDeCiclos(monitoreo))
     val interactionSource = remember { MutableInteractionSource() }
     val escala = rememberPressScale(interactionSource)
 
