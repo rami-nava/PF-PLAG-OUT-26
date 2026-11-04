@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.fakes.Fixtures
+import com.google.gson.Gson
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -44,5 +45,40 @@ class VerReporteScreenTest {
 
         compose.onNodeWithText("Maíz").performScrollTo().assertExists()
         compose.onNodeWithText("Huevo").performScrollTo().assertExists()
+    }
+
+    @Test
+    fun `al abrir un reporte retirado desde el mapa se muestra error y no su ficha guardada`() {
+        val gddService = FakeGDDService().apply {
+            getReporteResult = { FakeGDDService.errorServidor(404) }
+        }
+        val viewModel = VerReporteViewModel(gddService)
+        val fichaDelMapa = Gson().toJson(
+            ReporteNavPayload(
+                id = 79,
+                plaga_nombre = "Alerta comunitaria retirada",
+                nivel_severidad = "Alto",
+                latitud = null,
+                longitud = null,
+                timestamp_ms = 1700000000000L,
+                es_propio = false
+            )
+        )
+        compose.setContent {
+            MaterialTheme {
+                VerReporteScreen(
+                    reporteId = 79,
+                    reporteJsonFallback = fichaDelMapa,
+                    ignorarLimite = true,
+                    viewModel = viewModel,
+                    onBack = {},
+                    onVerTerreno = {}
+                )
+            }
+        }
+
+        compose.waitUntil(timeoutMillis = 5000) { viewModel.state.value !is VerReporteUiState.Cargando }
+        compose.onNodeWithText("No se pudieron cargar los datos de la alerta.").assertExists()
+        compose.onNodeWithText("Alerta comunitaria retirada").assertDoesNotExist()
     }
 }

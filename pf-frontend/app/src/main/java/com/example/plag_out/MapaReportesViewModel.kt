@@ -137,6 +137,14 @@ class MapaReportesViewModel(
     private var cargado: ConsultaMapa? = null
     private var pedido: Job? = null
 
+    fun limpiar() {
+        pedido?.cancel()
+        pedido = null
+        vista = null
+        cargado = null
+        _state.value = MapaReportesUiState()
+    }
+
     fun actualizarVista(nueva: VistaMapa) {
         vista = nueva
         consultar()

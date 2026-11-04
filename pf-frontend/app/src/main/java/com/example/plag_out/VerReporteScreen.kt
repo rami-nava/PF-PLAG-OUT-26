@@ -339,7 +339,7 @@ private fun ContenidoVerReporte(
                     else "Sin coordenadas registradas"
                     FilaDato(
                         icono = Icons.Outlined.LocationOn,
-                        etiqueta = "Coordenadas",
+                        etiqueta = if (detalle.es_propio) "Coordenadas" else "Coordenadas aproximadas",
                         valor = coordStr
                     )
 
@@ -376,7 +376,7 @@ private fun ContenidoVerReporte(
                     } else {
                         val distanciaMasCercano = terrenosAfectados.firstOrNull()?.distanciaKm ?: detalle.distancia_km
                         val sobrepasa150 = distanciaMasCercano != null && distanciaMasCercano >= 150f
-                        val tituloSeccion = if (sobrepasa150) "Terreno más cercano" else "Terrenos afectados"
+                        val tituloSeccion = if (sobrepasa150) "Terreno más cercano" else "Tus terrenos cercanos"
 
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(
@@ -439,6 +439,11 @@ private fun ContenidoVerReporte(
 
             // ── Mapa compacto ──────────────────────────────────────────────────
             if (detalle.latitud != null && detalle.longitud != null) {
+                val tituloUbicacion = if (detalle.es_propio) {
+                    "Ubicación de la alerta"
+                } else {
+                    "Ubicación aproximada de la alerta"
+                }
                 Surface(
                     color = PlagOutColors.Surface,
                     shape = RoundedCornerShape(22.dp),
@@ -447,7 +452,7 @@ private fun ContenidoVerReporte(
                 ) {
                     Column(Modifier.padding(20.dp)) {
                         Text(
-                            "Ubicación de la alerta",
+                            tituloUbicacion,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = PlagOutColors.TextMain
@@ -481,7 +486,7 @@ private fun ContenidoVerReporte(
 
                                         val marker = Marker(this)
                                         marker.position = geoPoint
-                                        marker.title = "Ubicación de la alerta"
+                                        marker.title = tituloUbicacion
                                         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                                         marker.icon = MapMarkerUtils.getMarkerIcon(ctx, isGreen = false)
                                         overlays.add(marker)
@@ -495,7 +500,7 @@ private fun ContenidoVerReporte(
                                     map.overlays.removeAll { it is Marker }
                                     val marker = Marker(map)
                                     marker.position = geoPoint
-                                    marker.title = "Ubicación de la alerta"
+                                    marker.title = tituloUbicacion
                                     marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                                     marker.icon = MapMarkerUtils.getMarkerIcon(map.context, isGreen = false)
                                     map.overlays.add(marker)
@@ -537,7 +542,7 @@ private fun ContenidoVerReporte(
                                                 Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = PlagOutColors.TextMain)
                                             }
                                             Text(
-                                                "Ubicación de la alerta",
+                                                tituloUbicacion,
                                                 fontSize = 18.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = PlagOutColors.TextMain,
