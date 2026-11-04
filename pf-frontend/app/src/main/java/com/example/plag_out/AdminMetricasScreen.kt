@@ -523,7 +523,7 @@ private fun TarjetaRankingLotesCriticos(lotes: List<LoteEnRiesgoCritico>) {
 
 @Composable
 private fun ItemFilaLoteCritico(lote: LoteEnRiesgoCritico) {
-    val estilo = estiloDeNivel(lote.nivelAlerta)
+    val estilo = estiloDeNivel(lote.nivelAlerta, lote.hito)
 
     Column(Modifier.fillMaxWidth()) {
         Row(
@@ -717,7 +717,7 @@ private fun VistaDashboardAgronomo(state: AdminMetricasUIState, global: Boolean)
     ) {
         item {
             StaggeredAppear(index = 0) {
-                TarjetaEtapasMonitoreos(conteo = conteoPorEtapa(state.ventanasControl))
+                TarjetaEtapasMonitoreos(conteo = conteoPorEtapa(state.ventanasControl), ventanas = state.ventanasControl)
             }
         }
         item {
@@ -731,18 +731,19 @@ private fun VistaDashboardAgronomo(state: AdminMetricasUIState, global: Boolean)
 
 /** Cuántos monitoreos activos hay en cada etapa, con el mismo texto que el panel. */
 @Composable
-private fun TarjetaEtapasMonitoreos(conteo: Map<EstadoVentanaControl, Int>) {
+private fun TarjetaEtapasMonitoreos(conteo: Map<EstadoVentanaControl, Int>, ventanas: List<VentanaControlBiologico> = emptyList()) {
     TarjetaMetrica(
         icono = Icons.Outlined.Schedule,
         titulo = "Etapas de los monitoreos activos",
         subtitulo = "Cuántos monitoreos con mediciones hay en cada etapa según los grados-día acumulados."
     ) {
         EstadoVentanaControl.entries.forEachIndexed { index, etapa ->
-            val (color, etiqueta) = when (etapa) {
-                EstadoVentanaControl.HUEVO -> PlagOutColors.RiskOk to "Huevo"
-                EstadoVentanaControl.ECLOSION_CERCA -> PlagOutColors.RiskWarn to "Eclosión cerca"
-                EstadoVentanaControl.ECLOSIONADA -> PlagOutColors.RiskDanger to "Eclosionó"
+            val color = when (etapa) {
+                EstadoVentanaControl.HUEVO -> PlagOutColors.RiskOk
+                EstadoVentanaControl.ECLOSION_CERCA -> PlagOutColors.RiskWarn
+                EstadoVentanaControl.ECLOSIONADA -> PlagOutColors.RiskDanger
             }
+            val etiqueta = etiquetaDeEtapa(etapa, ventanas)
             val cantidad = conteo[etapa] ?: 0
             Column(Modifier.fillMaxWidth().testTag("etapa_${etapa.name}")) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

@@ -51,6 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.plag_out.Service.GDDService
 import com.example.plag_out.ui.theme.AnilloProgreso
+import com.example.plag_out.ui.theme.NivelEstilo
+import com.example.plag_out.ui.theme.estiloDeNivelAgregado
+import com.example.plag_out.ui.theme.HITO_GENERACION
 import com.example.plag_out.ui.theme.EstadisticaCompacta
 import com.example.plag_out.ui.theme.EtiquetaInfo
 import com.example.plag_out.ui.theme.PlagOutColors
@@ -116,6 +119,40 @@ fun nivelAlertaEfectivo(monitoreo: MonitoreoResponse): Int = nivelAlertaDeCiclos
 
 /** El hito de los ciclos activos: un monitoreo sigue una sola plaga, así que lo comparten. */
 fun hitoDeCiclos(monitoreo: MonitoreoResponse): String? = ciclosActivos(monitoreo).firstOrNull()?.hito
+
+/** Los niveles 2 y superiores se cuentan juntos en los resúmenes. */
+private fun nivelDeResumen(monitoreo: MonitoreoResponse): Int = nivelAlertaEfectivo(monitoreo).coerceAtMost(2)
+
+/** El estilo de [nivel] para un resumen de [monitoreos], con palabras que valen para los que están en ese nivel. */
+fun estiloDeNivelPara(nivel: Int, monitoreos: List<MonitoreoResponse>): NivelEstilo =
+    estiloDeNivelAgregado(nivel, monitoreos.filter { nivelDeResumen(it) == nivel }.map(::hitoDeCiclos))
+
+/** Los monitoreos que fijan el nivel de un terreno: los activos en su nivel máximo. */
+fun monitoreosQueDefinenElTerreno(terrenoId: Int, monitoreos: List<MonitoreoResponse>): List<MonitoreoResponse> {
+    val activos = monitoreos.filter { it.terreno_id == terrenoId && it.activo }
+    val maximo = activos.maxOfOrNull(::nivelDeResumen) ?: return emptyList()
+    return activos.filter { nivelDeResumen(it) == maximo }
+}
+
+/** "3 ya eclosionados", "2 con generación cerca": la frase de la card de un terreno. */
+fun fraseDeNivel(cantidad: Int, nivel: Int, monitoreos: List<MonitoreoResponse>): String {
+    val hitos = monitoreos.filter { nivelDeResumen(it) == nivel }.map(::hitoDeCiclos)
+    val generacion = hitos.count { it == HITO_GENERACION }
+    val tipo = when {
+        generacion == 0 -> "eclosion"
+        generacion == hitos.size -> "generacion"
+        else -> "mixto"
+    }
+    val frase = when (nivel to tipo) {
+        2 to "eclosion" -> "ya eclosionados"
+        2 to "generacion" -> "con nueva generación"
+        2 to "mixto" -> "con el objetivo alcanzado"
+        1 to "generacion" -> "con generación cerca"
+        1 to "mixto" -> "con el objetivo cerca"
+        else -> "con eclosión cerca"
+    }
+    return "$cantidad $frase"
+}
 
 fun cicloEnAlerta(ciclo: GddCicloResponse, umbralRiesgo: Int?): Boolean =
     ciclo.progreso >= (umbralRiesgo ?: 100).toFloat()

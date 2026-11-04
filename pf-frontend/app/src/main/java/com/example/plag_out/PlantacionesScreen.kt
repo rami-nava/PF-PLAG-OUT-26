@@ -378,9 +378,9 @@ private fun InformacionTerrenoTab(
             }
             Spacer(Modifier.width(20.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                LeyendaEstadoTerreno(estiloDeNivel(0), sanos)
-                LeyendaEstadoTerreno(estiloDeNivel(1), atencion)
-                LeyendaEstadoTerreno(estiloDeNivel(2), criticos)
+                LeyendaEstadoTerreno(estiloDeNivelPara(0, monitoreosActivos), sanos)
+                LeyendaEstadoTerreno(estiloDeNivelPara(1, monitoreosActivos), atencion)
+                LeyendaEstadoTerreno(estiloDeNivelPara(2, monitoreosActivos), criticos)
                 LeyendaEstadoTerreno(estiloEsperandoBiofix(), esperando)
                 // Fuera del anillo a propósito: son historial, no estado actual.
                 if (finalizados > 0) {

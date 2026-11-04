@@ -180,11 +180,12 @@ fun TerrenoScreen(
 
             val opciones = remember(state.terrenos, monitoreosState.monitoreos) {
                 val buckets = state.terrenos.map { bucketDeAlerta(nivelMaxDe(it)) }
+                val definenTerrenos = state.terrenos.flatMap { monitoreosQueDefinenElTerreno(it.terreno_id, monitoreosState.monitoreos) }
                 listOf(
                     OpcionFiltro(FILTRO_TODOS, "Todos", state.terrenos.size),
-                    OpcionFiltro(0, estiloDeNivel(0).etiqueta, buckets.count { it == 0 }, estiloDeNivel(0).icono, estiloDeNivel(0).color),
-                    OpcionFiltro(1, estiloDeNivel(1).etiqueta, buckets.count { it == 1 }, estiloDeNivel(1).icono, estiloDeNivel(1).color),
-                    OpcionFiltro(2, estiloDeNivel(2).etiqueta, buckets.count { it == 2 }, estiloDeNivel(2).icono, estiloDeNivel(2).color),
+                    OpcionFiltro(0, estiloDeNivelPara(0, definenTerrenos).etiqueta, buckets.count { it == 0 }, estiloDeNivel(0).icono, estiloDeNivel(0).color),
+                    OpcionFiltro(1, estiloDeNivelPara(1, definenTerrenos).etiqueta, buckets.count { it == 1 }, estiloDeNivel(1).icono, estiloDeNivel(1).color),
+                    OpcionFiltro(2, estiloDeNivelPara(2, definenTerrenos).etiqueta, buckets.count { it == 2 }, estiloDeNivel(2).icono, estiloDeNivel(2).color),
                     OpcionFiltro(FILTRO_SIN_DATOS, estiloDeNivel(-1).etiqueta, buckets.count { it == FILTRO_SIN_DATOS }, estiloDeNivel(-1).icono, estiloDeNivel(-1).color)
                 )
             }
@@ -298,6 +299,7 @@ private fun PanelDeCampoTerrenos(terrenos: List<TerrenoResponse>, monitoreos: Li
     val sanos = nivelesMax.count { it == 0 }
     val atencion = nivelesMax.count { it == 1 }
     val criticos = nivelesMax.count { it >= 2 }
+    val definen = terrenos.flatMap { monitoreosQueDefinenElTerreno(it.terreno_id, monitoreos) }
     val sinDatos = nivelesMax.count { it < 0 }
     val areaTotal = terrenos.sumOf { it.terreno_area.toDouble() }.toInt()
 
@@ -371,9 +373,9 @@ private fun PanelDeCampoTerrenos(terrenos: List<TerrenoResponse>, monitoreos: Li
                 }
                 Spacer(Modifier.width(20.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    LeyendaEstadoTerreno(estiloDeNivel(0), sanos)
-                    LeyendaEstadoTerreno(estiloDeNivel(1), atencion)
-                    LeyendaEstadoTerreno(estiloDeNivel(2), criticos)
+                    LeyendaEstadoTerreno(estiloDeNivelPara(0, definen), sanos)
+                    LeyendaEstadoTerreno(estiloDeNivelPara(1, definen), atencion)
+                    LeyendaEstadoTerreno(estiloDeNivelPara(2, definen), criticos)
                     LeyendaEstadoTerreno(estiloDeNivel(-1), sinDatos)
                 }
             }
@@ -425,7 +427,7 @@ fun TerrenoCard(
 ) {
     val activos = monitoreos.filter { it.activo }
     val nivelMax = activos.maxOfOrNull { nivelAlertaEfectivo(it) } ?: -1
-    val estilo = estiloDeNivel(nivelMax)
+    val estilo = estiloDeNivelPara(nivelMax.coerceAtMost(2), activos)
     val interactionSource = remember { MutableInteractionSource() }
     val escala = rememberPressScale(interactionSource)
 
@@ -534,8 +536,8 @@ fun TerrenoCard(
 
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     when {
-                        criticos > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$criticos ya eclosionados", PlagOutColors.RiskDanger)
-                        atencion > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, "$atencion con eclosión cerca", PlagOutColors.RiskWarn)
+                        criticos > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, fraseDeNivel(criticos, 2, activos), PlagOutColors.RiskDanger)
+                        atencion > 0 -> EtiquetaInfo(Icons.Default.WarningAmber, fraseDeNivel(atencion, 1, activos), PlagOutColors.RiskWarn)
                         monitoreos.isEmpty() -> EtiquetaInfo(Icons.AutoMirrored.Outlined.HelpOutline, "Sin monitoreos", PlagOutColors.RiskUnknown)
                         activos.isEmpty() -> EtiquetaInfo(Icons.Filled.Flag, "Todos finalizados", PlagOutColors.Bark)
                         esperando > 0 -> EtiquetaInfo(

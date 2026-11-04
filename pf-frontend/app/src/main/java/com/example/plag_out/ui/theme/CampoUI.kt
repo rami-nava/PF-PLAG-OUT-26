@@ -157,6 +157,32 @@ fun estiloDeNivel(nivel: Int, hito: String?): NivelEstilo {
     }
 }
 
+/**
+ * El estilo de un nivel para un grupo de monitoreos: [hitos] son los de los monitoreos que están
+ * en ese nivel. Si todos miden la eclosión (o no hay ninguno) son las etiquetas de siempre; si
+ * todos son pulgones vivíparos, las de generación; si se mezclan, palabras que valen para ambos.
+ */
+fun estiloDeNivelAgregado(nivel: Int, hitos: Collection<String?>): NivelEstilo {
+    val generacion = hitos.count { it == HITO_GENERACION }
+    val base = estiloDeNivel(nivel)
+    return when {
+        nivel < 0 || generacion == 0 -> base
+        generacion == hitos.size -> estiloDeNivel(nivel, HITO_GENERACION)
+        nivel == 0 -> base.copy(
+            etiqueta = "En desarrollo",
+            descripcion = "Según los grados-día acumulados, falta para el objetivo de cada plaga: la eclosión o una nueva generación."
+        )
+        nivel == 1 -> base.copy(
+            etiqueta = "Objetivo cerca",
+            descripcion = "Pasó tu umbral de aviso: la eclosión o la nueva generación estimada está cerca."
+        )
+        else -> base.copy(
+            etiqueta = "Objetivo alcanzado",
+            descripcion = "Según el modelo térmico ya eclosionaron o se completó una generación: puede haber larvas, ninfas o más pulgones en el lote."
+        )
+    }
+}
+
 /** Estilo fijo para un monitoreo finalizado: prevalece por sobre su nivel de alerta. */
 fun estiloFinalizado(): NivelEstilo =
     NivelEstilo(
