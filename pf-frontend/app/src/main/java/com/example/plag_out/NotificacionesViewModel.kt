@@ -91,6 +91,32 @@ class NotificacionesViewModel(
         }
     }
 
+    /**
+     * Tocar el push equivale a tocar el aviso en la campana: queda leído. El aviso puede no
+     * estar cargado todavía (app cerrada), así que se marca por ID y se lo saca si aparece.
+     */
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun marcarLeidaPorId(id: Int) {
+        _state.value.notificaciones.firstOrNull { it.id == id }?.let { marcarLeida(it); return }
+        viewModelScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) { gddService.marcarNotificacionLeida(id) }
+                // 404: ya no existe o no es de esta cuenta; en ambos casos no debe mostrarse.
+                if (response.isSuccessful || response.code() == 404) {
+                    _state.value = _state.value.copy(
+                        notificaciones = _state.value.notificaciones.filterNot { it.id == id }
+                    )
+                } else {
+                    Log.e("NOTIFICACIONES", "Error al marcar leída desde el push: ${response.code()}")
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("NOTIFICACIONES", "Error al marcar leída desde el push: ${e.message}")
+            }
+        }
+    }
+
     /** Devuelve la notificación a la lista respetando el orden que traía el backend. */
     private fun restaurar(notificacion: NotificacionResponse, previas: List<NotificacionResponse>) {
         val actuales = _state.value.notificaciones
