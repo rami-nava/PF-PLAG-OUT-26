@@ -10,7 +10,9 @@ import kotlinx.coroutines.CancellationException
 import com.google.android.gms.tasks.Task
 import com.google.firebase.installations.FirebaseInstallations
 import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -31,6 +33,7 @@ object FcmTokenRegistrar {
     private const val PLATAFORMA = "android"
     private const val MAX_INTENTOS = 4
     private const val ESPERA_INICIAL_MS = 1_000L
+    private const val ESPERA_RETIRO_MS = 5_000L
 
     private val gddService: GDDService
         get() = RetrofitClient.gddService
@@ -66,10 +69,15 @@ object FcmTokenRegistrar {
     @Suppress("UNUSED_PARAMETER")
     suspend fun registrar(fid: String) = registrar()
 
+    // Lives with the process, not with a screen: the retirement may outlast the logout screen.
+    private val retiro = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** Waits at most [ESPERA_RETIRO_MS]; the rest of the retirement finishes in the background. */
     suspend fun desregistrar(remote: Boolean = true) {
-        try { coordinator.unregister(remote) }
-        catch (e: CancellationException) { throw e }
-        catch (_: Exception) { Log.w(TAG, "Retiro FCM pendiente") }
+        val terminado = coordinator.unregister(remote, retiro, ESPERA_RETIRO_MS) { e ->
+            Log.w(TAG, "Retiro FCM pendiente: ${e.javaClass.simpleName}")
+        }
+        if (!terminado) Log.w(TAG, "El retiro FCM sigue en segundo plano")
     }
 
     // Una vez por proceso alcanza: los cambios posteriores del FID llegan por onRegistered().
