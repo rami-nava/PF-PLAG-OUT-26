@@ -55,7 +55,6 @@ import androidx.compose.material.icons.outlined.BubbleChart
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CenterFocusStrong
 import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.Info
@@ -115,21 +114,19 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
-import kotlin.math.atan2
 import kotlin.math.ceil
-import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.hypot
 import kotlin.math.ln
 import kotlin.math.pow
-import kotlin.math.sin
 import kotlin.math.sqrt
 
 
 private val RADIOS_MAPA_KM = listOf(25, 50, 100)
 private val VENTANAS_DIAS = listOf(7, 30, 90)
 
-private const val CELDA_CLUSTER_PX = 78.0
+/** Separación mínima entre pines, en dp: el ícono de grupo más común mide 45 dp y el mayor 72. */
+private const val CELDA_CLUSTER_DP = 64.0
 private const val CELDA_NUBE_PX = 120.0
 
 private val CENTRO_PAIS = GeoPoint(-38.4, -63.6)
@@ -188,7 +185,7 @@ fun MapaReportesScreen(
 
     // De lejos llegan grupos (solo cantidad) y de cerca reportes sueltos; los dos se dibujan igual.
     val puntos = remember(state.grupos, state.reportes) {
-        state.grupos.map { PuntoMapa(it.latitud, it.longitud, it.cantidad, it.severidad_max ?: "Bajo", null) } +
+        state.grupos.map { PuntoMapa(it.latitud, it.longitud, it.cantidad, it.severidad_max ?: SEVERIDAD_DESCONOCIDA, null) } +
             state.reportes.map { PuntoMapa(it.latitud!!, it.longitud!!, 1, it.nivel_severidad, it) }
     }
 
@@ -207,17 +204,20 @@ fun MapaReportesScreen(
         label = "elevacionControlesMapa"
     )
 
-    val clusters = remember(puntos, zoom, modo) {
+    // osmdroid dibuja en píxeles físicos y los íconos miden en dp: la separación de los pines se
+    // pasa a píxeles con la densidad de la pantalla. Antes eran 78 px fijos, unos 30 dp en un
+    // teléfono común, y los íconos de grupo (45 a 72 dp) de celdas vecinas se encimaban.
+    val densidadPantalla = LocalDensity.current.density
+    val clusters = remember(puntos, zoom, modo, densidadPantalla) {
         agruparReportes(
             puntos,
             zoom,
-            if (modo == ModoMapa.NUBES) CELDA_NUBE_PX else CELDA_CLUSTER_PX
+            if (modo == ModoMapa.NUBES) CELDA_NUBE_PX else CELDA_CLUSTER_DP * densidadPantalla
         )
     }
 
     LaunchedEffect(clusters) {
-        val vigente = seleccion?.id
-        if (vigente != null && clusters.none { it.id == vigente }) seleccion = null
+        seleccion = seleccionVigente(seleccion, clusters)
     }
 
     // Al abrir, el mapa arranca sobre los lotes del usuario y no sobre todo el país; después
@@ -324,13 +324,15 @@ fun MapaReportesScreen(
             else -> null
         }
         if (state.error != null) {
+            // Ocupa todo el ancho: a la derecha deja libre la columna de centrar/acercar/alejar,
+            // que está a la misma altura (12 dp de margen + 42 dp de botón + 12 dp de aire).
             ErrorCargaReportes(
                 mensaje = state.error!!,
                 onReintentar = viewModel::refrescar,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(top = topAviso, start = 16.dp, end = 16.dp)
+                    .padding(top = topAviso, start = 16.dp, end = 66.dp)
             )
         } else if (aviso != null) {
             AvisoFlotante(
@@ -972,9 +974,21 @@ private fun LienzoMapa(
                 maxZoomLevel = ZOOM_MAXIMO_SERVIDOR.toDouble()
                 controller.setZoom(ZOOM_PAIS)
                 controller.setCenter(CENTRO_PAIS)
+                // El zoom de la agrupación se publica con cada aviso, no solo con los de zoom: el
+                // encuadre inicial anima zoom y desplazamiento juntos, y el retardo puede dejar
+                // como último aviso uno de desplazamiento. Sin esto la pantalla agrupaba con el zoom
+                // del país mientras el mapa estaba en el de los lotes, y los grupos caían fuera.
                 val informarVista = {
                     val caja = boundingBox
-                    onVista(VistaMapa(caja.latSouth, caja.lonWest, caja.latNorth, caja.lonEast, zoomLevelDouble))
+                    val zoom = zoomLevelDouble
+                    onZoom(zoom)
+                    onVista(
+                        vistaDeOsmdroid(
+                            caja.latSouth, caja.lonWest, caja.latNorth, caja.lonEast, zoom,
+                            altoMundoPx = org.osmdroid.util.TileSystem.MapSize(zoom),
+                            altoMapaPx = height.toDouble()
+                        )
+                    )
                 }
                 // Hasta el primer layout el mapa no tiene tamaño y su caja es un punto.
                 addOnFirstLayoutListener { _, _, _, _, _ -> informarVista() }
@@ -988,7 +1002,6 @@ private fun LienzoMapa(
                                 return false
                             }
                             override fun onZoom(event: ZoomEvent?): Boolean {
-                                onZoom(zoomLevelDouble)
                                 informarVista()
                                 return false
                             }
@@ -1123,7 +1136,10 @@ private fun encuadrar(map: MapView, clusters: List<ClusterReportes>, terrenos: L
 
 // ── Agrupación ────────────────────────────────────────────────────────────────
 
-private data class PuntoMapa(
+/** Un grupo sin severidad conocida: no se pinta como "Bajo". */
+internal const val SEVERIDAD_DESCONOCIDA = ""
+
+internal data class PuntoMapa(
     val latitud: Double,
     val longitud: Double,
     val cantidad: Int,
@@ -1131,7 +1147,7 @@ private data class PuntoMapa(
     val reporte: ReporteDetalleResponse?
 )
 
-private data class ClusterReportes(
+internal data class ClusterReportes(
     val id: String,
     val latitud: Double,
     val longitud: Double,
@@ -1140,39 +1156,82 @@ private data class ClusterReportes(
     val reportes: List<ReporteDetalleResponse>
 )
 
-private fun rangoSeveridad(nivel: String): Int = when (nivel.lowercase(Locale.ROOT)) {
+internal fun rangoSeveridad(nivel: String): Int = when (nivel.lowercase(Locale.ROOT)) {
     "alto" -> 2
     "medio" -> 1
-    else -> 0
+    "bajo" -> 0
+    else -> -1
 }
 
+/**
+ * La selección con los datos nuevos: al filtrar o refrescar, la misma celda puede tener otros
+ * reportes, y la tarjeta no puede seguir mostrando los que ya no están.
+ */
+internal fun seleccionVigente(seleccion: ClusterReportes?, clusters: List<ClusterReportes>): ClusterReportes? =
+    seleccion?.let { actual -> clusters.firstOrNull { it.id == actual.id } }
 
-private fun agruparReportes(
+
+/**
+ * Junta los puntos que en pantalla quedarían encimados. [ladoPx] es la separación mínima entre
+ * dos grupos, en píxeles del mapa (osmdroid dibuja en píxeles físicos: quien llama multiplica
+ * por la densidad).
+ *
+ * Primero una grilla en píxeles Mercator; después se unen los grupos que quedaron a menos de
+ * [ladoPx] entre sí, aunque estén en celdas distintas: dos reportes a metros de distancia, uno a
+ * cada lado del borde de una celda, no pueden terminar en dos íconos superpuestos.
+ */
+internal fun agruparReportes(
     puntos: List<PuntoMapa>,
     zoom: Double,
     ladoPx: Double
 ): List<ClusterReportes> {
     if (puntos.isEmpty()) return emptyList()
 
-    val gradosPorPixel = 360.0 / (256.0 * 2.0.pow(zoom))
-    val celdaLon = (gradosPorPixel * ladoPx).coerceAtLeast(1e-7)
-    val latReferencia = puntos.map { it.latitud }.average()
-    val celdaLat = (celdaLon * cos(Math.toRadians(latReferencia)).coerceAtLeast(0.05)).coerceAtLeast(1e-7)
+    val mundoPx = 256.0 * 2.0.pow(zoom)
+    val lado = ladoPx.coerceAtLeast(1e-6)
+    fun x(lon: Double) = (lon + 180.0) / 360.0 * mundoPx
+    fun y(lat: Double): Double {
+        val s = kotlin.math.sin(Math.toRadians(lat.coerceIn(-85.05112878, 85.05112878)))
+        return (0.5 - ln((1 + s) / (1 - s)) / (4 * Math.PI)) * mundoPx
+    }
 
-    return puntos
-        .groupBy { p ->
-            val fila = floor(p.latitud / celdaLat).toLong()
-            val columna = floor(p.longitud / celdaLon).toLong()
-            fila to columna
+    class Grupo(val id: String, val lista: MutableList<PuntoMapa>) {
+        val cantidad get() = lista.sumOf { it.cantidad }
+        // Centro ponderado: un grupo de 40 pesa más que un reporte suelto al lado.
+        val latitud get() = lista.sumOf { it.latitud * it.cantidad } / cantidad
+        val longitud get() = lista.sumOf { it.longitud * it.cantidad } / cantidad
+        fun cerca(otro: Grupo) = hypot(x(longitud) - x(otro.longitud), y(latitud) - y(otro.latitud)) < lado
+    }
+
+    var grupos = puntos
+        .groupBy { floor(y(it.latitud) / lado).toLong() to floor(x(it.longitud) / lado).toLong() }
+        .map { (clave, lista) -> Grupo("${clave.first}:${clave.second}", lista.toMutableList()) }
+    // Los grandes absorben a los chicos y conservan su id: la tarjeta abierta sigue en su grupo.
+    // Cada unión mueve el centro, así que se repite hasta que no quede ningún par encimado.
+    var unio = true
+    while (unio) {
+        unio = false
+        val separados = mutableListOf<Grupo>()
+        for (grupo in grupos.sortedWith(compareByDescending<Grupo> { it.cantidad }.thenBy { it.id })) {
+            val vecino = separados.firstOrNull { it.cerca(grupo) }
+            if (vecino != null) {
+                vecino.lista += grupo.lista
+                unio = true
+            } else {
+                separados += grupo
+            }
         }
-        .map { (clave, lista) ->
-            val cantidad = lista.sumOf { it.cantidad }
+        grupos = separados
+    }
+
+    return grupos
+        .map { grupo ->
+            val lista = grupo.lista
             ClusterReportes(
-                id = "${clave.first}:${clave.second}",
-                // Centro ponderado: un grupo de 40 pesa más que un reporte suelto al lado.
-                latitud = lista.sumOf { it.latitud * it.cantidad } / cantidad,
-                longitud = lista.sumOf { it.longitud * it.cantidad } / cantidad,
-                cantidad = cantidad,
+                id = grupo.id,
+                latitud = grupo.latitud,
+                longitud = grupo.longitud,
+                cantidad = grupo.cantidad,
                 severidadDominante = lista.maxBy { rangoSeveridad(it.severidad) }.severidad,
                 reportes = lista.mapNotNull { it.reporte }.sortedByDescending { it.timestamp_ms }
             )
@@ -1498,7 +1557,8 @@ private fun mezclarColor(desde: Int, hasta: Int, t: Float): Int {
 private fun colorSeveridad(nivel: String): Int = when (nivel.lowercase(Locale.ROOT)) {
     "alto" -> 0xFFC62828.toInt()
     "medio" -> 0xFFEF6C00.toInt()
-    else -> 0xFF2E7D32.toInt()
+    "bajo" -> 0xFF2E7D32.toInt()
+    else -> 0xFF8D8D8D.toInt()
 }
 
 private fun hueSeveridad(nivel: String): Float = when (nivel.lowercase(Locale.ROOT)) {
@@ -1818,9 +1878,7 @@ private fun TarjetaSeleccionMapa(
         Column(Modifier.padding(start = 18.dp, end = 12.dp, top = 12.dp, bottom = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val estilo = estiloDeNivel(
-                    when (cluster.severidadDominante.lowercase(Locale.ROOT)) {
-                        "alto" -> 2; "medio" -> 1; else -> 0
-                    }
+                    rangoSeveridad(cluster.severidadDominante)
                 )
                 Box(Modifier.size(10.dp).background(estilo.color, CircleShape))
                 Spacer(Modifier.width(10.dp))
