@@ -85,7 +85,6 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.overlay.MapEventsOverlay
-import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 import android.location.Geocoder
 import android.location.Address
@@ -102,6 +101,14 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import org.osmdroid.api.IMapController
 import java.util.Locale
 import kotlin.math.sqrt
+import org.osmdroid.events.ZoomEvent
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.DelayedMapListener
+import com.google.android.gms.tasks.CancellationTokenSource
+import android.view.MotionEvent
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material.icons.filled.LocationOn
 import kotlin.math.PI
 
 @SuppressLint("MissingPermission")
@@ -114,7 +121,8 @@ fun SelectLocationScreen(
 ) {
     val state by nuevoTerrenoViewModel.state.collectAsState()
 
-    var selectedTabIndex by remember { mutableStateOf(1) }
+    // En el campo se ubica el lote mirando el mapa o con el GPS; las coordenadas son la segunda opción.
+    var selectedTabIndex by remember { mutableStateOf(0) }
 
     //EXPRESION REGULAR PARA NUMEROS REALES
     val regex = Regex("^-?\\d*\\.?\\d*$")
@@ -173,19 +181,65 @@ fun SelectLocationScreen(
         }
     }
 
+    fun elegir(punto: GeoPoint, centrar: Boolean, zoom: Double? = null) {
+        selectedLocation = punto
+        latInput = formatearCoordenada(punto.latitude)
+        lonInput = formatearCoordenada(punto.longitude)
+        if (centrar) {
+            zoom?.let { mapController?.setZoom(it) }
+            mapController?.animateTo(punto)
+        }
+    }
+
+    // GPS en vivo: lastLocation puede venir vacía o vieja si nadie pidió ubicación hace rato.
+    fun ubicarConGps() {
+        obteniendoUbicacion = true
+        val fallo = {
+            obteniendoUbicacion = false
+            Avisos.error("No se pudo obtener la ubicación actual. Revisá que el GPS esté activado.")
+        }
+        val aplicar = { location: android.location.Location ->
+            obteniendoUbicacion = false
+            selectedTabIndex = 0
+            elegir(GeoPoint(location.latitude, location.longitude), centrar = true, zoom = 16.0)
+        }
+        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
+            .addOnSuccessListener { actual ->
+                if (actual != null) aplicar(actual)
+                else fusedLocationClient.lastLocation
+                    .addOnSuccessListener { ultima -> if (ultima != null) aplicar(ultima) else fallo() }
+                    .addOnFailureListener { fallo() }
+            }
+            .addOnFailureListener { fallo() }
+    }
+
     //SI NO TENGO PERMISO PARA ACCEDER A SU UBICACION SE LO PIDO
+    var ubicarAlConceder by remember { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
-        onResult = { permissions -> 
-            isGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true || 
-                        permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true 
+        onResult = { permissions ->
+            isGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                        permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+            if (isGranted && ubicarAlConceder) ubicarConGps()
+            ubicarAlConceder = false
         }
     )
+
+    fun usarUbicacionActual() {
+        if (isGranted) {
+            ubicarConGps()
+        } else {
+            ubicarAlConceder = true
+            launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+        }
+    }
 
     LaunchedEffect(Unit) {
         //Consultar si ya tengo permiso para acceder a la ubicacion
         isGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                     ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        // Terreno nuevo con permiso ya otorgado: casi siempre se carga parado en el lote.
+        if (isGranted && selectedLocation == null) ubicarConGps()
     }
 
     // Rangos y validación de Argentina
@@ -261,16 +315,32 @@ fun SelectLocationScreen(
                                         // el lote; si no, con el país completo para buscar.
                                         controller.setZoom(if (selectedLocation != null) 16.0 else 5.0)
                                         controller.setCenter(selectedLocation ?: GeoPoint(-34.6037, -58.3816))
-                                        
+
                                         mapController = this.controller
+
+                                        // Sólo un gesto del usuario elige ubicación: abrir el mapa sobre
+                                        // Buenos Aires no puede dejar un terreno guardable ahí.
+                                        var arrastrando = false
+                                        setOnTouchListener { _, evento ->
+                                            if (evento.actionMasked == MotionEvent.ACTION_MOVE) arrastrando = true
+                                            false
+                                        }
+                                        addMapListener(DelayedMapListener(object : MapListener {
+                                            override fun onScroll(event: ScrollEvent?): Boolean {
+                                                if (arrastrando) {
+                                                    arrastrando = false
+                                                    val centro = mapCenter
+                                                    elegir(GeoPoint(centro.latitude, centro.longitude), centrar = false)
+                                                }
+                                                return false
+                                            }
+
+                                            override fun onZoom(event: ZoomEvent?): Boolean = false
+                                        }, 200))
 
                                         val receiver = object : MapEventsReceiver {
                                             override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
-                                                p?.let {
-                                                    selectedLocation = it
-                                                    latInput = it.latitude.toString()
-                                                    lonInput = it.longitude.toString()
-                                                }
+                                                p?.let { elegir(it, centrar = true) }
                                                 return true
                                             }
 
@@ -282,7 +352,7 @@ fun SelectLocationScreen(
                                     }
                                 },
                                 update = { map ->
-                                    map.overlays.removeAll { it is Marker || it is Polygon }
+                                    map.overlays.removeAll { it is Polygon }
 
                                     val receiver = map.overlays.firstOrNull { it is MapEventsOverlay }
                                     map.overlays.clear()
@@ -303,18 +373,58 @@ fun SelectLocationScreen(
                                             map.overlays.add(circlePolygon)
                                         }
 
-                                        val marker = Marker(map)
-                                        marker.position = point
-                                        marker.title = "Ubicación del terreno"
-                                        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                        marker.icon = MapMarkerUtils.getMarkerIcon(map.context, isGreen = true)
-                                        map.overlays.add(marker)
                                     }
 
                                     map.invalidate()
                                 },
                                 onRelease = { it.onDetach() }
                             )
+
+                            // Pin fijo: la punta marca el centro del mapa, que es la ubicación elegida.
+                            Icon(
+                                Icons.Filled.LocationOn,
+                                contentDescription = "Ubicación del terreno",
+                                tint = if (selectedLocation != null) PlagOutColors.Forest else PlagOutColors.TextSecondary,
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .offset(y = (-22).dp)
+                                    .size(44.dp)
+                                    .testTag("pinCentroMapa")
+                            )
+
+                            if (selectedLocation == null) {
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = PlagOutColors.Surface.copy(alpha = 0.95f),
+                                    shadowElevation = 2.dp,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(start = 12.dp, end = 84.dp, bottom = 16.dp)
+                                ) {
+                                    Text(
+                                        "Mové el mapa hasta que el pin quede sobre tu lote, o usá tu ubicación.",
+                                        fontSize = 12.sp,
+                                        color = PlagOutColors.TextMain,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                                    )
+                                }
+                            }
+
+                            FloatingActionButton(
+                                onClick = { if (!obteniendoUbicacion) usarUbicacionActual() },
+                                containerColor = PlagOutColors.Forest,
+                                contentColor = PlagOutColors.TextOnDark,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(16.dp)
+                                    .testTag("btnMiUbicacionMapa")
+                            ) {
+                                if (obteniendoUbicacion) {
+                                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = PlagOutColors.TextOnDark)
+                                } else {
+                                    Icon(Icons.Default.MyLocation, contentDescription = "Usar mi ubicación")
+                                }
+                            }
 
                             // Buscador de Localidades Asíncrono
                             Column(
@@ -374,12 +484,7 @@ fun SelectLocationScreen(
                                                         .clickable {
                                                             searchQuery = addressName
                                                             showDropdown = false
-                                                            val pt = GeoPoint(address.latitude, address.longitude)
-                                                            selectedLocation = pt
-                                                            latInput = address.latitude.toString()
-                                                            lonInput = address.longitude.toString()
-                                                            mapController?.animateTo(pt)
-                                                            mapController?.setZoom(14.0)
+                                                            elegir(GeoPoint(address.latitude, address.longitude), centrar = true, zoom = 14.0)
                                                         }
                                                         .padding(horizontal = 16.dp, vertical = 14.dp),
                                                     verticalAlignment = Alignment.CenterVertically
@@ -450,39 +555,7 @@ fun SelectLocationScreen(
                             )
 
                             Button(
-                                onClick = {
-                                    if (isGranted) {
-                                        obteniendoUbicacion = true
-                                        fusedLocationClient.lastLocation
-                                            .addOnSuccessListener { location ->
-                                                obteniendoUbicacion = false
-                                                if (location != null) {
-                                                    val lat = if (location.latitude > 0) -location.latitude else location.latitude
-                                                    val lon = if (location.longitude > 0) -location.longitude else location.longitude
-                                                    latInput = lat.toString()
-                                                    lonInput = lon.toString()
-                                                    val pt = GeoPoint(lat, lon)
-                                                    selectedLocation = pt
-                                                    mapController?.animateTo(pt)
-                                                    mapController?.setZoom(16.0)
-                                                    selectedTabIndex = 0 // Cambiar a pestaña mapa
-                                                } else {
-                                                    Avisos.error("No se pudo obtener la ubicación actual.")
-                                                }
-                                            }
-                                            .addOnFailureListener {
-                                                obteniendoUbicacion = false
-                                                Avisos.error("No se pudo obtener la ubicación actual.")
-                                            }
-                                    } else {
-                                        launcher.launch(
-                                            arrayOf(
-                                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                                Manifest.permission.ACCESS_COARSE_LOCATION
-                                            )
-                                        )
-                                    }
-                                },
+                                onClick = { usarUbicacionActual() },
                                 enabled = !obteniendoUbicacion,
                                 shape = RoundedCornerShape(16.dp),
                                 colors = ButtonDefaults.buttonColors(
@@ -638,3 +711,6 @@ private fun HeaderUbicacion(onBack: () -> Unit) {
         }
     }
 }
+
+/** Seis decimales (~10 cm): suficiente para un lote y legible en el resumen. */
+internal fun formatearCoordenada(valor: Double): String = String.format(Locale.US, "%.6f", valor)
