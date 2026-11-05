@@ -38,10 +38,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,6 +54,7 @@ import com.example.plag_out.ui.theme.EstadoVacioFlotante
 import com.example.plag_out.ui.theme.FiltroChipsRow
 import com.example.plag_out.ui.theme.OpcionFiltro
 import com.example.plag_out.ui.theme.PlagOutColors
+import com.example.plag_out.ui.theme.SelloDeNivel
 import com.example.plag_out.ui.theme.SkeletonCargando
 import com.example.plag_out.ui.theme.StaggeredAppear
 import com.example.plag_out.ui.theme.contadorAnimado
@@ -68,7 +74,7 @@ fun AdminMetricasScreen(
         viewModel.cargar(global = global)
     }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().background(PlagOutColors.Cream)) {
         if (onVolver != null) {
             Row(
                 modifier = Modifier
@@ -88,7 +94,7 @@ fun AdminMetricasScreen(
                     Text(
                         "Tableros de Control",
                         fontSize = 22.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.SemiBold,
                         color = PlagOutColors.TextMain
                     )
                     Text(
@@ -182,7 +188,7 @@ private fun SelectorPerspectivaDashboard(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(PlagOutColors.CreamDeep.copy(alpha = 0.6f))
+            .background(PlagOutColors.CreamDeep)
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -219,12 +225,12 @@ private fun ItemBotonPerspectiva(
     modifier: Modifier = Modifier
 ) {
     val fondo by animateColorAsState(
-        targetValue = if (activo) PlagOutColors.Forest else Color.Transparent,
+        targetValue = if (activo) PlagOutColors.Surface else Color.Transparent,
         animationSpec = tween(220),
         label = "fondoPestaña"
     )
     val colorTexto by animateColorAsState(
-        targetValue = if (activo) PlagOutColors.TextOnDark else PlagOutColors.TextMain,
+        targetValue = if (activo) PlagOutColors.Forest else PlagOutColors.TextSecondary,
         animationSpec = tween(220),
         label = "textoPestaña"
     )
@@ -233,7 +239,8 @@ private fun ItemBotonPerspectiva(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
         color = fondo,
-        shadowElevation = if (activo) 2.dp else 0.dp,
+        shadowElevation = if (activo) 1.dp else 0.dp,
+        border = if (activo) BorderStroke(1.dp, PlagOutColors.Divider.copy(alpha = 0.6f)) else null,
         modifier = modifier
     ) {
         Row(
@@ -243,7 +250,13 @@ private fun ItemBotonPerspectiva(
         ) {
             Icon(icono, contentDescription = null, tint = colorTexto, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(6.dp))
-            Text(titulo, color = colorTexto, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(
+                titulo,
+                color = colorTexto,
+                fontSize = 12.sp,
+                fontWeight = if (activo) FontWeight.SemiBold else FontWeight.Normal,
+                maxLines = 1
+            )
         }
     }
 }
@@ -290,7 +303,6 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(22.dp),
         shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(18.dp)) {
@@ -298,7 +310,7 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
                 Icon(Icons.Outlined.Assessment, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Superficie por etapa de la plaga", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text("Superficie por etapa de la plaga", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
                     Text("Hectáreas según la etapa más avanzada de cada lote", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
@@ -317,20 +329,20 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
                     porcAmarillo = semaforo.porcentajeAmarillo,
                     porcRojo = semaforo.porcentajeRojo,
                     tamano = 160.dp,
-                    grosor = 18.dp
+                    grosor = 16.dp
                 )
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         String.format(LocalConfiguration.current.locales[0], "%.0f ha", semaforo.totalHectareas),
                         fontSize = 22.sp,
-                        fontWeight = FontWeight.Black,
+                        fontWeight = FontWeight.Bold,
                         color = PlagOutColors.TextMain
                     )
                     Text(
                         "${semaforo.totalLotes} ${if (semaforo.totalLotes == 1) "lote" else "lotes"}",
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Normal,
                         color = PlagOutColors.TextSecondary
                     )
                 }
@@ -340,7 +352,9 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
 
             // Leyendas de desglose
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 ItemDesgloseSemaforo(
@@ -349,7 +363,7 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
                     porcentaje = semaforo.porcentajeVerde,
                     lotes = semaforo.lotesVerde,
                     color = PlagOutColors.RiskOk,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
                 ItemDesgloseSemaforo(
                     etiqueta = "Eclosión cerca",
@@ -357,7 +371,7 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
                     porcentaje = semaforo.porcentajeAmarillo,
                     lotes = semaforo.lotesAmarillo,
                     color = PlagOutColors.RiskWarn,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
                 ItemDesgloseSemaforo(
                     etiqueta = "Eclosionó",
@@ -365,7 +379,7 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
                     porcentaje = semaforo.porcentajeRojo,
                     lotes = semaforo.lotesRojo,
                     color = PlagOutColors.RiskDanger,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
             }
 
@@ -377,7 +391,7 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
                 Text(
                     textoLotesRegistrados(semaforo),
                     fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Medium,
                     color = PlagOutColors.TextMain
                 )
                 puntosLotesDelSemaforo(semaforo).forEach { punto ->
@@ -458,27 +472,42 @@ private fun ItemDesgloseSemaforo(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        color = color.copy(alpha = 0.08f),
+        color = PlagOutColors.Cream,
         shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = modifier
     ) {
-        Column(Modifier.padding(10.dp)) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+                Box(Modifier.size(7.dp).clip(CircleShape).background(color))
                 Spacer(Modifier.width(5.dp))
-                Text(etiqueta, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = color)
+                Text(
+                    etiqueta,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = PlagOutColors.TextSecondary,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
             Spacer(Modifier.height(4.dp))
             Text(
                 String.format(LocalConfiguration.current.locales[0], "%.1f ha", hectareas),
                 fontSize = 15.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = PlagOutColors.TextMain
+                fontWeight = FontWeight.Bold,
+                color = PlagOutColors.TextMain,
+                maxLines = 1
             )
             Text(
                 "${porcentaje.toInt()}% · $lotes ${if (lotes == 1) "lote" else "lotes"}",
                 fontSize = 10.sp,
-                color = PlagOutColors.TextSecondary
+                fontWeight = FontWeight.Normal,
+                color = PlagOutColors.TextSecondary,
+                maxLines = 1
             )
         }
     }
@@ -490,7 +519,6 @@ private fun TarjetaRankingLotesCriticos(lotes: List<LoteEnRiesgoCritico>) {
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(22.dp),
         shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(18.dp)) {
@@ -498,7 +526,7 @@ private fun TarjetaRankingLotesCriticos(lotes: List<LoteEnRiesgoCritico>) {
                 Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = PlagOutColors.Terracotta, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Lotes por etapa", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text("Lotes por etapa", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
                     Text("Del más avanzado al menos avanzado según la etapa y el avance hacia la eclosión", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
@@ -524,54 +552,66 @@ private fun TarjetaRankingLotesCriticos(lotes: List<LoteEnRiesgoCritico>) {
 @Composable
 private fun ItemFilaLoteCritico(lote: LoteEnRiesgoCritico) {
     val estilo = estiloDeNivel(lote.nivelAlerta, lote.hito)
+    val locale = LocalConfiguration.current.locales[0]
 
     Column(Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(lote.terrenoNombre, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
-                    if (lote.terrenoArea > 0f) {
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            String.format(LocalConfiguration.current.locales[0], "· %.0f ha", lote.terrenoArea),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = PlagOutColors.TextSecondary
-                        )
-                    }
-                }
-                val infoCultivo = if (lote.diasDesdeSiembra != null && lote.monitoreoId >= 0) {
-                    "${lote.cultivoNombre} (${lote.diasDesdeSiembra} días) • ${lote.plagaNombre}"
-                } else {
-                    "${lote.cultivoNombre} • ${lote.plagaNombre}"
-                }
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .alignBy(FirstBaseline)
+            ) {
                 Text(
-                    infoCultivo,
-                    fontSize = 12.sp,
-                    color = PlagOutColors.TextSecondary
+                    text = lote.terrenoNombre,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = PlagOutColors.TextMain,
+                    lineHeight = 18.sp,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .alignBy(FirstBaseline)
                 )
+                if (lote.terrenoArea > 0f) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = String.format(locale, "· %.0f ha", lote.terrenoArea),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = PlagOutColors.TextSecondary,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.alignBy(FirstBaseline)
+                    )
+                }
             }
 
-            Surface(
-                color = estilo.color.copy(alpha = 0.12f),
-                shape = CircleShape
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(Modifier.size(6.dp).clip(CircleShape).background(estilo.color))
-                    Spacer(Modifier.width(4.dp))
-                    Text(estilo.etiqueta, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = estilo.color)
-                }
-            }
+            Spacer(Modifier.width(10.dp))
+
+            SelloDeNivel(
+                estilo = estilo,
+                pulsante = false,
+                compacto = true,
+                modifier = Modifier.alignBy(FirstBaseline)
+            )
         }
 
-        Spacer(Modifier.height(6.dp))
+        val infoCultivo = if (lote.diasDesdeSiembra != null && lote.monitoreoId >= 0) {
+            "${lote.cultivoNombre} (${lote.diasDesdeSiembra} días) • ${lote.plagaNombre}"
+        } else {
+            "${lote.cultivoNombre} • ${lote.plagaNombre}"
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            infoCultivo,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Normal,
+            color = PlagOutColors.TextSecondary
+        )
+
+        Spacer(Modifier.height(8.dp))
 
         // Barra de progreso térmico (GDD)
         Row(
@@ -590,14 +630,14 @@ private fun ItemFilaLoteCritico(lote: LoteEnRiesgoCritico) {
                         .fillMaxWidth((lote.progresoGdd / 100f).coerceIn(0f, 1f))
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(3.dp))
-                        .background(estilo.color)
+                        .background(estilo.color.copy(alpha = 0.85f))
                 )
             }
             Spacer(Modifier.width(8.dp))
             Text(
                 "${lote.progresoGdd.toInt()}%",
                 fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.Medium,
                 color = PlagOutColors.TextMain
             )
         }
@@ -610,7 +650,6 @@ private fun TarjetaPlagasPorCultivo(cultivos: List<ResumenCultivoPlagas>) {
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(22.dp),
         shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(18.dp)) {
@@ -618,7 +657,7 @@ private fun TarjetaPlagasPorCultivo(cultivos: List<ResumenCultivoPlagas>) {
                 Icon(Icons.Outlined.Grass, contentDescription = null, tint = PlagOutColors.Leaf, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Plagas Incidentes por Cultivo", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text("Plagas Incidentes por Cultivo", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
                     Text("Prevalencia de plagas en los lotes monitoreados", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
@@ -650,13 +689,13 @@ private fun BloqueCultivoPlagas(cultivo: ResumenCultivoPlagas) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text(cultivo.cultivoNombre, fontSize = 15.sp, fontWeight = FontWeight.Black, color = PlagOutColors.TextMain)
+                Text(cultivo.cultivoNombre, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
             }
             Text(
                 "${cultivo.totalLotes} ${if (cultivo.totalLotes == 1) "lote" else "lotes"} · ${cultivo.totalHectareas.toInt()} ha",
                 fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = PlagOutColors.Forest
+                fontWeight = FontWeight.Medium,
+                color = PlagOutColors.TextSecondary
             )
         }
 
@@ -674,11 +713,11 @@ private fun BloqueCultivoPlagas(cultivo: ResumenCultivoPlagas) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(plaga.plagaNombre, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                        Text(plaga.plagaNombre, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = PlagOutColors.TextMain)
                         Text(
                             "${plaga.totalLotes} ${if (plaga.totalLotes == 1) "lote" else "lotes"} (${plaga.porcentaje.toInt()}%)",
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Normal,
                             color = PlagOutColors.TextSecondary
                         )
                     }
@@ -695,7 +734,7 @@ private fun BloqueCultivoPlagas(cultivo: ResumenCultivoPlagas) {
                                 .fillMaxWidth((plaga.porcentaje / 100f).coerceIn(0f, 1f))
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(3.dp))
-                                .background(PlagOutColors.Leaf)
+                                .background(PlagOutColors.Leaf.copy(alpha = 0.85f))
                         )
                     }
                 }
@@ -748,13 +787,19 @@ private fun TarjetaEtapasMonitoreos(conteo: Map<EstadoVentanaControl, Int>, vent
             Column(Modifier.fillMaxWidth().testTag("etapa_${etapa.name}")) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(color))
-                    Spacer(Modifier.width(8.dp))
-                    Text(etiqueta, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = color, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        etiqueta,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = PlagOutColors.TextMain,
+                        modifier = Modifier.weight(1f)
+                    )
                     Text(
                         "$cantidad ${if (cantidad == 1) "monitoreo" else "monitoreos"}",
                         fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PlagOutColors.TextMain
+                        fontWeight = FontWeight.Normal,
+                        color = PlagOutColors.TextSecondary
                     )
                 }
             }
@@ -780,16 +825,17 @@ private fun TarjetaTratamientos(tratamientos: TratamientosAdmin?) {
         Text(
             "${tratamientos.registrados} registrados · ${tratamientos.evaluados} con conteo posterior · ${tratamientos.con_testigo} con testigo",
             fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = PlagOutColors.TextMain
+            fontWeight = FontWeight.Normal,
+            color = PlagOutColors.TextSecondary
         )
         tratamientos.productos.forEach { producto ->
             HorizontalDivider(color = PlagOutColors.Divider.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 10.dp))
             Column(Modifier.fillMaxWidth().testTag("tratamiento_${producto.producto}")) {
-                Text(producto.producto, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                Text(producto.producto, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = PlagOutColors.TextMain)
                 Text(
                     "${producto.tratamientos} ${if (producto.tratamientos == 1) "tratamiento" else "tratamientos"} · ${producto.evaluados} ${if (producto.evaluados == 1) "evaluado" else "evaluados"}",
                     fontSize = 11.sp,
+                    fontWeight = FontWeight.Normal,
                     color = PlagOutColors.TextSecondary
                 )
                 Spacer(Modifier.height(6.dp))
@@ -815,10 +861,10 @@ private fun CifraTratamiento(etiqueta: String, porcentaje: Float?, modifier: Mod
         Text(
             formatearPorcentajeTratamiento(porcentaje),
             fontSize = 18.sp,
-            fontWeight = FontWeight.ExtraBold,
+            fontWeight = FontWeight.Bold,
             color = PlagOutColors.TextMain
         )
-        Text(etiqueta, fontSize = 10.sp, color = PlagOutColors.TextSecondary)
+        Text(etiqueta, fontSize = 10.sp, fontWeight = FontWeight.Normal, color = PlagOutColors.TextSecondary)
     }
 }
 
@@ -843,7 +889,6 @@ private fun TarjetaMetrica(
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(22.dp),
         shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(18.dp)) {
@@ -851,7 +896,7 @@ private fun TarjetaMetrica(
                 Icon(icono, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text(titulo, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text(titulo, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
                     Text(subtitulo, fontSize = 12.sp, color = PlagOutColors.TextSecondary, lineHeight = 16.sp)
                 }
             }
@@ -950,13 +995,12 @@ private fun TarjetaResumenGlobal(
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(20.dp),
         shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
-                    color = PlagOutColors.Forest.copy(alpha = 0.12f),
+                    color = PlagOutColors.Leaf.copy(alpha = 0.12f),
                     shape = CircleShape,
                     modifier = Modifier.size(32.dp)
                 ) {
@@ -966,7 +1010,7 @@ private fun TarjetaResumenGlobal(
                 }
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("HISTÓRICO CONSOLIDADO", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.Leaf, letterSpacing = 0.6.sp)
+                    Text("HISTÓRICO CONSOLIDADO", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.Forest, letterSpacing = 0.6.sp)
                     Text("Resumen de todas las campañas registradas", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
@@ -994,7 +1038,7 @@ private fun TarjetaResumenGlobal(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Mayor incidencia histórica:", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                     Spacer(Modifier.width(6.dp))
-                    Text(plagaLider, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text(plagaLider, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = PlagOutColors.TextMain)
                 }
             }
         }
@@ -1015,10 +1059,10 @@ private fun ItemMetricaCompacta(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icono, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(4.dp))
-            Text(valor, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
+            Text(valor, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
         }
         Spacer(Modifier.height(2.dp))
-        Text(etiqueta, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = PlagOutColors.TextSecondary)
+        Text(etiqueta, fontSize = 11.sp, fontWeight = FontWeight.Normal, color = PlagOutColors.TextSecondary)
     }
 }
 
@@ -1032,7 +1076,6 @@ private fun TarjetaPlagaPredominanteCampaña(campaña: CampañaHistorica) {
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(22.dp),
         shadowElevation = 2.dp,
-        border = BorderStroke(1.5.dp, PlagOutColors.Leaf.copy(alpha = 0.35f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(18.dp)) {
@@ -1047,18 +1090,18 @@ private fun TarjetaPlagaPredominanteCampaña(campaña: CampañaHistorica) {
                         .padding(horizontal = 10.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Outlined.BugReport, contentDescription = null, tint = PlagOutColors.Leaf, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Outlined.BugReport, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("PLAGA PREDOMINANTE DE LA CAMPAÑA", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.Leaf, letterSpacing = 0.5.sp)
+                    Text("PLAGA PREDOMINANTE DE LA CAMPAÑA", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.Forest, letterSpacing = 0.5.sp)
                 }
 
-                Text(campaña.nombre, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextSecondary)
+                Text(campaña.nombre, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = PlagOutColors.TextSecondary)
             }
 
             Spacer(Modifier.height(14.dp))
 
             if (lider != null) {
-                Text(text = lider.plagaNombre, fontSize = 22.sp, fontWeight = FontWeight.Black, color = PlagOutColors.TextMain)
+                Text(text = lider.plagaNombre, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
                 if (!lider.plagaCientifico.isNullOrBlank()) {
                     Text(text = lider.plagaCientifico, fontSize = 13.sp, fontStyle = FontStyle.Italic, color = PlagOutColors.TextSecondary)
                 }
@@ -1073,7 +1116,6 @@ private fun TarjetaPlagaPredominanteCampaña(campaña: CampañaHistorica) {
                         titulo = "Incidencia",
                         valor = String.format(LocalConfiguration.current.locales[0], "%.1f%%", lider.porcentajeIncidencia),
                         detalle = "${lider.totalMonitoreos} ${if (lider.totalMonitoreos == 1) "monitoreo" else "monitoreos"}",
-                        color = PlagOutColors.Forest,
                         modifier = Modifier.weight(1f)
                     )
                     val cultivosTexto = if (lider.cultivosAfectados.isNotEmpty()) {
@@ -1090,7 +1132,6 @@ private fun TarjetaPlagaPredominanteCampaña(campaña: CampañaHistorica) {
                         titulo = if (lider.cultivosAfectados.size <= 1) "Cultivo que afecta" else "Cultivos que afecta",
                         valor = cultivosTexto,
                         detalle = detalleCultivos,
-                        color = PlagOutColors.Leaf,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -1102,21 +1143,28 @@ private fun TarjetaPlagaPredominanteCampaña(campaña: CampañaHistorica) {
 }
 
 @Composable
-private fun MiniIndicador(titulo: String, valor: String, detalle: String, color: Color, modifier: Modifier = Modifier) {
+private fun MiniIndicador(titulo: String, valor: String, detalle: String, modifier: Modifier = Modifier) {
     Surface(
-        color = color.copy(alpha = 0.08f),
+        color = PlagOutColors.Cream,
         shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = modifier
     ) {
         Column(
-            Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.Start
         ) {
-            Text(titulo.uppercase(LocalConfiguration.current.locales[0]), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = color, letterSpacing = 0.4.sp)
+            Text(
+                titulo.uppercase(LocalConfiguration.current.locales[0]),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium,
+                color = PlagOutColors.TextSecondary,
+                letterSpacing = 0.4.sp
+            )
             Spacer(Modifier.height(4.dp))
-            Text(valor, fontSize = 16.sp, fontWeight = FontWeight.Black, color = PlagOutColors.TextMain)
+            Text(valor, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
             Spacer(Modifier.height(2.dp))
-            Text(detalle, fontSize = 10.sp, color = PlagOutColors.TextSecondary, maxLines = 1)
+            Text(detalle, fontSize = 10.sp, fontWeight = FontWeight.Normal, color = PlagOutColors.TextSecondary, maxLines = 1)
         }
     }
 }
@@ -1129,7 +1177,6 @@ private fun TarjetaMonitoreosPorCultivoCampaña(campaña: CampañaHistorica) {
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(22.dp),
         shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(18.dp)) {
@@ -1137,7 +1184,7 @@ private fun TarjetaMonitoreosPorCultivoCampaña(campaña: CampañaHistorica) {
                 Icon(Icons.Outlined.Grass, contentDescription = null, tint = PlagOutColors.Leaf, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Monitoreos por Cultivo y Plaga", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text("Monitoreos por Cultivo y Plaga", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
                     Text("Total de monitoreos registrados en la campaña (activos y finalizados)", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
@@ -1169,7 +1216,7 @@ private fun BloqueCultivoCampaña(cultivo: ResumenCultivoCampaña) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(cultivo.cultivoNombre, fontSize = 15.sp, fontWeight = FontWeight.Black, color = PlagOutColors.TextMain)
+                Text(cultivo.cultivoNombre, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
                 if (!cultivo.cultivoCientifico.isNullOrBlank()) {
                     Text(cultivo.cultivoCientifico, fontSize = 11.sp, fontStyle = FontStyle.Italic, color = PlagOutColors.TextSecondary)
                 }
@@ -1178,8 +1225,8 @@ private fun BloqueCultivoCampaña(cultivo: ResumenCultivoCampaña) {
             Text(
                 textoMonitoreos,
                 fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = PlagOutColors.Forest
+                fontWeight = FontWeight.Medium,
+                color = PlagOutColors.TextSecondary
             )
         }
 
@@ -1197,11 +1244,11 @@ private fun BloqueCultivoCampaña(cultivo: ResumenCultivoCampaña) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(plaga.plagaNombre, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                        Text(plaga.plagaNombre, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = PlagOutColors.TextMain)
                         Text(
                             "${plaga.totalMonitoreos} ${if (plaga.totalMonitoreos == 1) "monitoreo" else "monitoreos"} (${plaga.porcentaje.toInt()}%)",
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Normal,
                             color = PlagOutColors.TextSecondary
                         )
                     }
@@ -1218,7 +1265,7 @@ private fun BloqueCultivoCampaña(cultivo: ResumenCultivoCampaña) {
                                 .fillMaxWidth((plaga.porcentaje / 100f).coerceIn(0f, 1f))
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(3.dp))
-                                .background(PlagOutColors.Leaf)
+                                .background(PlagOutColors.Leaf.copy(alpha = 0.85f))
                         )
                     }
                 }
@@ -1235,7 +1282,6 @@ private fun TarjetaPrevalenciaPlagas(campaña: CampañaHistorica) {
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(22.dp),
         shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(18.dp)) {
@@ -1243,7 +1289,7 @@ private fun TarjetaPrevalenciaPlagas(campaña: CampañaHistorica) {
                 Icon(Icons.Outlined.Insights, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Prevalencia de Plagas en la Campaña", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text("Prevalencia de Plagas en la Campaña", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
                     Text("${campaña.cantidadPlagasDistintas} plagas monitoreadas • ${campaña.totalMonitoreos} seguimientos", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
@@ -1281,17 +1327,22 @@ private fun FilaPlagaPrevalencia(posicion: Int, plaga: ResumenPlagaCampaña) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 Surface(
-                    color = if (posicion == 1) PlagOutColors.Leaf else PlagOutColors.CreamDeep,
+                    color = if (posicion == 1) PlagOutColors.Leaf.copy(alpha = 0.14f) else PlagOutColors.CreamDeep,
                     shape = CircleShape,
                     modifier = Modifier.size(22.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("$posicion", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (posicion == 1) PlagOutColors.TextOnDark else PlagOutColors.TextMain)
+                        Text(
+                            "$posicion",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (posicion == 1) PlagOutColors.Forest else PlagOutColors.TextSecondary
+                        )
                     }
                 }
                 Spacer(Modifier.width(8.dp))
                 Column {
-                    Text(plaga.plagaNombre, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text(plaga.plagaNombre, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = PlagOutColors.TextMain)
                     val subtitulo = buildList {
                         if (!plaga.plagaCientifico.isNullOrBlank()) add(plaga.plagaCientifico)
                         if (plaga.cultivosAfectados.isNotEmpty()) add("Afecta: ${plaga.cultivosAfectados.joinToString(", ")}")
@@ -1303,8 +1354,18 @@ private fun FilaPlagaPrevalencia(posicion: Int, plaga: ResumenPlagaCampaña) {
             }
 
             Column(horizontalAlignment = Alignment.End) {
-                Text(String.format(LocalConfiguration.current.locales[0], "%.1f%%", plaga.porcentajeIncidencia), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.Forest)
-                Text("${plaga.totalMonitoreos} ${if (plaga.totalMonitoreos == 1) "monitoreo" else "monitoreos"}", fontSize = 11.sp, color = PlagOutColors.TextSecondary)
+                Text(
+                    String.format(LocalConfiguration.current.locales[0], "%.1f%%", plaga.porcentajeIncidencia),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PlagOutColors.TextMain
+                )
+                Text(
+                    "${plaga.totalMonitoreos} ${if (plaga.totalMonitoreos == 1) "monitoreo" else "monitoreos"}",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = PlagOutColors.TextSecondary
+                )
             }
         }
 
@@ -1313,16 +1374,16 @@ private fun FilaPlagaPrevalencia(posicion: Int, plaga: ResumenPlagaCampaña) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(7.dp)
-                .clip(RoundedCornerShape(4.dp))
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp))
                 .background(PlagOutColors.CreamDeep)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(progresoAnimado)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(if (posicion == 1) PlagOutColors.Leaf else PlagOutColors.BarkLight)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(if (posicion == 1) PlagOutColors.Leaf.copy(alpha = 0.85f) else PlagOutColors.BarkLight)
             )
         }
     }

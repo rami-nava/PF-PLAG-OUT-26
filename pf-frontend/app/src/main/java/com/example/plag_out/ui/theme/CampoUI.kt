@@ -204,37 +204,54 @@ fun estiloEsperandoBiofix(): NivelEstilo =
 
 /** Chip de estado: ícono + etiqueta; el ícono pulsa cuando `pulsante` es true. */
 @Composable
-fun SelloDeNivel(estilo: NivelEstilo, pulsante: Boolean, modifier: Modifier = Modifier) {
-    Row(
-        modifier
-            .background(estilo.color.copy(alpha = 0.12f), CircleShape)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+fun SelloDeNivel(
+    estilo: NivelEstilo,
+    pulsante: Boolean,
+    modifier: Modifier = Modifier,
+    compacto: Boolean = false
+) {
+    Surface(
+        modifier = modifier,
+        shape = CircleShape,
+        color = estilo.color.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, estilo.color.copy(alpha = 0.22f))
     ) {
-        val alfaIcono = if (pulsante) {
-            val pulso = rememberInfiniteTransition(label = "pulsoCritico")
-            val alfa by pulso.animateFloat(
-                initialValue = 1f,
-                targetValue = 0.35f,
-                animationSpec = infiniteRepeatable(tween(650), RepeatMode.Reverse),
-                label = "alfaPulso"
+        Row(
+            modifier = Modifier.padding(
+                horizontal = if (compacto) 8.dp else 10.dp,
+                vertical = if (compacto) 3.dp else 4.dp
+            ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val alfaIcono = if (pulsante) {
+                val pulso = rememberInfiniteTransition(label = "pulsoCritico")
+                val alfa by pulso.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 0.35f,
+                    animationSpec = infiniteRepeatable(tween(650), RepeatMode.Reverse),
+                    label = "alfaPulso"
+                )
+                alfa
+            } else 1f
+            Icon(
+                estilo.icono,
+                contentDescription = null,
+                tint = estilo.color,
+                modifier = Modifier
+                    .size(if (compacto) 12.dp else 13.dp)
+                    .alpha(alfaIcono)
             )
-            alfa
-        } else 1f
-        Icon(
-            estilo.icono,
-            contentDescription = null,
-            tint = estilo.color,
-            modifier = Modifier.size(13.dp).alpha(alfaIcono)
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(
-            estilo.etiqueta,
-            color = estilo.color,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.3.sp
-        )
+            Spacer(Modifier.width(if (compacto) 4.dp else 6.dp))
+            Text(
+                estilo.etiqueta,
+                color = estilo.color,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.2.sp,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
     }
 }
 
@@ -406,15 +423,27 @@ fun BotonInfoCampo(
 
 @Composable
 fun EtiquetaInfo(icono: ImageVector, texto: String, color: Color, modifier: Modifier = Modifier) {
-    Row(
-        modifier
-            .background(color.copy(alpha = 0.10f), CircleShape)
-            .padding(horizontal = 10.dp, vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        modifier = modifier,
+        shape = CircleShape,
+        color = color.copy(alpha = 0.10f),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.18f))
     ) {
-        Icon(icono, contentDescription = null, tint = color, modifier = Modifier.size(13.dp))
-        Spacer(Modifier.width(5.dp))
-        Text(texto, color = color, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icono, contentDescription = null, tint = color, modifier = Modifier.size(13.dp))
+            Spacer(Modifier.width(5.dp))
+            Text(
+                texto,
+                color = color,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
     }
 }
 
