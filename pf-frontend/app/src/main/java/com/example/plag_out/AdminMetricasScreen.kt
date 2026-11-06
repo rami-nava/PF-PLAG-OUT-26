@@ -50,6 +50,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.plag_out.ui.theme.BotonInfoCampo
 import com.example.plag_out.ui.theme.EstadoVacioFlotante
 import com.example.plag_out.ui.theme.FiltroChipsRow
 import com.example.plag_out.ui.theme.OpcionFiltro
@@ -774,7 +775,7 @@ private fun TarjetaEtapasMonitoreos(conteo: Map<EstadoVentanaControl, Int>, vent
     TarjetaMetrica(
         icono = Icons.Outlined.Schedule,
         titulo = "Etapas de los monitoreos activos",
-        subtitulo = "Cuántos monitoreos con mediciones hay en cada etapa según los grados-día acumulados."
+        subtitulo = "Distribución según grados-día acumulados frente al ciclo biológico."
     ) {
         EstadoVentanaControl.entries.forEachIndexed { index, etapa ->
             val color = when (etapa) {
@@ -813,10 +814,18 @@ private fun TarjetaEtapasMonitoreos(conteo: Map<EstadoVentanaControl, Int>, vent
 /** Los tratamientos de todos los productores, por producto (como Control del panel). */
 @Composable
 private fun TarjetaTratamientos(tratamientos: TratamientosAdmin?) {
+    var mostrarInfoEficacia by remember { mutableStateOf(false) }
+
+    if (mostrarInfoEficacia) {
+        DialogoInfoEficacia(onDismiss = { mostrarInfoEficacia = false }, cita = tratamientos?.cita)
+    }
+
     TarjetaMetrica(
         icono = Icons.Outlined.Verified,
         titulo = "Eficacia de tratamientos",
-        subtitulo = "Con franja sin tratar (testigo): eficacia de Henderson-Tilton. Sin testigo: reducción observada, que incluye la mortalidad natural y no es una eficacia."
+        subtitulo = "Rendimiento y reducción de plagas por producto comercial registrado.",
+        onInfoClick = { mostrarInfoEficacia = true },
+        descripcionInfo = "Cómo se calcula la eficacia de los tratamientos"
     ) {
         if (tratamientos == null || tratamientos.registrados == 0) {
             Text("Todavía no hay tratamientos registrados.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
@@ -846,10 +855,10 @@ private fun TarjetaTratamientos(tratamientos: TratamientosAdmin?) {
             }
         }
         Text(
-            "Promedios simples por producto. Un valor negativo indica que la plaga aumentó. Fuente: ${tratamientos.cita}.",
-            fontSize = 10.sp,
+            "Promedios consolidados por producto. Tocá el botón de información (ℹ) para conocer la metodología.",
+            fontSize = 11.sp,
             color = PlagOutColors.TextSecondary,
-            lineHeight = 14.sp,
+            lineHeight = 15.sp,
             modifier = Modifier.padding(top = 12.dp)
         )
     }
@@ -874,8 +883,15 @@ private fun TarjetaTratamientosDelProductor() {
     TarjetaMetrica(
         icono = Icons.Outlined.Verified,
         titulo = "Eficacia de tratamientos",
-        subtitulo = "Registrá cada tratamiento con el conteo de la plaga antes y después desde el detalle del monitoreo, en la pestaña Tratamientos. Ahí se calcula su eficacia."
-    ) {}
+        subtitulo = "Seguimiento y cálculo de eficacia de tus aplicaciones de control."
+    ) {
+        Text(
+            "Registrá cada tratamiento con el conteo de la plaga antes y después desde el detalle del monitoreo, en la pestaña Tratamientos. Ahí se calcula su eficacia automáticamente.",
+            fontSize = 12.sp,
+            color = PlagOutColors.TextSecondary,
+            lineHeight = 17.sp
+        )
+    }
 }
 
 @Composable
@@ -883,6 +899,8 @@ private fun TarjetaMetrica(
     icono: ImageVector,
     titulo: String,
     subtitulo: String,
+    onInfoClick: (() -> Unit)? = null,
+    descripcionInfo: String = "Más información",
     contenido: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
@@ -892,18 +910,126 @@ private fun TarjetaMetrica(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.Top) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Icon(icono, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(titulo, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
                     Text(subtitulo, fontSize = 12.sp, color = PlagOutColors.TextSecondary, lineHeight = 16.sp)
+                }
+                if (onInfoClick != null) {
+                    BotonInfoCampo(
+                        onClick = onInfoClick,
+                        contentDescription = descripcionInfo,
+                        tint = PlagOutColors.Forest
+                    )
                 }
             }
             Spacer(Modifier.height(14.dp))
             contenido()
         }
     }
+}
+
+@Composable
+private fun DialogoInfoEficacia(onDismiss: () -> Unit, cita: String?) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "¿Cómo se calcula la eficacia?",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = PlagOutColors.TextMain
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    "Este tablero consolida las aplicaciones registradas y evalúa el control según dos metodologías:",
+                    fontSize = 13.sp,
+                    color = PlagOutColors.TextMain,
+                    lineHeight = 18.sp
+                )
+
+                Surface(
+                    color = PlagOutColors.Cream,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            "1. Eficacia con testigo (Henderson-Tilton)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PlagOutColors.Forest
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Compara la evolución de la plaga en la zona tratada versus una franja sin aplicar. Permite descontar la mortalidad natural (clima o predadores) para evaluar la eficacia neta del producto.",
+                            fontSize = 12.sp,
+                            color = PlagOutColors.TextSecondary,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+
+                Surface(
+                    color = PlagOutColors.Cream,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            "2. Reducción observada (Sin testigo)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PlagOutColors.Bark
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Calcula la caída porcentual simple entre el conteo previo y posterior en el lote completo. No aísla factores ambientales; refleja la reducción bruta observada.",
+                            fontSize = 12.sp,
+                            color = PlagOutColors.TextSecondary,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+
+                Text(
+                    "⚠️ Un valor negativo indica que la población de la plaga aumentó luego de la aplicación.",
+                    fontSize = 12.sp,
+                    color = PlagOutColors.RiskWarn,
+                    fontWeight = FontWeight.Medium,
+                    lineHeight = 16.sp
+                )
+
+                if (!cita.isNullOrBlank()) {
+                    Text(
+                        "Fuente metodológica: $cita",
+                        fontSize = 11.sp,
+                        color = PlagOutColors.TextSecondary,
+                        lineHeight = 15.sp
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Entendido", color = PlagOutColors.Forest, fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = PlagOutColors.Surface,
+        shape = RoundedCornerShape(20.dp)
+    )
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1278,6 +1404,12 @@ private fun BloqueCultivoCampaña(cultivo: ResumenCultivoCampaña) {
 
 @Composable
 private fun TarjetaPrevalenciaPlagas(campaña: CampañaHistorica) {
+    var mostrarInfoPrevalencia by remember { mutableStateOf(false) }
+
+    if (mostrarInfoPrevalencia) {
+        DialogoInfoPrevalencia(onDismiss = { mostrarInfoPrevalencia = false })
+    }
+
     Surface(
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(22.dp),
@@ -1285,19 +1417,32 @@ private fun TarjetaPrevalenciaPlagas(campaña: CampañaHistorica) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Icon(Icons.Outlined.Insights, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text("Prevalencia de Plagas en la Campaña", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
-                    Text("${campaña.cantidadPlagasDistintas} plagas monitoreadas • ${campaña.totalMonitoreos} seguimientos", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
+                    Text(
+                        "${campaña.cantidadPlagasDistintas} plagas monitoreadas • Presencia en lotes de la campaña",
+                        fontSize = 12.sp,
+                        color = PlagOutColors.TextSecondary,
+                        lineHeight = 16.sp
+                    )
                 }
+                BotonInfoCampo(
+                    onClick = { mostrarInfoPrevalencia = true },
+                    contentDescription = "Prevalencia versus incidencia",
+                    tint = PlagOutColors.Forest
+                )
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
 
             campaña.plagas.forEachIndexed { index, plaga ->
-                FilaPlagaPrevalencia(posicion = index + 1, plaga = plaga)
+                FilaPlagaPrevalencia(posicion = index + 1, plaga = plaga, totalMonitoreosCampaña = campaña.totalMonitoreos)
                 if (index < campaña.plagas.size - 1) {
                     Spacer(Modifier.height(12.dp))
                     HorizontalDivider(color = PlagOutColors.Divider.copy(alpha = 0.5f))
@@ -1309,7 +1454,88 @@ private fun TarjetaPrevalenciaPlagas(campaña: CampañaHistorica) {
 }
 
 @Composable
-private fun FilaPlagaPrevalencia(posicion: Int, plaga: ResumenPlagaCampaña) {
+private fun DialogoInfoPrevalencia(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Prevalencia vs. Incidencia",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = PlagOutColors.TextMain
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    "Para el análisis agronómico y territorial de la campaña, diferenciamos ambos conceptos:",
+                    fontSize = 13.sp,
+                    color = PlagOutColors.TextMain,
+                    lineHeight = 18.sp
+                )
+
+                Surface(
+                    color = PlagOutColors.Cream,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            "Prevalencia (Nivel Territorial / Campaña)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PlagOutColors.Forest
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Indica el porcentaje de lotes o monitoreos de la campaña donde la plaga fue detectada al menos una vez (presencia / ausencia). Permite identificar qué plagas están más dispersas en la región.",
+                            fontSize = 12.sp,
+                            color = PlagOutColors.TextSecondary,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+
+                Surface(
+                    color = PlagOutColors.Cream,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            "Incidencia (Nivel Lote / Monitoreo)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PlagOutColors.Bark
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Indica la proporción de plantas, hojas o espigas afectadas dentro de un lote específico en una fecha de muestreo dada. Determina si se supera el umbral de daño económico para aplicar un tratamiento.",
+                            fontSize = 12.sp,
+                            color = PlagOutColors.TextSecondary,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Entendido", color = PlagOutColors.Forest, fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = PlagOutColors.Surface,
+        shape = RoundedCornerShape(20.dp)
+    )
+}
+
+@Composable
+private fun FilaPlagaPrevalencia(posicion: Int, plaga: ResumenPlagaCampaña, totalMonitoreosCampaña: Int = 0) {
     var iniciado by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { iniciado = true }
 
