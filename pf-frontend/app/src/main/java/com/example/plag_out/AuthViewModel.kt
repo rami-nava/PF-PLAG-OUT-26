@@ -338,14 +338,6 @@ class AuthViewModel(
         }
     }
 
-    fun notificarEnlaceInvalido(mensaje: String = "El enlace de recuperación ya fue utilizado o ha expirado. Por favor, solicitá uno nuevo.") {
-        _recuperarPasswordState.value = _recuperarPasswordState.value.copy(
-            sesionDeRecuperacionActiva = false,
-            enlaceInvalido = true,
-            error = mensaje
-        )
-    }
-
     fun limpiarEstadoRecuperacion() {
         _recuperarPasswordState.value = RecuperarPasswordState()
     }

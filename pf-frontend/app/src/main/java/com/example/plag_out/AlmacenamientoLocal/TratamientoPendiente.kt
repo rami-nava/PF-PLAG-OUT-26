@@ -30,19 +30,12 @@ interface TratamientoPendienteDao {
     @Query("SELECT * FROM tratamiento_pendiente WHERE owner_id = :owner AND idempotency_key = :clave")
     suspend fun get(owner: String, clave: String): TratamientoPendiente?
 
-    @Query("SELECT * FROM tratamiento_pendiente WHERE owner_id = :owner AND tratamiento_id = :tratamiento LIMIT 1")
-    suspend fun edicionDe(owner: String, tratamiento: Int): TratamientoPendiente?
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun guardar(fila: TratamientoPendiente)
 
     /** Solo si nadie la cambió mientras se enviaba: si cambió, queda para el próximo envío. */
     @Query("DELETE FROM tratamiento_pendiente WHERE owner_id = :owner AND idempotency_key = :clave AND payload = :payload")
     suspend fun borrarSiNoCambio(owner: String, clave: String, payload: String): Int
-
-    /** El alta ya llegó al backend pero cambió mientras se enviaba: lo nuevo viaja como edición. */
-    @Query("UPDATE tratamiento_pendiente SET tratamiento_id = :tratamiento WHERE owner_id = :owner AND idempotency_key = :clave")
-    suspend fun pasarAEdicion(owner: String, clave: String, tratamiento: Int)
 
     @Query("UPDATE tratamiento_pendiente SET estado = :estado WHERE owner_id = :owner AND idempotency_key = :clave AND payload = :payload")
     suspend fun marcar(owner: String, clave: String, payload: String, estado: String)

@@ -138,7 +138,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:5.0.0-alpha.14")
+    // The code uses the OkHttp 5 API (toRequestBody, Response.code); declared directly
+    // instead of arriving through the unused logging-interceptor.
+    implementation("com.squareup.okhttp3:okhttp:5.0.0-alpha.14")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
     implementation("androidx.work:work-runtime-ktx:2.10.1")
     // Room
@@ -152,13 +154,10 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.7.5")
     ksp(libs.room.compiler)
     implementation(libs.androidx.navigation.compose)
-    implementation("com.google.maps.android:maps-compose:4.3.3")
-    implementation("com.google.android.gms:play-services-maps:18.2.0")
 
     // Supabase
     implementation(platform(libs.supabase.bom))
     implementation(libs.supabase.auth)
-    implementation(libs.supabase.postgrest)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.content.negotiation)

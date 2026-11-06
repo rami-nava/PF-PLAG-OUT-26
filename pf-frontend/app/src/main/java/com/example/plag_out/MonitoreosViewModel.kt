@@ -23,10 +23,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// La primera página es chica para mostrar algo enseguida; el resto se trae de a muchos
-const val MONITOREOS_PRIMERA_PAGINA = 20
-const val MONITOREOS_PAGINA_SIGUIENTE = 100
-
 data class MonitoreoUIState(
     var isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
