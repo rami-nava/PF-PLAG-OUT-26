@@ -11,3 +11,6 @@
 local.properties
 google-services.json
 *.code-workspace
+
+# Kotlin daemon logs
+.kotlin/

@@ -13,8 +13,6 @@ object PlagOutColors {
     val Forest = Color(0xFF264A2B)
     val ForestDark = Color(0xFF17301B)
     val Leaf = Color(0xFF4C7A3D)
-    val LeafLight = Color(0xFF8FBF74)
-    val Moss = Color(0xFFA8C68F)
 
     // Tierra / madera — acentos cálidos
     val Sun = Color(0xFFDCA23A)
