@@ -240,6 +240,14 @@ def create_document():
             "descripcion": "En cuentas de productores recién registrados que aún no han dado de alta terrenos o hectáreas, el cálculo de porcentajes del semáforo corría riesgo de generar '0 / 0 = NaN'.",
             "causa": "Falta de pruebas unitarias específicas para listas vacías en los tableros de administración agronómica.",
             "solucion": "Se creó una suite de pruebas unitarias de casos borde (AdminMetricasEdgeCasesAndBiologicalValidationTest.kt) validando que ante cero hectáreas el cálculo retorne 0.0f de forma segura y consistente."
+        },
+        {
+            "num": "BUG-05",
+            "titulo": "Fallo de Integración Continua (CI) en GitHub Actions: Ruff, Catálogo y CI Hermético",
+            "gravedad": "Alta (Bloqueante de CI)",
+            "descripcion": "Al subir la suite de pruebas al repositorio backend (plag-out), el workflow 'CI' de GitHub Actions falló en los pasos de 'ruff check', 'check_test_catalog.py --check' y 'pytest tests/'.",
+            "causa": "1) Imports no utilizados (math, sys) detectados por el linter estricto Ruff. 2) La suite de plag-out exige que cada prueba esté clasificada con su hash SHA-256 en tests/suite_catalog.json. 3) CI corre en modo hermético (sin salida a internet) asignando SUPABASE_URL=https://test.supabase.invalid, haciendo fallar las llamadas en vivo si no se condicionan.",
+            "solucion": "1) Se corrigieron los imports con ruff check --fix. 2) Se regeneró y verificó tests/suite_catalog.json con python scripts/check_test_catalog.py --refresh. 3) Se agregó detección automática en test_live_cloud_e2e_exhaustive.py para omitir (skip) las llamadas externas en el CI hermético y activarse únicamente cuando RUN_LIVE_CLOUD_TESTS=true."
         }
     ]
 
