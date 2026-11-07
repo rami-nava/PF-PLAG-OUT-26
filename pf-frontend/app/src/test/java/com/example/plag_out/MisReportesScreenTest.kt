@@ -59,7 +59,7 @@ class MisReportesScreenTest {
         compose.setContent { MaterialTheme { MisReportesScreen(viewModel, rememberNavController()) } }
 
         // Las pastillas no llevan cantidad: el total está en el encabezado, que viene del resumen.
-        compose.onNodeWithTag("tabReportesPropios").assertTextEquals("Míos")
+        compose.onNodeWithTag("tabReportesPropios").assertTextEquals("Mías")
         compose.onNodeWithTag("tabReportesComunidad").assertTextEquals("Comunidad")
         compose.onNodeWithText("Mostrando", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Filtros activos").assertDoesNotExist()

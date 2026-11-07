@@ -713,7 +713,7 @@ private fun SelectorAmbito(
                 SegmentoAmbito(
                     activo = tabSeleccionado == TAB_PROPIOS,
                     icono = Icons.Outlined.Person,
-                    etiqueta = "Míos",
+                    etiqueta = "Mías",
                     onClick = { onTabChange(TAB_PROPIOS) },
                     modifier = Modifier.testTag("tabReportesPropios")
                 )
@@ -855,7 +855,7 @@ fun TarjetaReporteItem(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Dentro de la pestaña "Míos" un chip "Propio" no aporta nada; en los
+                // Dentro de la pestaña "Mías" un chip "Propio" no aporta nada; en los
                 // ajenos lo que informa es qué tan cerca cayó.
                 if (!esPropio) {
                     Spacer(Modifier.height(8.dp))

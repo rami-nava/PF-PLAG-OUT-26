@@ -513,9 +513,9 @@ private fun HojaFiltrosMapa(
 
             GrupoFiltroPlegable(
                 icono = Icons.Outlined.Groups,
-                titulo = "ÁMBITO",
+                titulo = "¿QUIÉN LAS ALERTÓ?",
                 elegido = when (borrador.ambito) {
-                    AmbitoMapa.PROPIOS -> "Míos"
+                    AmbitoMapa.PROPIOS -> "Yo"
                     AmbitoMapa.COMUNIDAD -> "Comunidad"
                     AmbitoMapa.TODOS -> null
                 },
@@ -524,7 +524,7 @@ private fun HojaFiltrosMapa(
                 GrillaFiltro(
                     listOf(
                         CeldaFiltro(
-                            etiqueta = "Míos",
+                            etiqueta = "Yo",
                             icono = Icons.Outlined.Person,
                             color = PlagOutColors.Forest,
                             activa = borrador.ambito == AmbitoMapa.PROPIOS,
@@ -780,8 +780,8 @@ private data class FiltroActivo(
 
 private fun filtrosActivos(f: FiltrosMapa): List<FiltroActivo> = buildList {
     when (f.ambito) {
-        AmbitoMapa.PROPIOS -> add(FiltroActivo("Míos", Icons.Outlined.Person) { it.copy(ambito = AmbitoMapa.TODOS) })
-        AmbitoMapa.COMUNIDAD -> add(FiltroActivo("Comunidad", Icons.Outlined.Groups) { it.copy(ambito = AmbitoMapa.TODOS) })
+        AmbitoMapa.PROPIOS -> add(FiltroActivo("Alertadas por mí", Icons.Outlined.Person) { it.copy(ambito = AmbitoMapa.TODOS) })
+        AmbitoMapa.COMUNIDAD -> add(FiltroActivo("De la comunidad", Icons.Outlined.Groups) { it.copy(ambito = AmbitoMapa.TODOS) })
         AmbitoMapa.TODOS -> Unit
     }
     f.radioKm?.let { km -> add(FiltroActivo("A menos de $km km", Icons.Outlined.NearMe) { it.copy(radioKm = null) }) }
