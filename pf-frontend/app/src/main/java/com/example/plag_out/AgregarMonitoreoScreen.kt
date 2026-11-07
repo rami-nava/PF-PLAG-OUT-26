@@ -66,6 +66,7 @@ fun AgregarMonitoreoScreen(
     var dropdownPlantacionExpanded by remember { mutableStateOf(false) }
     var dropdownPlagaExpanded by remember { mutableStateOf(false) }
     var mostrarInfoUmbral by remember { mutableStateOf(false) }
+    var plagaExplicacionSinModelo by remember { mutableStateOf<PlagaResponse?>(null) }
 
     // Salida por la flecha o por el gesto del sistema: las dos tienen que entregar lo ya creado.
     val salir = { onBack(viewModel.consumirCreadosPendientes()) }
@@ -400,22 +401,24 @@ fun AgregarMonitoreoScreen(
                                     }
                                 }
                                 // Sin parámetros térmicos citados no hay GDD que calcular: se ven,
-                                // pero no se pueden elegir (sí se pueden reportar).
+                                // pero no se pueden elegir (sí se pueden reportar). Al tocar se explica el motivo agronómico.
                                 if (plantacionElegida != null) {
                                     state.plagasSinModelo.forEach { plaga ->
                                         DropdownMenuItem(
-                                            enabled = false,
                                             text = {
                                                 Column {
                                                     Text(plaga.nombre, color = PlagOutColors.TextSecondary)
                                                     Text(
-                                                        "Sin modelo térmico validado · solo reportes",
+                                                        "Sin modelo térmico validado · solo reportes (tocá para más info)",
                                                         fontSize = 12.sp,
-                                                        color = PlagOutColors.TextSecondary
+                                                        color = PlagOutColors.Leaf
                                                     )
                                                 }
                                             },
-                                            onClick = {},
+                                            onClick = {
+                                                dropdownPlagaExpanded = false
+                                                plagaExplicacionSinModelo = plaga
+                                            },
                                             modifier = Modifier.testTag("plagaSinModelo_${plaga.id}")
                                         )
                                     }
@@ -508,6 +511,36 @@ fun AgregarMonitoreoScreen(
         UmbralDeRiesgoSheet(
             umbralActual = state.umbralDeRiesgo,
             onDismiss = { mostrarInfoUmbral = false }
+        )
+    }
+
+    plagaExplicacionSinModelo?.let { plaga ->
+        AlertDialog(
+            onDismissRequest = { plagaExplicacionSinModelo = null },
+            title = {
+                Text(
+                    "Plaga sin modelo térmico de GDD",
+                    fontWeight = FontWeight.Bold,
+                    color = PlagOutColors.TextMain
+                )
+            },
+            text = {
+                Text(
+                    "La especie \"${plaga.nombre}\" (${plaga.nombre_cientifico}) no cuenta actualmente con un modelo de grados-día (GDD) validado por INTA/SENASA en el sistema para proyectar eclosiones automáticas.\n\n" +
+                    "Podés registrar avistamientos y observaciones de campo de esta plaga en cualquier momento desde el módulo de Alertas (\"Nueva Alerta\").",
+                    fontSize = 14.sp,
+                    color = PlagOutColors.TextSecondary,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { plagaExplicacionSinModelo = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = PlagOutColors.Forest)
+                ) {
+                    Text("Entendido")
+                }
+            }
         )
     }
 }

@@ -377,12 +377,23 @@ private fun DialogoTratamiento(
                 )
             }
 
+            val aplicacionEsHoy = form.fechaAplicacion == hoy
             FilaInterruptor(
                 titulo = "Ya tengo el conteo posterior",
-                detalle = "Si todavía no, lo cargás después desde la tarjeta del tratamiento.",
+                detalle = if (aplicacionEsHoy) {
+                    "Para aplicaciones de hoy, el conteo posterior se registra en los días siguientes. Si aplicaste en días previos, ajustá la Fecha de aplicación."
+                } else {
+                    "Si todavía no, lo cargás después desde la tarjeta del tratamiento."
+                },
                 activo = form.conDespues,
                 tag = "swConteoPosterior"
-            ) { activo -> form = form.copy(conDespues = activo, fechaConteoDespues = form.fechaConteoDespues ?: hoy) }
+            ) { activo ->
+                if (activo && aplicacionEsHoy) {
+                    Avisos.error("Para registrar el conteo posterior, la aplicación debe haber ocurrido antes de hoy. Si aplicaste días atrás, ajustá la fecha arriba.")
+                } else {
+                    form = form.copy(conDespues = activo, fechaConteoDespues = if (activo) (form.fechaConteoDespues ?: hoy) else null)
+                }
+            }
             if (form.conDespues) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
                     CampoFormularioAdmin(
@@ -482,18 +493,28 @@ private fun CampoFecha(
             Spacer(Modifier.width(8.dp))
             Text(fecha?.format(FORMATO_FECHA) ?: "Elegir", color = PlagOutColors.TextMain, fontSize = 14.sp)
         }
+        if (minima != null && error == null) {
+            Text(
+                "Entre ${minima.format(FORMATO_FECHA)} y ${maxima.format(FORMATO_FECHA)}",
+                fontSize = 11.sp,
+                color = PlagOutColors.TextSecondary,
+                modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+            )
+        }
         error?.let { Text(it, color = PlagOutColors.RiskDanger, fontSize = 11.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp)) }
     }
     if (abierto) {
+        val minimaEfectiva = if (minima != null && minima <= maxima) minima else null
+        val fechaInicial = fecha?.takeIf { !it.isAfter(maxima) && (minimaEfectiva == null || !it.isBefore(minimaEfectiva)) } ?: maxima
         val calendario = rememberDatePickerState(
-            initialSelectedDateMillis = (fecha ?: maxima).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            initialSelectedDateMillis = fechaInicial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
             selectableDates = object : SelectableDates {
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
                     val dia = Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneOffset.UTC).toLocalDate()
-                    return !dia.isAfter(maxima) && (minima == null || !dia.isBefore(minima))
+                    return !dia.isAfter(maxima) && (minimaEfectiva == null || !dia.isBefore(minimaEfectiva))
                 }
 
-                override fun isSelectableYear(year: Int): Boolean = year <= maxima.year && (minima == null || year >= minima.year)
+                override fun isSelectableYear(year: Int): Boolean = year <= maxima.year && (minimaEfectiva == null || year >= minimaEfectiva.year)
             }
         )
         DatePickerDialog(

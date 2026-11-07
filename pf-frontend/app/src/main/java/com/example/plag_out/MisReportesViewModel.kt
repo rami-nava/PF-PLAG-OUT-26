@@ -16,6 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.jan.supabase.exceptions.HttpRequestException
@@ -144,14 +145,14 @@ class MisReportesViewModel(
     fun cargarRadioNotificacion() {
         if (cargaRadio?.isActive == true) return
         cargaRadio = viewModelScope.launch {
-            val cacheado = withContext(Dispatchers.IO) { usuarioRepository?.obtenerUsuario() }
+            val cacheado = withContext(reportesDispatcher) { usuarioRepository?.obtenerUsuario() }
             if (cacheado != null) aplicarRadio(cacheado.radio_notificacion_km)
             try {
-                val response = withContext(Dispatchers.IO) { gddService.getUsuarioActual() }
+                val response = withContext(reportesDispatcher) { gddService.getUsuarioActual() }
                 val user = response.body()
                 if (response.isSuccessful && user != null) {
                     aplicarRadio(user.radio_notificacion_km)
-                    withContext(Dispatchers.IO) { usuarioRepository?.guardarUsuario(user) }
+                    withContext(reportesDispatcher) { usuarioRepository?.guardarUsuario(user) }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -162,39 +163,42 @@ class MisReportesViewModel(
     }
 
     private fun aplicarRadio(radioKm: Double) {
-        val estado = _state.value
-        // Mientras se guarda un radio nuevo, la respuesta de guardarRadioNotificacion manda.
-        if (estado.guardandoRadio) return
-        _state.value = estado.copy(
-            radioNotificacionKm = radioKm,
-            radioCargado = true,
-            // Con el diálogo abierto no se pisa lo que el usuario está moviendo en el slider.
-            radioTemporalKm = if (estado.mostrarDialogoRadio) estado.radioTemporalKm else radioKm.toFloat()
-        )
+        _state.update { estado ->
+            // Mientras se guarda un radio nuevo, la respuesta de guardarRadioNotificacion manda.
+            if (estado.guardandoRadio) estado
+            else estado.copy(
+                radioNotificacionKm = radioKm,
+                radioCargado = true,
+                // Con el diálogo abierto no se pisa lo que el usuario está moviendo en el slider.
+                radioTemporalKm = if (estado.mostrarDialogoRadio) estado.radioTemporalKm else radioKm.toFloat()
+            )
+        }
     }
 
     fun abrirConfiguracionRadio() {
-        _state.value = _state.value.copy(
-            mostrarDialogoRadio = true,
-            radioTemporalKm = _state.value.radioNotificacionKm.toFloat()
-        )
+        _state.update {
+            it.copy(
+                mostrarDialogoRadio = true,
+                radioTemporalKm = it.radioNotificacionKm.toFloat()
+            )
+        }
     }
 
     fun onRadioTemporalChange(nuevoRadio: Float) {
-        _state.value = _state.value.copy(radioTemporalKm = nuevoRadio)
+        _state.update { it.copy(radioTemporalKm = nuevoRadio) }
     }
 
     fun cerrarConfiguracionRadio() {
-        _state.value = _state.value.copy(mostrarDialogoRadio = false)
+        _state.update { it.copy(mostrarDialogoRadio = false) }
     }
 
     fun guardarRadioNotificacion(onSuccess: (() -> Unit)? = null) {
         val nuevoRadio = _state.value.radioTemporalKm.toDouble()
         val radioAnterior = _state.value.radioNotificacionKm
-        _state.value = _state.value.copy(guardandoRadio = true)
+        _state.update { it.copy(guardandoRadio = true) }
         viewModelScope.launch {
             try {
-                val response = withContext(Dispatchers.IO) {
+                val response = withContext(reportesDispatcher) {
                     gddService.actualizarUsuario(
                         UpdateUserRequest(radio_notificacion_km = nuevoRadio)
                     )
@@ -205,19 +209,21 @@ class MisReportesViewModel(
                     if (radioFinal != radioAnterior && _state.value.distanciaListadoKm == null) {
                         reiniciarComunidad()
                     }
-                    _state.value = _state.value.copy(
-                        radioNotificacionKm = radioFinal,
-                        radioCargado = true,
-                        radioTemporalKm = radioFinal.toFloat(),
-                        guardandoRadio = false,
-                        mostrarDialogoRadio = false
-                    )
+                    _state.update {
+                        it.copy(
+                            radioNotificacionKm = radioFinal,
+                            radioCargado = true,
+                            radioTemporalKm = radioFinal.toFloat(),
+                            guardandoRadio = false,
+                            mostrarDialogoRadio = false
+                        )
+                    }
                     if (usuarioActualizado != null) {
-                        withContext(Dispatchers.IO) { usuarioRepository?.guardarUsuario(usuarioActualizado) }
+                        withContext(reportesDispatcher) { usuarioRepository?.guardarUsuario(usuarioActualizado) }
                     } else {
-                        val local = withContext(Dispatchers.IO) { usuarioRepository?.obtenerUsuario() }
+                        val local = withContext(reportesDispatcher) { usuarioRepository?.obtenerUsuario() }
                         if (local != null) {
-                            withContext(Dispatchers.IO) {
+                            withContext(reportesDispatcher) {
                                 usuarioRepository?.guardarUsuario(local.copy(radio_notificacion_km = radioFinal))
                             }
                         }
@@ -225,7 +231,7 @@ class MisReportesViewModel(
                     Avisos.exito("Radio de notificación actualizado.")
                     onSuccess?.invoke()
                 } else {
-                    _state.value = _state.value.copy(guardandoRadio = false)
+                    _state.update { it.copy(guardandoRadio = false) }
                     Avisos.error(
                         errorDeRespuesta(
                             response, ERRORES_PERFIL,
@@ -235,7 +241,7 @@ class MisReportesViewModel(
                 }
             } catch (e: Exception) {
                 Log.e("MIS_REPORTES", "Error al guardar radio de notificación: ${e.message}")
-                _state.value = _state.value.copy(guardandoRadio = false)
+                _state.update { it.copy(guardandoRadio = false) }
                 Avisos.error(errorDeExcepcion(e).mensaje)
             }
         }
@@ -246,15 +252,18 @@ class MisReportesViewModel(
         // Después de limpiar() (cierre de sesión) el radio vuelve al valor por defecto.
         if (!_state.value.radioCargado) cargarRadioNotificacion()
         val ambito = _state.value.ambito
-        if (forzar || !_state.value.listado(ambito).cargado && cargas[ambito]?.isActive != true) {
-            cargarPrimeraPagina(ambito, avisarSiFalla)
+        val listado = _state.value.listado(ambito)
+        if (forzar || !listado.cargado || listado.desactualizado) {
+            if (cargas[ambito]?.isActive != true) {
+                cargarPrimeraPagina(ambito, avisarSiFalla)
+            }
         }
         if (cargaOpciones == null) cargarOpcionesFiltros()
     }
 
     fun seleccionarAmbito(ambito: AmbitoReportes) {
         if (_state.value.ambito == ambito) return
-        _state.value = _state.value.copy(ambito = ambito)
+        _state.update { it.copy(ambito = ambito) }
         val listado = _state.value.listado(ambito)
         if ((!listado.cargado || listado.desactualizado) && cargas[ambito]?.isActive != true) {
             cargarPrimeraPagina(ambito, avisarSiFalla = false)
@@ -275,10 +284,12 @@ class MisReportesViewModel(
     fun actualizarFiltros(filtros: FiltrosReportes) {
         val ambito = _state.value.ambito
         if (_state.value.filtros(ambito) == filtros) return
-        _state.value = if (ambito == AmbitoReportes.PROPIOS) {
-            _state.value.copy(filtrosPropios = filtros)
-        } else {
-            _state.value.copy(filtrosComunidad = filtros)
+        _state.update {
+            if (ambito == AmbitoReportes.PROPIOS) {
+                it.copy(filtrosPropios = filtros)
+            } else {
+                it.copy(filtrosComunidad = filtros)
+            }
         }
         cargas[ambito]?.cancel()
         actualizar(ambito) { ListadoReportes() }
@@ -289,7 +300,7 @@ class MisReportesViewModel(
     fun limpiarFiltros() {
         val ambito = _state.value.ambito
         if (ambito == AmbitoReportes.COMUNIDAD && _state.value.distanciaListadoKm != null) {
-            _state.value = _state.value.copy(distanciaListadoKm = null, filtrosComunidad = FiltrosReportes())
+            _state.update { it.copy(distanciaListadoKm = null, filtrosComunidad = FiltrosReportes()) }
             reiniciarComunidad()
         } else {
             actualizarFiltros(FiltrosReportes())
@@ -453,10 +464,12 @@ class MisReportesViewModel(
             val plagas = runCatching {
                 withContext(reportesDispatcher) { gddService.todasLasPlagas() }.body()
             }.onFailure { if (it is CancellationException) throw it }.getOrNull()
-            _state.value = _state.value.copy(
-                terrenos = terrenos.orEmpty().sortedBy { it.terreno_nombre.lowercase() },
-                plagas = plagas.orEmpty().sortedBy { it.nombre.lowercase() }
-            )
+            _state.update {
+                it.copy(
+                    terrenos = terrenos.orEmpty().sortedBy { t -> t.terreno_nombre.lowercase() },
+                    plagas = plagas.orEmpty().sortedBy { p -> p.nombre.lowercase() }
+                )
+            }
         }
     }
 
@@ -474,11 +487,12 @@ class MisReportesViewModel(
     }
 
     private fun actualizar(ambito: AmbitoReportes, cambio: (ListadoReportes) -> ListadoReportes) {
-        val estado = _state.value
-        _state.value = if (ambito == AmbitoReportes.PROPIOS) {
-            estado.copy(propios = cambio(estado.propios))
-        } else {
-            estado.copy(comunidad = cambio(estado.comunidad))
+        _state.update { estado ->
+            if (ambito == AmbitoReportes.PROPIOS) {
+                estado.copy(propios = cambio(estado.propios))
+            } else {
+                estado.copy(comunidad = cambio(estado.comunidad))
+            }
         }
     }
 
@@ -487,7 +501,7 @@ class MisReportesViewModel(
 
     fun eliminarReporte(reporteId: Int, onResultado: (error: String?) -> Unit) {
         if (reporteId in _state.value.eliminando) return
-        _state.value = _state.value.copy(eliminando = _state.value.eliminando + reporteId)
+        _state.update { it.copy(eliminando = it.eliminando + reporteId) }
         viewModelScope.launch {
             val error = try {
                 val response = withContext(reportesDispatcher) { gddService.deleteReporte(reporteId) }
@@ -510,7 +524,7 @@ class MisReportesViewModel(
                 Log.e("MIS_REPORTES", "Error al eliminar el reporte $reporteId", e)
                 errorDeExcepcion(e).mensaje
             }
-            _state.value = _state.value.copy(eliminando = _state.value.eliminando - reporteId)
+            _state.update { it.copy(eliminando = it.eliminando - reporteId) }
             onResultado(error)
         }
     }
@@ -542,14 +556,14 @@ class MisReportesViewModel(
 
     fun actualizarDistanciaListado(distanciaKm: Int?) {
         if (_state.value.distanciaListadoKm == distanciaKm) return
-        _state.value = _state.value.copy(distanciaListadoKm = distanciaKm)
+        _state.update { it.copy(distanciaListadoKm = distanciaKm) }
         reiniciarComunidad()
     }
 
     private fun reiniciarComunidad() {
         cargas[AmbitoReportes.COMUNIDAD]?.cancel()
         cargasResumen[AmbitoReportes.COMUNIDAD]?.cancel()
-        _state.value = _state.value.copy(comunidad = ListadoReportes())
+        _state.update { it.copy(comunidad = ListadoReportes()) }
         if (_state.value.ambito == AmbitoReportes.COMUNIDAD) {
             cargarPrimeraPagina(AmbitoReportes.COMUNIDAD, avisarSiFalla = false)
         }
@@ -570,12 +584,14 @@ class MisReportesViewModel(
     fun actualizarFechas(desde: LocalDate, hasta: LocalDate) {
         cargas.values.forEach { it.cancel() }
         cargasResumen.values.forEach { it.cancel() }
-        _state.value = _state.value.copy(
-            fechaDesde = desde,
-            fechaHasta = hasta,
-            propios = ListadoReportes(),
-            comunidad = ListadoReportes()
-        )
+        _state.update {
+            it.copy(
+                fechaDesde = desde,
+                fechaHasta = hasta,
+                propios = ListadoReportes(),
+                comunidad = ListadoReportes()
+            )
+        }
         cargarPrimeraPagina(_state.value.ambito, avisarSiFalla = false)
     }
 }

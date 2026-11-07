@@ -112,9 +112,14 @@ class UserExperienceAndModulesExhaustiveTest {
     fun `captura manual de fecha de reporte preserva el instante seleccionado`() {
         val timestampInicial = System.currentTimeMillis()
         val context: Context = ApplicationProvider.getApplicationContext()
+        val fakeGDD = FakeGDDService().apply {
+            getTerrenosResult = { retrofit2.Response.success(emptyList()) }
+            getPlantacionesResult = { retrofit2.Response.success(emptyList()) }
+            getPlagasResult = { retrofit2.Response.success(emptyList()) }
+        }
         val viewModel = CrearReporteViewModel(
             context = context,
-            gddService = FakeGDDService(),
+            gddService = fakeGDD,
             currentOwner = { "test-owner" }
         )
 
@@ -269,5 +274,53 @@ class UserExperienceAndModulesExhaustiveTest {
         val tasaRiesgoAlto = campanaActual.riesgoAlto.toDouble() / campanaActual.totalMonitoreos.toDouble()
         assertEquals(0.357, tasaRiesgoAlto, 0.01)
         assertEquals(35.71f, campanaActual.porcentajeRiesgoAlto, 0.1f)
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 5. TRATAMIENTOS Y VALIDACIÓN DE CONTEO POSTERIOR (RESOLUCIÓN DE CONFLICTO)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `tratamiento aplicado hoy orienta claramente sobre conteo posterior en dias siguientes`() {
+        val hoy = LocalDate.of(2026, 11, 7)
+        val inicio = LocalDate.of(2026, 11, 1)
+
+        val formHoyConDespues = FormularioTratamiento(
+            fechaAplicacion = hoy,
+            producto = "Clorantraniliprole",
+            unidad = UnidadConteo.POR_METRO_LINEAL,
+            conteoAntes = "15",
+            fechaConteoAntes = hoy,
+            conDespues = true,
+            conteoDespues = "2",
+            fechaConteoDespues = hoy
+        )
+
+        val errores = validarTratamiento(formHoyConDespues, inicio, hoy)
+        assertTrue(errores.containsKey(CampoTratamiento.FECHA_CONTEO_DESPUES))
+        assertEquals(
+            "Si aplicaste hoy, el conteo posterior se registra en los días posteriores",
+            errores[CampoTratamiento.FECHA_CONTEO_DESPUES]
+        )
+    }
+
+    @Test
+    fun `tratamiento aplicado dias atras permite conteo posterior hoy con exito`() {
+        val hoy = LocalDate.of(2026, 11, 7)
+        val inicio = LocalDate.of(2026, 11, 1)
+
+        val formPasado = FormularioTratamiento(
+            fechaAplicacion = LocalDate.of(2026, 11, 3),
+            producto = "Clorantraniliprole",
+            unidad = UnidadConteo.POR_METRO_LINEAL,
+            conteoAntes = "20",
+            fechaConteoAntes = LocalDate.of(2026, 11, 2),
+            conDespues = true,
+            conteoDespues = "3",
+            fechaConteoDespues = hoy
+        )
+
+        val errores = validarTratamiento(formPasado, inicio, hoy)
+        assertTrue("No debe haber errores al evaluar eficacia de aplicación pasada", errores.isEmpty())
     }
 }

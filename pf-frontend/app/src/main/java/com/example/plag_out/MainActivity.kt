@@ -369,13 +369,9 @@ fun AppNavigation(
         esperaAgotada = true
     }
 
-    if (sessionStatus is SessionStatus.Initializing && !forzarLogin) {
-        PantallaCargandoSesion(
-            esperaAgotada = esperaAgotada,
-            onIrAlLogin = { forzarLogin = true }
-        )
-        return
-    }
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+
     // El rol guardado en el último login decide de qué lado de la app se arranca: las cuentas
     // admin solo ven el panel de administración.
     val startDestination = remember {
@@ -384,8 +380,13 @@ fun AppNavigation(
         else "logIn"
     }
 
-    val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    if (sessionStatus is SessionStatus.Initializing && !forzarLogin) {
+        PantallaCargandoSesion(
+            esperaAgotada = esperaAgotada,
+            onIrAlLogin = { forzarLogin = true }
+        )
+        return
+    }
 
     // Manejo de Deep link para restablecimiento de contraseña
     LaunchedEffect(deepLinkRecuperarPassword, deepLinkRecuperarPasswordError) {
