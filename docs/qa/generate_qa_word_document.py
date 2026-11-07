@@ -275,6 +275,22 @@ def create_document():
             "descripcion": "Al realizar zoom profundo con dos dedos (pinch-to-zoom) en el mapa de reportes y de selección de terreno, aparecían cuadros grises vacíos y el mapa vibraba bruscamente.",
             "causa": "La vista de mapa tenía configurado un zoom máximo de 22.0 ('maxZoomLevel = 22.0'), pero los servidores públicos de teselas OpenStreetMap solo proveen imágenes hasta el nivel 19. Al sobrepasar 19, el motor no encuentra teselas y dibuja fondo gris. Además, faltaba escalar por densidad de pantalla ('isTilesScaledToDpi = true').",
             "solucion": "En MapaReportesScreen.kt y SelectLocationScreen.kt se configuró 'isTilesScaledToDpi = true' y se limitó estrictamente 'maxZoomLevel = 19.0', garantizando un zoom fluido, nítido y sin cuadros grises."
+        },
+        {
+            "num": "BUG-09",
+            "titulo": "Condición de Carrera en CI (GitHub Actions) en Carga de Radio de Notificación",
+            "gravedad": "Alta (Bloqueo de Pipeline CI)",
+            "descripcion": "En el entorno de integración continua automatizado de GitHub Actions (runner Linux de 2 vCPUs), el test unitario 'despues de limpiar, entrar a la pantalla vuelve a cargar el radio' fallaba esporádicamente con java.lang.AssertionError en MisReportesViewModelTest.kt:328.",
+            "causa": "En MisReportesViewModel.kt, los métodos cargarRadioNotificacion() y guardarRadioNotificacion() utilizaban 'withContext(Dispatchers.IO)' codificado de forma estática en lugar del dispatcher inyectado 'reportesDispatcher'. En pruebas unitarias, el scheduler virtual (TestCoroutineScheduler) no gobernaba los hilos reales del pool de Dispatchers.IO, desatando carreras donde la aserción se ejecutaba antes de que el hilo background completara la actualización del estado. Además, se usaba '_state.value = estado.copy(...)' en lugar de mutaciones atómicas.",
+            "solucion": "Se migraron todas las llamadas de red y base local en MisReportesViewModel al 'reportesDispatcher' inyectado y se adoptó '_state.update { estado -> ... }' para todas las mutaciones de estado, garantizando determinismo estricto en CI y seguridad absoluta entre hilos concurrentes."
+        },
+        {
+            "num": "BUG-10",
+            "titulo": "Fuga de Corrutina en Background en Pruebas de Experiencia de Usuario",
+            "gravedad": "Media (Falso Positivo en Cascada)",
+            "descripcion": "El test VerReporteScreenTest fallaba de forma intermitente con 'kotlinx.coroutines.test.UncaughtExceptionsBeforeTest' al ejecutarse la suite completa.",
+            "causa": "En UserExperienceAndModulesExhaustiveTest.kt, la prueba de captura manual de fecha instanciaba CrearReporteViewModel con un FakeGDDService() sin respuestas simuladas de catálogo. Como CrearReporteViewModel dispara en su bloque init corrutinas en background para traer terrenos, plagas y plantaciones, FakeGDDService arrojaba AssertionError ('El test no declaró una respuesta...'), quedando la excepción flotando en Dispatchers.IO y siendo capturada por el test runner al iniciar la suite siguiente.",
+            "solucion": "Se inicializaron stubs seguros de catálogo (listas vacías) en FakeGDDService dentro de UserExperienceAndModulesExhaustiveTest.kt, aislando las corrutinas y logrando que los 458 tests unitarios pasen al 100% sin excepciones no capturadas."
         }
     ]
 
