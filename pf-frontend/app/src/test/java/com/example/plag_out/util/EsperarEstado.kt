@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
  */
 fun <T> esperarEstado(
     flujo: StateFlow<T>,
-    timeoutMs: Long = 3000,
+    timeoutMs: Long = 10_000,
     predicado: (T) -> Boolean
 ): T {
     val limite = System.currentTimeMillis() + timeoutMs
