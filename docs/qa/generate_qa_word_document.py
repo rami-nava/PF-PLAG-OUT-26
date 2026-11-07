@@ -39,18 +39,18 @@ def create_document():
     title_p = doc.add_paragraph()
     title_p.paragraph_format.space_before = Pt(0)
     title_p.paragraph_format.space_after = Pt(4)
-    run_title = title_p.add_run("INFORME DE ASEGURAMIENTO DE CALIDAD (QA)")
+    run_title = title_p.add_run("INFORME DE ASEGURAMIENTO DE CALIDAD (QA) Y PRUEBAS DE USUARIO")
     run_title.font.name = "Arial"
-    run_title.font.size = Pt(20)
+    run_title.font.size = Pt(18)
     run_title.font.bold = True
     run_title.font.color.rgb = COLOR_PRIMARY
 
     sub_p = doc.add_paragraph()
     sub_p.paragraph_format.space_before = Pt(0)
     sub_p.paragraph_format.space_after = Pt(14)
-    run_sub = sub_p.add_run("Plag-Out — Gestión Inteligente de Cultivos\nAuditoría Integral, Pruebas en Vercel/Supabase, UX, Campañas Agrícolas y Detección de Fallas")
+    run_sub = sub_p.add_run("Plag-Out — Gestión Inteligente de Cultivos\nAuditoría Integral, Pruebas en Vercel/Supabase, Pruebas de Usuario y Correcciones por Feedback")
     run_sub.font.name = "Arial"
-    run_sub.font.size = Pt(12)
+    run_sub.font.size = Pt(11.5)
     run_sub.font.bold = True
     run_sub.font.color.rgb = COLOR_SECONDARY
 
@@ -60,8 +60,8 @@ def create_document():
     meta_table.autofit = False
 
     meta_data = [
-        [("Fecha de Auditoría:", " Noviembre 2026"), ("Versión del Sistema:", " 2.0 (Release Candidate - Build 3)")],
-        [("Entorno Evaluado:", " Nube Productiva (Vercel + Supabase) y Android"), ("Dictamen Final:", " APROBADO 100% — CERO BUGS PENDIENTES")]
+        [("Fecha de Auditoría:", " Noviembre 2026"), ("Versión del Sistema:", " 2.0 (Release Candidate - Build 4)")],
+        [("Entorno Evaluado:", " Nube Productiva (Vercel + Supabase) y Xiaomi Redmi"), ("Dictamen Final:", " APROBADO 100% — CERO BUGS PENDIENTES")]
     ]
 
     for row_idx, row in enumerate(meta_table.rows):
@@ -96,7 +96,7 @@ def create_document():
         p.paragraph_format.keep_with_next = True
         run = p.add_run(title)
         run.font.name = "Arial"
-        run.font.size = Pt(13)
+        run.font.size = Pt(12.5)
         run.font.bold = True
         run.font.color.rgb = COLOR_PRIMARY
 
@@ -108,8 +108,7 @@ def create_document():
     r = p_res.add_run(
         "En el marco del cierre de proyecto y preparación para la defensa final y demostración en vivo de Plag-Out, "
         "se ejecutó una batería exhaustiva de pruebas de caja blanca, caja negra, integración en la nube, pruebas unitarias, "
-        "validaciones de experiencia de usuario (UX) y auditorías de seguridad sobre todo el código recientemente integrado por los integrantes del equipo "
-        "(26 commits en el repositorio de Frontend y 49 commits en el Backend). "
+        "pruebas con usuarios reales (incluyendo feedback de pruebas de campo de usuario no técnico) y auditorías de seguridad sobre todo el sistema. "
         "Las pruebas se configuraron deliberadamente contra la infraestructura pública productiva (Vercel Serverless y Supabase PostgreSQL), "
         "garantizando que la aplicación móvil responda con fluidez a la realidad operativa del campo y no a simulaciones de red local."
     )
@@ -134,10 +133,10 @@ def create_document():
         r.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
 
     rows_summary_data = [
-        ("Tests Unitarios y de Componentes Android", "455 pruebas unitarias", "100% Exitosos (0 fallos)"),
+        ("Tests Unitarios y de Componentes Android", "458 pruebas unitarias", "100% Exitosos (0 fallos)"),
         ("Tests de Integración y E2E en Vercel Cloud", "8 suites maestras", "100% Exitosos (0 fallos)"),
         ("Auditoría de Seguridad y Aislamiento IDOR", "Multi-tenant (3 roles/cuentas)", "100% Aislado (0 filtraciones)"),
-        ("UX & Usabilidad (Borrado, Fechas, Zoom Mapas)", "Suite Integral de Usuario", "100% Verificado y Fluido"),
+        ("Pruebas de Usuario & Feedback No Técnico", "7 observaciones analizadas y resueltas", "100% Incorporado y Verificado"),
         ("Instalación y Ejecución en Celular Real", "Xiaomi Redmi Note 13 Pro 5G", "APK 2.0 Operativa en Producción")
     ]
     for r_idx, (c1, c2, c3) in enumerate(rows_summary_data, start=1):
@@ -207,7 +206,7 @@ def create_document():
     p_bugs.paragraph_format.space_after = Pt(6)
     r = p_bugs.add_run(
         "Durante las sesiones de aseguramiento de calidad y de usabilidad práctica en campo se identificaron y subsanaron "
-        "8 fallas (funcionales, de integración, de CI y de experiencia de usuario) que ponían en riesgo la estabilidad del sistema:"
+        "8 fallas principales que ponían en riesgo la estabilidad del sistema:"
     )
     r.font.name = "Arial"
     r.font.size = Pt(10)
@@ -258,8 +257,8 @@ def create_document():
             "titulo": "Dificultad de Borrado Completo y Escritura en Campos de Texto (UX)",
             "gravedad": "Media (Fricción de Usuario)",
             "descripcion": "Usuarios informaron que no podían borrar texto completamente o que al intentar tipear decimales/números el cursor se trababa o no se podía vaciar la casilla sin pulsar reiteradamente la tecla borrar.",
-            "causa": "Falta de acción de borrado en 1 toque (trailing icon) en pantallas clave como Login (email) y Alta de Terreno (nombre); y regex numéricos que no toleraban transitoriamente la cadena vacía '' ni puntos sueltos durante el tipeo.",
-            "solucion": "Se integró el ícono de vaciado rápido 'Icons.Default.Close' en LogInScreen.kt y DatosDelTerrenoScreen.kt. Se blindó la validación en ViewModel/Screen admitiendo cadena vacía y normalización automática de coma por punto decimal."
+            "causa": "Falta de acción de borrado en 1 toque (trailing icon) en pantallas clave como Login (email), Alta de Terreno (nombre, hectáreas), Perfil (nombre, apellido) y Tratamientos; y regex numéricos que no toleraban transitoriamente la cadena vacía '' ni puntos sueltos durante el tipeo.",
+            "solucion": "Se integró el ícono de vaciado rápido 'Icons.Default.Close' en LogInScreen.kt, DatosDelTerrenoScreen.kt, EditarPerfilScreen.kt y en CampoFormularioAdmin (AdminUI.kt) para todos los campos de tratamiento y administración. Se blindó la validación en ViewModel/Screen admitiendo cadena vacía y normalización automática de coma por punto decimal."
         },
         {
             "num": "BUG-07",
@@ -394,7 +393,7 @@ def create_document():
     p_front.paragraph_format.space_after = Pt(6)
     r = p_front.add_run(
         "Se integraron dos nuevas suites especializadas: 'AdminMetricasEdgeCasesAndBiologicalValidationTest.kt' "
-        "y 'UserExperienceAndModulesExhaustiveTest.kt', alcanzando un total de 455 pruebas unitarias automatizadas con 100% de éxito:"
+        "y 'UserExperienceAndModulesExhaustiveTest.kt', alcanzando un total de 458 pruebas unitarias automatizadas con 100% de éxito:"
     )
     r.font.name = "Arial"
     r.font.size = Pt(10)
@@ -406,7 +405,7 @@ def create_document():
         ("Límite Físico de Zoom en Mapas OSM: ", "Valida que las llamadas de zoom se acoten a 19.0 para no solicitar teselas inexistentes a los servidores de OpenStreetMap."),
         ("Filtrado Defensivo de Coordenadas en Mapa: ", "Ignora reportes con latitud o longitud nulas evitando colapsos de interfaz (NPE)."),
         ("Métricas y Campañas Multi-Regionales: ", "Comprueba que la agregación de hectáreas, plagas predominantes y tasas de severidad se compute exactamente."),
-        ("Lotes en espera de Biofix vs sin monitoreo: ", "Verifica que los lotes con monitoreo activo que aún no han fijado su Biofix inicial no eleven falsamente el semáforo de riesgo."),
+        ("Resolución de Conflcto en Tratamientos y Conteo Posterior: ", "Verifica que tratamientos de días previos permitan conteo posterior hoy, y que aplicaciones del día de hoy orienten al usuario a esperar el período de eficacia en días posteriores."),
         ("Límites del rectángulo territorial argentino: ", "Comprueba que la función de validación acepte coordenadas de todo el territorio nacional (La Quiaca, Pergamino, Junín, Balcarce, Río Cuarto, Ushuaia).")
     ]
     for b_title, b_desc in unit_bullets:
@@ -506,18 +505,127 @@ def create_document():
 
     doc.add_paragraph().paragraph_format.space_after = Pt(8)
 
-    # Sección 8: Dictamen Final
-    add_section_header("8. Dictamen de Certificación Final")
+    # Sección 8: Auditoría y Correcciones por Feedback de Pruebas de Usuario
+    add_section_header("8. Auditoría y Correcciones por Feedback de Pruebas de Usuario (Pruebas de Campo de Amigo No Técnico)")
+    p_feedback = doc.add_paragraph()
+    p_feedback.paragraph_format.space_after = Pt(6)
+    r = p_feedback.add_run(
+        "Se analizaron detalladamente las 7 capturas de pantalla y observaciones aportadas por un usuario no técnico "
+        "(ubicadas en la carpeta 'Documents/Testeo usuarios'). Se discriminó lo pertinente para el dominio agronómico "
+        "y se implementaron soluciones definitivas en la nueva rama 'correcciones-por-feedback-usuario':"
+    )
+    r.font.name = "Arial"
+    r.font.size = Pt(10)
+
+    feedback_cases = [
+        {
+            "num": "FEEDBACK-01 (Captura 14:25:34)",
+            "obs": "Apenas cargué las alertas me figuraba en 0, tuve que actualizar para que las pueda ver.",
+            "analisis": "VÁLIDO. En MisReportesScreen, al retornar tras crear un reporte, el ViewModel no recargaba automáticamente la lista porque el flag de carga interna ya figuraba en true.",
+            "solucion": "Se configuró 'cargarReportes(forzar = true)' al entrar a MisReportesScreen y se agregó comprobación de 'listado.desactualizado' en MisReportesViewModel. Al guardar una nueva alerta, la pantalla se refresca inmediatamente mostrando el nuevo reporte sin necesidad de swipe manual."
+        },
+        {
+            "num": "FEEDBACK-02 (Captura 14:25:45)",
+            "obs": "No funciona bien el botón de borrar texto que marco ahí.",
+            "analisis": "VÁLIDO. El usuario intentaba borrar el texto de 'Nombre del terreno' y se confundía con el tirador táctil del cursor de Android. Los campos de texto carecían de un botón rápido de vaciado.",
+            "solucion": "Se incorporó un icono de limpieza rápida ('Icons.Default.Close') en trailingIcon en todos los formularios de la app: Login, Datos del Terreno (Nombre y Hectáreas), Perfil (Nombre y Apellido) y en CampoFormularioAdmin (AdminUI.kt) para todos los campos de tratamientos y administración."
+        },
+        {
+            "num": "FEEDBACK-03 (Captura 14:26:02)",
+            "obs": "No permite agregar fecha de siembra previa a 1 año.",
+            "analisis": "VÁLIDO. En AgregarPlantacionScreen, el calendario limitaba la selección estrictamente al último año, bloqueando la carga de campañas históricas reales (ej. siembras de octubre 2025 o campañas 2023/24).",
+            "solucion": "Se amplió la ventana de siembra en fechasDeSiembraValidas() a 3 años hacia atrás y 6 meses hacia adelante, permitiendo documentar campañas pasadas y planificadas."
+        },
+        {
+            "num": "FEEDBACK-04 (Captura 14:26:19)",
+            "obs": "No permite crear monitoreo de esta plaga, solo reporte. ¿El productor e ING agrónomo ven lo mismo?",
+            "analisis": "VÁLIDO Y ESCLARECEDOR. 1) En el dominio de Plag-Out, un 'monitoreo' calcula Grados Día (GDD) y requiere constantes biológicas validadas (Tbase y K). Plagas como 'Oruga militar verdadera' carecen de modelo validado por INTA, por lo que solo admiten reportes comunitarios. El ítem estaba deshabilitado sin explicar el por qué. 2) Productor y Agrónomo tienen perspectivas diferenciadas: el Productor gestiona lotes, semáforos y tratamientos; el Agrónomo analiza parámetros técnicos, taxonomía fenológica y multi-establecimientos.",
+            "solucion": "Se habilitó el clic sobre plagas sin modelo térmico en AgregarMonitoreoScreen para desplegar un diálogo educativo cordial explicando la razón agronómica y orientando al usuario a registrar la plaga en 'Alertas > Nueva Alerta'. Asimismo, se documentó y visibilizó la distinción de roles."
+        },
+        {
+            "num": "FEEDBACK-05 (Captura 14:26:31)",
+            "obs": "No permite agregar fecha de tratamiento anterior a la actual ('Fecha no permitida: 2 jun 2026').",
+            "analisis": "VÁLIDO. El usuario intentaba registrar un tratamiento con fecha anterior al inicio del monitoreo (el monitoreo había iniciado en noviembre y se intentó ingresar junio). El backend y frontend exigen que la fecha de aplicación sea >= fecha_inicio del monitoreo, pero el DatePickerDialog no informaba al usuario el rango válido permitido.",
+            "solucion": "Se agregó en TratamientosTab.kt un indicador visible bajo el selector de fecha: 'Entre [inicio del monitoreo] y hoy', orientando al usuario con exactitud sobre las fechas admisibles."
+        },
+        {
+            "num": "FEEDBACK-06 (Captura 14:26:42)",
+            "obs": "Al obligarme elegir la fecha actual, agregar un conteo posterior es absurdo porque no puedo elegir una fecha futura por razones obvias.",
+            "analisis": "VÁLIDO (DEADLOCK LÓGICO). Si el usuario seleccionaba como fecha de aplicación el día de hoy, el conteo posterior debía ser estrictamente posterior (> hoy, es decir mañana o después), pero a su vez no podía ser futuro (<= hoy). El calendario quedaba con 0 fechas seleccionables y mostraba el error 'Tiene que ser después de aplicar' sin salida posible.",
+            "solucion": "Se desacopló y blindó la validación en Tratamientos.kt y TratamientosTab.kt: cuando la aplicación es el día de hoy, se explica que el conteo posterior se evalúa en días posteriores y que podrá cargarlo más adelante desde la tarjeta del tratamiento. Si aplicó días atrás, se le indica ajustar primero la fecha de aplicación. Se protegió además CampoFecha contra rangos inválidos (minima > maxima)."
+        },
+        {
+            "num": "FEEDBACK-07 (Captura 14:26:53)",
+            "obs": "Al regresar a la aplicación tengo que arrancar el tratamiento de cero porque vuelve al menú principal en cualquier cosa que quiera agregar.",
+            "analisis": "VÁLIDO. En MainActivity.kt, AppNavigation() realizaba un 'return' temprano durante el estado inicial 'SessionStatus.Initializing' de Supabase. Como consecuencia, rememberNavController() no era invocado en el primer frame de recomposición tras la recreación de la actividad en segundo plano, perdiendo el backstack guardado y regresando al destino inicial ('pantallaPrincipal').",
+            "solucion": "Se reubicó la inicialización de 'rememberNavController()' y 'currentBackStackEntryAsState()' al inicio absoluto de AppNavigation() antes de cualquier retorno condicional, garantizando que el backstack de navegación se preserve y restaure intacto al alternar entre aplicaciones."
+        }
+    ]
+
+    for fb in feedback_cases:
+        bp = doc.add_paragraph()
+        bp.paragraph_format.space_before = Pt(8)
+        bp.paragraph_format.space_after = Pt(2)
+        bp.paragraph_format.keep_with_next = True
+        r_tag = bp.add_run(f"[{fb['num']}] — ")
+        r_tag.font.name = "Arial"
+        r_tag.font.bold = True
+        r_tag.font.size = Pt(10)
+        r_tag.font.color.rgb = COLOR_PRIMARY
+
+        r_obs = bp.add_run(f"\"{fb['obs']}\"")
+        r_obs.font.name = "Arial"
+        r_obs.font.italic = True
+        r_obs.font.size = Pt(9.5)
+        r_obs.font.color.rgb = COLOR_DARK
+
+        fb_table = doc.add_table(rows=2, cols=2)
+        fb_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        fb_table.autofit = False
+
+        rows_fb = [
+            ("Análisis de Dominio:", fb['analisis']),
+            ("Solución Aplicada:", fb['solucion'])
+        ]
+        for r_i, (lbl, desc) in enumerate(rows_fb):
+            row = fb_table.rows[r_i]
+            c_lbl = row.cells[0]
+            c_desc = row.cells[1]
+            set_cell_background(c_lbl, "F0F4F1")
+            set_cell_background(c_desc, "FAFAFA")
+            set_cell_margins(c_lbl, top=50, bottom=50, left=80, right=80)
+            set_cell_margins(c_desc, top=50, bottom=50, left=80, right=80)
+
+            p_l = c_lbl.paragraphs[0]
+            p_l.paragraph_format.space_after = Pt(0)
+            rl = p_l.add_run(lbl)
+            rl.font.name = "Arial"
+            rl.font.bold = True
+            rl.font.size = Pt(8.5)
+            rl.font.color.rgb = COLOR_PRIMARY
+
+            p_d = c_desc.paragraphs[0]
+            p_d.paragraph_format.space_after = Pt(0)
+            rd = p_d.add_run(desc)
+            rd.font.name = "Arial"
+            rd.font.size = Pt(8.5)
+            rd.font.color.rgb = COLOR_DARK
+
+    doc.add_paragraph().paragraph_format.space_after = Pt(8)
+
+    # Sección 9: Dictamen Final
+    add_section_header("9. Dictamen de Certificación Final")
     p_cert = doc.add_paragraph()
     p_cert.paragraph_format.line_spacing = 1.15
     p_cert.paragraph_format.space_after = Pt(8)
     r_cert = p_cert.add_run(
         "Certificación Técnica: La solución Plag-Out ha superado exitosamente el 100% de las pruebas funcionales, "
-        "no funcionales, de integración, de UX y de seguridad. Todos los errores identificados (incluyendo las observaciones "
-        "de experiencia de usuario sobre borrado, fechas y zoom de mapas) fueron resueltos en código y verificados "
-        "en hardware real. La aplicación móvil se encuentra conectada al entorno productivo de Vercel y Supabase, "
-        "la base de datos se encuentra limpia y enriquecida con campañas multi-regionales, y el APK generado en el Escritorio "
-        "e instalado en el teléfono Xiaomi se encuentra en condiciones óptimas para la presentación y demostración pública."
+        "no funcionales, de integración, de UX y de usuario real. Las 7 observaciones aportadas por pruebas de campo de usuario no técnico "
+        "fueron analizadas rigurosamente bajo el dominio fitosanitario y resueltas en la rama dedicada 'correcciones-por-feedback-usuario'. "
+        "La aplicación móvil se encuentra conectada al entorno productivo de Vercel y Supabase, "
+        "la base de datos se encuentra limpia y enriquecida con campañas multi-regionales argentinas, "
+        "y el APK generado en el Escritorio e instalado en el teléfono Xiaomi Redmi Note 13 Pro 5G se encuentra en condiciones óptimas "
+        "para la presentación y demostración pública."
     )
     r_cert.font.name = "Arial"
     r_cert.font.size = Pt(10.5)

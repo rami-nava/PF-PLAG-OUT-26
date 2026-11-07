@@ -246,8 +246,11 @@ class MisReportesViewModel(
         // Después de limpiar() (cierre de sesión) el radio vuelve al valor por defecto.
         if (!_state.value.radioCargado) cargarRadioNotificacion()
         val ambito = _state.value.ambito
-        if (forzar || !_state.value.listado(ambito).cargado && cargas[ambito]?.isActive != true) {
-            cargarPrimeraPagina(ambito, avisarSiFalla)
+        val listado = _state.value.listado(ambito)
+        if (forzar || !listado.cargado || listado.desactualizado) {
+            if (cargas[ambito]?.isActive != true) {
+                cargarPrimeraPagina(ambito, avisarSiFalla)
+            }
         }
         if (cargaOpciones == null) cargarOpcionesFiltros()
     }

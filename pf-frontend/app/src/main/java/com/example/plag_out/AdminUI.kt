@@ -143,20 +143,38 @@ fun CampoFormularioAdmin(
                     }
                 }
             },
-            trailingIcon = unidad?.let {
-                {
-                    Text(
-                        it,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PlagOutColors.Leaf,
-                        modifier = Modifier
-                            .padding(end = 10.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(PlagOutColors.Leaf.copy(alpha = 0.12f))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+            trailingIcon = when {
+                unidad != null -> {
+                    {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (valor.isNotEmpty()) {
+                                IconButton(onClick = { onCambio("") }, modifier = Modifier.size(24.dp)) {
+                                    Icon(Icons.Default.Close, contentDescription = "Borrar", tint = PlagOutColors.TextSecondary)
+                                }
+                                Spacer(Modifier.width(4.dp))
+                            }
+                            Text(
+                                unidad,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PlagOutColors.Leaf,
+                                modifier = Modifier
+                                    .padding(end = 10.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(PlagOutColors.Leaf.copy(alpha = 0.12f))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
                 }
+                valor.isNotEmpty() -> {
+                    {
+                        IconButton(onClick = { onCambio("") }, modifier = Modifier.size(24.dp)) {
+                            Icon(Icons.Default.Close, contentDescription = "Borrar", tint = PlagOutColors.TextSecondary)
+                        }
+                    }
+                }
+                else -> null
             },
             isError = error != null,
             singleLine = true,

@@ -107,7 +107,19 @@ fun DatosDelTerrenoScreen(
                         onValueChange = { val valor = it.replace(',', '.'); if (valor.matches(regex)) nuevoTerrenoViewModel.actualizarArea(valor) },
                         label = { Text("Hectáreas") },
                         leadingIcon = { Icon(Icons.Filled.SquareFoot, contentDescription = null, tint = PlagOutColors.Forest) },
-                        trailingIcon = { Text("ha", color = PlagOutColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.padding(end = 12.dp)) },
+                        trailingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (state.areaHectareas.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = { nuevoTerrenoViewModel.actualizarArea("") },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Default.Close, contentDescription = "Borrar hectáreas", tint = PlagOutColors.TextSecondary)
+                                    }
+                                }
+                                Text("ha", color = PlagOutColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp, end = 12.dp))
+                            }
+                        },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp),

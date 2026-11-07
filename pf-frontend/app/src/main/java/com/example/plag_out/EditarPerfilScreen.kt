@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Work
@@ -117,6 +118,13 @@ fun EditarPerfilScreen(
                         leadingIcon = {
                             Icon(Icons.Outlined.Person, contentDescription = null, tint = PlagOutColors.Forest)
                         },
+                        trailingIcon = {
+                            if (state.nombre.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.actualizarNombre("") }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Borrar nombre", tint = PlagOutColors.TextSecondary)
+                                }
+                            }
+                        },
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp),
                         colors = camposColors(),
@@ -133,6 +141,13 @@ fun EditarPerfilScreen(
                         label = { Text("Apellido") },
                         leadingIcon = {
                             Icon(Icons.Outlined.Person, contentDescription = null, tint = PlagOutColors.Forest)
+                        },
+                        trailingIcon = {
+                            if (state.apellido.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.actualizarApellido("") }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Borrar apellido", tint = PlagOutColors.TextSecondary)
+                                }
+                            }
                         },
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp),
