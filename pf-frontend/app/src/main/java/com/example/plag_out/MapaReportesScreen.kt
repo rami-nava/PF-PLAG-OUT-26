@@ -54,6 +54,7 @@ import androidx.compose.material.icons.outlined.BubbleChart
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CenterFocusStrong
 import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.FilterAltOff
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.Info
@@ -317,10 +318,15 @@ fun MapaReportesScreen(
             }
         )
 
+        var avisoFiltrosDescartado by remember(filtros) { mutableStateOf(false) }
+
         val aviso = when {
             state.cargando -> "Cargando alertas…"
             state.error != null -> state.error
-            state.total == 0 && filtros.activos > 0 -> "Ninguna alerta entra en los filtros"
+            // Sin resultados por los filtros: tiene su propia tarjeta, más abajo. Si el usuario
+            // la cerró, queda solo un recordatorio chico.
+            state.total == 0 && filtros.activos > 0 ->
+                if (avisoFiltrosDescartado) "Ninguna alerta con estos filtros" else null
             state.total == 0 -> "No hay alertas en esta zona"
             state.actualizando -> "Actualizando la zona…"
             else -> null
@@ -344,6 +350,25 @@ fun MapaReportesScreen(
                     .align(Alignment.TopCenter)
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(top = topAviso, start = 16.dp, end = 16.dp)
+            )
+        }
+
+        // Si los filtros dejan el mapa vacío se avisa en el centro, bien visible y con salida
+        val sinResultadosPorFiltros = !state.cargando && state.error == null &&
+            state.total == 0 && filtros.activos > 0
+        AnimatedVisibility(
+            visible = sinResultadosPorFiltros && !avisoFiltrosDescartado,
+            enter = fadeIn() + scaleIn(initialScale = 0.9f),
+            exit = fadeOut() + scaleOut(targetScale = 0.9f),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 32.dp)
+        ) {
+            TarjetaSinResultadosFiltros(
+                cantidadFiltros = filtros.activos,
+                actualizando = state.actualizando,
+                onVerMapa = { avisoFiltrosDescartado = true },
+                onQuitar = { viewModel.actualizarFiltros(FiltrosMapa()) }
             )
         }
 
@@ -941,6 +966,97 @@ private fun AvisoFlotante(texto: String, cargando: Boolean, modifier: Modifier =
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+@Composable
+private fun TarjetaSinResultadosFiltros(
+    cantidadFiltros: Int,
+    actualizando: Boolean,
+    onVerMapa: () -> Unit,
+    onQuitar: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = PlagOutColors.Surface,
+        shadowElevation = 6.dp,
+        border = BorderStroke(1.dp, PlagOutColors.RiskWarn.copy(alpha = 0.35f)),
+        modifier = Modifier
+            .widthIn(max = 360.dp)
+            .testTag("avisoSinResultadosFiltrosMapa")
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(PlagOutColors.RiskWarn.copy(alpha = 0.14f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (actualizando) {
+                    CircularProgressIndicator(
+                        color = PlagOutColors.RiskWarn,
+                        strokeWidth = 2.5.dp,
+                        modifier = Modifier.size(26.dp)
+                    )
+                } else {
+                    Icon(
+                        Icons.Outlined.FilterAltOff,
+                        contentDescription = null,
+                        tint = PlagOutColors.RiskWarn,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "No hay alertas con estos filtros",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = PlagOutColors.TextMain,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(6.dp))
+            val filtrosTexto = if (cantidadFiltros == 1) "1 filtro activo" else "$cantidadFiltros filtros activos"
+            Text(
+                "Tenés $filtrosTexto y ninguna alerta de esta zona los cumple. " +
+                    "Probá alejar el mapa o quitar los filtros.",
+                fontSize = 14.sp,
+                lineHeight = 19.sp,
+                color = PlagOutColors.TextSecondary,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(
+                    onClick = onQuitar,
+                    shape = CircleShape,
+                    color = PlagOutColors.Surface,
+                    border = BorderStroke(1.dp, PlagOutColors.RiskDanger.copy(alpha = 0.4f)),
+                    modifier = Modifier
+                        .height(40.dp)
+                        .testTag("btnQuitarFiltrosSinResultadosMapa")
+                ) {
+                    Box(Modifier.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                        Text("Quitar filtros", color = PlagOutColors.RiskDanger, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Surface(
+                    onClick = onVerMapa,
+                    shape = CircleShape,
+                    color = PlagOutColors.Forest,
+                    modifier = Modifier
+                        .height(40.dp)
+                        .testTag("btnVerMapaSinResultadosMapa")
+                ) {
+                    Box(Modifier.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                        Text("Ver mapa", color = PlagOutColors.TextOnDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
     }
 }
