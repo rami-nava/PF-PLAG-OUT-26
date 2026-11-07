@@ -458,7 +458,6 @@ fun BiofixManual(
     monitoreo: MonitoreoResponse,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
-    avisoBiofixInicial: Boolean = false,
     notificacionId: Int? = null,
     onAvisoBiofixConsumido: () -> Unit = {}
 ) {
@@ -467,12 +466,23 @@ fun BiofixManual(
     val owner = SupabaseProvider.client.auth.currentUserOrNull()?.id
     val scope = rememberCoroutineScope()
     var mostrar by remember { mutableStateOf(false) }
-    // El aviso vive en AppNavigation (no acá) para que sobreviva a recomposiciones del pager
-    // y recargas del detalle: solo se cierra con "Ahora no" o al registrar el biofix.
-    val mostrarAvisoBiofix = avisoBiofixInicial
-    fun descartarAvisoBiofix() {
+    // La tarjeta "Posible nuevo biofix" se ve si algún ciclo tiene biofix_pendiente en true, se
+    // llegue desde donde se llegue. avisosResueltos la oculta apenas el usuario la resuelve, sin
+    // esperar a que la recarga traiga el ciclo en false.
+    var avisosResueltos by remember(monitoreo.monitoreo_id) { mutableStateOf(emptySet<Int>()) }
+    val mostrarAviso = mostrarAvisoBiofix(monitoreo, avisosResueltos)
+    fun avisoResuelto() {
+        avisosResueltos = avisosResueltos + ciclosConBiofixPendiente(monitoreo).map { it.id }
         onAvisoBiofixConsumido()
+    }
+    fun descartarAvisoBiofix() {
+        val pendientes = ciclosConBiofixPendiente(monitoreo).map { it.id }
+        avisoResuelto()
         scope.launch {
+            if (pendientes.isNotEmpty()) {
+                descartarAvisoBiofixEnServidor(RetrofitClient.gddService, pendientes)
+                onRefresh()
+            }
             try {
                 if (notificacionId != null && notificacionId > 0) {
                     RetrofitClient.gddService.marcarNotificacionLeida(notificacionId)
@@ -512,7 +522,7 @@ fun BiofixManual(
                 resultado = event.result
                 if (event.result != null) {
                     mensaje = null
-                    onAvisoBiofixConsumido()
+                    avisoResuelto()
                     Avisos.exito("Presencia registrada automáticamente.")
                 }
                 onRefresh()
@@ -538,7 +548,7 @@ fun BiofixManual(
                     resultado = response.body()
                     dao.delete(owner, monitoreo.monitoreo_id); pendiente = null
                     mensaje = null
-                    onAvisoBiofixConsumido()
+                    avisoResuelto()
                     if (notificacionId != null && notificacionId > 0) {
                         launch {
                             try {
@@ -607,7 +617,7 @@ fun BiofixManual(
                     if (monitoreo.activo) EstadoEsperandoBiofix(Modifier.fillMaxWidth())
                     else EstadoSinCiclos(Modifier.fillMaxWidth())
                     AnimatedVisibility(
-                        visible = mostrarAvisoBiofix && monitoreo.activo,
+                        visible = mostrarAviso,
                         enter = fadeIn() + expandVertically(),
                         exit = fadeOut() + shrinkVertically()
                     ) {
@@ -636,7 +646,7 @@ fun BiofixManual(
                     .padding(horizontal = 20.dp)
             ) {
                 AnimatedVisibility(
-                    visible = mostrarAvisoBiofix && monitoreo.activo,
+                    visible = mostrarAviso,
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically()
                 ) {

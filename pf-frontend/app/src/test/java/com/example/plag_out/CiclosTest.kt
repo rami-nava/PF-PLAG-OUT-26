@@ -262,4 +262,34 @@ class CiclosTest {
         assertFalse(runBlocking { finalizarCiclo(service, 1) }.recargar)
         assertEquals(4, service.vecesLlamado("archivarCiclo"))
     }
+
+    // ── Aviso "Posible nuevo biofix" ──
+
+    @Test
+    fun `el aviso se muestra si algun ciclo tiene biofix_pendiente`() {
+        val pendiente = Fixtures.monitoreo(ciclos = listOf(
+            Fixtures.ciclo(id = 1, estado = "completado", biofixPendiente = true),
+            Fixtures.ciclo(id = 2, biofixPendiente = false)
+        ))
+        assertTrue(mostrarAvisoBiofix(pendiente))
+        assertFalse(mostrarAvisoBiofix(Fixtures.monitoreo(ciclos = listOf(Fixtures.ciclo(id = 1, biofixPendiente = false)))))
+        assertFalse(mostrarAvisoBiofix(Fixtures.monitoreo(ciclos = emptyList())))
+    }
+
+    @Test
+    fun `el aviso no se muestra en monitoreos finalizados ni con los ciclos ya resueltos`() {
+        val ciclos = listOf(Fixtures.ciclo(id = 1, biofixPendiente = true))
+        assertFalse(mostrarAvisoBiofix(Fixtures.monitoreo(activo = false, ciclos = ciclos)))
+        assertFalse(mostrarAvisoBiofix(Fixtures.monitoreo(ciclos = ciclos), descartados = setOf(1)))
+    }
+
+    @Test
+    fun `descartar el aviso llama al endpoint por cada ciclo e ignora errores`() {
+        val service = FakeGDDService()
+        service.descartarAvisoBiofixResult = { FakeGDDService.errorServidor(404) }
+        runBlocking { descartarAvisoBiofixEnServidor(service, listOf(1, 2)) }
+        service.descartarAvisoBiofixResult = { FakeGDDService.sinConexion() }
+        runBlocking { descartarAvisoBiofixEnServidor(service, listOf(3)) }
+        assertEquals(3, service.vecesLlamado("descartarAvisoBiofix"))
+    }
 }

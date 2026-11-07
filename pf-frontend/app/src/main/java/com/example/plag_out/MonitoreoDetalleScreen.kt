@@ -65,7 +65,6 @@ fun MonitoreoDetalleScreen(
     onNoDisponible: (monitoreoId: Int) -> Unit = {},
     onVerPlantacion: (Int) -> Unit,
     onVerTerreno: (Int) -> Unit,
-    origenAvisoBiofix: Boolean = false,
     notificacionId: Int? = null,
     onAvisoBiofixConsumido: () -> Unit = {}
 ) {
@@ -134,7 +133,6 @@ fun MonitoreoDetalleScreen(
                     onRefresh = { viewModel.cargar(monitoreoId, refresco = true) },
                     onFinalizarClick = { mostrarDialogoFinalizar = true },
                     onEliminarClick = { mostrarDialogoEliminar = true },
-                    origenAvisoBiofix = origenAvisoBiofix,
                     notificacionId = notificacionId,
                     onAvisoBiofixConsumido = onAvisoBiofixConsumido
                 )
@@ -295,7 +293,6 @@ private fun ContenidoMonitoreoDetalle(
     onFinalizarClick: () -> Unit,
     onEliminarClick: () -> Unit,
     onRefresh: () -> Unit,
-    origenAvisoBiofix: Boolean = false,
     notificacionId: Int? = null,
     onAvisoBiofixConsumido: () -> Unit = {}
 ) {
@@ -432,7 +429,6 @@ private fun ContenidoMonitoreoDetalle(
                     monitoreo = monitoreo,
                     onRefresh = onRefresh,
                     onVerInfoNivel = onVerInfoNivel,
-                    origenAvisoBiofix = origenAvisoBiofix,
                     notificacionId = notificacionId,
                     onAvisoBiofixConsumido = onAvisoBiofixConsumido
                 )
@@ -630,7 +626,6 @@ private fun CiclosTab(
     monitoreo: MonitoreoResponse,
     onRefresh: () -> Unit,
     onVerInfoNivel: () -> Unit,
-    origenAvisoBiofix: Boolean = false,
     notificacionId: Int? = null,
     onAvisoBiofixConsumido: () -> Unit = {}
 ) {
@@ -658,7 +653,6 @@ private fun CiclosTab(
             monitoreo = monitoreo,
             onRefresh = onRefresh,
             modifier = Modifier.weight(1f),
-            avisoBiofixInicial = origenAvisoBiofix,
             notificacionId = notificacionId,
             onAvisoBiofixConsumido = onAvisoBiofixConsumido
         )

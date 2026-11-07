@@ -814,8 +814,7 @@ fun AppNavigation(
                     backStackEntry.arguments?.getString("monitoreo_id")?.toInt() ?: 0
                 val detalleViewModel: MonitoreoDetalleViewModel =
                     viewModel(factory = MonitoreoDetalleViewModelFactory(context, monitoreoRepository))
-                val esAvisoBiofix = avisoBiofixParaMonitoreo?.first == monitoreoId
-                val notifIdAviso = if (esAvisoBiofix) avisoBiofixParaMonitoreo?.second else null
+                val notifIdAviso = avisoBiofixParaMonitoreo?.takeIf { it.first == monitoreoId }?.second
                 MonitoreoDetalleScreen(
                     monitoreoId = monitoreoId,
                     viewModel = detalleViewModel,
@@ -833,7 +832,6 @@ fun AppNavigation(
                     onNoDisponible = { id -> monitoreosViewModel.purgarMonitoreo(id) },
                     onVerPlantacion = { plantacionId -> navController.navigate("plantacion/$plantacionId") },
                     onVerTerreno = { terrenoId -> navController.navigate("terreno/$terrenoId") },
-                    origenAvisoBiofix = esAvisoBiofix,
                     notificacionId = notifIdAviso,
                     onAvisoBiofixConsumido = {
                         if (avisoBiofixParaMonitoreo?.first == monitoreoId) {
