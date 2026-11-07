@@ -900,7 +900,10 @@ data class GddCicloResponse(
     val gdd_acumulado_huevo: Float? = null,
     // Qué hito miden progreso y nivel_alerta: "eclosion", o "generacion" para los pulgones
     // vivíparos, que no tienen huevo. Sin dato (backend anterior) se toma "eclosion".
-    val hito: String? = null
+    val hito: String? = null,
+    // true cuando el ciclo completó la generación y falta que el productor confirme (o
+    // descarte) el biofix de la siguiente.
+    val biofix_pendiente: Boolean? = null
 )
 
 @Serializable

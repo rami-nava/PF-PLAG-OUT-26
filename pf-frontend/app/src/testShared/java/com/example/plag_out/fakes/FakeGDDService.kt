@@ -37,6 +37,7 @@ import com.example.plag_out.ConsentimientoModeloRequest
 import com.example.plag_out.ConsentimientoModeloResponse
 import com.example.plag_out.CultivoAdmin
 import com.example.plag_out.CultivoAdminRequest
+import com.example.plag_out.GddCicloResponse
 import com.example.plag_out.PlagaAdmin
 import com.example.plag_out.PlagaAdminRequest
 import com.example.plag_out.UsuarioAdmin
@@ -370,7 +371,7 @@ class FakeGDDService : GDDService {
         private set
 
     override suspend fun registrarBiofix(id: Int, data: com.example.plag_out.BiofixRequest): Response<com.example.plag_out.BiofixResult> = noDeclarado("registrarBiofix")
-    override suspend fun getCiclo(id: Int): Response<com.example.plag_out.GddCicloResponse> = noDeclarado("getCiclo")
+    override suspend fun getCiclo(id: Int): Response<GddCicloResponse> = noDeclarado("getCiclo")
 
     var getTratamientosResult: () -> Response<List<com.example.plag_out.TratamientoResponse>> = { noDeclarado("getTratamientos") }
     var registrarTratamientoResult: (com.example.plag_out.TratamientoRequest) -> Response<com.example.plag_out.TratamientoResponse> =
@@ -411,10 +412,16 @@ class FakeGDDService : GDDService {
         return eliminarTratamientoResult()
     }
 
-    var archivarCicloResult: () -> Response<com.example.plag_out.GddCicloResponse> = { noDeclarado("archivarCiclo") }
-    override suspend fun archivarCiclo(id: Int): Response<com.example.plag_out.GddCicloResponse> {
+    var archivarCicloResult: () -> Response<GddCicloResponse> = { noDeclarado("archivarCiclo") }
+    override suspend fun archivarCiclo(id: Int): Response<GddCicloResponse> {
         llamadas += "archivarCiclo"
         return archivarCicloResult()
+    }
+
+    var descartarAvisoBiofixResult: () -> Response<GddCicloResponse> = { noDeclarado("descartarAvisoBiofix") }
+    override suspend fun descartarAvisoBiofix(id: Int): Response<com.example.plag_out.GddCicloResponse> {
+        llamadas += "descartarAvisoBiofix"
+        return descartarAvisoBiofixResult()
     }
 
     // ── Administración ──

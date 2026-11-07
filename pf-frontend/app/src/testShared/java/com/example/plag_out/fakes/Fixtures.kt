@@ -105,7 +105,8 @@ object Fixtures {
         diasPendientes: Int = 0,
         fechaEclosion: String? = null,
         gddAcumuladoHuevo: Float? = null,
-        hito: String? = null
+        hito: String? = null,
+        biofixPendiente: Boolean? = null
     ) = GddCicloResponse(
         id = id,
         monitoreo_id = monitoreoId,
@@ -122,7 +123,8 @@ object Fixtures {
         dias_pendientes = diasPendientes,
         fecha_eclosion = fechaEclosion,
         gdd_acumulado_huevo = gddAcumuladoHuevo,
-        hito = hito
+        hito = hito,
+        biofix_pendiente = biofixPendiente
     )
 
     fun cultivo(

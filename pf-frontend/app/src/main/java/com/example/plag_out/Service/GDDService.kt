@@ -37,6 +37,7 @@ import com.example.plag_out.ConsentimientoModeloRequest
 import com.example.plag_out.ConsentimientoModeloResponse
 import com.example.plag_out.CultivoAdmin
 import com.example.plag_out.CultivoAdminRequest
+import com.example.plag_out.GddCicloResponse
 import com.example.plag_out.PlagaAdmin
 import com.example.plag_out.PlagaAdminRequest
 import com.example.plag_out.UsuarioAdmin
@@ -251,10 +252,14 @@ interface GDDService {
     suspend fun eliminarTratamiento(@Path("id") tratamientoId: Int): Response<Unit>
 
     @GET("/ciclos/{id}")
-    suspend fun getCiclo(@Path("id") id: Int): Response<com.example.plag_out.GddCicloResponse>
+    suspend fun getCiclo(@Path("id") id: Int): Response<GddCicloResponse>
 
     @POST("/ciclos/{id}/archivar")
-    suspend fun archivarCiclo(@Path("id") id: Int): Response<com.example.plag_out.GddCicloResponse>
+    suspend fun archivarCiclo(@Path("id") id: Int): Response<GddCicloResponse>
+
+    // "Ahora no" del aviso de nuevo biofix: el ciclo deja de estar biofix_pendiente.
+    @POST("/ciclos/{id}/descartar-aviso-biofix")
+    suspend fun descartarAvisoBiofix(@Path("id") id: Int): Response<GddCicloResponse>
 
 
     // ── Administración ──────────────────────────────────────────────────────

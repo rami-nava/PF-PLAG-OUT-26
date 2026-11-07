@@ -109,6 +109,23 @@ private val ERRORES_ARCHIVAR_CICLO = mapOf(
 )
 private val ERRORES_ARCHIVAR_CICLO_CODIGO = mapOf(500 to "No se pudo finalizar el ciclo. Intentá de nuevo.")
 
+
+fun ciclosConBiofixPendiente(monitoreo: MonitoreoResponse): List<GddCicloResponse> =
+    monitoreo.ciclos.orEmpty().filter { it.biofix_pendiente == true }
+
+fun mostrarAvisoBiofix(monitoreo: MonitoreoResponse, descartados: Set<Int> = emptySet()): Boolean =
+    monitoreo.activo && ciclosConBiofixPendiente(monitoreo).any { it.id !in descartados }
+
+suspend fun descartarAvisoBiofixEnServidor(service: GDDService, cicloIds: List<Int>) {
+    for (id in cicloIds) {
+        try {
+            service.descartarAvisoBiofix(id)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {}
+    }
+}
+
 fun esperandoBiofix(monitoreo: MonitoreoResponse): Boolean =
     monitoreo.activo && ciclosActivos(monitoreo).isEmpty()
 

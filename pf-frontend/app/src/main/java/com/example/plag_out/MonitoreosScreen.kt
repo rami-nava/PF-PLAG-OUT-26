@@ -43,6 +43,7 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.Grass
 import androidx.compose.material.icons.outlined.HourglassEmpty
+import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Shield
@@ -434,6 +435,7 @@ fun ordenarMonitoreos(
 
 // ── Card de monitoreo ───────────────────────────────────────────────────────
 
+@OptIn(ExperimentalLayoutApi::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MonitoreoCard(
@@ -472,12 +474,28 @@ fun MonitoreoCard(
             Column(Modifier.padding(start = 17.dp, end = 18.dp, top = 16.dp, bottom = 14.dp)) {
                 Row(Modifier.fillMaxWidth()) {
                     Column(Modifier.weight(1f)) {
-                        // Sin biofix no hay nivel que mostrar: el estado ocupa el lugar del sello en vez
-                        // de sumar un "Sin datos" que parece un error.
-                        if (monitoreo.activo && esperandoBiofix(monitoreo)) {
-                            EtiquetaInfo(Icons.Outlined.HourglassEmpty, "Esperando biofix", PlagOutColors.TextSecondary)
-                        } else {
-                            SelloDeNivel(estilo, pulsante = monitoreo.activo && nivelAlertaEfectivo(monitoreo) >= 2)
+                        // FlowRow: en pantallas angostas la aclaración baja a otra línea.
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            // Sin biofix no hay nivel que mostrar: el estado ocupa el lugar del sello en
+                            // vez de sumar un "Sin datos" que parece un error.
+                            if (monitoreo.activo && esperandoBiofix(monitoreo)) {
+                                EtiquetaInfo(Icons.Outlined.HourglassEmpty, "Esperando biofix", PlagOutColors.TextSecondary)
+                            } else {
+                                SelloDeNivel(estilo, pulsante = monitoreo.activo && nivelAlertaEfectivo(monitoreo) >= 2)
+                            }
+                            // En cualquier estado salvo finalizado: un ciclo completó la generación y
+                            // falta confirmar el biofix siguiente.
+                            if (mostrarAvisoBiofix(monitoreo)) {
+                                EtiquetaInfo(
+                                    Icons.Outlined.NotificationsActive,
+                                    "Para confirmar",
+                                    PlagOutColors.Terracotta,
+                                    Modifier.testTag("etiquetaBiofixPendiente_${monitoreo.monitoreo_id}")
+                                )
+                            }
                         }
                         Spacer(Modifier.height(10.dp))
                         Text(
