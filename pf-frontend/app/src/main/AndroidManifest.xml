@@ -15,6 +15,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:alwaysRetainTaskState="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Plagout">
             <intent-filter>
