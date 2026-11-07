@@ -436,6 +436,14 @@ fun AppNavigation(
         deepLinkPrediccionId != null
     var rutaRestaurada by rememberSaveable { mutableStateOf(false) }
 
+    val hayDeepLinkActivo = deepLinkRecuperarPassword ||
+        deepLinkMonitoreoId != null ||
+        deepLinkReporteId != null ||
+        deepLinkPlantacionId != null ||
+        deepLinkCicloId != null ||
+        deepLinkPrediccionId != null
+    var rutaRestaurada by rememberSaveable { mutableStateOf(false) }
+
     // Manejo de Deep link para restablecimiento de contraseña
     LaunchedEffect(deepLinkRecuperarPassword, deepLinkRecuperarPasswordError) {
         if (deepLinkRecuperarPassword) {
