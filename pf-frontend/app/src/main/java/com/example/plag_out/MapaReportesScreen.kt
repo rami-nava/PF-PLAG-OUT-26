@@ -984,9 +984,9 @@ private fun LienzoMapa(
                 setTileSource(OsmTileSource)
                 setMultiTouchControls(true)
                 zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
-                setUseDataConnection(true)
+                isTilesScaledToDpi = true
                 minZoomLevel = 3.0
-                maxZoomLevel = ZOOM_MAXIMO_SERVIDOR.toDouble()
+                maxZoomLevel = 19.0
                 controller.setZoom(ZOOM_PAIS)
                 controller.setCenter(CENTRO_PAIS)
                 // El zoom de la agrupación se publica con cada aviso, no solo con los de zoom: el

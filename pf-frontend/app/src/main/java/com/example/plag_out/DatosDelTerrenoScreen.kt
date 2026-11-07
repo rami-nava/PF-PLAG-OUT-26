@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.SquareFoot
 import androidx.compose.material.icons.outlined.Terrain
@@ -86,6 +87,13 @@ fun DatosDelTerrenoScreen(
                         onValueChange = { nuevoTerrenoViewModel.actualizarNombre(it) },
                         label = { Text("Nombre del terreno") },
                         leadingIcon = { Icon(Icons.Outlined.Terrain, contentDescription = null, tint = PlagOutColors.Forest) },
+                        trailingIcon = {
+                            if (state.nombre.isNotEmpty()) {
+                                IconButton(onClick = { nuevoTerrenoViewModel.actualizarNombre("") }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Borrar nombre", tint = PlagOutColors.TextSecondary)
+                                }
+                            }
+                        },
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp),
                         colors = camposColors(),

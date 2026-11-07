@@ -200,6 +200,11 @@ class CrearReporteViewModel(
         _state.value = _state.value.copy(timestampMs = System.currentTimeMillis())
     }
 
+    fun setTimestamp(millis: Long) {
+        if (reportOwner != null) return
+        _state.value = _state.value.copy(timestampMs = millis)
+    }
+
     fun limpiarError() {
         _state.value = _state.value.copy(error = null)
     }
