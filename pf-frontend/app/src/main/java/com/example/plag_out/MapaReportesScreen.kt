@@ -85,6 +85,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -299,7 +303,7 @@ fun MapaReportesScreen(
         }
         // Los avisos bajan cuando aparece la fila de filtros activos, para no taparla.
         val topAviso by animateDpAsState(
-            targetValue = if (filtros.activos > 0) 112.dp else 74.dp,
+            targetValue = if (filtros.activos > 0) 124.dp else 80.dp,
             label = "topAvisoMapa"
         )
 
@@ -809,39 +813,50 @@ private fun FilaFiltrosActivos(
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 12.dp, vertical = 2.dp)
                 .testTag("filaFiltrosActivosMapa"),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             activos.forEach { filtro ->
+                // Relleno oscuro y texto claro para que se lea sobre cualquier zona del mapa; la
+                // X va en un círculo claro para que se entienda que el chip se puede quitar.
                 Surface(
                     onClick = { onFiltros(filtro.quitar(filtros)) },
                     shape = CircleShape,
-                    color = PlagOutColors.Surface,
-                    shadowElevation = 2.dp,
-                    border = BorderStroke(1.dp, PlagOutColors.Forest.copy(alpha = 0.35f)),
+                    color = PlagOutColors.Forest,
+                    shadowElevation = 4.dp,
                     modifier = Modifier
-                        .height(32.dp)
+                        .height(40.dp)
+                        .semantics(mergeDescendants = true) {
+                            contentDescription = "Quitar filtro ${filtro.etiqueta}"
+                        }
                         .testTag("chipFiltroActivo:${filtro.etiqueta}")
                 ) {
                     Row(
-                        modifier = Modifier.padding(start = 10.dp, end = 8.dp),
+                        modifier = Modifier.padding(start = 12.dp, end = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(filtro.icono, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(5.dp))
+                        Icon(filtro.icono, contentDescription = null, tint = PlagOutColors.TextOnDark, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
                         Text(
                             filtro.etiqueta,
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = PlagOutColors.TextMain,
+                            color = PlagOutColors.TextOnDark,
                             maxLines = 1
                         )
-                        Spacer(Modifier.width(4.dp))
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Quitar filtro ${filtro.etiqueta}",
-                            tint = PlagOutColors.TextSecondary,
-                            modifier = Modifier.size(14.dp)
-                        )
+                        Spacer(Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(26.dp)
+                                .background(PlagOutColors.TextOnDark, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = null,
+                                tint = PlagOutColors.Forest,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -932,38 +947,42 @@ private fun NotaFiltro(texto: String) {
 
 @Composable
 private fun AvisoFlotante(texto: String, cargando: Boolean, modifier: Modifier = Modifier) {
+    // Fondo oscuro sólido (estilo "toast") para que se lea sobre el mapa y no se confunda con
+    // los chips de filtro, que son verdes.
     Surface(
         shape = CircleShape,
-        color = PlagOutColors.Surface.copy(alpha = 0.95f),
-        shadowElevation = 3.dp,
-        border = BorderStroke(1.dp, PlagOutColors.Divider),
+        color = PlagOutColors.TextMain,
+        shadowElevation = 4.dp,
         modifier = modifier
+            .heightIn(min = 40.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite }
+            .testTag("avisoFlotanteMapa")
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (cargando) {
                 CircularProgressIndicator(
-                    color = PlagOutColors.Forest,
+                    color = PlagOutColors.TextOnDark,
                     strokeWidth = 2.dp,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             } else {
                 Icon(
                     Icons.Outlined.Info,
                     contentDescription = null,
-                    tint = PlagOutColors.TextSecondary,
-                    modifier = Modifier.size(14.dp)
+                    tint = PlagOutColors.TextOnDark,
+                    modifier = Modifier.size(18.dp)
                 )
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(10.dp))
             Text(
                 texto,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = PlagOutColors.TextMain,
-                maxLines = 1,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = PlagOutColors.TextOnDark,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
         }
@@ -1914,43 +1933,50 @@ private fun ControlesMapa(
 
 @Composable
 private fun BotonFiltrar(cantidadActiva: Int, onClick: () -> Unit) {
+    // Siempre relleno: es la acción principal de la pantalla y tiene que destacarse sobre el mapa.
     val activo = cantidadActiva > 0
     Surface(
         onClick = onClick,
         shape = CircleShape,
-        color = if (activo) PlagOutColors.Forest else PlagOutColors.Surface,
-        shadowElevation = 3.dp,
-        border = BorderStroke(1.dp, if (activo) PlagOutColors.Forest else PlagOutColors.Divider),
+        color = PlagOutColors.Forest,
+        shadowElevation = 4.dp,
         modifier = Modifier
-            .height(42.dp)
+            .height(44.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = if (activo) "Filtrar el mapa, $cantidadActiva filtros activos" else "Filtrar el mapa"
+            }
             .testTag("btnFiltrarMapa")
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp),
+            modifier = Modifier.padding(start = 14.dp, end = if (activo) 8.dp else 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 Icons.Outlined.Tune,
-                contentDescription = "Filtrar el mapa",
-                tint = if (activo) PlagOutColors.TextOnDark else PlagOutColors.Forest,
-                modifier = Modifier.size(18.dp)
+                contentDescription = null,
+                tint = PlagOutColors.TextOnDark,
+                modifier = Modifier.size(20.dp)
             )
-            Spacer(Modifier.width(7.dp))
+            Spacer(Modifier.width(8.dp))
             Text(
                 "Filtrar",
-                color = if (activo) PlagOutColors.TextOnDark else PlagOutColors.TextMain,
-                fontSize = 13.sp,
+                color = PlagOutColors.TextOnDark,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
             if (activo) {
-                Spacer(Modifier.width(7.dp))
-                Surface(shape = CircleShape, color = PlagOutColors.TextOnDark.copy(alpha = 0.22f)) {
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .background(PlagOutColors.TextOnDark, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
                         "$cantidadActiva",
-                        color = PlagOutColors.TextOnDark,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                        color = PlagOutColors.Forest,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -1960,23 +1986,31 @@ private fun BotonFiltrar(cantidadActiva: Int, onClick: () -> Unit) {
 
 @Composable
 private fun BotonLimpiarFiltros(onClick: () -> Unit) {
+    // Mismo lenguaje que los chips de filtro: relleno sólido y la X en un círculo claro.
     Surface(
         onClick = onClick,
         shape = CircleShape,
-        color = PlagOutColors.Surface,
-        shadowElevation = 3.dp,
-        border = BorderStroke(1.dp, PlagOutColors.RiskDanger.copy(alpha = 0.4f)),
+        color = PlagOutColors.RiskDanger,
+        shadowElevation = 4.dp,
         modifier = Modifier
-            .height(42.dp)
+            .height(44.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "Quitar todos los filtros" }
             .testTag("btnLimpiarFiltrosActivosMapa")
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp),
+            modifier = Modifier.padding(start = 14.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Close, contentDescription = null, tint = PlagOutColors.RiskDanger, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(5.dp))
-            Text("Limpiar", color = PlagOutColors.RiskDanger, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text("Limpiar", color = PlagOutColors.TextOnDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .background(PlagOutColors.TextOnDark, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Close, contentDescription = null, tint = PlagOutColors.RiskDanger, modifier = Modifier.size(16.dp))
+            }
         }
     }
 }
