@@ -14,6 +14,7 @@ object PreferenciasUsuario {
     private const val PREFS = "preferencias_usuario"
     private const val NOTIFICACIONES = "notificaciones_activadas"
     private const val ROL = "rol"
+    private const val ULTIMA_RUTA = "ultima_ruta_navegada"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -41,5 +42,20 @@ object PreferenciasUsuario {
 
     fun limpiarRol(context: Context) {
         prefs(context).edit().remove(ROL).apply()
+    }
+
+    /**
+     * Última pantalla/ruta navegada por el usuario. Se persiste para que si el usuario
+     * sale de la app o el proceso se descarga de memoria, al regresar vuelva al mismo lugar.
+     */
+    fun ultimaRuta(context: Context): String? =
+        prefs(context).getString(ULTIMA_RUTA, null)
+
+    fun guardarUltimaRuta(context: Context, ruta: String) {
+        prefs(context).edit().putString(ULTIMA_RUTA, ruta).apply()
+    }
+
+    fun limpiarUltimaRuta(context: Context) {
+        prefs(context).edit().remove(ULTIMA_RUTA).apply()
     }
 }
