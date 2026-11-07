@@ -76,6 +76,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
+import kotlin.math.roundToInt
 
 /**
  * Vocabulario visual compartido por los dashboards principales (Monitoreos,
@@ -753,5 +761,58 @@ fun EstadoSinResultados(titulo: String = "Sin resultados", subtitulo: String = "
 fun CargandoCentrado() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator(color = PlagOutColors.Forest)
+    }
+}
+
+
+@Composable
+fun EncabezadoQueScrollea(
+    modifier: Modifier = Modifier,
+    encabezado: @Composable ColumnScope.() -> Unit,
+    contenido: @Composable () -> Unit
+) {
+    // 0 = encabezado entero a la vista; -alto = escondido del todo.
+    var desplazamiento by remember { mutableFloatStateOf(0f) }
+    val alto = remember { IntArray(1) }
+    val conexion = remember {
+        object : NestedScrollConnection {
+            private fun mover(delta: Float): Offset {
+                val nuevo = (desplazamiento + delta).coerceIn(-alto[0].toFloat(), 0f)
+                val consumido = nuevo - desplazamiento
+                desplazamiento = nuevo
+                return Offset(0f, consumido)
+            }
+
+            // Hacia abajo en la lista: primero se esconde el encabezado, después scrollea la lista.
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset =
+                if (available.y < 0f) mover(available.y) else Offset.Zero
+
+            // Hacia arriba: el encabezado vuelve solo con lo que la lista no usó (ya está arriba de todo).
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
+                if (available.y > 0f) mover(available.y) else Offset.Zero
+        }
+    }
+    Layout(
+        contents = listOf({ Column(content = encabezado) }, contenido),
+        modifier = modifier
+            .fillMaxSize()
+            .clipToBounds()
+            .nestedScroll(conexion)
+    ) { (medidosEncabezado, medidosContenido), constraints ->
+        val libre = constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity)
+        val partesEncabezado = medidosEncabezado.map { it.measure(libre) }
+        val altoEncabezado = partesEncabezado.maxOfOrNull { it.height } ?: 0
+        alto[0] = altoEncabezado
+        // Si el encabezado se achicó (p. ej. se plegaron los filtros) el desplazamiento no puede quedar más allá.
+        val y = desplazamiento.coerceIn(-altoEncabezado.toFloat(), 0f).roundToInt()
+        val altoTotal = constraints.maxHeight
+        val altoContenido = (altoTotal - altoEncabezado - y).coerceIn(0, altoTotal)
+        val partesContenido = medidosContenido.map {
+            it.measure(constraints.copy(minHeight = altoContenido, maxHeight = altoContenido))
+        }
+        layout(constraints.maxWidth, altoTotal) {
+            partesEncabezado.forEach { it.place(0, y) }
+            partesContenido.forEach { it.place(0, altoEncabezado + y) }
+        }
     }
 }
