@@ -112,9 +112,14 @@ class UserExperienceAndModulesExhaustiveTest {
     fun `captura manual de fecha de reporte preserva el instante seleccionado`() {
         val timestampInicial = System.currentTimeMillis()
         val context: Context = ApplicationProvider.getApplicationContext()
+        val fakeGDD = FakeGDDService().apply {
+            getTerrenosResult = { retrofit2.Response.success(emptyList()) }
+            getPlantacionesResult = { retrofit2.Response.success(emptyList()) }
+            getPlagasResult = { retrofit2.Response.success(emptyList()) }
+        }
         val viewModel = CrearReporteViewModel(
             context = context,
-            gddService = FakeGDDService(),
+            gddService = fakeGDD,
             currentOwner = { "test-owner" }
         )
 
