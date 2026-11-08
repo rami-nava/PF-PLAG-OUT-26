@@ -72,26 +72,32 @@ fun LoginScreen(
     ) {
         FondoVerdeAuth()
 
-        Column(
+        // En pantallas bajas (teléfonos chicos o letra grande) se achican el logo y los márgenes
+        // para que el formulario entre sin scrollear; el scroll queda como respaldo.
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.systemBars)
-                .padding(horizontal = 28.dp)
+        ) {
+        val compacto = maxHeight < 720.dp
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = if (compacto) 40.dp else 28.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(56.dp))
+            Spacer(modifier = Modifier.height(if (compacto) 12.dp else 56.dp))
 
-
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(16.dp)) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(if (compacto) 4.dp else 16.dp)) {
                     Image(
                         painter = painterResource(id = R.drawable.logo_plagout),
-                        contentDescription = "Logo"
+                        contentDescription = "Logo",
+                        modifier = Modifier.heightIn(max = if (compacto) 64.dp else 160.dp)
                     )
                 }
 
-
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(if (compacto) 8.dp else 20.dp))
 
             Text(
                 "PLAG-OUT",
@@ -107,27 +113,31 @@ fun LoginScreen(
                 fontWeight = FontWeight.Medium
             )
 
-            Spacer(modifier = Modifier.height(36.dp))
+            Spacer(modifier = Modifier.height(if (compacto) 16.dp else 36.dp))
 
             Surface(
                 color = PlagOutColors.Surface,
-                shape = RoundedCornerShape(28.dp),
+                shape = RoundedCornerShape(if (compacto) 22.dp else 28.dp),
                 shadowElevation = 3.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier.padding(
+                        horizontal = if (compacto) 14.dp else 24.dp,
+                        vertical = if (compacto) 14.dp else 24.dp
+                    ),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Bienvenido", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
-                    Text("Ingresá a tu cuenta", fontSize = 14.sp, color = PlagOutColors.TextSecondary)
+                    Text("Bienvenido", fontSize = if (compacto) 18.sp else 22.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text("Ingresá a tu cuenta", fontSize = if (compacto) 12.sp else 14.sp, color = PlagOutColors.TextSecondary)
 
-                    Spacer(modifier = Modifier.height(28.dp))
+                    Spacer(modifier = Modifier.height(if (compacto) 10.dp else 28.dp))
 
                     OutlinedTextField(
                         value = state.email,
                         onValueChange = { authViewModel.actualizarEmail(it) },
-                        label = { Text("Correo electrónico") },
+                        label = { Text("Correo electrónico", fontSize = if (compacto) 13.sp else 16.sp) },
+                        textStyle = LocalTextStyle.current.copy(fontSize = if (compacto) 14.sp else 16.sp),
                         leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = PlagOutColors.Forest) },
                         trailingIcon = {
                             if (state.email.isNotEmpty()) {
@@ -147,14 +157,15 @@ fun LoginScreen(
                         modifier = Modifier.fillMaxWidth().testTag("txtEmail")
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(if (compacto) 6.dp else 16.dp))
 
                     var mostrarPassword by remember { mutableStateOf(false) }
 
                     OutlinedTextField(
                         value = state.password,
                         onValueChange = { authViewModel.actualizarPassword(it) },
-                        label = { Text("Contraseña") },
+                        label = { Text("Contraseña", fontSize = if (compacto) 13.sp else 16.sp) },
+                        textStyle = LocalTextStyle.current.copy(fontSize = if (compacto) 14.sp else 16.sp),
                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = PlagOutColors.Forest) },
                         trailingIcon = {
                             IconButton(onClick = { mostrarPassword = !mostrarPassword }) {
@@ -173,7 +184,7 @@ fun LoginScreen(
                         modifier = Modifier.fillMaxWidth().testTag("txtPassword")
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(if (compacto) 0.dp else 4.dp))
 
                     Box(
                         modifier = Modifier.fillMaxWidth(),
@@ -190,7 +201,7 @@ fun LoginScreen(
                             Text(
                                 "¿Olvidaste tu contraseña?",
                                 color = PlagOutColors.Forest,
-                                fontSize = 13.sp,
+                                fontSize = if (compacto) 12.sp else 13.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -221,7 +232,7 @@ fun LoginScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(if (compacto) 6.dp else 24.dp))
 
                     Button(
                         onClick = { authViewModel.iniciarSesion(onSuccess = onLoginSuccess) },
@@ -231,7 +242,7 @@ fun LoginScreen(
                             disabledContainerColor = PlagOutColors.Forest.copy(alpha = 0.4f)
                         ),
                         shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth().height(56.dp).testTag("btnIniciarSesion")
+                        modifier = Modifier.fillMaxWidth().height(if (compacto) 46.dp else 56.dp).testTag("btnIniciarSesion")
                     ) {
                         if (state.cargando) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = PlagOutColors.TextOnDark, strokeWidth = 3.dp)
@@ -242,7 +253,7 @@ fun LoginScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(if (compacto) 8.dp else 24.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("¿No tenés cuenta?", color = PlagOutColors.TextOnDark, fontSize = 14.sp)
@@ -251,7 +262,8 @@ fun LoginScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(if (compacto) 12.dp else 32.dp))
+        }
         }
 
         SnackbarHost(

@@ -212,8 +212,9 @@ class AdminMetricasGlobalesTest {
         compose.onNodeWithText("Campañas").performClick()
 
         // En Campañas: muestra cultivo que afecta y monitoreos por cultivo, sin etapas ni eclosionados
-        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("PLAGA PREDOMINANTE DE LA CAMPAÑA"))
-        compose.onNodeWithText("PLAGA PREDOMINANTE DE LA CAMPAÑA").assertExists()
+        // En pantallas angostas (la de Robolectric lo es) la píldora se acorta a "PLAGA PREDOMINANTE".
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("PLAGA PREDOMINANTE", substring = true))
+        compose.onNodeWithText("PLAGA PREDOMINANTE", substring = true).assertExists()
         compose.onNodeWithText("CULTIVO QUE AFECTA").assertExists()
         compose.onNodeWithText("YA ECLOSIONADOS", ignoreCase = true).assertDoesNotExist()
         compose.onNodeWithText("ETAPA TÍPICA", ignoreCase = true).assertDoesNotExist()

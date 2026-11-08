@@ -74,6 +74,7 @@ import com.example.plag_out.ui.theme.EstadoSinResultados
 import com.example.plag_out.ui.theme.EstadoVacioFlotante
 import com.example.plag_out.ui.theme.EtiquetaInfo
 import com.example.plag_out.ui.theme.EncabezadoGrupoFiltro
+import com.example.plag_out.ui.theme.EncabezadoQueScrollea
 import com.example.plag_out.ui.theme.FiltroChipsRow
 import com.example.plag_out.ui.theme.NivelEstilo
 import com.example.plag_out.ui.theme.OpcionFiltro
@@ -173,7 +174,8 @@ fun MonitoreosScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        // El panel y los filtros se van con el scroll de la lista para dejarle toda la pantalla.
+        EncabezadoQueScrollea(encabezado = {
             PanelDeCampo(monitoreos = activos)
 
             val opciones = remember(state.monitoreos, activos) {
@@ -210,7 +212,8 @@ fun MonitoreosScreen(
                 )
             }
 
-            Box(modifier = Modifier.weight(1f)) {
+            }) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 AnimatedContent(
                     targetState = when {
                         state.isLoading || (state.cargandoMas && filtrados.isEmpty()) -> "cargando"

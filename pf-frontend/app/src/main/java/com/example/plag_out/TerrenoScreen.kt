@@ -61,6 +61,7 @@ import com.example.plag_out.ui.theme.EstadoSinResultados
 import com.example.plag_out.ui.theme.EstadoVacioFlotante
 import com.example.plag_out.ui.theme.EtiquetaInfo
 import com.example.plag_out.ui.theme.EncabezadoGrupoFiltro
+import com.example.plag_out.ui.theme.EncabezadoQueScrollea
 import com.example.plag_out.ui.theme.FiltroChipsRow
 import com.example.plag_out.ui.theme.NivelEstilo
 import com.example.plag_out.ui.theme.OpcionFiltro
@@ -175,7 +176,8 @@ fun TerrenoScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        // El panel y los filtros se van con el scroll de la lista para dejarle toda la pantalla.
+        EncabezadoQueScrollea(encabezado = {
             PanelDeCampoTerrenos(terrenos = state.terrenos, monitoreos = monitoreosState.monitoreos.filter { it.activo })
 
             val opciones = remember(state.terrenos, monitoreosState.monitoreos) {
@@ -211,7 +213,8 @@ fun TerrenoScreen(
                 )
             }
 
-            Box(modifier = Modifier.weight(1f)) {
+            }) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 AnimatedContent(
                     targetState = when {
                         // Con páginas pendientes, "vacío" todavía no es definitivo

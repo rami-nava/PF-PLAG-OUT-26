@@ -44,6 +44,17 @@ data class FormularioTratamiento(
     val fechaConteoDespues: LocalDate? = null,
     val testigoDespues: String = ""
 ) {
+    /**
+     * Cambia la fecha de aplicación arrastrando el conteo previo: el formulario arranca con las
+     * dos en hoy, y si solo se movía la aplicación hacia atrás el conteo quedaba después de
+     * aplicar (inválido).
+     */
+    fun conFechaAplicacion(nueva: LocalDate): FormularioTratamiento {
+        val antes = fechaConteoAntes
+        val acompaña = antes == null || antes == fechaAplicacion || antes.isAfter(nueva)
+        return copy(fechaAplicacion = nueva, fechaConteoAntes = if (acompaña) nueva else antes)
+    }
+
     companion object {
         fun nuevo(hoy: LocalDate) = FormularioTratamiento(fechaAplicacion = hoy, fechaConteoAntes = hoy)
 
