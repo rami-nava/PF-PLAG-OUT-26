@@ -14,6 +14,9 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -618,14 +621,12 @@ fun PanelFiltrosPlegable(
             enter = expandVertically() + fadeIn(tween(220)),
             exit = shrinkVertically() + fadeOut(tween(180))
         ) {
-            // Con muchos grupos (Comunidad) los filtros no entran: se desplazan dentro de un
-            // tope de altura en vez de aplastar la última fila de chips.
-            val alturaMaxima = (LocalConfiguration.current.screenHeightDp * 0.45f).dp
+            // Sin tope de alto ni scroll propio: el panel vive dentro de [EncabezadoQueScrollea],
+            // que ya desplaza todo el encabezado. Un tope acá cortaba la última fila de chips en
+            // teléfonos chicos (y el scroll interno no se descubría).
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = alturaMaxima)
-                    .verticalScroll(rememberScrollState())
                     .padding(bottom = 6.dp)
                     .testTag("panelFiltros"),
                 content = contenido
@@ -792,8 +793,17 @@ fun EncabezadoQueScrollea(
                 if (available.y > 0f) mover(available.y) else Offset.Zero
         }
     }
+    // El encabezado también se arrastra por sí mismo: con los filtros abiertos en un teléfono
+    // chico puede ser más alto que la pantalla y entonces no queda lista visible desde donde scrollear.
+    val arrastreEncabezado = rememberScrollableState { delta ->
+        conexion.onPreScroll(Offset(0f, delta), NestedScrollSource.UserInput).y +
+            conexion.onPostScroll(Offset.Zero, Offset(0f, delta), NestedScrollSource.UserInput).y
+    }
     Layout(
-        contents = listOf({ Column(content = encabezado) }, contenido),
+        contents = listOf(
+            { Column(modifier = Modifier.scrollable(arrastreEncabezado, Orientation.Vertical), content = encabezado) },
+            contenido
+        ),
         modifier = modifier
             .fillMaxSize()
             .clipToBounds()

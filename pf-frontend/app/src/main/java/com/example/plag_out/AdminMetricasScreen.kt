@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -286,6 +287,7 @@ private fun VistaDashboardProductor(state: AdminMetricasUIState) {
 
 @Composable
 private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
+    val angosta = esPantallaAngosta()
     Surface(
         color = PlagOutColors.Surface,
         shape = RoundedCornerShape(22.dp),
@@ -293,7 +295,7 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
         border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(18.dp)) {
+        Column(Modifier.padding(if (esPantallaAngosta()) 14.dp else 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Assessment, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
@@ -309,15 +311,15 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(170.dp),
+                    .height(if (angosta) 150.dp else 170.dp),
                 contentAlignment = Alignment.Center
             ) {
                 GraficoDonutSemaforo(
                     porcVerde = semaforo.porcentajeVerde,
                     porcAmarillo = semaforo.porcentajeAmarillo,
                     porcRojo = semaforo.porcentajeRojo,
-                    tamano = 160.dp,
-                    grosor = 18.dp
+                    tamano = if (angosta) 140.dp else 160.dp,
+                    grosor = if (angosta) 16.dp else 18.dp
                 )
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -338,35 +340,33 @@ private fun TarjetaDonutSemaforoHectareas(semaforo: SemaforoHectareas) {
 
             Spacer(Modifier.height(16.dp))
 
-            // Leyendas de desglose
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                ItemDesgloseSemaforo(
-                    etiqueta = "En huevo",
-                    hectareas = semaforo.hectareasVerde,
-                    porcentaje = semaforo.porcentajeVerde,
-                    lotes = semaforo.lotesVerde,
-                    color = PlagOutColors.RiskOk,
-                    modifier = Modifier.weight(1f)
-                )
-                ItemDesgloseSemaforo(
-                    etiqueta = "Eclosión cerca",
-                    hectareas = semaforo.hectareasAmarillo,
-                    porcentaje = semaforo.porcentajeAmarillo,
-                    lotes = semaforo.lotesAmarillo,
-                    color = PlagOutColors.RiskWarn,
-                    modifier = Modifier.weight(1f)
-                )
-                ItemDesgloseSemaforo(
-                    etiqueta = "Eclosionó",
-                    hectareas = semaforo.hectareasRojo,
-                    porcentaje = semaforo.porcentajeRojo,
-                    lotes = semaforo.lotesRojo,
-                    color = PlagOutColors.RiskDanger,
-                    modifier = Modifier.weight(1f)
-                )
+            // Leyendas de desglose: tres columnas no entran en un teléfono angosto
+            // así que ahí se apilan como filas.
+            val desglose = listOf(
+                DesgloseSemaforo("En huevo", semaforo.hectareasVerde, semaforo.porcentajeVerde, semaforo.lotesVerde, PlagOutColors.RiskOk),
+                DesgloseSemaforo("Eclosión cerca", semaforo.hectareasAmarillo, semaforo.porcentajeAmarillo, semaforo.lotesAmarillo, PlagOutColors.RiskWarn),
+                DesgloseSemaforo("Eclosionó", semaforo.hectareasRojo, semaforo.porcentajeRojo, semaforo.lotesRojo, PlagOutColors.RiskDanger)
+            )
+            if (angosta) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    desglose.forEach { FilaDesgloseSemaforo(it) }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    desglose.forEach { d ->
+                        ItemDesgloseSemaforo(
+                            etiqueta = d.etiqueta,
+                            hectareas = d.hectareas,
+                            porcentaje = d.porcentaje,
+                            lotes = d.lotes,
+                            color = d.color,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(14.dp))
@@ -448,6 +448,60 @@ private fun GraficoDonutSemaforo(
     }
 }
 
+/** Teléfonos de ~360dp de ancho o menos: ahí las filas de 3 columnas dejan de entrar. */
+@Composable
+private fun esPantallaAngosta(): Boolean = LocalConfiguration.current.screenWidthDp < 380
+
+private data class DesgloseSemaforo(
+    val etiqueta: String,
+    val hectareas: Float,
+    val porcentaje: Float,
+    val lotes: Int,
+    val color: Color
+)
+
+@Composable
+private fun FilaDesgloseSemaforo(d: DesgloseSemaforo) {
+    Surface(
+        color = d.color.copy(alpha = 0.08f),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(d.color))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                d.etiqueta,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = d.color,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(8.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    String.format(LocalConfiguration.current.locales[0], "%.1f ha", d.hectareas),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = PlagOutColors.TextMain,
+                    maxLines = 1
+                )
+                Text(
+                    "${d.porcentaje.toInt()}% · ${d.lotes} ${if (d.lotes == 1) "lote" else "lotes"}",
+                    fontSize = 10.sp,
+                    color = PlagOutColors.TextSecondary,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun ItemDesgloseSemaforo(
     etiqueta: String,
@@ -493,7 +547,7 @@ private fun TarjetaRankingLotesCriticos(lotes: List<LoteEnRiesgoCritico>) {
         border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(18.dp)) {
+        Column(Modifier.padding(if (esPantallaAngosta()) 14.dp else 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = PlagOutColors.Terracotta, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
@@ -533,14 +587,25 @@ private fun ItemFilaLoteCritico(lote: LoteEnRiesgoCritico) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(lote.terrenoNombre, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
+                    // fill = false: el nombre ocupa lo que necesita, pero si es largo se corta
+                    // con "…" en vez de empujar las hectáreas y el chip fuera de la fila.
+                    Text(
+                        lote.terrenoNombre,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = PlagOutColors.TextMain,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
                     if (lote.terrenoArea > 0f) {
                         Spacer(Modifier.width(6.dp))
                         Text(
                             String.format(LocalConfiguration.current.locales[0], "· %.0f ha", lote.terrenoArea),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = PlagOutColors.TextSecondary
+                            color = PlagOutColors.TextSecondary,
+                            maxLines = 1
                         )
                     }
                 }
@@ -552,9 +617,13 @@ private fun ItemFilaLoteCritico(lote: LoteEnRiesgoCritico) {
                 Text(
                     infoCultivo,
                     fontSize = 12.sp,
-                    color = PlagOutColors.TextSecondary
+                    color = PlagOutColors.TextSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
+
+            Spacer(Modifier.width(8.dp))
 
             Surface(
                 color = estilo.color.copy(alpha = 0.12f),
@@ -566,7 +635,7 @@ private fun ItemFilaLoteCritico(lote: LoteEnRiesgoCritico) {
                 ) {
                     Box(Modifier.size(6.dp).clip(CircleShape).background(estilo.color))
                     Spacer(Modifier.width(4.dp))
-                    Text(estilo.etiqueta, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = estilo.color)
+                    Text(estilo.etiqueta, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = estilo.color, maxLines = 1)
                 }
             }
         }
@@ -613,7 +682,7 @@ private fun TarjetaPlagasPorCultivo(cultivos: List<ResumenCultivoPlagas>) {
         border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(18.dp)) {
+        Column(Modifier.padding(if (esPantallaAngosta()) 14.dp else 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Grass, contentDescription = null, tint = PlagOutColors.Leaf, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
@@ -846,7 +915,7 @@ private fun TarjetaMetrica(
         border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(18.dp)) {
+        Column(Modifier.padding(if (esPantallaAngosta()) 14.dp else 18.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Icon(icono, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
@@ -992,9 +1061,9 @@ private fun TarjetaResumenGlobal(
                 HorizontalDivider(color = PlagOutColors.Divider.copy(alpha = 0.6f))
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Mayor incidencia histórica:", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
+                    Text("Mayor incidencia histórica:", fontSize = 12.sp, color = PlagOutColors.TextSecondary, maxLines = 1)
                     Spacer(Modifier.width(6.dp))
-                    Text(plagaLider, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text(plagaLider, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -1015,7 +1084,14 @@ private fun ItemMetricaCompacta(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icono, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(13.dp))
             Spacer(Modifier.width(4.dp))
-            Text(valor, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
+            Text(
+                valor,
+                fontSize = if (esPantallaAngosta()) 14.sp else 16.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PlagOutColors.TextMain,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
         Spacer(Modifier.height(2.dp))
         Text(etiqueta, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = PlagOutColors.TextSecondary)
@@ -1027,6 +1103,7 @@ private fun ItemMetricaCompacta(
 @Composable
 private fun TarjetaPlagaPredominanteCampaña(campaña: CampañaHistorica) {
     val lider = campaña.plagaPredominante
+    val angosta = esPantallaAngosta()
 
     Surface(
         color = PlagOutColors.Surface,
@@ -1035,7 +1112,7 @@ private fun TarjetaPlagaPredominanteCampaña(campaña: CampañaHistorica) {
         border = BorderStroke(1.5.dp, PlagOutColors.Leaf.copy(alpha = 0.35f)),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(18.dp)) {
+        Column(Modifier.padding(if (esPantallaAngosta()) 14.dp else 18.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1049,10 +1126,20 @@ private fun TarjetaPlagaPredominanteCampaña(campaña: CampañaHistorica) {
                 ) {
                     Icon(Icons.Outlined.BugReport, contentDescription = null, tint = PlagOutColors.Leaf, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("PLAGA PREDOMINANTE DE LA CAMPAÑA", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.Leaf, letterSpacing = 0.5.sp)
+                    // El texto completo + el nombre de la campaña suman ~300dp: en angosto se acorta
+                    // (el nombre de la campaña ya aclara de cuál se trata).
+                    Text(
+                        if (angosta) "PLAGA PREDOMINANTE" else "PLAGA PREDOMINANTE DE LA CAMPAÑA",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = PlagOutColors.Leaf,
+                        letterSpacing = 0.5.sp,
+                        maxLines = 1
+                    )
                 }
 
-                Text(campaña.nombre, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextSecondary)
+                Spacer(Modifier.width(8.dp))
+                Text(campaña.nombre, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextSecondary, maxLines = 1)
             }
 
             Spacer(Modifier.height(14.dp))
@@ -1066,8 +1153,8 @@ private fun TarjetaPlagaPredominanteCampaña(campaña: CampañaHistorica) {
                 Spacer(Modifier.height(16.dp))
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.spacedBy(if (angosta) 8.dp else 10.dp)
                 ) {
                     MiniIndicador(
                         titulo = "Incidencia",
@@ -1106,7 +1193,9 @@ private fun MiniIndicador(titulo: String, valor: String, detalle: String, color:
     Surface(
         color = color.copy(alpha = 0.08f),
         shape = RoundedCornerShape(14.dp),
-        modifier = modifier
+        // fillMaxHeight + IntrinsicSize.Min en la fila: las dos cajas quedan del mismo alto
+        // aunque una envuelva a dos líneas.
+        modifier = modifier.fillMaxHeight()
     ) {
         Column(
             Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
@@ -1114,9 +1203,16 @@ private fun MiniIndicador(titulo: String, valor: String, detalle: String, color:
         ) {
             Text(titulo.uppercase(LocalConfiguration.current.locales[0]), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = color, letterSpacing = 0.4.sp)
             Spacer(Modifier.height(4.dp))
-            Text(valor, fontSize = 16.sp, fontWeight = FontWeight.Black, color = PlagOutColors.TextMain)
+            Text(
+                valor,
+                fontSize = if (esPantallaAngosta()) 14.sp else 16.sp,
+                fontWeight = FontWeight.Black,
+                color = PlagOutColors.TextMain,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
             Spacer(Modifier.height(2.dp))
-            Text(detalle, fontSize = 10.sp, color = PlagOutColors.TextSecondary, maxLines = 1)
+            Text(detalle, fontSize = 10.sp, color = PlagOutColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -1132,7 +1228,7 @@ private fun TarjetaMonitoreosPorCultivoCampaña(campaña: CampañaHistorica) {
         border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(18.dp)) {
+        Column(Modifier.padding(if (esPantallaAngosta()) 14.dp else 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Grass, contentDescription = null, tint = PlagOutColors.Leaf, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
@@ -1175,8 +1271,10 @@ private fun BloqueCultivoCampaña(cultivo: ResumenCultivoCampaña) {
                 }
             }
             val textoMonitoreos = "${cultivo.totalMonitoreos} ${if (cultivo.totalMonitoreos == 1) "monitoreo" else "monitoreos"}"
+            Spacer(Modifier.width(8.dp))
             Text(
                 textoMonitoreos,
+                maxLines = 1,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = PlagOutColors.Forest
@@ -1197,9 +1295,19 @@ private fun BloqueCultivoCampaña(cultivo: ResumenCultivoCampaña) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(plaga.plagaNombre, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                        Text(
+                            plaga.plagaNombre,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PlagOutColors.TextMain,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(8.dp))
                         Text(
                             "${plaga.totalMonitoreos} ${if (plaga.totalMonitoreos == 1) "monitoreo" else "monitoreos"} (${plaga.porcentaje.toInt()}%)",
+                            maxLines = 1,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = PlagOutColors.TextSecondary
@@ -1238,7 +1346,7 @@ private fun TarjetaPrevalenciaPlagas(campaña: CampañaHistorica) {
         border = BorderStroke(1.dp, PlagOutColors.CreamDeep),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(18.dp)) {
+        Column(Modifier.padding(if (esPantallaAngosta()) 14.dp else 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Insights, contentDescription = null, tint = PlagOutColors.Forest, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
@@ -1291,17 +1399,18 @@ private fun FilaPlagaPrevalencia(posicion: Int, plaga: ResumenPlagaCampaña) {
                 }
                 Spacer(Modifier.width(8.dp))
                 Column {
-                    Text(plaga.plagaNombre, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain)
+                    Text(plaga.plagaNombre, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PlagOutColors.TextMain, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val subtitulo = buildList {
                         if (!plaga.plagaCientifico.isNullOrBlank()) add(plaga.plagaCientifico)
                         if (plaga.cultivosAfectados.isNotEmpty()) add("Afecta: ${plaga.cultivosAfectados.joinToString(", ")}")
                     }.joinToString(" • ")
                     if (subtitulo.isNotBlank()) {
-                        Text(subtitulo, fontSize = 11.sp, fontStyle = FontStyle.Italic, color = PlagOutColors.TextSecondary)
+                        Text(subtitulo, fontSize = 11.sp, fontStyle = FontStyle.Italic, color = PlagOutColors.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
 
+            Spacer(Modifier.width(8.dp))
             Column(horizontalAlignment = Alignment.End) {
                 Text(String.format(LocalConfiguration.current.locales[0], "%.1f%%", plaga.porcentajeIncidencia), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.Forest)
                 Text("${plaga.totalMonitoreos} ${if (plaga.totalMonitoreos == 1) "monitoreo" else "monitoreos"}", fontSize = 11.sp, color = PlagOutColors.TextSecondary)
