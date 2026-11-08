@@ -120,6 +120,8 @@ fun validarTratamiento(
         val despues = form.fechaConteoDespues
         when {
             despues == null -> errores[CampoTratamiento.FECHA_CONTEO_DESPUES] = "Elegí la fecha"
+            aplicacion != null && aplicacion == hoy ->
+                errores[CampoTratamiento.FECHA_CONTEO_DESPUES] = "Si aplicaste hoy, el conteo posterior se registra en los días posteriores"
             aplicacion != null && !despues.isAfter(aplicacion) ->
                 errores[CampoTratamiento.FECHA_CONTEO_DESPUES] = "Tiene que ser después de aplicar"
             despues.isAfter(hoy) -> errores[CampoTratamiento.FECHA_CONTEO_DESPUES] = "No puede ser futura"

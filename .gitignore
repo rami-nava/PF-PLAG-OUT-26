@@ -9,3 +9,4 @@ venv/
 # IDE y workspaces
 .idea/
 *.code-workspace
+*.apk

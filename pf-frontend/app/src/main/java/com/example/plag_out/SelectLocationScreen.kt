@@ -310,6 +310,9 @@ fun SelectLocationScreen(
                                     MapView(ctx).apply {
                                         setMultiTouchControls(true)
                                         zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+										isTilesScaledToDpi = true
+										minZoomLevel = 3.0
+										maxZoomLevel = 19.0
                                         setTileSource(OsmTileSource)
                                         // Con una ubicación ya elegida (edición de terreno) se arranca sobre
                                         // el lote; si no, con el país completo para buscar.

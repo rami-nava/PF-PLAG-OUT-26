@@ -41,6 +41,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -260,6 +261,45 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private val RUTAS_NO_PERSISTIBLES = setOf(
+    "logIn",
+    "crearCuenta",
+    "recuperarPassword",
+    "datos_terreno",
+    "seleccionar_ubicacion",
+    "crear_reporte",
+    "agregar_monitoreo",
+    RUTA_ADMIN_PLAGA_NUEVA,
+    RUTA_ADMIN_CULTIVO_NUEVO
+)
+
+private val PREFIJOS_NO_PERSISTIBLES = listOf(
+    "agregar_plantacion/",
+    "agregar_monitoreo/",
+    "ver_reporte/{reporte_id}/{reporte_json}"
+)
+
+internal fun resolverRutaDestino(plantilla: String?, arguments: android.os.Bundle?): String? {
+    val ruta = plantilla ?: return null
+    if (ruta in RUTAS_NO_PERSISTIBLES) return null
+    if (PREFIJOS_NO_PERSISTIBLES.any { ruta.startsWith(it) }) return null
+
+    if (!ruta.contains("{")) return ruta
+
+    val rutaBase = ruta.substringBefore("?")
+    val regex = Regex("\\{([a-zA-Z0-9_]+)\\}")
+    val matches = regex.findAll(rutaBase)
+    var rutaFinal = rutaBase
+    for (match in matches) {
+        val paramName = match.groupValues[1]
+        val valor = arguments?.getString(paramName)
+            ?: @Suppress("DEPRECATION") arguments?.get(paramName)?.toString()
+            ?: return null
+        rutaFinal = rutaFinal.replace(match.value, valor)
+    }
+    return rutaFinal
+}
+
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavigation(
@@ -369,13 +409,9 @@ fun AppNavigation(
         esperaAgotada = true
     }
 
-    if (sessionStatus is SessionStatus.Initializing && !forzarLogin) {
-        PantallaCargandoSesion(
-            esperaAgotada = esperaAgotada,
-            onIrAlLogin = { forzarLogin = true }
-        )
-        return
-    }
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+
     // El rol guardado en el último login decide de qué lado de la app se arranca: las cuentas
     // admin solo ven el panel de administración.
     val startDestination = remember {
@@ -384,8 +420,21 @@ fun AppNavigation(
         else "logIn"
     }
 
-    val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    if (sessionStatus is SessionStatus.Initializing && !forzarLogin) {
+        PantallaCargandoSesion(
+            esperaAgotada = esperaAgotada,
+            onIrAlLogin = { forzarLogin = true }
+        )
+        return
+    }
+
+    val hayDeepLinkActivo = deepLinkRecuperarPassword ||
+        deepLinkMonitoreoId != null ||
+        deepLinkReporteId != null ||
+        deepLinkPlantacionId != null ||
+        deepLinkCicloId != null ||
+        deepLinkPrediccionId != null
+    var rutaRestaurada by rememberSaveable { mutableStateOf(false) }
 
     // Manejo de Deep link para restablecimiento de contraseña
     LaunchedEffect(deepLinkRecuperarPassword, deepLinkRecuperarPasswordError) {
@@ -434,19 +483,40 @@ fun AppNavigation(
         }
     }
 
-    // startDestination se fija una sola vez (arriba) leyendo sessionStatus en ese momento. Si
-    // sessionStatus pasó primero por NotAuthenticated y recién después (al terminar de cargar la
-    // sesión guardada) llegó a Authenticated, el NavHost ya arrancó en "logIn" y se queda ahí sin
-    // este empujón: si nos autenticamos estando parados en el login, saltamos al home.
-    // Durante un login en curso no se empuja: ese flujo todavía está leyendo el rol y navega solo.
+    // Restauración de la última pantalla al arrancar la app con sesión activa o cuando
+    // la sesión pasa a Authenticated habiendo arrancado en el login:
     LaunchedEffect(sessionStatus) {
-        val currentRoute = navBackStackEntry?.destination?.route
-        if (sessionStatus is SessionStatus.Authenticated && currentRoute == "logIn" &&
-            !authViewModel.loginState.value.cargando &&
-            !authViewModel.recuperarPasswordState.value.sesionDeRecuperacionActiva
-        ) {
-            navController.navigate(homePara(PreferenciasUsuario.rol(context))) {
-                popUpTo("logIn") { inclusive = true }
+        if (sessionStatus is SessionStatus.Authenticated && !rutaRestaurada && !hayDeepLinkActivo) {
+            val currentRoute = navBackStackEntry?.destination?.route
+            val home = homePara(PreferenciasUsuario.rol(context))
+            val ultima = PreferenciasUsuario.ultimaRuta(context)
+            val esAdmin = PreferenciasUsuario.esAdmin(context)
+            val destino = if (ultima != null && (esAdmin == esRutaAdmin(ultima))) ultima else home
+
+            if (currentRoute == "logIn" &&
+                !authViewModel.loginState.value.cargando &&
+                !authViewModel.recuperarPasswordState.value.sesionDeRecuperacionActiva
+            ) {
+                rutaRestaurada = true
+                navController.navigate(home) {
+                    popUpTo("logIn") { inclusive = true }
+                }
+                if (destino != home) {
+                    try {
+                        navController.navigate(destino) { launchSingleTop = true }
+                    } catch (e: Exception) {
+                        android.util.Log.e("MainActivity", "No se pudo restaurar la ruta previa: $destino", e)
+                        PreferenciasUsuario.limpiarUltimaRuta(context)
+                    }
+                }
+            } else if (currentRoute != "logIn" && destino != home) {
+                rutaRestaurada = true
+                try {
+                    navController.navigate(destino) { launchSingleTop = true }
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "No se pudo restaurar la ruta previa: $destino", e)
+                    PreferenciasUsuario.limpiarUltimaRuta(context)
+                }
             }
         }
     }
@@ -570,9 +640,30 @@ fun AppNavigation(
     // Mientras dura el cierre se tapa la app: así no se puede seguir usando y no asoman los
     // errores de las pantallas que se quedan sin sesión antes de llegar al login.
     var cerrandoSesion by remember { mutableStateOf(false) }
+
+    // Guardar la última pantalla en almacenamiento local si el usuario navega
+    val currentSessionStatus by rememberUpdatedState(sessionStatus)
+    val isCerrandoSesion by rememberUpdatedState(cerrandoSesion)
+    DisposableEffect(navController) {
+        val listener = NavController.OnDestinationChangedListener { _, destination, arguments ->
+            if (currentSessionStatus is SessionStatus.Authenticated && !isCerrandoSesion) {
+                val rutaReal = resolverRutaDestino(destination.route, arguments)
+                if (rutaReal != null) {
+                    PreferenciasUsuario.guardarUltimaRuta(context, rutaReal)
+                }
+            }
+        }
+        navController.addOnDestinationChangedListener(listener)
+        onDispose {
+            navController.removeOnDestinationChangedListener(listener)
+        }
+    }
+
     val limpiarSesion: (Boolean, () -> Unit) -> Unit = limpiar@{ desregistrarDispositivo, despues ->
         if (cerrandoSesion) return@limpiar
         cerrandoSesion = true
+        PreferenciasUsuario.limpiarUltimaRuta(context)
+        rutaRestaurada = false
         mapaReportesViewModel?.limpiar()
         authViewModel.cerrarSesion(desregistrarDispositivo) {
             userViewModel.limpiar()
@@ -702,6 +793,8 @@ fun AppNavigation(
                     authViewModel = authViewModel,
                     // Vaciar el back stack: "atrás" desde home no debe volver al login
                     onLoginSuccess = { rol ->
+                        PreferenciasUsuario.limpiarUltimaRuta(context)
+                        rutaRestaurada = true
                         navController.navigate(homePara(rol)) {
                             popUpTo(0) { inclusive = true }
                         }

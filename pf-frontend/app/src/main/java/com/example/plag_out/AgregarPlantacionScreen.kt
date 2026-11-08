@@ -43,14 +43,15 @@ import java.time.ZoneOffset
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun fechasDeSiembraValidas(hoy: LocalDate): SelectableDates {
-    val desde = hoy.minusYears(1)
+    val desde = hoy.minusYears(3)
+    val hasta = hoy.plusMonths(6)
     return object : SelectableDates {
         override fun isSelectableDate(utcTimeMillis: Long): Boolean {
             val fecha = Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneOffset.UTC).toLocalDate()
-            return !fecha.isBefore(desde) && !fecha.isAfter(hoy)
+            return !fecha.isBefore(desde) && !fecha.isAfter(hasta)
         }
 
-        override fun isSelectableYear(year: Int): Boolean = year in desde.year..hoy.year
+        override fun isSelectableYear(year: Int): Boolean = year in desde.year..hasta.year
     }
 }
 

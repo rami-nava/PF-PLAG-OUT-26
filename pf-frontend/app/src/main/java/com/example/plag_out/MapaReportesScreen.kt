@@ -193,7 +193,13 @@ fun MapaReportesScreen(
     // De lejos llegan grupos (solo cantidad) y de cerca reportes sueltos; los dos se dibujan igual.
     val puntos = remember(state.grupos, state.reportes) {
         state.grupos.map { PuntoMapa(it.latitud, it.longitud, it.cantidad, it.severidad_max ?: SEVERIDAD_DESCONOCIDA, null) } +
-            state.reportes.map { PuntoMapa(it.latitud!!, it.longitud!!, 1, it.nivel_severidad, it) }
+            state.reportes.mapNotNull { rep ->
+                val lat = rep.latitud
+                val lon = rep.longitud
+                if (lat != null && lon != null) {
+                    PuntoMapa(lat, lon, 1, rep.nivel_severidad, rep)
+                } else null
+            }
     }
 
     // El zoom lo publica el propio mapa: la agrupación tiene que rehacerse cada vez que cambia,
@@ -1113,9 +1119,9 @@ private fun LienzoMapa(
                 setTileSource(OsmTileSource)
                 setMultiTouchControls(true)
                 zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
-                setUseDataConnection(true)
+                isTilesScaledToDpi = true
                 minZoomLevel = 3.0
-                maxZoomLevel = ZOOM_MAXIMO_SERVIDOR.toDouble()
+                maxZoomLevel = 19.0
                 controller.setZoom(ZOOM_PAIS)
                 controller.setCenter(CENTRO_PAIS)
                 // El zoom de la agrupación se publica con cada aviso, no solo con los de zoom: el

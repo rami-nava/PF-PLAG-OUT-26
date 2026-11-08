@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Lock
@@ -138,6 +139,17 @@ fun LoginScreen(
                         label = { Text("Correo electrónico", fontSize = if (compacto) 13.sp else 16.sp) },
                         textStyle = LocalTextStyle.current.copy(fontSize = if (compacto) 14.sp else 16.sp),
                         leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = PlagOutColors.Forest) },
+                        trailingIcon = {
+                            if (state.email.isNotEmpty()) {
+                                IconButton(onClick = { authViewModel.actualizarEmail("") }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Borrar correo",
+                                        tint = PlagOutColors.TextSecondary
+                                    )
+                                }
+                            }
+                        },
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),

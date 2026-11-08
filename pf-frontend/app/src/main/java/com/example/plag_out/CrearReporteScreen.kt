@@ -57,6 +57,12 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -668,6 +674,38 @@ fun CrearReporteScreen(
 
                         Spacer(Modifier.height(14.dp))
 
+                        var showDatePickerReporte by remember { mutableStateOf(false) }
+
+                        if (showDatePickerReporte) {
+                            val dpState = rememberDatePickerState(
+                                initialSelectedDateMillis = state.timestampMs
+                            )
+                            DatePickerDialog(
+                                onDismissRequest = { showDatePickerReporte = false },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            dpState.selectedDateMillis?.let { viewModel.setTimestamp(it) }
+                                            showDatePickerReporte = false
+                                        }
+                                    ) { Text("Aceptar", color = PlagOutColors.Forest) }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showDatePickerReporte = false }) { Text("Cancelar", color = PlagOutColors.Forest) }
+                                }
+                            ) {
+                                DatePicker(
+                                    state = dpState,
+                                    colors = DatePickerDefaults.colors(
+                                        selectedDayContainerColor = PlagOutColors.Forest,
+                                        todayContentColor = PlagOutColors.Forest,
+                                        titleContentColor = PlagOutColors.Forest,
+                                        headlineContentColor = PlagOutColors.Forest
+                                    )
+                                )
+                            }
+                        }
+
                         val sdf = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
                         val fechaFormateada = remember(state.timestampMs) {
                             sdf.format(Date(state.timestampMs))
@@ -677,6 +715,7 @@ fun CrearReporteScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(PlagOutColors.Cream, RoundedCornerShape(14.dp))
+                                .clickable { showDatePickerReporte = true }
                                 .padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -685,7 +724,7 @@ fun CrearReporteScreen(
                                 Icon(Icons.Outlined.Schedule, contentDescription = null, tint = PlagOutColors.Forest)
                                 Spacer(Modifier.width(10.dp))
                                 Column {
-                                    Text("Captura automática", fontSize = 11.sp, color = PlagOutColors.TextSecondary)
+                                    Text("Fecha de observación (tocá para cambiar)", fontSize = 11.sp, color = PlagOutColors.TextSecondary)
                                     Text(
                                         text = fechaFormateada,
                                         fontSize = 14.sp,
@@ -696,7 +735,7 @@ fun CrearReporteScreen(
                             }
 
                             IconButton(onClick = { viewModel.actualizarTimestamp() }) {
-                                Icon(Icons.Filled.AccessTime, contentDescription = "Actualizar hora", tint = PlagOutColors.Forest)
+                                Icon(Icons.Filled.AccessTime, contentDescription = "Actualizar a la hora actual", tint = PlagOutColors.Forest)
                             }
                         }
                     }

@@ -118,7 +118,7 @@ fun MisReportesScreen(
     var reporteAEliminar by remember { mutableStateOf<ReporteDetalleResponse?>(null) }
 
     LaunchedEffect(Unit) {
-        viewModel.cargarReportes()
+        viewModel.cargarReportes(forzar = true)
     }
 
     // La pestaña y los filtros viven en el ViewModel: cada pestaña tiene su propia consulta paginada
