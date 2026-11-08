@@ -583,7 +583,9 @@ fun BiofixManual(
     val numeros = remember(ciclos) { numerosDeCiclo(ciclos) }
     val activos = remember(ciclos) { ciclosActivos(ciclos) }
     val finalizados = remember(ciclos) { ciclosFinalizados(ciclos) }
-    var filtro by remember(monitoreo.monitoreo_id) { mutableStateOf(FILTRO_CICLOS_ACTIVOS) }
+    var filtroElegido by remember(monitoreo.monitoreo_id) { mutableStateOf(FILTRO_CICLOS_ACTIVOS) }
+    // Al finalizar el monitoreo se archivan sus ciclos: solo queda la pestaña de finalizados.
+    val filtro = if (monitoreo.activo) filtroElegido else FILTRO_CICLOS_FINALIZADOS
     val visibles = if (filtro == FILTRO_CICLOS_ACTIVOS) activos else finalizados
     var aFinalizar by remember { mutableStateOf<GddCicloResponse?>(null) }
     var finalizandoId by remember { mutableStateOf<Int?>(null) }
@@ -631,12 +633,13 @@ fun BiofixManual(
             }
         } else {
             FiltroChipsRow(
-                opciones = listOf(
-                    OpcionFiltro(FILTRO_CICLOS_ACTIVOS, "Activos", activos.size, Icons.Outlined.Schedule, PlagOutColors.Forest),
+                opciones = listOfNotNull(
+                    if (monitoreo.activo) OpcionFiltro(FILTRO_CICLOS_ACTIVOS, "Activos", activos.size, Icons.Outlined.Schedule, PlagOutColors.Forest)
+                    else null,
                     OpcionFiltro(FILTRO_CICLOS_FINALIZADOS, "Finalizados", finalizados.size, Icons.Filled.Flag, PlagOutColors.TextSecondary)
                 ),
                 seleccionado = filtro,
-                onSeleccion = { filtro = it },
+                onSeleccion = { filtroElegido = it },
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
             Column(

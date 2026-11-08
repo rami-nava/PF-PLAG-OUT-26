@@ -31,6 +31,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
@@ -543,15 +545,15 @@ fun MonitoreoCard(
                         .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    EstadisticaCompacta(
-                        "Fecha inicio",
-                        monitoreo.fecha_inicio?.format(
-                            DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))
-                        ) ?: "—",
-                        Modifier.weight(1f)
-                    )
-                    SeparadorVertical()
                     if (monitoreo.activo) {
+                        EstadisticaCompacta(
+                            "Fecha inicio",
+                            monitoreo.fecha_inicio?.format(
+                                DateTimeFormatter.ofPattern("dd MMM", Locale.forLanguageTag("es"))
+                            ) ?: "—",
+                            Modifier.weight(1f)
+                        )
+                        SeparadorVertical()
                         EstadisticaCompacta("Ciclos activos", "${activos.size}", Modifier.weight(1f))
                         SeparadorVertical()
                         EstadisticaCompacta(
@@ -561,15 +563,42 @@ fun MonitoreoCard(
                             colorValor = if (enAlerta > 0) PlagOutColors.RiskDanger else PlagOutColors.TextMain
                         )
                     } else {
-                        // Finalizado: ya no hay ciclos activos ni alertas, lo que vale es el histórico.
-                        EstadisticaCompacta("Ciclos totales", "${monitoreo.ciclos.orEmpty().size}", Modifier.weight(1f))
+                        // Finalizado: ya no hay ciclos activos ni alertas, lo que vale es el período que
+                        // cubrió. Con año, porque es histórico y puede ser de otra campaña.
+                        val formato = DateTimeFormatter.ofPattern("dd MMM yy", Locale.forLanguageTag("es"))
+                        EstadisticaCompacta("Inicio", monitoreo.fecha_inicio?.format(formato) ?: "—", Modifier.weight(1f))
+                        SeparadorVertical()
+                        EstadisticaCompacta("Fin", monitoreo.fecha_fin?.format(formato) ?: "—", Modifier.weight(1f))
+                        SeparadorVertical()
+                        EstadisticaCompacta("Ciclos", "${monitoreo.ciclos.orEmpty().size}", Modifier.weight(1f))
                     }
                 }
 
                 Spacer(Modifier.height(12.dp))
 
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    val observaciones = monitoreo.observaciones?.trim()?.takeIf { it.isNotEmpty() }
                     when {
+                        !monitoreo.activo && observaciones != null -> Row(
+                            Modifier.weight(1f).testTag("observacionesMonitoreo_${monitoreo.monitoreo_id}"),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.Notes,
+                                contentDescription = "Observaciones",
+                                tint = PlagOutColors.TextSecondary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                observaciones,
+                                fontSize = 12.sp,
+                                fontStyle = FontStyle.Italic,
+                                color = PlagOutColors.TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                         enAlerta > 0 -> EtiquetaInfo(
                             Icons.Filled.Flag,
                             if (enAlerta == 1) "1 ciclo superó el umbral" else "$enAlerta ciclos superaron el umbral",
@@ -577,7 +606,9 @@ fun MonitoreoCard(
                         )
                         diasEstimados != null -> EtiquetaInfo(Icons.Outlined.Schedule, "≈ $diasEstimados días al objetivo", PlagOutColors.Forest)
                     }
-                    Spacer(Modifier.weight(1f))
+                    // Las observaciones ya ocupan el ancho libre; si no, el espacio empuja el chevron.
+                    if (!monitoreo.activo && observaciones != null) Spacer(Modifier.width(8.dp))
+                    else Spacer(Modifier.weight(1f))
                     Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = PlagOutColors.TextSecondary, modifier = Modifier.size(16.dp))
                 }
             }

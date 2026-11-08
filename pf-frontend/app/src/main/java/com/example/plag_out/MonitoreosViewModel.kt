@@ -170,7 +170,7 @@ class MonitoreosViewModel(
         viewModelScope.launch {
             val actualizados = _state.value.monitoreos
                 .filter { it.plantacion_id == plantacionId }
-                .map { it.copy(activo = false, ciclos = it.ciclos?.map { ciclo ->
+                .map { it.copy(activo = false, fecha_fin = it.fecha_fin ?: java.time.LocalDate.now(), ciclos = it.ciclos?.map { ciclo ->
                     if (ciclo.estado == "activo") ciclo.copy(estado = "archivado") else ciclo
                 }) }
             if (actualizados.isEmpty()) return@launch

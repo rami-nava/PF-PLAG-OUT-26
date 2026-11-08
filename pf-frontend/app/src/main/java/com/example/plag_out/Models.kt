@@ -47,7 +47,9 @@ data class MonitoreoResponse(
     val horizonte_alerta_ml_dias: Int? = null,
     val ciclos: List<GddCicloResponse>? = null,
     @SerializedName("observaciones")
-    val observaciones: String? = null
+    val observaciones: String? = null,
+    @SerializedName("fecha_fin")
+    val fecha_fin: LocalDate? = null
 )
 
 @Entity(tableName = "terrenos")

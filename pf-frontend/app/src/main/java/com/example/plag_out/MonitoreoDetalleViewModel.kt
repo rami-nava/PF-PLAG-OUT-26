@@ -1,5 +1,6 @@
 package com.example.plag_out
 
+import java.time.LocalDate
 import android.content.Context
 import android.os.Build
 import android.util.Log
@@ -304,11 +305,11 @@ class MonitoreoDetalleViewModel(
                     )
                 }
                 if (response.isSuccessful) {
-                    val actualizado = response.body()
+                    val actualizado = (response.body()
                         ?: monitoreo.copy(
                             activo = false,
                             observaciones = nota?.ifBlank { null } ?: monitoreo.observaciones
-                        )
+                        )).let { it.copy(fecha_fin = it.fecha_fin ?: LocalDate.now()) }
                     withContext(Dispatchers.IO) { repository.guardarMonitoreo(actualizado) }
                     CacheTracker.invalidar(context, CacheTracker.MONITOREOS)
                     _state.value = _state.value.copy(

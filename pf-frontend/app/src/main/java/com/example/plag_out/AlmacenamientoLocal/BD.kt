@@ -19,7 +19,7 @@ import java.util.Date
 
 @Database(
     entities = [MonitoreoResponse::class, TerrenoResponse::class, PlantacionesResponse::class, UsuarioResponse::class, FeedbackPrediccionPendiente::class, BiofixPendiente::class, TratamientoPendiente::class],
-    version = 19,
+    version = 20,
     exportSchema = false
 )
 
@@ -46,7 +46,7 @@ abstract class AppDatabase : RoomDatabase() {
                     appContext,
                     AppDatabase::class.java,
                     "gdd_database"
-                ).addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, migracion17a18(appContext), MIGRATION_18_19)
+                ).addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, migracion17a18(appContext), MIGRATION_18_19, migracion19a20(appContext))
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     // Si una versión futura cae en la migración destructiva, también se invalidan
                     // las marcas que describían el caché eliminado.
@@ -97,6 +97,19 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE INDEX IF NOT EXISTS `index_tratamiento_pendiente_owner_id_monitoreo_id` " +
                         "ON `tratamiento_pendiente` (`owner_id`, `monitoreo_id`)"
                 )
+            }
+        }
+
+        /**
+         * Fecha de finalización del monitoreo. Se invalida el caché para que los monitoreos ya
+         * finalizados la traigan del backend en vez de quedar sin fecha hasta el próximo refresco.
+         */
+        fun migracion19a20(context: Context) = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                if (!tieneColumna(db, "monitoreos", "fecha_fin")) {
+                    db.execSQL("ALTER TABLE `monitoreos` ADD COLUMN `fecha_fin` TEXT")
+                }
+                CacheTracker.invalidar(context, CacheTracker.MONITOREOS)
             }
         }
 
