@@ -35,7 +35,7 @@ class TratamientoRoomMigrationTest {
 
         // Room valida que lo que crea la migración sea exactamente la entidad.
         val migrada = Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .addMigrations(AppDatabase.MIGRATION_18_19).allowMainThreadQueries().build()
+            .addMigrations(AppDatabase.MIGRATION_18_19, AppDatabase.migracion19a20(context)).allowMainThreadQueries().build()
         assertEquals("biofix-pendiente", migrada.biofixDao().get("owner", 41)?.payload)
         val dao = migrada.tratamientoPendienteDao()
         dao.guardar(TratamientoPendiente("k1", "owner", 41, payload = "{}"))
