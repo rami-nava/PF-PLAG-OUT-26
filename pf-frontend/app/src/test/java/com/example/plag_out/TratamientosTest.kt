@@ -123,4 +123,24 @@ class TratamientosTest {
         assertEquals("Falta el conteo posterior", resultadoDeTratamiento(enviado.copy(metodo = null, sin_calculo = "falta_conteo_despues")).titulo)
         assertEquals("Sin plaga antes de aplicar", resultadoDeTratamiento(enviado.copy(metodo = null, sin_calculo = "conteo_antes_cero")).titulo)
     }
+
+    @Test
+    fun `mover la aplicacion hacia atras arrastra el conteo previo que estaba el mismo dia`() {
+        // El caso real: el formulario arranca con todo en hoy y se elige una aplicación anterior.
+        val nuevo = FormularioTratamiento.nuevo(hoy).conFechaAplicacion(LocalDate.of(2026, 10, 19))
+        assertEquals(LocalDate.of(2026, 10, 19), nuevo.fechaConteoAntes)
+        val listo = nuevo.copy(
+            producto = "X", conteoAntes = "10",
+            conDespues = true, conteoDespues = "3", fechaConteoDespues = hoy
+        )
+        assertTrue(validarTratamiento(listo, inicio, hoy).isEmpty())
+    }
+
+    @Test
+    fun `un conteo previo elegido aparte se respeta mientras siga siendo valido`() {
+        val form = valido.conFechaAplicacion(LocalDate.of(2026, 10, 3))
+        assertEquals(LocalDate.of(2026, 9, 30), form.fechaConteoAntes)
+        // Si la nueva aplicación queda antes del conteo, el conteo baja con ella.
+        assertEquals(LocalDate.of(2026, 9, 28), valido.conFechaAplicacion(LocalDate.of(2026, 9, 28)).fechaConteoAntes)
+    }
 }

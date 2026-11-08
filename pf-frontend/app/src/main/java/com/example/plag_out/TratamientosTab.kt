@@ -316,7 +316,7 @@ private fun DialogoTratamiento(
         Spacer(Modifier.height(16.dp))
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CampoFecha("Fecha de aplicación", form.fechaAplicacion, inicioMonitoreo, hoy, error(CampoTratamiento.FECHA_APLICACION), "fechaAplicacion") {
-                form = form.copy(fechaAplicacion = it)
+                form = form.conFechaAplicacion(it)
             }
             CampoFormularioAdmin(
                 valor = form.producto,
@@ -354,7 +354,8 @@ private fun DialogoTratamiento(
                     teclado = KeyboardType.Decimal,
                     modifier = Modifier.weight(1f)
                 )
-                CampoFecha("Fecha", form.fechaConteoAntes, null, hoy, error(CampoTratamiento.FECHA_CONTEO_ANTES), "fechaConteoAntes", Modifier.weight(1f)) {
+                // Tope = día de aplicación: el conteo previo no puede ser posterior a aplicar.
+                CampoFecha("Fecha", form.fechaConteoAntes, null, form.fechaAplicacion ?: hoy, error(CampoTratamiento.FECHA_CONTEO_ANTES), "fechaConteoAntes", Modifier.weight(1f)) {
                     form = form.copy(fechaConteoAntes = it)
                 }
             }
