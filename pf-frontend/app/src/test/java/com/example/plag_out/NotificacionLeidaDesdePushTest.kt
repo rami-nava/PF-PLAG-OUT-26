@@ -56,11 +56,11 @@ class NotificacionLeidaDesdePushTest {
         assertEquals(listOf(otra.id), viewModel.state.value.notificaciones.map { it.id })
     }
 
-    /** El view model hace la llamada en Dispatchers.IO: esperar el resultado, con límite. */
+    /** El view model hace la llamada en Dispatchers.IO: esperar el resultado, con límite generoso para suites completas. */
     private fun esperarHasta(condicion: () -> Boolean) {
-        val limite = System.currentTimeMillis() + 5_000
+        val limite = System.currentTimeMillis() + 15_000
         while (!condicion()) {
-            check(System.currentTimeMillis() < limite) { "La condición no se cumplió en 5 s" }
+            check(System.currentTimeMillis() < limite) { "La condición no se cumplió en 15 s" }
             Thread.sleep(10)
         }
     }

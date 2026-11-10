@@ -408,4 +408,50 @@ class AdminMetricasGlobalesTest {
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(texto))
         compose.onNodeWithText(texto).assertExists()
     }
+
+    @Test
+    fun `la pestaña Campañas para el productor pide sus alertas y no las globales`() {
+        val gdd = FakeGDDService().apply {
+            getMonitoreosResult = {
+                Response.success(
+                    listOf(
+                        MonitoreoResponse(
+                            monitoreo_id = 1,
+                            plantacion_id = 10,
+                            terreno_id = 100,
+                            terreno_nombre = "Lote Norte",
+                            cultivo_nombre = "Maíz",
+                            plaga_id = 1,
+                            plaga_nombre = "Chicharrita",
+                            gdd_objetivo = 100f,
+                            fecha_inicio = LocalDate.parse("2026-10-01"),
+                            ciclos = emptyList()
+                        )
+                    )
+                )
+            }
+            getTerrenosResult = {
+                Response.success(listOf(TerrenoResponse(100, "Lote Norte", -34.0f, -60.0f, 50.0f)))
+            }
+            getPlantacionesResult = { Response.success(emptyList()) }
+            getMetricasAlertasResult = { Response.success(alertas) }
+        }
+        val vm = AdminMetricasViewModel(gdd, mainDispatcherRule.testDispatcher)
+
+        compose.setContent {
+            MaterialTheme {
+                AdminMetricasScreen(viewModel = vm, global = false)
+            }
+        }
+        compose.onNodeWithText("Campañas").performClick()
+
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Alertas de la campaña"))
+        compose.onNodeWithText("Alertas de la campaña").assertExists()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Alertas que emitiste en 2026/2027 y plagas más reportadas."))
+        compose.onNodeWithText("Alertas que emitiste en 2026/2027 y plagas más reportadas.").assertExists()
+
+        assertTrue("getMetricasAlertas" in gdd.llamadas)
+        assertFalse("adminGetMetricasAlertas" in gdd.llamadas)
+        assertFalse("adminGetMetricas" in gdd.llamadas)
+    }
 }
