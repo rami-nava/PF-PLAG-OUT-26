@@ -194,6 +194,7 @@ class AdminMetricasGlobalesTest {
     fun `la pantalla de tableros renderiza lotes sin dias de siembra y campanas con monitoreos por cultivo`() {
         val gddService = FakeGDDService().apply {
             adminGetMetricasResult = { Response.success(metricas) }
+            adminGetMetricasAlertasResult = { Response.success(MetricasAlertasResponse()) }
         }
         val viewModel = AdminMetricasViewModel(gddService, mainDispatcherRule.testDispatcher)
 
@@ -285,5 +286,126 @@ class AdminMetricasGlobalesTest {
 
         val estado = esperarEstado(vm.state) { it.alertasNoDisponibles }
         assertNull(estado.metricasAlertas)
+    }
+
+    // Forma de GET /admin/reportes/metricas con el desglose por campaña.
+    private val jsonAlertas = """
+        {
+          "total": 8, "alto": 3, "medio": 2, "bajo": 2,
+          "plagas": [
+            {"plaga_id": 1, "plaga_nombre": "Oruga cogollera", "total": 6, "alto": 3, "medio": 2, "bajo": 1},
+            {"plaga_id": 2, "plaga_nombre": "Chinche verde",   "total": 2, "alto": 0, "medio": 0, "bajo": 1}
+          ],
+          "campanias": [
+            {
+              "nombre": "2026/2027", "anio_inicio": 2026,
+              "total": 5, "alto": 2, "medio": 0, "bajo": 2,
+              "plagas": [
+                {"plaga_id": 2, "plaga_nombre": "Chinche verde",   "total": 2, "alto": 0, "medio": 0, "bajo": 1},
+                {"plaga_id": 1, "plaga_nombre": "Oruga cogollera", "total": 3, "alto": 2, "medio": 0, "bajo": 1}
+              ]
+            },
+            {
+              "nombre": "2024/2025", "anio_inicio": 2024,
+              "total": 3, "alto": 1, "medio": 2, "bajo": 0,
+              "plagas": [
+                {"plaga_id": 1, "plaga_nombre": "Oruga cogollera", "total": 3, "alto": 1, "medio": 2, "bajo": 0}
+              ]
+            }
+          ]
+        }
+    """.trimIndent()
+
+    private val alertas: MetricasAlertasResponse =
+        GsonBuilder().create().fromJson(jsonAlertas, MetricasAlertasResponse::class.java)
+
+    @Test
+    fun `las alertas traen el resumen de cada campaña con su propio ranking`() {
+        val resumen = resumenDeMetricasAlertas(alertas)
+
+        // Los totales de primer nivel siguen igual que antes.
+        assertEquals(8, resumen.totalAlertas)
+        assertEquals("Oruga cogollera", resumen.plagasReportadas.first().plagaNombre)
+
+        val actual = resumen.porCampaña!!.getValue("2026/2027")
+        assertEquals(5, actual.totalAlertas)
+        assertEquals(2, actual.severidadAlta)
+        // El backend no garantiza orden: se ordena y el porcentaje es sobre el total de la campaña.
+        assertEquals(listOf("Oruga cogollera", "Chinche verde"), actual.plagasReportadas.map { it.plagaNombre })
+        assertEquals(60f, actual.plagasReportadas.first().porcentaje, 0.01f)
+        assertEquals(3, resumen.porCampaña!!.getValue("2024/2025").totalAlertas)
+    }
+
+    @Test
+    fun `un backend sin desglose por campaña deja porCampaña en null`() {
+        val viejo = resumenDeMetricasAlertas(MetricasAlertasResponse(total = 1, alto = 1))
+        assertNull(viejo.porCampaña)
+        assertTrue(resumenDeMetricasAlertas(MetricasAlertasResponse(campanias = emptyList())).porCampaña!!.isEmpty())
+    }
+
+    @Test
+    fun `abrir la pestaña Campañas pide las alertas sin pedir tratamientos`() {
+        val gdd = FakeGDDService().apply {
+            adminGetMetricasResult = { Response.success(metricas) }
+            adminGetMetricasAlertasResult = { Response.success(alertas) }
+        }
+        val vm = AdminMetricasViewModel(gdd, mainDispatcherRule.testDispatcher)
+        vm.cambiarPestaña(PestañaDashboard.HISTORICO)
+        vm.cargar(global = true)
+
+        val estado = esperarEstado(vm.state) { it.metricasAlertas != null }
+        assertEquals(5, estado.metricasAlertas!!.porCampaña!!.getValue("2026/2027").totalAlertas)
+        assertEquals(listOf("adminGetMetricas", "adminGetMetricasAlertas"), gdd.llamadas)
+
+        // Volver a pedirlas (otra pestaña que las usa) no repite la llamada.
+        vm.cargarAlertas()
+        assertEquals(1, gdd.llamadas.count { it == "adminGetMetricasAlertas" })
+    }
+
+    @Test
+    fun `la pestaña Campañas muestra las alertas de la campaña elegida`() {
+        val gdd = FakeGDDService().apply {
+            adminGetMetricasResult = { Response.success(metricas) }
+            adminGetMetricasAlertasResult = { Response.success(alertas) }
+        }
+        val vm = AdminMetricasViewModel(gdd, mainDispatcherRule.testDispatcher)
+
+        compose.setContent {
+            MaterialTheme {
+                AdminMetricasScreen(viewModel = vm, global = true)
+            }
+        }
+        compose.onNodeWithText("Campañas").performClick()
+
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Alertas de la campaña"))
+        compose.onNodeWithText("Alertas de la campaña").assertExists()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("3 alertas (60%)"))
+        compose.onNodeWithText("3 alertas (60%)").assertExists()
+
+        // 2025/2026 tiene monitoreos pero ningún reporte: la tarjeta lo dice en vez de quedar vacía.
+        vm.seleccionarCampaña("2025/2026")
+        compose.onNode(hasScrollToNodeAction())
+            .performScrollToNode(hasText("No se registraron alertas en la campaña 2025/2026."))
+        compose.onNodeWithText("No se registraron alertas en la campaña 2025/2026.").assertExists()
+    }
+
+    @Test
+    fun `si el backend no manda campanias la tarjeta de la campaña lo aclara`() {
+        val gdd = FakeGDDService().apply {
+            adminGetMetricasResult = { Response.success(metricas) }
+            adminGetMetricasAlertasResult = { Response.success(MetricasAlertasResponse(total = 2, alto = 2)) }
+        }
+        val vm = AdminMetricasViewModel(gdd, mainDispatcherRule.testDispatcher)
+
+        compose.setContent {
+            MaterialTheme {
+                AdminMetricasScreen(viewModel = vm, global = true)
+            }
+        }
+        compose.onNodeWithText("Campañas").performClick()
+
+        val texto = "El detalle de alertas por campaña todavía no está disponible."
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(texto))
+        compose.onNodeWithText(texto).assertExists()
     }
 }

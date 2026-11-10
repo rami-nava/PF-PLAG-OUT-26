@@ -864,7 +864,18 @@ data class MetricasAlertasResponse(
     @SerializedName("alto")   val alto: Int = 0,
     @SerializedName("medio")  val medio: Int = 0,
     @SerializedName("bajo")   val bajo: Int = 0,
-    @SerializedName("plagas") val plagas: List<PlagaAlertasResponse>? = null
+    @SerializedName("plagas") val plagas: List<PlagaAlertasResponse>? = null,
+    @SerializedName("campanias") val campanias: List<CampaniaAlertasResponse>? = null
+)
+
+data class CampaniaAlertasResponse(
+    @SerializedName("nombre")      val nombre: String = "",
+    @SerializedName("anio_inicio") val anio_inicio: Int = 0,
+    @SerializedName("total")       val total: Int = 0,
+    @SerializedName("alto")        val alto: Int = 0,
+    @SerializedName("medio")       val medio: Int = 0,
+    @SerializedName("bajo")        val bajo: Int = 0,
+    @SerializedName("plagas")      val plagas: List<PlagaAlertasResponse>? = null
 )
 
 data class PlagaAlertasResponse(

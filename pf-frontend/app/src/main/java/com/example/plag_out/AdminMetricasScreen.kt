@@ -173,7 +173,9 @@ fun AdminMetricasScreen(
                             )
                             PestañaDashboard.HISTORICO -> VistaDashboardHistorico(
                                 state = state,
-                                onSeleccionarCampaña = viewModel::seleccionarCampaña
+                                global = global,
+                                onSeleccionarCampaña = viewModel::seleccionarCampaña,
+                                onCargarAlertas = { viewModel.cargarAlertas(global = global) }
                             )
                         }
                     }
@@ -979,22 +981,40 @@ private fun TarjetaTratamientosDelProductor() {
  * Métrica de Alertas y Plagas Reportadas (en la solapa de Métricas / Tableros):
  * - Para el Productor (global = false): sus propias alertas emitidas y plagas reportadas.
  * - Para el Administrador (global = true): volumen global de alertas comunitarias y ranking de plagas reportadas.
+ * Con [campaña] muestra solo las alertas de esa campaña (pestaña Campañas); [alertas] es entonces
+ * el resumen de esa campaña.
  */
 @Composable
 private fun TarjetaMetricasAlertas(
     alertas: MetricasAlertasResumen?,
     noDisponibles: Boolean,
-    global: Boolean
+    global: Boolean,
+    campaña: String? = null,
+    // La respuesta llegó pero el backend no manda el desglose por campaña.
+    sinDesglosePorCampaña: Boolean = false
 ) {
     TarjetaMetrica(
         icono = Icons.Outlined.BugReport,
-        titulo = if (global) "Alertas y plagas reportadas" else "Mis alertas de plagas",
-        subtitulo = if (global) {
-            "Volumen total de alertas emitidas por los usuarios y plagas más reportadas."
-        } else {
-            "Resumen de las alertas que emitiste y plagas reportadas en tus lotes."
+        titulo = when {
+            campaña != null -> "Alertas de la campaña"
+            global -> "Alertas y plagas reportadas"
+            else -> "Mis alertas de plagas"
+        },
+        subtitulo = when {
+            campaña != null && global -> "Alertas emitidas por los usuarios en $campaña y plagas más reportadas."
+            campaña != null -> "Alertas que emitiste en $campaña y plagas más reportadas."
+            global -> "Volumen total de alertas emitidas por los usuarios y plagas más reportadas."
+            else -> "Resumen de las alertas que emitiste y plagas reportadas en tus lotes."
         }
     ) {
+        if (sinDesglosePorCampaña) {
+            Text(
+                "El detalle de alertas por campaña todavía no está disponible.",
+                fontSize = 13.sp,
+                color = PlagOutColors.TextSecondary
+            )
+            return@TarjetaMetrica
+        }
         if (alertas == null) {
             Text(
                 if (noDisponibles) "No se pudieron cargar las alertas. Deslizá hacia abajo para reintentar."
@@ -1006,8 +1026,11 @@ private fun TarjetaMetricasAlertas(
         }
         if (alertas.totalAlertas == 0) {
             Text(
-                if (global) "Todavía no hay alertas comunitarias registradas."
-                else "Todavía no emitiste alertas de plagas desde tus lotes o monitoreos.",
+                when {
+                    campaña != null -> "No se registraron alertas en la campaña $campaña."
+                    global -> "Todavía no hay alertas comunitarias registradas."
+                    else -> "Todavía no emitiste alertas de plagas desde tus lotes o monitoreos."
+                },
                 fontSize = 13.sp,
                 color = PlagOutColors.TextSecondary
             )
@@ -1045,7 +1068,11 @@ private fun TarjetaMetricasAlertas(
         if (alertas.plagasReportadas.isNotEmpty()) {
             HorizontalDivider(color = PlagOutColors.Divider.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 12.dp))
             Text(
-                if (global) "Plagas más reportadas por los usuarios" else "Plagas que reportaste",
+                when {
+                    campaña != null -> "Plagas más reportadas en la campaña"
+                    global -> "Plagas más reportadas por los usuarios"
+                    else -> "Plagas que reportaste"
+                },
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = PlagOutColors.TextMain
@@ -1277,10 +1304,16 @@ private fun DialogoInfoEficacia(onDismiss: () -> Unit, cita: String?) {
 @Composable
 private fun VistaDashboardHistorico(
     state: AdminMetricasUIState,
-    onSeleccionarCampaña: (String) -> Unit
+    global: Boolean,
+    onSeleccionarCampaña: (String) -> Unit,
+    onCargarAlertas: () -> Unit = {}
 ) {
     val campañas = state.campañas
     val seleccionada = state.campañaSeleccionada ?: campañas.firstOrNull()
+
+    LaunchedEffect(global) {
+        onCargarAlertas()
+    }
 
     LazyColumn(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 28.dp),
@@ -1340,6 +1373,20 @@ private fun VistaDashboardHistorico(
             item {
                 StaggeredAppear(index = 3) {
                     TarjetaPrevalenciaPlagas(campaña = camp)
+                }
+            }
+
+            item {
+                val porCampaña = state.metricasAlertas?.porCampaña
+                StaggeredAppear(index = 4) {
+                    TarjetaMetricasAlertas(
+                        // Sin entrada para la campaña: no hubo alertas en ella.
+                        alertas = state.metricasAlertas?.let { porCampaña?.get(camp.nombre) ?: MetricasAlertasResumen() },
+                        noDisponibles = state.alertasNoDisponibles,
+                        global = global,
+                        campaña = camp.nombre,
+                        sinDesglosePorCampaña = state.metricasAlertas != null && porCampaña == null
+                    )
                 }
             }
         }
