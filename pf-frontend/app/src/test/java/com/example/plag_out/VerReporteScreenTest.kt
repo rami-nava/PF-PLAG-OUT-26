@@ -81,4 +81,43 @@ class VerReporteScreenTest {
         compose.onNodeWithText("No se pudieron cargar los datos de la alerta.").assertExists()
         compose.onNodeWithText("Alerta comunitaria retirada").assertDoesNotExist()
     }
+
+    @Test
+    fun `muestra Nivel de severidad unificado y permite navegar a terrenos cercanos`() {
+        val gddService = FakeGDDService().apply {
+            getReporteResult = { FakeGDDService.sinConexion() }
+        }
+        val fichaComunitaria = Gson().toJson(
+            ReporteNavPayload(
+                id = 80,
+                plaga_nombre = "Chicharrita del maíz",
+                nivel_severidad = "Alto",
+                latitud = null,
+                longitud = null,
+                timestamp_ms = 1700000000000L,
+                es_propio = false,
+                terreno_nombre = "Lote La Esperanza",
+                terreno_mas_cercano_id = 42,
+                distancia_km = 2.4f
+            )
+        )
+
+        val viewModel = VerReporteViewModel(gddService)
+        compose.setContent {
+            MaterialTheme {
+                VerReporteScreen(
+                    reporteId = 80,
+                    reporteJsonFallback = fichaComunitaria,
+                    ignorarLimite = true,
+                    viewModel = viewModel,
+                    onBack = {},
+                    onVerTerreno = {}
+                )
+            }
+        }
+
+        compose.onNodeWithText("Nivel de severidad").performScrollTo().assertExists()
+        compose.onNodeWithText("Tus terrenos cercanos").performScrollTo().assertExists()
+        compose.onNodeWithText("Lote La Esperanza", substring = true).performScrollTo().assertExists()
+    }
 }

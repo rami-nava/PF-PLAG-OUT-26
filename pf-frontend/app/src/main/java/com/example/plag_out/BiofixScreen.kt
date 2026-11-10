@@ -228,6 +228,13 @@ fun BiofixDialog(monitoreoId: Int, onDismiss: () -> Unit, onConfirm: (BiofixRequ
 
         Spacer(Modifier.height(18.dp))
         EncabezadoSeccionBiofix("Severidad de la plaga adulta")
+        Text(
+            "Guía orientativa: Bajo (1–2 adultos aislados) · Medio (focos en varios puntos) · Alto (presencia generalizada).",
+            fontSize = 11.sp,
+            lineHeight = 14.sp,
+            color = PlagOutColors.TextSecondary,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+        )
         SelectorSeveridadBiofix(seleccionada = severidad, onSeleccionar = { severidad = it })
 
         if (monitor == null && error == null) {

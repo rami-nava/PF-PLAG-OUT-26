@@ -117,4 +117,60 @@ class BiofixDialogTest {
             assertEquals("$etiqueta en una sola línea", 1, layouts.single().lineCount)
         }
     }
+
+    @Test fun `muestra guia orientativa de severidad en el modal de biofix`() {
+        val service = FakeGDDService().apply {
+            getMonitoreoResult = { Response.success(Fixtures.monitoreo().copy(ciclos = emptyList())) }
+        }
+        compose.setContent { BiofixDialog(1, {}, {}, service) }
+        compose.waitForIdle()
+        compose.onNodeWithText("Guía orientativa:", substring = true).performScrollTo().assertExists()
+    }
+
+    @Test fun `monitoreo finalizado muestra fechas e historial en MonitoreoCard y oculta etiqueta Para confirmar`() {
+        val cicloCerrado = cycle.copy(id = 90, estado = "archivado", biofix_pendiente = true)
+        val monFinalizado = Fixtures.monitoreo(
+            id = 55,
+            activo = false,
+            fechaInicio = LocalDate.of(2026, 9, 1),
+            ciclos = listOf(cicloCerrado)
+        ).copy(
+            fecha_fin = LocalDate.of(2026, 11, 5),
+            observaciones = "Fin de campaña maicera"
+        )
+
+        compose.setContent {
+            MonitoreoCard(
+                monitoreo = monFinalizado,
+                onClick = {}
+            )
+        }
+        compose.waitForIdle()
+
+        // En MonitoreoCard finalizado: muestra Inicio, Fin, Ciclos y observaciones, y NO muestra "Para confirmar"
+        compose.onNodeWithText("Inicio").assertExists()
+        compose.onNodeWithText("Fin").assertExists()
+        compose.onNodeWithTag("observacionesMonitoreo_55", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("etiquetaBiofixPendiente_55", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test fun `monitoreo activo con ciclo listo para nuevo biofix muestra etiqueta Para confirmar en MonitoreoCard`() {
+        val cicloListo = cycle.copy(id = 91, estado = "completado", biofix_pendiente = true)
+        val monActivo = Fixtures.monitoreo(
+            id = 56,
+            activo = true,
+            ciclos = listOf(cicloListo)
+        )
+
+        compose.setContent {
+            MonitoreoCard(
+                monitoreo = monActivo,
+                onClick = {}
+            )
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("etiquetaBiofixPendiente_56", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Para confirmar").assertExists()
+    }
 }

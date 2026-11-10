@@ -58,4 +58,47 @@ class MigracionMonitoreos18Test {
         assertFalse(CacheTracker.yaConsultado(context, CacheTracker.MONITOREOS))
         migrada.close()
     }
+
+    @Test
+    fun `migracion19a20 agrega columna fecha_fin en monitoreos e invalida cache sin perder filas`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "monitoreos-19-20-migration-test"
+        context.deleteDatabase(name)
+        val actual = Room.databaseBuilder(context, AppDatabase::class.java, name).allowMainThreadQueries().build()
+        actual.feedbackPrediccionDao().insert(FeedbackPrediccionPendiente("owner", 41, "presente", idempotency_key = "same-uuid"))
+        actual.close()
+
+        // Simular esquema en versión 19 (sin la columna fecha_fin en monitoreos)
+        val sqlite = SQLiteDatabase.openDatabase(context.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE)
+        sqlite.execSQL("DROP TABLE `monitoreos`")
+        sqlite.execSQL(
+            "CREATE TABLE IF NOT EXISTS `monitoreos` (`monitoreo_id` INTEGER NOT NULL, " +
+                "`plantacion_id` INTEGER NOT NULL, `terreno_id` INTEGER NOT NULL, " +
+                "`terreno_nombre` TEXT NOT NULL, `cultivo_nombre` TEXT NOT NULL, " +
+                "`plaga_id` INTEGER NOT NULL, `plaga_nombre` TEXT NOT NULL, " +
+                "`gdd_objetivo` REAL NOT NULL, `umbral_riesgo` INTEGER, `activo` INTEGER NOT NULL, " +
+                "`fecha_inicio` TEXT, `plaga_nombre_cientifico` TEXT, `alertas_ml_activas` INTEGER, " +
+                "`umbral_alerta_ml_recomendado` REAL, `modelo_alerta_ml_id` TEXT, " +
+                "`horizonte_alerta_ml_dias` INTEGER, `ciclos` TEXT, `observaciones` TEXT, " +
+                "PRIMARY KEY(`monitoreo_id`))"
+        )
+        sqlite.execSQL(
+            "INSERT INTO `monitoreos` VALUES (77, 10, 5, 'Lote Sur', 'Maíz', 1, 'Oruga cogollera', 380.0, 80, 0, '2026-09-15', 'Spodoptera frugiperda', 1, 0.7, 'rf_v1', 14, '[]', 'Cierre de campaña')"
+        )
+        sqlite.version = 19
+        sqlite.close()
+        CacheTracker.marcarConsultado(context, CacheTracker.MONITOREOS)
+
+        val migrada = Room.databaseBuilder(context, AppDatabase::class.java, name)
+            .addMigrations(AppDatabase.migracion19a20(context))
+            .allowMainThreadQueries()
+            .build()
+
+        val guardado = migrada.monitoreoDao().getAll().single()
+        assertEquals(77, guardado.monitoreo_id)
+        assertEquals("Cierre de campaña", guardado.observaciones)
+        assertEquals(null, guardado.fecha_fin)
+        assertFalse(CacheTracker.yaConsultado(context, CacheTracker.MONITOREOS))
+        migrada.close()
+    }
 }
