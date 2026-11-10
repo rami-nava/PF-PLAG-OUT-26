@@ -150,32 +150,13 @@ class AdminMetricasViewModel(
         cargaControlJob = viewModelScope.launch {
             try {
                 if (global) {
-                    val reportes = withContext(ioDispatcher) {
-                        val mapaResp = runCatching {
-                            gddService.getReportesMapa(
-                                sur = -60.0,
-                                oeste = -75.0,
-                                norte = -20.0,
-                                este = -50.0,
-                                zoom = 12,
-                                nivel = "reportes",
-                                limite = 500,
-                                ambito = null,
-                                dias = 365
-                            ).body()?.reportes.orEmpty()
-                        }.getOrDefault(emptyList())
-                        if (mapaResp.isNotEmpty()) mapaResp
-                        else {
-                            val propios = runCatching { gddService.getReportes(ambito = "propios", limit = 100, offset = 0).body()?.items.orEmpty() }.getOrDefault(emptyList())
-                            val comunidad = runCatching { gddService.getReportes(ambito = "comunidad", limit = 100, offset = 0).body()?.items.orEmpty() }.getOrDefault(emptyList())
-                            (propios + comunidad).distinctBy { it.id }
-                        }
-                    }
+                    val alertas = withContext(ioDispatcher) { pedirMetricasAlertas(global = true) }
                     _state.value = _state.value.copy(
-                        metricasAlertas = calcularMetricasAlertas(reportes)
+                        metricasAlertas = alertas,
+                        alertasNoDisponibles = alertas == null
                     )
                 } else {
-                    val (tratamientos, reportesPropios, conteoPropio) = withContext(ioDispatcher) {
+                    val (tratamientos, alertas) = withContext(ioDispatcher) {
                         val defTrat = async {
                             monitoreosCargados.map { m ->
                                 async {
@@ -183,17 +164,13 @@ class AdminMetricasViewModel(
                                 }
                             }.flatMap { it.await() }
                         }
-                        val defRep = async {
-                            runCatching { gddService.getReportes(ambito = "propios", limit = 100, offset = 0).body()?.items.orEmpty() }.getOrDefault(emptyList())
-                        }
-                        val defConteo = async {
-                            runCatching { gddService.getResumenReportes(ambito = "propios").body() }.getOrNull()
-                        }
-                        Triple(defTrat.await(), defRep.await(), defConteo.await())
+                        val defAlertas = async { pedirMetricasAlertas(global = false) }
+                        defTrat.await() to defAlertas.await()
                     }
                     _state.value = _state.value.copy(
                         tratamientos = calcularTratamientosProductor(tratamientos),
-                        metricasAlertas = calcularMetricasAlertas(reportesPropios, conteoPropio)
+                        metricasAlertas = alertas,
+                        alertasNoDisponibles = alertas == null
                     )
                 }
             } catch (e: CancellationException) {
@@ -201,6 +178,24 @@ class AdminMetricasViewModel(
             } catch (e: Exception) {
                 Log.w("ADMIN_METRICAS", "No se pudieron cargar los datos de control: ${e.message}")
             }
+        }
+    }
+
+
+    private suspend fun pedirMetricasAlertas(global: Boolean): MetricasAlertasResumen? {
+        return try {
+            val respuesta = if (global) gddService.adminGetMetricasAlertas() else gddService.getMetricasAlertas()
+            val cuerpo = respuesta.body()
+            if (respuesta.isSuccessful && cuerpo != null) resumenDeMetricasAlertas(cuerpo)
+            else {
+                Log.w("ADMIN_METRICAS", "Métricas de alertas no disponibles: HTTP ${respuesta.code()}")
+                null
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("ADMIN_METRICAS", "No se pudieron cargar las métricas de alertas: ${e.message}")
+            null
         }
     }
 

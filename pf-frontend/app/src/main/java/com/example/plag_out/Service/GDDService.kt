@@ -23,6 +23,7 @@ import com.example.plag_out.DispositivoRequest
 import com.example.plag_out.DispositivoResponse
 import com.example.plag_out.MarcarLeidaResponse
 import com.example.plag_out.MetricasAdmin
+import com.example.plag_out.MetricasAlertasResponse
 import com.example.plag_out.NotificacionResponse
 import com.example.plag_out.CreateReporteRequest
 import com.example.plag_out.ReporteResponse
@@ -197,6 +198,10 @@ interface GDDService {
         @Query("plaga_id") plagaId: Int? = null
     ): Response<ConteoReportes>
 
+    // Totales por severidad y por plaga de todos los reportes del usuario (pestaña Control).
+    @GET("/reportes/metricas")
+    suspend fun getMetricasAlertas(): Response<MetricasAlertasResponse>
+
     @GET("/mapa/reportes")
     suspend fun getReportesMapa(
         @Query("sur") sur: Double,
@@ -326,4 +331,8 @@ interface GDDService {
     // suyos en la app a partir de /monitoreos, /terrenos y /plantaciones.
     @GET("/admin/metricas")
     suspend fun adminGetMetricas(): Response<MetricasAdmin>
+
+    // Igual que /reportes/metricas, pero sobre los reportes de todos los usuarios.
+    @GET("/admin/reportes/metricas")
+    suspend fun adminGetMetricasAlertas(): Response<MetricasAlertasResponse>
 }

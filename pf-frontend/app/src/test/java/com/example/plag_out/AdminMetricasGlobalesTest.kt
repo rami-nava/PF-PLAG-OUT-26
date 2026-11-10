@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -225,38 +226,16 @@ class AdminMetricasGlobalesTest {
     }
 
     @Test
-    fun `la pestaña Control muestra alertas y plagas reportadas globales para el admin y propias con tratamientos para el productor`() {
-        val reportesGlobales = listOf(
-            ReporteDetalleResponse(
-                id = 10,
-                plaga_id = 1,
-                plaga_nombre = "Oruga cogollera",
-                cultivo_nombre = "Maíz",
-                nivel_severidad = "Alto",
-                etapa_biologica = "ADULTO",
-                timestamp_ms = 1790000000000L,
-                latitud = -33.85,
-                longitud = -60.55,
-                es_propio = false
-            ),
-            ReporteDetalleResponse(
-                id = 11,
-                plaga_id = 1,
-                plaga_nombre = "Oruga cogollera",
-                cultivo_nombre = "Maíz",
-                nivel_severidad = "Medio",
-                etapa_biologica = "ADULTO",
-                timestamp_ms = 1790000001000L,
-                latitud = -33.86,
-                longitud = -60.56,
-                es_propio = true
-            )
-        )
-
+    fun `la pestaña Control del admin pide las alertas de todos los reportes a su endpoint`() {
         val gddAdmin = FakeGDDService().apply {
             adminGetMetricasResult = { Response.success(metricas) }
-            getReportesMapaResult = {
-                Response.success(ReportesMapaResponse(nivel = "reportes", total = 2, reportes = reportesGlobales))
+            adminGetMetricasAlertasResult = {
+                Response.success(
+                    MetricasAlertasResponse(
+                        total = 2, alto = 1, medio = 1, bajo = 0,
+                        plagas = listOf(PlagaAlertasResponse(1, "Oruga cogollera", total = 2, alto = 1, medio = 1))
+                    )
+                )
             }
         }
         val vmAdmin = AdminMetricasViewModel(gddAdmin, mainDispatcherRule.testDispatcher)
@@ -269,5 +248,42 @@ class AdminMetricasGlobalesTest {
         assertEquals(1, estadoAdmin.metricasAlertas!!.severidadMedia)
         assertEquals("Oruga cogollera", estadoAdmin.metricasAlertas!!.plagasReportadas.single().plagaNombre)
         assertEquals(100.0f, estadoAdmin.metricasAlertas!!.plagasReportadas.single().porcentaje, 0.01f)
+        assertFalse(estadoAdmin.alertasNoDisponibles)
+        assertFalse("getMetricasAlertas" in gddAdmin.llamadas)
+        assertFalse("getReportesMapa" in gddAdmin.llamadas)
+    }
+
+    @Test
+    fun `la pestaña Control del productor pide sus alertas a su endpoint`() {
+        val gdd = FakeGDDService().apply {
+            getMetricasAlertasResult = {
+                Response.success(
+                    MetricasAlertasResponse(
+                        total = 3, alto = 0, medio = 1, bajo = 2,
+                        plagas = listOf(PlagaAlertasResponse(5, "Chicharrita del maíz", total = 3, medio = 1, bajo = 2))
+                    )
+                )
+            }
+        }
+        val vm = AdminMetricasViewModel(gdd, mainDispatcherRule.testDispatcher)
+        vm.cargarDatosControl(global = false)
+
+        val estado = esperarEstado(vm.state) { it.metricasAlertas != null }
+        assertEquals(3, estado.metricasAlertas!!.totalAlertas)
+        assertEquals(2, estado.metricasAlertas!!.severidadBaja)
+        assertFalse("adminGetMetricasAlertas" in gdd.llamadas)
+        assertFalse("getReportes" in gdd.llamadas)
+    }
+
+    @Test
+    fun `si el endpoint de alertas falla la tarjeta queda como no disponible`() {
+        val gdd = FakeGDDService().apply {
+            getMetricasAlertasResult = { Response.error(404, "{\"detail\":\"Not Found\"}".toResponseBody(null)) }
+        }
+        val vm = AdminMetricasViewModel(gdd, mainDispatcherRule.testDispatcher)
+        vm.cargarDatosControl(global = false)
+
+        val estado = esperarEstado(vm.state) { it.alertasNoDisponibles }
+        assertNull(estado.metricasAlertas)
     }
 }

@@ -840,7 +840,11 @@ private fun VistaDashboardAgronomo(
         }
         item {
             StaggeredAppear(index = 2) {
-                TarjetaMetricasAlertas(alertas = state.metricasAlertas, global = global)
+                TarjetaMetricasAlertas(
+                    alertas = state.metricasAlertas,
+                    noDisponibles = state.alertasNoDisponibles,
+                    global = global
+                )
             }
         }
     }
@@ -977,7 +981,11 @@ private fun TarjetaTratamientosDelProductor() {
  * - Para el Administrador (global = true): volumen global de alertas comunitarias y ranking de plagas reportadas.
  */
 @Composable
-private fun TarjetaMetricasAlertas(alertas: MetricasAlertasResumen?, global: Boolean) {
+private fun TarjetaMetricasAlertas(
+    alertas: MetricasAlertasResumen?,
+    noDisponibles: Boolean,
+    global: Boolean
+) {
     TarjetaMetrica(
         icono = Icons.Outlined.BugReport,
         titulo = if (global) "Alertas y plagas reportadas" else "Mis alertas de plagas",
@@ -987,7 +995,16 @@ private fun TarjetaMetricasAlertas(alertas: MetricasAlertasResumen?, global: Boo
             "Resumen de las alertas que emitiste y plagas reportadas en tus lotes."
         }
     ) {
-        if (alertas == null || alertas.totalAlertas == 0) {
+        if (alertas == null) {
+            Text(
+                if (noDisponibles) "No se pudieron cargar las alertas. Deslizá hacia abajo para reintentar."
+                else "Cargando alertas…",
+                fontSize = 13.sp,
+                color = PlagOutColors.TextSecondary
+            )
+            return@TarjetaMetrica
+        }
+        if (alertas.totalAlertas == 0) {
             Text(
                 if (global) "Todavía no hay alertas comunitarias registradas."
                 else "Todavía no emitiste alertas de plagas desde tus lotes o monitoreos.",
