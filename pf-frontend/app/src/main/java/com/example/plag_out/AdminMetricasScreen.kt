@@ -1014,13 +1014,22 @@ private fun TarjetaMetricasAlertas(
             return@TarjetaMetrica
         }
 
-        Text(
-            "${alertas.totalAlertas} ${if (alertas.totalAlertas == 1) "alerta registrada" else "alertas registradas"} · " +
-                "${alertas.severidadAlta} alta · ${alertas.severidadMedia} media · ${alertas.severidadBaja} baja",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Normal,
-            color = PlagOutColors.TextSecondary
-        )
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                "${alertas.totalAlertas}",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = PlagOutColors.TextMain,
+                modifier = Modifier.alignByBaseline()
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                if (alertas.totalAlertas == 1) "alerta registrada" else "alertas registradas",
+                fontSize = 13.sp,
+                color = PlagOutColors.TextSecondary,
+                modifier = Modifier.alignByBaseline()
+            )
+        }
 
         Spacer(Modifier.height(10.dp))
 
