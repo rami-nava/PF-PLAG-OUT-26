@@ -183,7 +183,8 @@ data class MetricasAlertasResumen(
     val severidadAlta: Int = 0,
     val severidadMedia: Int = 0,
     val severidadBaja: Int = 0,
-    val plagasReportadas: List<PlagaReportadaResumen> = emptyList()
+    val plagasReportadas: List<PlagaReportadaResumen> = emptyList(),
+    val porCampaña: Map<String, MetricasAlertasResumen>? = null
 )
 
 /**
@@ -828,9 +829,21 @@ fun calcularTratamientosProductor(tratamientos: List<TratamientoResponse>): Trat
 }
 
 
-fun resumenDeMetricasAlertas(metricas: MetricasAlertasResponse): MetricasAlertasResumen {
-    val total = metricas.total
-    val plagas = metricas.plagas.orEmpty()
+fun resumenDeMetricasAlertas(metricas: MetricasAlertasResponse): MetricasAlertasResumen =
+    resumenAlertas(metricas.total, metricas.alto, metricas.medio, metricas.bajo, metricas.plagas).copy(
+        porCampaña = metricas.campanias?.associate { c ->
+            c.nombre to resumenAlertas(c.total, c.alto, c.medio, c.bajo, c.plagas)
+        }
+    )
+
+private fun resumenAlertas(
+    total: Int,
+    alto: Int,
+    medio: Int,
+    bajo: Int,
+    plagasResp: List<PlagaAlertasResponse>?
+): MetricasAlertasResumen {
+    val plagas = plagasResp.orEmpty()
         .filter { it.total > 0 }
         .map { p ->
             PlagaReportadaResumen(
@@ -846,9 +859,9 @@ fun resumenDeMetricasAlertas(metricas: MetricasAlertasResponse): MetricasAlertas
 
     return MetricasAlertasResumen(
         totalAlertas = total,
-        severidadAlta = metricas.alto,
-        severidadMedia = metricas.medio,
-        severidadBaja = metricas.bajo,
+        severidadAlta = alto,
+        severidadMedia = medio,
+        severidadBaja = bajo,
         plagasReportadas = plagas
     )
 }

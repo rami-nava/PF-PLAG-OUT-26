@@ -30,6 +30,7 @@ class AdminMetricasViewModel(
 
     private var cargaJob: Job? = null
     private var cargaControlJob: Job? = null
+    private var cargaAlertasJob: Job? = null
     private var monitoreosCargados: List<MonitoreoResponse> = emptyList()
 
     // true: tableros de todos los productores (admin, GET /admin/metricas).
@@ -41,6 +42,7 @@ class AdminMetricasViewModel(
             // Otra fuente de datos: lo cargado antes no sirve.
             cargaJob?.cancel()
             cargaControlJob?.cancel()
+            cargaAlertasJob?.cancel()
             monitoreosCargados = emptyList()
             this.global = global
             _state.value = AdminMetricasUIState(pestañaActual = _state.value.pestañaActual)
@@ -57,9 +59,7 @@ class AdminMetricasViewModel(
 
             if (global) {
                 cargarGlobales()
-                if (_state.value.pestañaActual == PestañaDashboard.AGRONOMO) {
-                    cargarDatosControl(global = true, forzar = forzar)
-                }
+                cargarDatosDePestaña(forzar)
                 return@launch
             }
 
@@ -127,9 +127,7 @@ class AdminMetricasViewModel(
                     error = null
                 )
 
-                if (_state.value.pestañaActual == PestañaDashboard.AGRONOMO) {
-                    cargarDatosControl(global = false, forzar = forzar)
-                }
+                cargarDatosDePestaña(forzar)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -144,35 +142,30 @@ class AdminMetricasViewModel(
         }
     }
 
+    private fun cargarDatosDePestaña(forzar: Boolean) {
+        when (_state.value.pestañaActual) {
+            PestañaDashboard.AGRONOMO -> cargarDatosControl(global = global, forzar = forzar)
+            PestañaDashboard.HISTORICO -> cargarAlertas(global = global, forzar = forzar)
+            PestañaDashboard.PRODUCTOR -> Unit
+        }
+    }
+
     fun cargarDatosControl(global: Boolean = this.global, forzar: Boolean = false) {
-        if (!forzar && _state.value.metricasAlertas != null && (global || _state.value.tratamientos != null)) return
+        cargarAlertas(global, forzar)
+        // El admin no tiene tratamientos propios que juntar: la tarjeta usa los globales.
+        if (global) return
+        if (!forzar && _state.value.tratamientos != null) return
         cargaControlJob?.cancel()
         cargaControlJob = viewModelScope.launch {
             try {
-                if (global) {
-                    val alertas = withContext(ioDispatcher) { pedirMetricasAlertas(global = true) }
-                    _state.value = _state.value.copy(
-                        metricasAlertas = alertas,
-                        alertasNoDisponibles = alertas == null
-                    )
-                } else {
-                    val (tratamientos, alertas) = withContext(ioDispatcher) {
-                        val defTrat = async {
-                            monitoreosCargados.map { m ->
-                                async {
-                                    runCatching { gddService.getTratamientos(m.monitoreo_id).body().orEmpty() }.getOrDefault(emptyList())
-                                }
-                            }.flatMap { it.await() }
+                val tratamientos = withContext(ioDispatcher) {
+                    monitoreosCargados.map { m ->
+                        async {
+                            runCatching { gddService.getTratamientos(m.monitoreo_id).body().orEmpty() }.getOrDefault(emptyList())
                         }
-                        val defAlertas = async { pedirMetricasAlertas(global = false) }
-                        defTrat.await() to defAlertas.await()
-                    }
-                    _state.value = _state.value.copy(
-                        tratamientos = calcularTratamientosProductor(tratamientos),
-                        metricasAlertas = alertas,
-                        alertasNoDisponibles = alertas == null
-                    )
+                    }.flatMap { it.await() }
                 }
+                _state.value = _state.value.copy(tratamientos = calcularTratamientosProductor(tratamientos))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -181,6 +174,18 @@ class AdminMetricasViewModel(
         }
     }
 
+
+    fun cargarAlertas(global: Boolean = this.global, forzar: Boolean = false) {
+        if (!forzar && (_state.value.metricasAlertas != null || cargaAlertasJob?.isActive == true)) return
+        cargaAlertasJob?.cancel()
+        cargaAlertasJob = viewModelScope.launch {
+            val alertas = withContext(ioDispatcher) { pedirMetricasAlertas(global) }
+            _state.value = _state.value.copy(
+                metricasAlertas = alertas,
+                alertasNoDisponibles = alertas == null
+            )
+        }
+    }
 
     private suspend fun pedirMetricasAlertas(global: Boolean): MetricasAlertasResumen? {
         return try {
@@ -240,6 +245,7 @@ class AdminMetricasViewModel(
     fun limpiar() {
         cargaJob?.cancel()
         cargaControlJob?.cancel()
+        cargaAlertasJob?.cancel()
         monitoreosCargados = emptyList()
         global = false
         _state.value = AdminMetricasUIState()
