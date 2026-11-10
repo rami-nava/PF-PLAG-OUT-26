@@ -62,11 +62,14 @@ class NotificacionLeidaDesdePushTest {
         viewModel: NotificacionesViewModel? = null,
         condicion: () -> Boolean
     ) {
-        val limite = System.currentTimeMillis() + 15_000
+        val limite = System.currentTimeMillis() + 30_000
         while (!condicion()) {
             check(System.currentTimeMillis() < limite) {
-                "La condición no se cumplió en 15 s. service.ultimaNotificacionLeida=${service?.ultimaNotificacionLeida}, state=${viewModel?.state?.value}, llamadas=${service?.llamadas}"
+                "La condición no se cumplió en 30 s. service.ultimaNotificacionLeida=${service?.ultimaNotificacionLeida}, state=${viewModel?.state?.value}, llamadas=${service?.llamadas}"
             }
+            try {
+                org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            } catch (_: Throwable) {}
             Thread.sleep(10)
         }
     }

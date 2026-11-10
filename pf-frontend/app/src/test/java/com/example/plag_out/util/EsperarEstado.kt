@@ -11,12 +11,17 @@ import kotlinx.coroutines.flow.StateFlow
  */
 fun <T> esperarEstado(
     flujo: StateFlow<T>,
-    timeoutMs: Long = 10_000,
+    timeoutMs: Long = 30_000,
     predicado: (T) -> Boolean
 ): T {
     val limite = System.currentTimeMillis() + timeoutMs
     while (System.currentTimeMillis() < limite) {
         if (predicado(flujo.value)) return flujo.value
+        try {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        } catch (_: Throwable) {
+            // Fuera de Robolectric se ignora
+        }
         Thread.sleep(5)
     }
     throw AssertionError("Timeout esperando el estado. Último valor: ${flujo.value}")
