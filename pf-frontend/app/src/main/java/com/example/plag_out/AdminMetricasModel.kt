@@ -173,7 +173,9 @@ data class PlagaReportadaResumen(
     val plagaNombre: String,
     val cantidad: Int,
     val porcentaje: Float,
-    val severidadAlta: Int = 0
+    val severidadAlta: Int = 0,
+    val severidadMedia: Int = 0,
+    val severidadBaja: Int = 0
 )
 
 data class MetricasAlertasResumen(
@@ -205,6 +207,8 @@ data class AdminMetricasUIState(
     val ventanasControl: List<VentanaControlBiologico> = emptyList(),
     val tratamientos: TratamientosAdmin? = null,
     val metricasAlertas: MetricasAlertasResumen? = null,
+    // El endpoint de alertas falló o todavía no existe: la tarjeta lo dice en vez de mostrar 0.
+    val alertasNoDisponibles: Boolean = false,
     val error: String? = null
 )
 
@@ -823,37 +827,28 @@ fun calcularTratamientosProductor(tratamientos: List<TratamientoResponse>): Trat
     )
 }
 
-/**
- * Calcula las métricas de alertas emitidas y el ranking de plagas reportadas (para Productor o Admin).
- */
-fun calcularMetricasAlertas(
-    reportes: List<ReporteDetalleResponse>,
-    conteo: ConteoReportes? = null
-): MetricasAlertasResumen {
-    val unicos = reportes.distinctBy { it.id }
-    val totalMuestra = unicos.size
-    val alta = conteo?.alto ?: unicos.count { it.nivel_severidad.equals("Alto", ignoreCase = true) }
-    val media = conteo?.medio ?: unicos.count { it.nivel_severidad.equals("Medio", ignoreCase = true) }
-    val baja = conteo?.bajo ?: unicos.count { it.nivel_severidad.equals("Bajo", ignoreCase = true) }
-    val total = conteo?.total?.takeIf { it >= totalMuestra } ?: (alta + media + baja).coerceAtLeast(totalMuestra)
 
-    val plagas = unicos
-        .groupBy { it.plaga_nombre.trim().ifEmpty { "Plaga sin especificar" } }
-        .map { (nombrePlaga, items) ->
+fun resumenDeMetricasAlertas(metricas: MetricasAlertasResponse): MetricasAlertasResumen {
+    val total = metricas.total
+    val plagas = metricas.plagas.orEmpty()
+        .filter { it.total > 0 }
+        .map { p ->
             PlagaReportadaResumen(
-                plagaNombre = nombrePlaga,
-                cantidad = items.size,
-                porcentaje = if (totalMuestra > 0) (items.size * 100f / totalMuestra) else 0f,
-                severidadAlta = items.count { it.nivel_severidad.equals("Alto", ignoreCase = true) }
+                plagaNombre = p.plaga_nombre.trim().ifEmpty { "Plaga sin especificar" },
+                cantidad = p.total,
+                porcentaje = if (total > 0) (p.total * 100f / total) else 0f,
+                severidadAlta = p.alto,
+                severidadMedia = p.medio,
+                severidadBaja = p.bajo
             )
         }
         .sortedWith(compareByDescending<PlagaReportadaResumen> { it.cantidad }.thenBy { it.plagaNombre })
 
     return MetricasAlertasResumen(
         totalAlertas = total,
-        severidadAlta = alta,
-        severidadMedia = media,
-        severidadBaja = baja,
+        severidadAlta = metricas.alto,
+        severidadMedia = metricas.medio,
+        severidadBaja = metricas.bajo,
         plagasReportadas = plagas
     )
 }

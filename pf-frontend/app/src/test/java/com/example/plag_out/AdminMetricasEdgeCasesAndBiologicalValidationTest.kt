@@ -227,41 +227,33 @@ class AdminMetricasEdgeCasesAndBiologicalValidationTest {
     }
 
     @Test
-    fun `calcularMetricasAlertas resume severidades y ranking de plagas reportadas para productor y admin`() {
-        val vacio = calcularMetricasAlertas(emptyList())
+    fun `resumenDeMetricasAlertas usa los conteos del backend y arma el ranking de plagas`() {
+        val vacio = resumenDeMetricasAlertas(MetricasAlertasResponse())
         assertEquals(0, vacio.totalAlertas)
         assertEquals(0, vacio.severidadAlta)
         assertEquals(0, vacio.severidadMedia)
         assertEquals(0, vacio.severidadBaja)
         assertTrue(vacio.plagasReportadas.isEmpty())
 
-        fun rep(id: Int, plaga: String, sev: String, propio: Boolean = true) = ReporteDetalleResponse(
-            id = id,
-            plaga_id = id,
-            plaga_nombre = plaga,
-            cultivo_nombre = "Maíz",
-            nivel_severidad = sev,
-            etapa_biologica = "ADULTO",
-            timestamp_ms = 1790000000000L,
-            latitud = -33.89,
-            longitud = -60.57,
-            es_propio = propio
+        val resumen = resumenDeMetricasAlertas(
+            MetricasAlertasResponse(
+                total = 5, alto = 2, medio = 2, bajo = 1,
+                plagas = listOf(
+                    PlagaAlertasResponse(3, "Chinche verde común", total = 1, medio = 1),
+                    PlagaAlertasResponse(2, "Pulgón verde de los cereales", total = 2, alto = 1, bajo = 1),
+                    PlagaAlertasResponse(1, "Chicharrita del maíz", total = 2, alto = 1, medio = 1),
+                    // Una plaga sin alertas no entra al ranking.
+                    PlagaAlertasResponse(4, "Oruga cogollera", total = 0)
+                )
+            )
         )
-
-        val reportes = listOf(
-            rep(1, "Chicharrita del maíz", "Alto"),
-            rep(2, "Chicharrita del maíz", "Medio"),
-            rep(3, "Pulgón verde de los cereales", "Alto"),
-            rep(4, "Pulgón verde de los cereales", "Bajo"),
-            rep(5, "Chinche verde común", "Medio", propio = false)
-        )
-
-        val resumen = calcularMetricasAlertas(reportes)
         assertEquals(5, resumen.totalAlertas)
         assertEquals(2, resumen.severidadAlta)
         assertEquals(2, resumen.severidadMedia)
         assertEquals(1, resumen.severidadBaja)
         assertEquals(3, resumen.plagasReportadas.size)
+        assertEquals(1, resumen.plagasReportadas[1].severidadAlta)
+        assertEquals(1, resumen.plagasReportadas[1].severidadBaja)
 
         // Empate en 2 alertas: desempata alfabéticamente ("Chicharrita..." antes que "Pulgón...")
         assertEquals("Chicharrita del maíz", resumen.plagasReportadas[0].plagaNombre)

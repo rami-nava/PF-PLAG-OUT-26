@@ -434,6 +434,10 @@ class FakeGDDService : GDDService {
     var adminReactivarUsuarioResult: () -> Response<UsuarioAdmin> = { noDeclarado("adminReactivarUsuario") }
     var adminEliminarUsuarioResult: () -> Response<AccountDeletionResponse> = { noDeclarado("adminEliminarUsuario") }
     var adminGetMetricasResult: () -> Response<MetricasAdmin> = { noDeclarado("adminGetMetricas") }
+    var adminGetMetricasAlertasResult: () -> Response<com.example.plag_out.MetricasAlertasResponse> =
+        { noDeclarado("adminGetMetricasAlertas") }
+    var getMetricasAlertasResult: () -> Response<com.example.plag_out.MetricasAlertasResponse> =
+        { noDeclarado("getMetricasAlertas") }
 
     var adminGetCultivosResult: () -> Response<List<CultivoAdmin>> = { noDeclarado("adminGetCultivos") }
     var adminGetCultivoResult: () -> Response<CultivoAdmin> = { noDeclarado("adminGetCultivo") }
@@ -525,6 +529,16 @@ class FakeGDDService : GDDService {
     override suspend fun adminGetMetricas(): Response<MetricasAdmin> {
         llamadas += "adminGetMetricas"
         return adminGetMetricasResult()
+    }
+
+    override suspend fun adminGetMetricasAlertas(): Response<com.example.plag_out.MetricasAlertasResponse> {
+        llamadas += "adminGetMetricasAlertas"
+        return adminGetMetricasAlertasResult()
+    }
+
+    override suspend fun getMetricasAlertas(): Response<com.example.plag_out.MetricasAlertasResponse> {
+        llamadas += "getMetricasAlertas"
+        return getMetricasAlertasResult()
     }
 
     private fun <T> noDeclarado(endpoint: String): Response<T> =

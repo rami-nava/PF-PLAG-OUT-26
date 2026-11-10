@@ -857,6 +857,25 @@ data class ConteoReportes(
     @SerializedName("bajo")  val bajo: Int = 0
 )
 
+// Métrica de alertas de la pestaña Control: el backend cuenta todos los reportes, sin muestras.
+// GET /reportes/metricas → los del productor; GET /admin/reportes/metricas → los de todos.
+data class MetricasAlertasResponse(
+    @SerializedName("total")  val total: Int = 0,
+    @SerializedName("alto")   val alto: Int = 0,
+    @SerializedName("medio")  val medio: Int = 0,
+    @SerializedName("bajo")   val bajo: Int = 0,
+    @SerializedName("plagas") val plagas: List<PlagaAlertasResponse>? = null
+)
+
+data class PlagaAlertasResponse(
+    @SerializedName("plaga_id")     val plaga_id: Int? = null,
+    @SerializedName("plaga_nombre") val plaga_nombre: String = "",
+    @SerializedName("total")        val total: Int = 0,
+    @SerializedName("alto")         val alto: Int = 0,
+    @SerializedName("medio")        val medio: Int = 0,
+    @SerializedName("bajo")         val bajo: Int = 0
+)
+
 data class ReportesMapaResponse(
     @SerializedName("nivel")     val nivel: String? = null,
     @SerializedName("grupos")    val grupos: List<GrupoReportesMapa>? = null,
