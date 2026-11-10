@@ -47,12 +47,19 @@ class VerReporteViewModel(
         return results[0] / 1000f
     }
 
+    private var jobCarga: kotlinx.coroutines.Job? = null
+
     private val _state = MutableStateFlow<VerReporteUiState>(VerReporteUiState.Cargando)
     val state: StateFlow<VerReporteUiState> = _state.asStateFlow()
 
+    fun limpiar() {
+        jobCarga?.cancel()
+    }
+
     /** Conserva la ficha de navegación durante fallas transitorias de red o del servidor. */
     fun cargar(reporteId: Int, reporteJsonFallback: String?, ignorarLimite: Boolean = false) {
-        viewModelScope.launch {
+        jobCarga?.cancel()
+        jobCarga = viewModelScope.launch {
             _state.value = VerReporteUiState.Cargando
 
             // Intento 1: API
@@ -105,7 +112,7 @@ class VerReporteViewModel(
                             }
                         } catch (e: CancellationException) {
                             throw e
-                        } catch (e: Exception) {
+                        } catch (e: Throwable) {
                             Log.w("VER_REPORTE", "Fallo al obtener terrenos para referencia: ${e.message}")
                         }
                     }
@@ -127,7 +134,7 @@ class VerReporteViewModel(
                     return@launch
                 }
                 Log.w("VER_REPORTE", "GET /reportes/$reporteId fallo: ${e.message}, usando fallback")
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.w("VER_REPORTE", "GET /reportes/$reporteId fallo: ${e.message}")
                 _state.value = VerReporteUiState.Error(ERROR_CARGA_ALERTA)
                 return@launch
@@ -247,13 +254,13 @@ class VerReporteViewModel(
                     }
                 } catch (e: CancellationException) {
                     throw e
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     Log.w("VER_REPORTE", "No se pudo obtener terrenos para enriquecer fallback: ${e.message}")
                 }
             }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e("VER_REPORTE", "Error deserializando fallback JSON: ${e.message}")
             _state.value = VerReporteUiState.Error(ERROR_CARGA_ALERTA)
         }

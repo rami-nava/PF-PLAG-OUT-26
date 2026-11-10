@@ -30,8 +30,16 @@ class VerReporteViewModelTest {
 
     @Before
     fun setup() {
-        gddService = FakeGDDService()
+        gddService = FakeGDDService().apply {
+            getTerrenosResult = { Response.success(emptyList()) }
+        }
         viewModel = VerReporteViewModel(gddService)
+    }
+
+    @org.junit.After
+    fun tearDown() {
+        viewModel.limpiar()
+        mainDispatcherRule.testDispatcher.scheduler.advanceUntilIdle()
     }
 
     @Test

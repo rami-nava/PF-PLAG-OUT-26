@@ -17,11 +17,13 @@ fun <T> esperarEstado(
     val limite = System.currentTimeMillis() + timeoutMs
     while (System.currentTimeMillis() < limite) {
         if (predicado(flujo.value)) return flujo.value
+        MainDispatcherRule.advanceUntilIdle()
         try {
             org.robolectric.shadows.ShadowLooper.idleMainLooper()
         } catch (_: Throwable) {
             // Fuera de Robolectric se ignora
         }
+        if (predicado(flujo.value)) return flujo.value
         Thread.sleep(5)
     }
     throw AssertionError("Timeout esperando el estado. Último valor: ${flujo.value}")

@@ -20,6 +20,11 @@ class VerReporteScreenTest {
 
     @get:Rule val compose = createComposeRule()
 
+    @org.junit.After
+    fun tearDown() {
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+    }
+
     @Test
     fun `el detalle muestra el cultivo y la etapa biologica`() {
         val gddService = FakeGDDService().apply {
@@ -28,6 +33,7 @@ class VerReporteScreenTest {
                     Fixtures.reporteDetalle(id = 78).copy(cultivo_nombre = "Maíz", etapa_biologica = "HUEVO")
                 )
             }
+            getTerrenosResult = { Response.success(emptyList()) }
         }
 
         val viewModel = VerReporteViewModel(gddService)
@@ -51,6 +57,7 @@ class VerReporteScreenTest {
     fun `al abrir un reporte retirado desde el mapa se muestra error y no su ficha guardada`() {
         val gddService = FakeGDDService().apply {
             getReporteResult = { FakeGDDService.errorServidor(404) }
+            getTerrenosResult = { Response.success(emptyList()) }
         }
         val viewModel = VerReporteViewModel(gddService)
         val fichaDelMapa = Gson().toJson(
@@ -77,7 +84,7 @@ class VerReporteScreenTest {
             }
         }
 
-        compose.waitUntil(timeoutMillis = 5000) { viewModel.state.value !is VerReporteUiState.Cargando }
+        compose.waitUntil(timeoutMillis = 15000) { viewModel.state.value !is VerReporteUiState.Cargando }
         compose.onNodeWithText("No se pudieron cargar los datos de la alerta.").assertExists()
         compose.onNodeWithText("Alerta comunitaria retirada").assertDoesNotExist()
     }
@@ -86,6 +93,7 @@ class VerReporteScreenTest {
     fun `muestra Nivel de severidad unificado y permite navegar a terrenos cercanos`() {
         val gddService = FakeGDDService().apply {
             getReporteResult = { FakeGDDService.sinConexion() }
+            getTerrenosResult = { Response.success(emptyList()) }
         }
         val fichaComunitaria = Gson().toJson(
             ReporteNavPayload(

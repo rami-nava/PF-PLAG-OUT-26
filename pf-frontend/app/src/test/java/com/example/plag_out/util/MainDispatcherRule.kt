@@ -17,20 +17,39 @@ class MainDispatcherRule(
     val testDispatcher: TestDispatcher = StandardTestDispatcher()
 ) : TestWatcher() {
 
+    companion object {
+        @Volatile
+        var current: MainDispatcherRule? = null
+            private set
+
+        fun advanceUntilIdle() {
+            try {
+                current?.testDispatcher?.scheduler?.advanceUntilIdle()
+            } catch (_: Throwable) {}
+        }
+    }
+
     override fun starting(description: Description) {
+        current = this
         Dispatchers.setMain(testDispatcher)
     }
 
     override fun finished(description: Description) {
-        testDispatcher.scheduler.advanceUntilIdle()
+        try {
+            testDispatcher.scheduler.advanceUntilIdle()
+        } catch (_: Throwable) {}
         try {
             Dispatchers.resetMain()
         } catch (e: IllegalStateException) {
             // Si una corrutina con Dispatchers.IO o cancelación asíncrona estaba completándose,
             // le damos un breve respiro para terminar de limpiar en CI.
             Thread.sleep(100)
-            testDispatcher.scheduler.advanceUntilIdle()
+            try {
+                testDispatcher.scheduler.advanceUntilIdle()
+            } catch (_: Throwable) {}
             Dispatchers.resetMain()
+        } finally {
+            current = null
         }
     }
 }

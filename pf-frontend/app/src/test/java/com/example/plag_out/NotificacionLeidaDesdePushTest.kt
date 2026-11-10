@@ -64,13 +64,15 @@ class NotificacionLeidaDesdePushTest {
     ) {
         val limite = System.currentTimeMillis() + 30_000
         while (!condicion()) {
-            check(System.currentTimeMillis() < limite) {
-                "La condición no se cumplió en 30 s. service.ultimaNotificacionLeida=${service?.ultimaNotificacionLeida}, state=${viewModel?.state?.value}, llamadas=${service?.llamadas}"
-            }
+            com.example.plag_out.util.MainDispatcherRule.advanceUntilIdle()
             try {
                 org.robolectric.shadows.ShadowLooper.idleMainLooper()
             } catch (_: Throwable) {}
-            Thread.sleep(10)
+            if (condicion()) return
+            check(System.currentTimeMillis() < limite) {
+                "La condición no se cumplió en 30 s. service.ultimaNotificacionLeida=${service?.ultimaNotificacionLeida}, state=${viewModel?.state?.value}, llamadas=${service?.llamadas}"
+            }
+            Thread.sleep(5)
         }
     }
 }
