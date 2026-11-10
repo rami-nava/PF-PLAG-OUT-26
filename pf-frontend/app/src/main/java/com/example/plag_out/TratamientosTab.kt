@@ -280,7 +280,7 @@ private fun EstadoEnvio(icono: ImageVector, texto: String, color: Color) {
 @Composable
 private fun FilaConteo(etiqueta: String, valor: Double, unidad: String, fecha: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(etiqueta, fontSize = 13.sp, color = PlagOutColors.TextSecondary, modifier = Modifier.width(64.dp))
+        Text(etiqueta, fontSize = 13.sp, color = PlagOutColors.TextSecondary, maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = 68.dp).padding(end = 8.dp))
         Text("${formatearConteo(valor)} $unidad", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain, modifier = Modifier.weight(1f))
         Text(fecha, fontSize = 11.sp, color = PlagOutColors.TextSecondary)
     }

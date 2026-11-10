@@ -169,6 +169,21 @@ data class VentanaControlBiologico(
     val hito: String? = null
 )
 
+data class PlagaReportadaResumen(
+    val plagaNombre: String,
+    val cantidad: Int,
+    val porcentaje: Float,
+    val severidadAlta: Int = 0
+)
+
+data class MetricasAlertasResumen(
+    val totalAlertas: Int = 0,
+    val severidadAlta: Int = 0,
+    val severidadMedia: Int = 0,
+    val severidadBaja: Int = 0,
+    val plagasReportadas: List<PlagaReportadaResumen> = emptyList()
+)
+
 /**
  * Estado observable de la pantalla de métricas y dashboards.
  */
@@ -186,10 +201,10 @@ data class AdminMetricasUIState(
     val semaforoHectareas: SemaforoHectareas? = null,
     val plagasPorCultivo: List<ResumenCultivoPlagas> = emptyList(),
     val lotesCriticos: List<LoteEnRiesgoCritico> = emptyList(),
-    // Perspectiva Agrónomo
+    // Perspectiva Agrónomo / Control
     val ventanasControl: List<VentanaControlBiologico> = emptyList(),
-    // Solo en las métricas globales: los del productor se ven en el detalle de cada monitoreo.
     val tratamientos: TratamientosAdmin? = null,
+    val metricasAlertas: MetricasAlertasResumen? = null,
     val error: String? = null
 )
 
@@ -759,3 +774,86 @@ fun puntosLotesDelSemaforo(semaforo: SemaforoHectareas): List<String> {
 
 /** "87,5 %" o "—" cuando no hay cifra. */
 fun formatearPorcentajeTratamiento(valor: Float?): String = valor?.let { "${formatearDecimalAr(it)} %" } ?: "—"
+
+/**
+ * Consolida los tratamientos de los monitoreos del productor en el mismo formato que el panel de control.
+ */
+fun calcularTratamientosProductor(tratamientos: List<TratamientoResponse>): TratamientosAdmin {
+    val citaPorDefecto = tratamientos.firstNotNullOfOrNull { it.cita?.takeIf(String::isNotBlank) }
+        ?: "Henderson & Tilton 1955, J. Econ. Entomol. 48(2):157-161, doi:10.1093/jee/48.2.157"
+    if (tratamientos.isEmpty()) {
+        return TratamientosAdmin(
+            registrados = 0,
+            evaluados = 0,
+            con_testigo = 0,
+            cita = citaPorDefecto,
+            productos = emptyList()
+        )
+    }
+    val evaluadosTotal = tratamientos.count {
+        it.conteo_despues != null && (it.eficacia_pct != null || it.reduccion_observada_pct != null)
+    }
+    val conTestigoTotal = tratamientos.count { it.testigo_antes != null && it.testigo_despues != null }
+    val porProducto = tratamientos
+        .groupBy { it.producto.trim().ifEmpty { "Producto sin especificar" } }
+        .map { (nombreProducto, items) ->
+            val evaluadosProd = items.count {
+                it.conteo_despues != null && (it.eficacia_pct != null || it.reduccion_observada_pct != null)
+            }
+            val conTestigoProd = items.count { it.testigo_antes != null && it.testigo_despues != null }
+            val eficacias = items.mapNotNull { it.eficacia_pct?.toFloat() }
+            val reducciones = items.mapNotNull { it.reduccion_observada_pct?.toFloat() }
+            TratamientosPorProductoAdmin(
+                producto = nombreProducto,
+                tratamientos = items.size,
+                evaluados = evaluadosProd,
+                con_testigo = conTestigoProd,
+                eficacia_promedio = eficacias.takeIf { it.isNotEmpty() }?.average()?.toFloat(),
+                reduccion_observada_promedio = reducciones.takeIf { it.isNotEmpty() }?.average()?.toFloat()
+            )
+        }
+        .sortedWith(compareByDescending<TratamientosPorProductoAdmin> { it.tratamientos }.thenBy { it.producto })
+
+    return TratamientosAdmin(
+        registrados = tratamientos.size,
+        evaluados = evaluadosTotal,
+        con_testigo = conTestigoTotal,
+        cita = citaPorDefecto,
+        productos = porProducto
+    )
+}
+
+/**
+ * Calcula las métricas de alertas emitidas y el ranking de plagas reportadas (para Productor o Admin).
+ */
+fun calcularMetricasAlertas(
+    reportes: List<ReporteDetalleResponse>,
+    conteo: ConteoReportes? = null
+): MetricasAlertasResumen {
+    val unicos = reportes.distinctBy { it.id }
+    val totalMuestra = unicos.size
+    val alta = conteo?.alto ?: unicos.count { it.nivel_severidad.equals("Alto", ignoreCase = true) }
+    val media = conteo?.medio ?: unicos.count { it.nivel_severidad.equals("Medio", ignoreCase = true) }
+    val baja = conteo?.bajo ?: unicos.count { it.nivel_severidad.equals("Bajo", ignoreCase = true) }
+    val total = conteo?.total?.takeIf { it >= totalMuestra } ?: (alta + media + baja).coerceAtLeast(totalMuestra)
+
+    val plagas = unicos
+        .groupBy { it.plaga_nombre.trim().ifEmpty { "Plaga sin especificar" } }
+        .map { (nombrePlaga, items) ->
+            PlagaReportadaResumen(
+                plagaNombre = nombrePlaga,
+                cantidad = items.size,
+                porcentaje = if (totalMuestra > 0) (items.size * 100f / totalMuestra) else 0f,
+                severidadAlta = items.count { it.nivel_severidad.equals("Alto", ignoreCase = true) }
+            )
+        }
+        .sortedWith(compareByDescending<PlagaReportadaResumen> { it.cantidad }.thenBy { it.plagaNombre })
+
+    return MetricasAlertasResumen(
+        totalAlertas = total,
+        severidadAlta = alta,
+        severidadMedia = media,
+        severidadBaja = baja,
+        plagasReportadas = plagas
+    )
+}

@@ -569,13 +569,14 @@ private fun TarjetaInformacionPersonal(usuario: UsuarioResponse, onEditar: () ->
                 "Información personal",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = PlagOutColors.TextMain
+                color = PlagOutColors.TextMain,
+                modifier = Modifier.weight(1f)
             )
             TextButton(
                 onClick = onEditar,
                 modifier = Modifier.testTag("btnEditarDatos")
             ) {
-                Text("Editar", color = PlagOutColors.Forest, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text("Editar", color = PlagOutColors.Forest, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, softWrap = false)
             }
         }
 

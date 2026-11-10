@@ -194,7 +194,8 @@ fun TarjetaEtapa(modifier: Modifier = Modifier) {
 fun TarjetaGDD(modifier: Modifier = Modifier) {
     TarjetaConcepto(Icons.Outlined.Thermostat, "¿Qué son los GDD?", modifier) {
         Text(
-            "Grados Día de Crecimiento: el calor que se fue acumulando desde que arranca el conteo " +
+            "Son la unidad de medida térmica (Grados Día de Crecimiento, o Growing Degree Days " +
+                "por sus siglas en inglés): el calor que se fue acumulando desde que arranca el conteo " +
                 "(el biofix de la plaga). Cada plaga necesita juntar " +
                 "cierta cantidad para eclosionar, y ese total es el objetivo del monitoreo.",
             fontSize = 13.sp,

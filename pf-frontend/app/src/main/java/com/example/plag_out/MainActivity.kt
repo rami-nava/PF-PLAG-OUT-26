@@ -1375,7 +1375,7 @@ fun shouldShowBottomBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
     val screensWithoutNavBar = listOf("datos_terreno", "seleccionar_ubicacion", "agregar_plantacion/{terreno_id}", "agregar_monitoreo", "agregar_monitoreo/{plantacion_id}", "logIn", "crearCuenta", "recuperarPassword", "editarPerfil", "monitoreo/{monitoreo_id}", "prediccion/{prediccion_id}", "crear_reporte", "ver_reporte/{reporte_id}", "ver_reporte/{reporte_id}/{reporte_json}", "mapa_reportes")
-    return !screensWithoutNavBar.contains(currentScreen)
+    return !screensWithoutNavBar.contains(currentScreen) && currentScreen?.startsWith("ver_reporte/") != true
 }
 
 @Composable
@@ -1383,5 +1383,5 @@ fun shouldShowTopBar(navController: NavController): Boolean {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentScreen = navBackStackEntry?.destination?.route
     val screensWithoutNavBar = listOf("logIn","crearCuenta","recuperarPassword","perfil","editarPerfil","monitoreo/{monitoreo_id}","prediccion/{prediccion_id}","mapa_reportes")
-    return !screensWithoutNavBar.contains(currentScreen)
+    return !screensWithoutNavBar.contains(currentScreen) && currentScreen?.startsWith("ver_reporte/") != true
 }

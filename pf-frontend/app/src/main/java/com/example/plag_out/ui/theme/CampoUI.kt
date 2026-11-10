@@ -362,11 +362,14 @@ fun AnilloProgreso(progreso: Float, color: Color, tamano: Dp, grosor: Dp = 7.dp)
                 style = Stroke(width = grosorPx, cap = StrokeCap.Round)
             )
         }
+        val pct = progreso.toInt()
         Text(
-            "${progreso.toInt()}%",
-            fontSize = 14.sp,
+            "$pct%",
+            fontSize = if (pct >= 100) 11.5.sp else 13.5.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = PlagOutColors.TextMain
+            color = PlagOutColors.TextMain,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }

@@ -141,4 +141,139 @@ class AdminMetricasEdgeCasesAndBiologicalValidationTest {
         assertFalse("Ecuador / Trópico", esValida(0.0, -60.0))
         assertFalse("Greenwich", esValida(51.5, 0.0))
     }
+
+    @Test
+    fun `calcularTratamientosProductor consolida eficacia Henderson-Tilton y reduccion Abbott por producto`() {
+        val vacio = calcularTratamientosProductor(emptyList())
+        assertEquals(0, vacio.registrados)
+        assertEquals(0, vacio.evaluados)
+        assertEquals(0, vacio.con_testigo)
+        assertTrue(vacio.productos.isEmpty())
+
+        val t1 = TratamientoResponse(
+            id = 1,
+            monitoreo_id = 10,
+            fecha_aplicacion = "2026-11-01",
+            producto = "Tiametoxam + Lambda-cihalotrina",
+            unidad_conteo = "por_metro_lineal",
+            conteo_antes = 15.0,
+            fecha_conteo_antes = "2026-11-01",
+            conteo_despues = 1.8,
+            fecha_conteo_despues = "2026-11-05",
+            testigo_antes = 14.0,
+            testigo_despues = 17.0,
+            reduccion_observada_pct = 88.0,
+            eficacia_pct = 90.1,
+            metodo = "henderson_tilton",
+            sin_calculo = null
+        )
+        val t2 = TratamientoResponse(
+            id = 2,
+            monitoreo_id = 11,
+            fecha_aplicacion = "2026-11-03",
+            producto = "Clorantraniliprole 20% SC",
+            unidad_conteo = "por_planta",
+            conteo_antes = 10.0,
+            fecha_conteo_antes = "2026-11-03",
+            conteo_despues = 2.0,
+            fecha_conteo_despues = "2026-11-06",
+            testigo_antes = null,
+            testigo_despues = null,
+            reduccion_observada_pct = 80.0,
+            eficacia_pct = null,
+            metodo = "reduccion_observada",
+            sin_calculo = "falta_testigo_despues"
+        )
+        val t3Pendiente = TratamientoResponse(
+            id = 3,
+            monitoreo_id = 12,
+            fecha_aplicacion = "2026-11-08",
+            producto = "Clorantraniliprole 20% SC",
+            unidad_conteo = "por_planta",
+            conteo_antes = 8.0,
+            fecha_conteo_antes = "2026-11-08",
+            conteo_despues = null,
+            fecha_conteo_despues = null,
+            testigo_antes = null,
+            testigo_despues = null,
+            reduccion_observada_pct = null,
+            eficacia_pct = null,
+            metodo = "sin_conteo_posterior",
+            sin_calculo = "falta_conteo_despues"
+        )
+
+        val consolidado = calcularTratamientosProductor(listOf(t1, t2, t3Pendiente))
+        assertEquals(3, consolidado.registrados)
+        assertEquals(2, consolidado.evaluados)
+        assertEquals(1, consolidado.con_testigo)
+        assertEquals(2, consolidado.productos.size)
+
+        // Clorantraniliprole tiene 2 tratamientos registrados, por lo que encabeza la lista
+        val prod1 = consolidado.productos[0]
+        assertEquals("Clorantraniliprole 20% SC", prod1.producto)
+        assertEquals(2, prod1.tratamientos)
+        assertEquals(1, prod1.evaluados)
+        assertEquals(0, prod1.con_testigo)
+        assertEquals(null, prod1.eficacia_promedio)
+        assertEquals(80.0f, prod1.reduccion_observada_promedio!!, 0.01f)
+
+        val prod2 = consolidado.productos[1]
+        assertEquals("Tiametoxam + Lambda-cihalotrina", prod2.producto)
+        assertEquals(1, prod2.tratamientos)
+        assertEquals(1, prod2.evaluados)
+        assertEquals(1, prod2.con_testigo)
+        assertEquals(90.1f, prod2.eficacia_promedio!!, 0.01f)
+        assertEquals(88.0f, prod2.reduccion_observada_promedio!!, 0.01f)
+    }
+
+    @Test
+    fun `calcularMetricasAlertas resume severidades y ranking de plagas reportadas para productor y admin`() {
+        val vacio = calcularMetricasAlertas(emptyList())
+        assertEquals(0, vacio.totalAlertas)
+        assertEquals(0, vacio.severidadAlta)
+        assertEquals(0, vacio.severidadMedia)
+        assertEquals(0, vacio.severidadBaja)
+        assertTrue(vacio.plagasReportadas.isEmpty())
+
+        fun rep(id: Int, plaga: String, sev: String, propio: Boolean = true) = ReporteDetalleResponse(
+            id = id,
+            plaga_id = id,
+            plaga_nombre = plaga,
+            cultivo_nombre = "Maíz",
+            nivel_severidad = sev,
+            etapa_biologica = "ADULTO",
+            timestamp_ms = 1790000000000L,
+            latitud = -33.89,
+            longitud = -60.57,
+            es_propio = propio
+        )
+
+        val reportes = listOf(
+            rep(1, "Chicharrita del maíz", "Alto"),
+            rep(2, "Chicharrita del maíz", "Medio"),
+            rep(3, "Pulgón verde de los cereales", "Alto"),
+            rep(4, "Pulgón verde de los cereales", "Bajo"),
+            rep(5, "Chinche verde común", "Medio", propio = false)
+        )
+
+        val resumen = calcularMetricasAlertas(reportes)
+        assertEquals(5, resumen.totalAlertas)
+        assertEquals(2, resumen.severidadAlta)
+        assertEquals(2, resumen.severidadMedia)
+        assertEquals(1, resumen.severidadBaja)
+        assertEquals(3, resumen.plagasReportadas.size)
+
+        // Empate en 2 alertas: desempata alfabéticamente ("Chicharrita..." antes que "Pulgón...")
+        assertEquals("Chicharrita del maíz", resumen.plagasReportadas[0].plagaNombre)
+        assertEquals(2, resumen.plagasReportadas[0].cantidad)
+        assertEquals(40.0f, resumen.plagasReportadas[0].porcentaje, 0.01f)
+
+        assertEquals("Pulgón verde de los cereales", resumen.plagasReportadas[1].plagaNombre)
+        assertEquals(2, resumen.plagasReportadas[1].cantidad)
+        assertEquals(40.0f, resumen.plagasReportadas[1].porcentaje, 0.01f)
+
+        assertEquals("Chinche verde común", resumen.plagasReportadas[2].plagaNombre)
+        assertEquals(1, resumen.plagasReportadas[2].cantidad)
+        assertEquals(20.0f, resumen.plagasReportadas[2].porcentaje, 0.01f)
+    }
 }

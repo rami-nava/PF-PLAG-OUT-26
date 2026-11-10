@@ -393,19 +393,19 @@ private fun ContenidoMonitoreoDetalle(
             Tab(
                 selected = pagerState.currentPage == PAGINA_CICLOS,
                 onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_CICLOS) } },
-                text = { Text("Ciclos", fontWeight = FontWeight.SemiBold) },
+                text = { Text("Ciclos", fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false) },
                 modifier = Modifier.testTag("tabCiclos")
             )
             Tab(
                 selected = pagerState.currentPage == PAGINA_TRATAMIENTOS,
                 onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_TRATAMIENTOS) } },
-                text = { Text("Tratamientos", fontWeight = FontWeight.SemiBold, maxLines = 1) },
+                text = { Text("Tratamientos", fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false, fontSize = 13.sp) },
                 modifier = Modifier.testTag("tabTratamientos")
             )
             Tab(
                 selected = pagerState.currentPage == PAGINA_DETALLE,
                 onClick = { scope.launch { pagerState.animateScrollToPage(PAGINA_DETALLE) } },
-                text = { Text("Detalle", fontWeight = FontWeight.SemiBold) },
+                text = { Text("Detalle", fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false) },
                 modifier = Modifier.testTag("tabDetalle")
             )
         }

@@ -243,8 +243,10 @@ private fun ContenidoVerReporte(
                             "Plaga reportada",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = PlagOutColors.TextMain
+                            color = PlagOutColors.TextMain,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
+                        Spacer(Modifier.width(8.dp))
 
                         // Chip de tipo: Propio vs Reporte comunidad
                         val esPropio = detalle.es_propio
@@ -257,6 +259,8 @@ private fun ContenidoVerReporte(
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (esPropio) PlagOutColors.Forest else Color(0xFF1565C0),
+                                maxLines = 1,
+                                softWrap = false,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                         }

@@ -29,6 +29,8 @@ class AdminMetricasViewModel(
     val state: StateFlow<AdminMetricasUIState> = _state.asStateFlow()
 
     private var cargaJob: Job? = null
+    private var cargaControlJob: Job? = null
+    private var monitoreosCargados: List<MonitoreoResponse> = emptyList()
 
     // true: tableros de todos los productores (admin, GET /admin/metricas).
     // false: los del propio productor, calculados en la app con sus monitoreos.
@@ -38,6 +40,8 @@ class AdminMetricasViewModel(
         if (global != this.global) {
             // Otra fuente de datos: lo cargado antes no sirve.
             cargaJob?.cancel()
+            cargaControlJob?.cancel()
+            monitoreosCargados = emptyList()
             this.global = global
             _state.value = AdminMetricasUIState(pestañaActual = _state.value.pestañaActual)
         }
@@ -53,6 +57,9 @@ class AdminMetricasViewModel(
 
             if (global) {
                 cargarGlobales()
+                if (_state.value.pestañaActual == PestañaDashboard.AGRONOMO) {
+                    cargarDatosControl(global = true, forzar = forzar)
+                }
                 return@launch
             }
 
@@ -75,6 +82,7 @@ class AdminMetricasViewModel(
                 }
 
                 val monitoreos = respMonitoreos.body().orEmpty()
+                monitoreosCargados = monitoreos
                 val terrenos = if (respTerrenos.isSuccessful) respTerrenos.body().orEmpty() else emptyList()
                 val plantaciones = if (respPlantaciones.isSuccessful) respPlantaciones.body().orEmpty() else emptyList()
 
@@ -101,8 +109,7 @@ class AdminMetricasViewModel(
                 val plagasCultivo = calcularPlagasPorCultivo(monitoreos, terrenos, plantaciones)
                 val rankingCriticos = calcularRankingLotesCriticos(monitoreos, terrenos, plantaciones)
 
-                // 3. Etapas (Control): la eficacia de los tratamientos del productor se ve en
-                // cada monitoreo, no acá.
+                // 3. Etapas (Control)
                 val ventanas = calcularVentanasControlAgronomo(monitoreos)
 
                 _state.value = _state.value.copy(
@@ -119,6 +126,10 @@ class AdminMetricasViewModel(
                     ventanasControl = ventanas,
                     error = null
                 )
+
+                if (_state.value.pestañaActual == PestañaDashboard.AGRONOMO) {
+                    cargarDatosControl(global = false, forzar = forzar)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -129,6 +140,66 @@ class AdminMetricasViewModel(
                     isRefreshing = false,
                     error = fallo.mensaje
                 )
+            }
+        }
+    }
+
+    fun cargarDatosControl(global: Boolean = this.global, forzar: Boolean = false) {
+        if (!forzar && _state.value.metricasAlertas != null && (global || _state.value.tratamientos != null)) return
+        cargaControlJob?.cancel()
+        cargaControlJob = viewModelScope.launch {
+            try {
+                if (global) {
+                    val reportes = withContext(ioDispatcher) {
+                        val mapaResp = runCatching {
+                            gddService.getReportesMapa(
+                                sur = -60.0,
+                                oeste = -75.0,
+                                norte = -20.0,
+                                este = -50.0,
+                                zoom = 12,
+                                nivel = "reportes",
+                                limite = 500,
+                                ambito = null,
+                                dias = 365
+                            ).body()?.reportes.orEmpty()
+                        }.getOrDefault(emptyList())
+                        if (mapaResp.isNotEmpty()) mapaResp
+                        else {
+                            val propios = runCatching { gddService.getReportes(ambito = "propios", limit = 100, offset = 0).body()?.items.orEmpty() }.getOrDefault(emptyList())
+                            val comunidad = runCatching { gddService.getReportes(ambito = "comunidad", limit = 100, offset = 0).body()?.items.orEmpty() }.getOrDefault(emptyList())
+                            (propios + comunidad).distinctBy { it.id }
+                        }
+                    }
+                    _state.value = _state.value.copy(
+                        metricasAlertas = calcularMetricasAlertas(reportes)
+                    )
+                } else {
+                    val (tratamientos, reportesPropios, conteoPropio) = withContext(ioDispatcher) {
+                        val defTrat = async {
+                            monitoreosCargados.map { m ->
+                                async {
+                                    runCatching { gddService.getTratamientos(m.monitoreo_id).body().orEmpty() }.getOrDefault(emptyList())
+                                }
+                            }.flatMap { it.await() }
+                        }
+                        val defRep = async {
+                            runCatching { gddService.getReportes(ambito = "propios", limit = 100, offset = 0).body()?.items.orEmpty() }.getOrDefault(emptyList())
+                        }
+                        val defConteo = async {
+                            runCatching { gddService.getResumenReportes(ambito = "propios").body() }.getOrNull()
+                        }
+                        Triple(defTrat.await(), defRep.await(), defConteo.await())
+                    }
+                    _state.value = _state.value.copy(
+                        tratamientos = calcularTratamientosProductor(tratamientos),
+                        metricasAlertas = calcularMetricasAlertas(reportesPropios, conteoPropio)
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("ADMIN_METRICAS", "No se pudieron cargar los datos de control: ${e.message}")
             }
         }
     }
@@ -173,6 +244,8 @@ class AdminMetricasViewModel(
 
     fun limpiar() {
         cargaJob?.cancel()
+        cargaControlJob?.cancel()
+        monitoreosCargados = emptyList()
         global = false
         _state.value = AdminMetricasUIState()
     }

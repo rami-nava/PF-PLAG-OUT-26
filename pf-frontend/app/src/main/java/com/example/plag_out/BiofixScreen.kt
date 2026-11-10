@@ -693,7 +693,11 @@ fun BiofixManual(
         }
 
         // Un monitoreo finalizado ya no admite biofix: el botón deshabilitado solo confundía.
-        if (monitoreo.activo) Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp)) {
+        if (monitoreo.activo) Column(
+            Modifier
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 20.dp)
+        ) {
             BotonRegistrarBiofix(
                 texto = if (pendiente == null) "Registrar nuevo biofix" else "Reintentar biofix pendiente",
                 habilitado = pendienteCargado && monitoreo.activo && owner != null,

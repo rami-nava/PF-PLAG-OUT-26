@@ -223,4 +223,51 @@ class AdminMetricasGlobalesTest {
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Monitoreos por Cultivo y Plaga"))
         compose.onNodeWithText("Monitoreos por Cultivo y Plaga").assertExists()
     }
+
+    @Test
+    fun `la pestaña Control muestra alertas y plagas reportadas globales para el admin y propias con tratamientos para el productor`() {
+        val reportesGlobales = listOf(
+            ReporteDetalleResponse(
+                id = 10,
+                plaga_id = 1,
+                plaga_nombre = "Oruga cogollera",
+                cultivo_nombre = "Maíz",
+                nivel_severidad = "Alto",
+                etapa_biologica = "ADULTO",
+                timestamp_ms = 1790000000000L,
+                latitud = -33.85,
+                longitud = -60.55,
+                es_propio = false
+            ),
+            ReporteDetalleResponse(
+                id = 11,
+                plaga_id = 1,
+                plaga_nombre = "Oruga cogollera",
+                cultivo_nombre = "Maíz",
+                nivel_severidad = "Medio",
+                etapa_biologica = "ADULTO",
+                timestamp_ms = 1790000001000L,
+                latitud = -33.86,
+                longitud = -60.56,
+                es_propio = true
+            )
+        )
+
+        val gddAdmin = FakeGDDService().apply {
+            adminGetMetricasResult = { Response.success(metricas) }
+            getReportesMapaResult = {
+                Response.success(ReportesMapaResponse(nivel = "reportes", total = 2, reportes = reportesGlobales))
+            }
+        }
+        val vmAdmin = AdminMetricasViewModel(gddAdmin, mainDispatcherRule.testDispatcher)
+        vmAdmin.cargar(global = true)
+        vmAdmin.cargarDatosControl(global = true)
+
+        val estadoAdmin = esperarEstado(vmAdmin.state) { it.metricasAlertas != null }
+        assertEquals(2, estadoAdmin.metricasAlertas!!.totalAlertas)
+        assertEquals(1, estadoAdmin.metricasAlertas!!.severidadAlta)
+        assertEquals(1, estadoAdmin.metricasAlertas!!.severidadMedia)
+        assertEquals("Oruga cogollera", estadoAdmin.metricasAlertas!!.plagasReportadas.single().plagaNombre)
+        assertEquals(100.0f, estadoAdmin.metricasAlertas!!.plagasReportadas.single().porcentaje, 0.01f)
+    }
 }

@@ -166,7 +166,11 @@ fun AdminMetricasScreen(
                     ) { pestaña ->
                         when (pestaña) {
                             PestañaDashboard.PRODUCTOR -> VistaDashboardProductor(state = state)
-                            PestañaDashboard.AGRONOMO -> VistaDashboardAgronomo(state = state, global = global)
+                            PestañaDashboard.AGRONOMO -> VistaDashboardAgronomo(
+                                state = state,
+                                global = global,
+                                onCargarControl = { viewModel.cargarDatosControl(global = global) }
+                            )
                             PestañaDashboard.HISTORICO -> VistaDashboardHistorico(
                                 state = state,
                                 onSeleccionarCampaña = viewModel::seleccionarCampaña
@@ -807,7 +811,14 @@ private fun BloqueCultivoPlagas(cultivo: ResumenCultivoPlagas) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun VistaDashboardAgronomo(state: AdminMetricasUIState, global: Boolean) {
+private fun VistaDashboardAgronomo(
+    state: AdminMetricasUIState,
+    global: Boolean,
+    onCargarControl: () -> Unit = {}
+) {
+    LaunchedEffect(global) {
+        onCargarControl()
+    }
     LazyColumn(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -820,8 +831,16 @@ private fun VistaDashboardAgronomo(state: AdminMetricasUIState, global: Boolean)
         }
         item {
             StaggeredAppear(index = 1) {
-                if (global) TarjetaTratamientos(tratamientos = state.tratamientos)
-                else TarjetaTratamientosDelProductor()
+                if (global || (state.tratamientos != null && state.tratamientos.registrados > 0)) {
+                    TarjetaTratamientos(tratamientos = state.tratamientos)
+                } else {
+                    TarjetaTratamientosDelProductor()
+                }
+            }
+        }
+        item {
+            StaggeredAppear(index = 2) {
+                TarjetaMetricasAlertas(alertas = state.metricasAlertas, global = global)
             }
         }
     }
@@ -949,6 +968,141 @@ private fun TarjetaTratamientosDelProductor() {
             color = PlagOutColors.TextSecondary,
             lineHeight = 17.sp
         )
+    }
+}
+
+/**
+ * Métrica de Alertas y Plagas Reportadas (en la solapa de Métricas / Tableros):
+ * - Para el Productor (global = false): sus propias alertas emitidas y plagas reportadas.
+ * - Para el Administrador (global = true): volumen global de alertas comunitarias y ranking de plagas reportadas.
+ */
+@Composable
+private fun TarjetaMetricasAlertas(alertas: MetricasAlertasResumen?, global: Boolean) {
+    TarjetaMetrica(
+        icono = Icons.Outlined.BugReport,
+        titulo = if (global) "Alertas y plagas reportadas" else "Mis alertas de plagas",
+        subtitulo = if (global) {
+            "Volumen total de alertas emitidas por los usuarios y plagas más reportadas."
+        } else {
+            "Resumen de las alertas que emitiste y plagas reportadas en tus lotes."
+        }
+    ) {
+        if (alertas == null || alertas.totalAlertas == 0) {
+            Text(
+                if (global) "Todavía no hay alertas comunitarias registradas."
+                else "Todavía no emitiste alertas de plagas desde tus lotes o monitoreos.",
+                fontSize = 13.sp,
+                color = PlagOutColors.TextSecondary
+            )
+            return@TarjetaMetrica
+        }
+
+        Text(
+            "${alertas.totalAlertas} ${if (alertas.totalAlertas == 1) "alerta registrada" else "alertas registradas"} · " +
+                "${alertas.severidadAlta} alta · ${alertas.severidadMedia} media · ${alertas.severidadBaja} baja",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Normal,
+            color = PlagOutColors.TextSecondary
+        )
+
+        Spacer(Modifier.height(10.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            MiniIndicadorSeveridad("Alta", alertas.severidadAlta, PlagOutColors.RiskDanger, Modifier.weight(1f))
+            MiniIndicadorSeveridad("Media", alertas.severidadMedia, PlagOutColors.RiskWarn, Modifier.weight(1f))
+            MiniIndicadorSeveridad("Baja", alertas.severidadBaja, PlagOutColors.RiskOk, Modifier.weight(1f))
+        }
+
+        if (alertas.plagasReportadas.isNotEmpty()) {
+            HorizontalDivider(color = PlagOutColors.Divider.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 12.dp))
+            Text(
+                if (global) "Plagas más reportadas por los usuarios" else "Plagas que reportaste",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = PlagOutColors.TextMain
+            )
+            Spacer(Modifier.height(8.dp))
+            alertas.plagasReportadas.forEach { item ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .testTag("alerta_plaga_${item.plagaNombre}")
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            item.plagaNombre,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = PlagOutColors.TextMain,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            "${item.cantidad} ${if (item.cantidad == 1) "alerta" else "alertas"} (${item.porcentaje.toInt()}%)",
+                            fontSize = 11.sp,
+                            color = PlagOutColors.TextSecondary
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(5.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(PlagOutColors.CreamDeep)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth((item.porcentaje / 100f).coerceIn(0f, 1f))
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(PlagOutColors.Forest.copy(alpha = 0.85f))
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniIndicadorSeveridad(
+    etiqueta: String,
+    cantidad: Int,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = color.copy(alpha = 0.10f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.25f)),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "$cantidad",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+            Text(
+                etiqueta,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = PlagOutColors.TextSecondary,
+                maxLines = 1
+            )
+        }
     }
 }
 
