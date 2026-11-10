@@ -50,17 +50,23 @@ class NotificacionLeidaDesdePushTest {
         viewModel.marcarLeidaPorId(alerta.id)
         viewModel.cargar()
 
-        esperarHasta { service.ultimaNotificacionLeida == alerta.id && !viewModel.state.value.isLoading }
+        esperarHasta(service, viewModel) { service.ultimaNotificacionLeida == alerta.id && !viewModel.state.value.isLoading }
         assertEquals(1, service.vecesLlamado("marcarNotificacionLeida"))
         assertEquals(alerta.id, service.ultimaNotificacionLeida)
         assertEquals(listOf(otra.id), viewModel.state.value.notificaciones.map { it.id })
     }
 
     /** El view model hace la llamada en Dispatchers.IO: esperar el resultado, con límite generoso para suites completas. */
-    private fun esperarHasta(condicion: () -> Boolean) {
+    private fun esperarHasta(
+        service: FakeGDDService? = null,
+        viewModel: NotificacionesViewModel? = null,
+        condicion: () -> Boolean
+    ) {
         val limite = System.currentTimeMillis() + 15_000
         while (!condicion()) {
-            check(System.currentTimeMillis() < limite) { "La condición no se cumplió en 15 s" }
+            check(System.currentTimeMillis() < limite) {
+                "La condición no se cumplió en 15 s. service.ultimaNotificacionLeida=${service?.ultimaNotificacionLeida}, state=${viewModel?.state?.value}, llamadas=${service?.llamadas}"
+            }
             Thread.sleep(10)
         }
     }

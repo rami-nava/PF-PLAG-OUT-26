@@ -9,6 +9,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.withTimeout
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -57,6 +58,12 @@ class MapaReportesViewModelTest {
             esperar = { esperas += it; reloj.addAndGet(it) },
             ahora = { reloj.get() }
         )
+    }
+
+    @After
+    fun tearDown() {
+        viewModel.limpiar()
+        mainDispatcherRule.testDispatcher.scheduler.advanceUntilIdle()
     }
 
     @Test
@@ -109,6 +116,7 @@ class MapaReportesViewModelTest {
             assertTrue(viewModel.state.value.reportes.isEmpty())
         } finally {
             respuesta.cancel()
+            mainDispatcherRule.testDispatcher.scheduler.advanceUntilIdle()
         }
     }
 
@@ -462,6 +470,7 @@ class MapaReportesViewModelTest {
             assertEquals(2, gddService.vecesLlamado("getReportesMapa"))
         } finally {
             respuesta.cancel()
+            mainDispatcherRule.testDispatcher.scheduler.advanceUntilIdle()
         }
     }
 

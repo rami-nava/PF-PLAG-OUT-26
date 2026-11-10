@@ -22,6 +22,15 @@ class MainDispatcherRule(
     }
 
     override fun finished(description: Description) {
-        Dispatchers.resetMain()
+        testDispatcher.scheduler.advanceUntilIdle()
+        try {
+            Dispatchers.resetMain()
+        } catch (e: IllegalStateException) {
+            // Si una corrutina con Dispatchers.IO o cancelación asíncrona estaba completándose,
+            // le damos un breve respiro para terminar de limpiar en CI.
+            Thread.sleep(100)
+            testDispatcher.scheduler.advanceUntilIdle()
+            Dispatchers.resetMain()
+        }
     }
 }

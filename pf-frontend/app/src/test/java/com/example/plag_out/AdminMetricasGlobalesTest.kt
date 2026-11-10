@@ -244,11 +244,12 @@ class AdminMetricasGlobalesTest {
         vmAdmin.cargarDatosControl(global = true)
 
         val estadoAdmin = esperarEstado(vmAdmin.state) { it.metricasAlertas != null }
-        assertEquals(2, estadoAdmin.metricasAlertas!!.totalAlertas)
-        assertEquals(1, estadoAdmin.metricasAlertas!!.severidadAlta)
-        assertEquals(1, estadoAdmin.metricasAlertas!!.severidadMedia)
-        assertEquals("Oruga cogollera", estadoAdmin.metricasAlertas!!.plagasReportadas.single().plagaNombre)
-        assertEquals(100.0f, estadoAdmin.metricasAlertas!!.plagasReportadas.single().porcentaje, 0.01f)
+        val metricasAdmin = checkNotNull(estadoAdmin.metricasAlertas)
+        assertEquals(2, metricasAdmin.totalAlertas)
+        assertEquals(1, metricasAdmin.severidadAlta)
+        assertEquals(1, metricasAdmin.severidadMedia)
+        assertEquals("Oruga cogollera", metricasAdmin.plagasReportadas.single().plagaNombre)
+        assertEquals(100.0f, metricasAdmin.plagasReportadas.single().porcentaje, 0.01f)
         assertFalse(estadoAdmin.alertasNoDisponibles)
         assertFalse("getMetricasAlertas" in gddAdmin.llamadas)
         assertFalse("getReportesMapa" in gddAdmin.llamadas)
@@ -270,8 +271,9 @@ class AdminMetricasGlobalesTest {
         vm.cargarDatosControl(global = false)
 
         val estado = esperarEstado(vm.state) { it.metricasAlertas != null }
-        assertEquals(3, estado.metricasAlertas!!.totalAlertas)
-        assertEquals(2, estado.metricasAlertas!!.severidadBaja)
+        val metricas = checkNotNull(estado.metricasAlertas)
+        assertEquals(3, metricas.totalAlertas)
+        assertEquals(2, metricas.severidadBaja)
         assertFalse("adminGetMetricasAlertas" in gdd.llamadas)
         assertFalse("getReportes" in gdd.llamadas)
     }
@@ -327,13 +329,14 @@ class AdminMetricasGlobalesTest {
         assertEquals(8, resumen.totalAlertas)
         assertEquals("Oruga cogollera", resumen.plagasReportadas.first().plagaNombre)
 
-        val actual = resumen.porCampaña!!.getValue("2026/2027")
+        val porCampaña = checkNotNull(resumen.porCampaña)
+        val actual = porCampaña.getValue("2026/2027")
         assertEquals(5, actual.totalAlertas)
         assertEquals(2, actual.severidadAlta)
         // El backend no garantiza orden: se ordena y el porcentaje es sobre el total de la campaña.
         assertEquals(listOf("Oruga cogollera", "Chinche verde"), actual.plagasReportadas.map { it.plagaNombre })
         assertEquals(60f, actual.plagasReportadas.first().porcentaje, 0.01f)
-        assertEquals(3, resumen.porCampaña!!.getValue("2024/2025").totalAlertas)
+        assertEquals(3, porCampaña.getValue("2024/2025").totalAlertas)
     }
 
     @Test
