@@ -11,6 +11,12 @@ import org.junit.runner.Description
 
 /**
  * Reemplaza Dispatchers.Main por un dispatcher de test.
+ *
+ * Por defecto es un [StandardTestDispatcher]: lo que los ViewModels hacen en
+ * Main queda en cola hasta que el test lo avanza ([esperarQue], [esperarEstado]),
+ * siempre desde el hilo del test. Con `UnconfinedTestDispatcher` lo de Main se
+ * reanudaba en el hilo de IO que terminó la llamada, dos corrutinas escribían el
+ * estado a la vez y los tests fallaban al azar.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainDispatcherRule(
@@ -22,10 +28,9 @@ class MainDispatcherRule(
         var current: MainDispatcherRule? = null
             private set
 
+        /** Corre lo pendiente en Main; no hace nada si no hay un test con la regla. */
         fun advanceUntilIdle() {
-            try {
-                current?.testDispatcher?.scheduler?.advanceUntilIdle()
-            } catch (_: Throwable) {}
+            current?.testDispatcher?.scheduler?.advanceUntilIdle()
         }
     }
 
@@ -37,19 +42,9 @@ class MainDispatcherRule(
     override fun finished(description: Description) {
         try {
             testDispatcher.scheduler.advanceUntilIdle()
-        } catch (_: Throwable) {}
-        try {
-            Dispatchers.resetMain()
-        } catch (e: IllegalStateException) {
-            // Si una corrutina con Dispatchers.IO o cancelación asíncrona estaba completándose,
-            // le damos un breve respiro para terminar de limpiar en CI.
-            Thread.sleep(100)
-            try {
-                testDispatcher.scheduler.advanceUntilIdle()
-            } catch (_: Throwable) {}
-            Dispatchers.resetMain()
         } finally {
             current = null
+            Dispatchers.resetMain()
         }
     }
 }

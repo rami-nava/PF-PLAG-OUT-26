@@ -5,7 +5,6 @@ import com.example.plag_out.fakes.Fixtures
 import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -25,7 +24,7 @@ import retrofit2.Response
 class EditarPerfilViewModelTest {
 
     @get:Rule
-    val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var gddService: FakeGDDService
 

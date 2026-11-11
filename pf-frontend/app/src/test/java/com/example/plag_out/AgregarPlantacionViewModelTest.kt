@@ -33,7 +33,7 @@ import java.time.ZoneOffset
 class AgregarPlantacionViewModelTest {
 
     @get:Rule
-    val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var context: Context
     private lateinit var gddService: FakeGDDService

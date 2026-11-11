@@ -1,14 +1,12 @@
 package com.example.plag_out
 
 import com.example.plag_out.fakes.FakeGDDService
+import com.example.plag_out.util.esperarQue
 import com.example.plag_out.fakes.Fixtures
 import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -35,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong
 class MapaReportesViewModelTest {
 
     @get:Rule
-    val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var gddService: FakeGDDService
     private lateinit var viewModel: MapaReportesViewModel
@@ -110,9 +108,9 @@ class MapaReportesViewModelTest {
 
         try {
             viewModel.actualizarVista(vistaCerca)
-            runBlocking { withTimeout(3000) { iniciada.await() } }
+            esperarQue { iniciada.isCompleted }
             viewModel.limpiar()
-            runBlocking { withTimeout(3000) { cancelada.await() } }
+            esperarQue { cancelada.isCompleted }
             assertTrue(viewModel.state.value.reportes.isEmpty())
         } finally {
             respuesta.cancel()
@@ -399,8 +397,10 @@ class MapaReportesViewModelTest {
         return pendientes
     }
 
-    private fun <T> java.util.concurrent.LinkedBlockingQueue<T>.siguiente(): T =
-        poll(3, java.util.concurrent.TimeUnit.SECONDS) ?: throw AssertionError("no salió el pedido esperado")
+    private fun <T> java.util.concurrent.LinkedBlockingQueue<T>.siguiente(): T {
+        esperarQue(descripcion = { "el pedido esperado" }) { isNotEmpty() }
+        return poll()
+    }
 
     @Test
     fun `un paneo lento dentro del area que se esta pidiendo no cancela el pedido`() {
@@ -460,9 +460,9 @@ class MapaReportesViewModelTest {
         }
         try {
             viewModel.actualizarVista(vistaCerca.copy(oeste = vistaCerca.oeste + 1, este = vistaCerca.este + 1))
-            runBlocking { withTimeout(3000) { iniciada.await() } }
+            esperarQue { iniciada.isCompleted }
             viewModel.actualizarVista(vistaCerca)
-            runBlocking { withTimeout(3000) { cancelada.await() } }
+            esperarQue { cancelada.isCompleted }
 
             val mapa = viewModel.state.value
             assertEquals(listOf(propia), mapa.reportes)

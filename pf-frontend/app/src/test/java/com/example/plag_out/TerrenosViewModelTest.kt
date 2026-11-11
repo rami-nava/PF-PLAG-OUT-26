@@ -1,6 +1,7 @@
 package com.example.plag_out
 
 import android.content.Context
+import com.example.plag_out.util.esperarCorrutinas
 import androidx.test.core.app.ApplicationProvider
 import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
@@ -10,7 +11,6 @@ import com.example.plag_out.fakes.Fixtures
 import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -31,7 +31,7 @@ import org.robolectric.annotation.Config
 class TerrenosViewModelTest {
 
     @get:Rule
-    val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var context: Context
     private lateinit var gddService: FakeGDDService
@@ -180,6 +180,8 @@ class TerrenosViewModelTest {
         vm.getTerrenos(forzar = true)
 
         val estado = esperarEstado(vm.state) { !it.isRefreshing && !it.cargandoMas && it.terrenos.size == 45 }
+        // El caché se reemplaza después de publicar el estado: esperar a que termine la carga.
+        esperarCorrutinas(vm)
         assertEquals(listOf(20 to 0, 100 to 20), gddService.paginasTerrenos)
         assertEquals((1..45).toList(), estado.terrenos.map { it.terreno_id })
         assertEquals((1..45).toList(), kotlinx.coroutines.runBlocking { dao.getAll() }.map { it.terreno_id }.sorted())

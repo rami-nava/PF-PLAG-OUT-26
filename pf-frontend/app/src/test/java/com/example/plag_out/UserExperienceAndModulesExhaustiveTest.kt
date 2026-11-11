@@ -6,7 +6,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -30,7 +29,7 @@ import java.time.ZoneOffset
 class UserExperienceAndModulesExhaustiveTest {
 
     @get:Rule
-    val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+    val mainDispatcherRule = MainDispatcherRule()
 
     // ─────────────────────────────────────────────────────────────────────────────
     // 1. UX & ENTRADA DE TEXTO (BORRADO, REGEX DECIMAL, CARACTERES ESPECIALES)

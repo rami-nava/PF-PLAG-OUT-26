@@ -1,6 +1,8 @@
 package com.example.plag_out
 
 import android.app.Application
+import com.example.plag_out.util.esperarQue
+import com.example.plag_out.util.MainDispatcherRule
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -12,9 +14,7 @@ import com.example.plag_out.AlmacenamientoLocal.FeedbackPrediccionRepository
 import com.example.plag_out.fakes.FakeFeedbackPrediccionDao
 import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.fakes.Fixtures
-import com.example.plag_out.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,8 +26,14 @@ import retrofit2.Response
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], application = Application::class)
 class PrediccionWorkflowScreenTest {
-    @get:Rule(order = 0) val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+    @get:Rule(order = 0) val mainDispatcherRule = MainDispatcherRule()
     @get:Rule(order = 1) val compose = createComposeRule()
+
+    /** compose.waitUntil no avanza el dispatcher de Main; esperarQue sí. */
+    private fun esperar(condicion: () -> Boolean) {
+        esperarQue(condicion = condicion)
+        compose.waitForIdle()
+    }
 
     private fun viewModel(service: FakeGDDService) = PrediccionDetalleViewModel(
         FeedbackPrediccionRepository(FakeFeedbackPrediccionDao()), service,
@@ -38,7 +44,7 @@ class PrediccionWorkflowScreenTest {
         val service = FakeGDDService().apply { getPrediccionResult = { FakeGDDService.errorServidor(503) } }
         val vm = viewModel(service)
         compose.setContent { PrediccionDetalleScreen(41, vm, {}) }
-        compose.waitUntil(timeoutMillis = 5000) { !vm.state.value.isLoading && vm.state.value.error != null }
+        esperar { !vm.state.value.isLoading && vm.state.value.error != null }
         compose.onNodeWithText("Volver a cargar").assertIsDisplayed()
     }
 
@@ -49,7 +55,7 @@ class PrediccionWorkflowScreenTest {
         org.junit.Assert.assertEquals("prediccion/41", destino)
         var volvio = false
         compose.setContent { PrediccionDetalleScreen(destino!!.substringAfter('/').toInt(), vm, { volvio = true }) }
-        compose.waitUntil(timeoutMillis = 5000) { vm.state.value.noDisponible }
+        esperar { vm.state.value.noDisponible }
         compose.onNodeWithText("Esta predicción no está disponible.").assertIsDisplayed()
         compose.onNodeWithText("Volver a cargar").assertDoesNotExist()
         compose.onNodeWithText("No pude verificar").assertDoesNotExist()
@@ -67,9 +73,9 @@ class PrediccionWorkflowScreenTest {
         }
         val vm = viewModel(service)
         compose.setContent { PrediccionDetalleScreen(41, vm, {}) }
-        compose.waitUntil(timeoutMillis = 5000) { vm.state.value.prediccion != null }
+        esperar { vm.state.value.prediccion != null }
         compose.onNodeWithText("No pude verificar").performScrollTo().performClick()
-        compose.waitUntil(timeoutMillis = 5000) { !vm.state.value.enviando && vm.state.value.error != null }
+        esperar { !vm.state.value.enviando && vm.state.value.error != null }
         compose.onNodeWithText("Respuesta pendiente").assertIsDisplayed()
         compose.onNodeWithText("Reintentar envío").assertIsDisplayed()
         val key = vm.state.value.feedbackPendiente!!.idempotency_key
@@ -77,7 +83,7 @@ class PrediccionWorkflowScreenTest {
             id = "confirmacion", prediccion_id = 41, respuesta = "no_verificada", respondido_en = "2026-09-01T10:00:00Z"
         )) }
         compose.onNodeWithText("Reintentar envío").performScrollTo().performClick()
-        compose.waitUntil(timeoutMillis = 5000) { vm.state.value.prediccion?.confirmacion?.estado == "respondida" }
+        esperar { vm.state.value.prediccion?.confirmacion?.estado == "respondida" }
         compose.onNodeWithText("Respuesta guardada").assertIsDisplayed()
         org.junit.Assert.assertEquals(key, service.ultimaConfirmacionPrediccion?.idempotency_key)
     }
@@ -88,7 +94,7 @@ class PrediccionWorkflowScreenTest {
         }
         val vm = viewModel(service)
         compose.setContent { PrediccionDetalleScreen(41, vm, {}) }
-        compose.waitUntil(timeoutMillis = 5000) { vm.state.value.prediccion != null }
+        esperar { vm.state.value.prediccion != null }
         compose.onNodeWithText("Respuesta guardada").assertIsDisplayed()
         compose.onNodeWithTag("estadoPrediccion_Guardado", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("estadoPrediccion_Aviso", useUnmergedTree = true).assertDoesNotExist()

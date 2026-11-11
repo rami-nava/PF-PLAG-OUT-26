@@ -1,8 +1,10 @@
 package com.example.plag_out
 
 import android.content.Context
+import com.example.plag_out.util.cancelarCorrutinas
+import com.example.plag_out.util.esperarCorrutinas
+import com.example.plag_out.util.esperarQue
 import androidx.test.core.app.ApplicationProvider
-import androidx.lifecycle.viewModelScope
 import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.MonitoreoRepository
 import com.example.plag_out.fakes.FakeGDDService
@@ -12,12 +14,7 @@ import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.Service.RetrofitClient
 import com.example.plag_out.util.esperarEstado
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -41,7 +38,7 @@ import retrofit2.Response
 class MonitoreoDetalleViewModelTest {
 
     @get:Rule
-    val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var context: Context
     private lateinit var gddService: FakeGDDService
@@ -55,10 +52,8 @@ class MonitoreoDetalleViewModelTest {
     }
 
     @After
-    fun teardown() = runBlocking {
-        withTimeout(5_000) {
-            viewModels.forEach { it.viewModelScope.coroutineContext[Job]!!.cancelAndJoin() }
-        }
+    fun teardown() {
+        viewModels.forEach { cancelarCorrutinas(it) }
         CacheTracker.limpiarTodo(context)
     }
 
@@ -75,11 +70,7 @@ class MonitoreoDetalleViewModelTest {
         viewModel.cargar(id)
         // El estado del caché no significa que haya terminado el GET. Esperar la
         // corrutina completa impide que su resultado compita con los PATCH del test.
-        runBlocking {
-            withTimeout(5_000) {
-                viewModel.viewModelScope.coroutineContext[Job]!!.children.toList().joinAll()
-            }
-        }
+        esperarCorrutinas(viewModel)
     }
 
     // ---------- cargar ----------
@@ -216,7 +207,7 @@ class MonitoreoDetalleViewModelTest {
         }
         try {
             vm.cambiarAlertasMl(false)
-            assertTrue(started.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            esperarQue { started.count == 0L }
             vm.cambiarAlertasMl(true)
             assertEquals(1, gddService.llamadas.count { it == "actualizarMonitoreo" })
         } finally { release.countDown() }

@@ -112,7 +112,7 @@ class VerReporteViewModel(
                             }
                         } catch (e: CancellationException) {
                             throw e
-                        } catch (e: Throwable) {
+                        } catch (e: Exception) {
                             Log.w("VER_REPORTE", "Fallo al obtener terrenos para referencia: ${e.message}")
                         }
                     }
@@ -134,7 +134,7 @@ class VerReporteViewModel(
                     return@launch
                 }
                 Log.w("VER_REPORTE", "GET /reportes/$reporteId fallo: ${e.message}, usando fallback")
-            } catch (e: Throwable) {
+            } catch (e: Exception) {
                 Log.w("VER_REPORTE", "GET /reportes/$reporteId fallo: ${e.message}")
                 _state.value = VerReporteUiState.Error(ERROR_CARGA_ALERTA)
                 return@launch
@@ -254,13 +254,13 @@ class VerReporteViewModel(
                     }
                 } catch (e: CancellationException) {
                     throw e
-                } catch (e: Throwable) {
+                } catch (e: Exception) {
                     Log.w("VER_REPORTE", "No se pudo obtener terrenos para enriquecer fallback: ${e.message}")
                 }
             }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             Log.e("VER_REPORTE", "Error deserializando fallback JSON: ${e.message}")
             _state.value = VerReporteUiState.Error(ERROR_CARGA_ALERTA)
         }

@@ -6,7 +6,6 @@ import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
 import com.google.gson.Gson
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -23,7 +22,7 @@ import retrofit2.Response
 class VerReporteViewModelTest {
 
     @get:Rule
-    val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var gddService: FakeGDDService
     private lateinit var viewModel: VerReporteViewModel
