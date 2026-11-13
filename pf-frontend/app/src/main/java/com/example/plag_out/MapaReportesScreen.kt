@@ -98,7 +98,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
+import com.example.plag_out.AlmacenamientoLocal.PreferenciasUsuario
 import com.example.plag_out.ui.theme.PlagOutColors
 import com.example.plag_out.ui.theme.estiloDeNivel
 import com.google.gson.Gson
@@ -170,7 +174,18 @@ fun MapaReportesScreen(
 
     val terrenos = terrenosState.terrenos
 
-    var modo by rememberSaveable { mutableStateOf(ModoMapa.PINES) }
+    val context = LocalContext.current.applicationContext
+    val camaraPrevia = remember { PreferenciasUsuario.obtenerCamaraMapa(context) }
+    val modoPrevio = remember { PreferenciasUsuario.obtenerModoMapa(context) }
+
+    var modo by rememberSaveable {
+        mutableStateOf(
+            modoPrevio?.let { m -> runCatching { ModoMapa.valueOf(m) }.getOrNull() } ?: ModoMapa.PINES
+        )
+    }
+    LaunchedEffect(modo) {
+        PreferenciasUsuario.guardarModoMapa(context, modo.name)
+    }
     var mostrarFiltros by rememberSaveable { mutableStateOf(false) }
 
     val filtros = state.filtros
@@ -204,7 +219,9 @@ fun MapaReportesScreen(
 
     // El zoom lo publica el propio mapa: la agrupación tiene que rehacerse cada vez que cambia,
     // porque el tamaño de celda está expresado en píxeles de pantalla.
-    var zoom by remember { mutableStateOf(ZOOM_PAIS) }
+    var centroLat by rememberSaveable { mutableStateOf(camaraPrevia?.first) }
+    var centroLon by rememberSaveable { mutableStateOf(camaraPrevia?.second) }
+    var zoom by rememberSaveable { mutableStateOf(camaraPrevia?.third ?: ZOOM_PAIS) }
     var seleccion by remember { mutableStateOf<ClusterReportes?>(null) }
     val mapaRef = remember { mutableStateOf<MapView?>(null) }
 
@@ -233,9 +250,9 @@ fun MapaReportesScreen(
         seleccion = seleccionVigente(seleccion, clusters)
     }
 
-    // Al abrir, el mapa arranca sobre los lotes del usuario y no sobre todo el país; después
-    // queda donde el usuario lo deje (también al volver de otra pantalla).
-    var encuadreInicialHecho by rememberSaveable { mutableStateOf(false) }
+    // Al abrir, si no había posición previa guardada, arranca sobre los lotes del usuario;
+    // si había posición guardada, queda donde el usuario lo dejó.
+    var encuadreInicialHecho by rememberSaveable { mutableStateOf(camaraPrevia != null) }
     LaunchedEffect(mapaRef.value, terrenos) {
         val mapa = mapaRef.value ?: return@LaunchedEffect
         if (!encuadreInicialHecho && terrenos.isNotEmpty()) {
@@ -244,7 +261,39 @@ fun MapaReportesScreen(
             val lotes = terrenos
             mapa.post {
                 encuadrar(mapa, emptyList(), lotes)
-                zoom = mapa.zoomLevelDouble
+                val z = mapa.zoomLevelDouble
+                zoom = z
+                val c = mapa.mapCenter
+                centroLat = c.latitude
+                centroLon = c.longitude
+                PreferenciasUsuario.guardarCamaraMapa(context, c.latitude, c.longitude, z, modo.name)
+            }
+        }
+    }
+
+    // Persistir estado de la cámara ante pausas del ciclo de vida (cambio de app, salir a segundo plano)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                mapaRef.value?.let { mapa ->
+                    val c = mapa.mapCenter
+                    val z = mapa.zoomLevelDouble
+                    centroLat = c.latitude
+                    centroLon = c.longitude
+                    zoom = z
+                    PreferenciasUsuario.guardarCamaraMapa(context, c.latitude, c.longitude, z, modo.name)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapaRef.value?.let { mapa ->
+                val c = mapa.mapCenter
+                val z = mapa.zoomLevelDouble
+                PreferenciasUsuario.guardarCamaraMapa(context, c.latitude, c.longitude, z, modo.name)
+                mapa.onPause()
             }
         }
     }
@@ -263,10 +312,18 @@ fun MapaReportesScreen(
             radioKm = filtros.radioKm,
             seleccionId = seleccion?.id,
             onZoom = { zoom = it },
+            onCamara = { lat, lon, z ->
+                centroLat = lat
+                centroLon = lon
+                zoom = z
+                PreferenciasUsuario.guardarCamaraMapa(context, lat, lon, z, modo.name)
+            },
             onVista = viewModel::actualizarVista,
             onSeleccion = { seleccion = it },
             onMapaListo = { mapaRef.value = it },
             zoom = zoom,
+            centroInicial = if (centroLat != null && centroLon != null) GeoPoint(centroLat!!, centroLon!!) else null,
+            zoomInicial = zoom,
             modifier = Modifier
                 .fillMaxSize()
                 .testTag("mapaReportes")
@@ -323,7 +380,12 @@ fun MapaReportesScreen(
             onCentrar = {
                 mapaRef.value?.let { mapa ->
                     encuadrar(mapa, clusters, terrenos)
-                    zoom = mapa.zoomLevelDouble
+                    val z = mapa.zoomLevelDouble
+                    zoom = z
+                    val c = mapa.mapCenter
+                    centroLat = c.latitude
+                    centroLon = c.longitude
+                    PreferenciasUsuario.guardarCamaraMapa(context, c.latitude, c.longitude, z, modo.name)
                 }
             }
         )
@@ -1098,9 +1160,12 @@ private fun LienzoMapa(
     seleccionId: String?,
     onZoom: (Double) -> Unit,
     onVista: (VistaMapa) -> Unit,
+    onCamara: (Double, Double, Double) -> Unit,
     onSeleccion: (ClusterReportes) -> Unit,
     onMapaListo: (MapView) -> Unit,
     zoom: Double,
+    centroInicial: GeoPoint?,
+    zoomInicial: Double,
     modifier: Modifier = Modifier
 ) {
     val densidad = LocalContext.current.resources.displayMetrics.density
@@ -1108,6 +1173,7 @@ private fun LienzoMapa(
     // cambian los datos o el zoom. Los grupos y el tap se leen siempre actualizados.
     val clustersActuales by rememberUpdatedState(clusters)
     val seleccionActual by rememberUpdatedState(onSeleccion)
+    val onCamaraActual by rememberUpdatedState(onCamara)
     val capaCalor = remember(densidad) {
         CalorReportesOverlay(densidad, clusters = { clustersActuales }, onTap = { seleccionActual(it) })
     }
@@ -1122,20 +1188,27 @@ private fun LienzoMapa(
                 isTilesScaledToDpi = true
                 minZoomLevel = 3.0
                 maxZoomLevel = 19.0
-                controller.setZoom(ZOOM_PAIS)
-                controller.setCenter(CENTRO_PAIS)
+                if (centroInicial != null) {
+                    controller.setZoom(zoomInicial)
+                    controller.setCenter(centroInicial)
+                } else {
+                    controller.setZoom(ZOOM_PAIS)
+                    controller.setCenter(CENTRO_PAIS)
+                }
                 // El zoom de la agrupación se publica con cada aviso, no solo con los de zoom: el
                 // encuadre inicial anima zoom y desplazamiento juntos, y el retardo puede dejar
                 // como último aviso uno de desplazamiento. Sin esto la pantalla agrupaba con el zoom
                 // del país mientras el mapa estaba en el de los lotes, y los grupos caían fuera.
                 val informarVista = {
                     val caja = boundingBox
-                    val zoom = zoomLevelDouble
-                    onZoom(zoom)
+                    val zoomActual = zoomLevelDouble
+                    val centroActual = mapCenter
+                    onZoom(zoomActual)
+                    onCamaraActual(centroActual.latitude, centroActual.longitude, zoomActual)
                     onVista(
                         vistaDeOsmdroid(
-                            caja.latSouth, caja.lonWest, caja.latNorth, caja.lonEast, zoom,
-                            altoMundoPx = org.osmdroid.util.TileSystem.MapSize(zoom),
+                            caja.latSouth, caja.lonWest, caja.latNorth, caja.lonEast, zoomActual,
+                            altoMundoPx = org.osmdroid.util.TileSystem.MapSize(zoomActual),
                             altoMapaPx = height.toDouble()
                         )
                     )

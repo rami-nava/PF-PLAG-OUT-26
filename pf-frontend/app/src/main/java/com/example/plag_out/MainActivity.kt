@@ -663,6 +663,7 @@ fun AppNavigation(
         if (cerrandoSesion) return@limpiar
         cerrandoSesion = true
         PreferenciasUsuario.limpiarUltimaRuta(context)
+        PreferenciasUsuario.limpiarCamaraMapa(context)
         rutaRestaurada = false
         mapaReportesViewModel?.limpiar()
         authViewModel.cerrarSesion(desregistrarDispositivo) {
