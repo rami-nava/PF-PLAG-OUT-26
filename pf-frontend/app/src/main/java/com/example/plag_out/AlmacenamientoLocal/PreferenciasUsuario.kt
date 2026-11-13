@@ -15,6 +15,10 @@ object PreferenciasUsuario {
     private const val NOTIFICACIONES = "notificaciones_activadas"
     private const val ROL = "rol"
     private const val ULTIMA_RUTA = "ultima_ruta_navegada"
+    private const val MAPA_LAT = "mapa_latitud"
+    private const val MAPA_LON = "mapa_longitud"
+    private const val MAPA_ZOOM = "mapa_zoom"
+    private const val MAPA_MODO = "mapa_modo"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -57,5 +61,44 @@ object PreferenciasUsuario {
 
     fun limpiarUltimaRuta(context: Context) {
         prefs(context).edit().remove(ULTIMA_RUTA).apply()
+    }
+
+    /**
+     * Guarda la última posición de la cámara del mapa (latitud, longitud, zoom y modo de visualización)
+     * para reanudar en el mismo punto al volver a entrar a la app o al alternar entre aplicaciones.
+     */
+    fun guardarCamaraMapa(context: Context, lat: Double, lon: Double, zoom: Double, modo: String? = null) {
+        val editor = prefs(context).edit()
+            .putString(MAPA_LAT, lat.toString())
+            .putString(MAPA_LON, lon.toString())
+            .putString(MAPA_ZOOM, zoom.toString())
+        if (modo != null) {
+            editor.putString(MAPA_MODO, modo)
+        }
+        editor.apply()
+    }
+
+    fun obtenerCamaraMapa(context: Context): Triple<Double, Double, Double>? {
+        val p = prefs(context)
+        val lat = p.getString(MAPA_LAT, null)?.toDoubleOrNull() ?: return null
+        val lon = p.getString(MAPA_LON, null)?.toDoubleOrNull() ?: return null
+        val zoom = p.getString(MAPA_ZOOM, null)?.toDoubleOrNull() ?: return null
+        return Triple(lat, lon, zoom)
+    }
+
+    fun guardarModoMapa(context: Context, modo: String) {
+        prefs(context).edit().putString(MAPA_MODO, modo).apply()
+    }
+
+    fun obtenerModoMapa(context: Context): String? =
+        prefs(context).getString(MAPA_MODO, null)
+
+    fun limpiarCamaraMapa(context: Context) {
+        prefs(context).edit()
+            .remove(MAPA_LAT)
+            .remove(MAPA_LON)
+            .remove(MAPA_ZOOM)
+            .remove(MAPA_MODO)
+            .apply()
     }
 }
