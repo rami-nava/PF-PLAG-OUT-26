@@ -5,6 +5,8 @@ import com.example.plag_out.AlmacenamientoLocal.TerrenoRepository
 import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.fakes.FakeTerrenoDao
 import com.example.plag_out.util.MainDispatcherRule
+import com.example.plag_out.util.cancelarCorrutinas
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -24,6 +26,8 @@ class NuevoTerrenoViewModelTest {
 
     private lateinit var viewModel: NuevoTerrenoViewModel
     private lateinit var gddService: FakeGDDService
+    private val viewModels = mutableListOf<NuevoTerrenoViewModel>()
+    private val servicios = mutableListOf<FakeGDDService>()
 
     // Límites del recuadro de Argentina, según NuevoTerrenoViewModel.registrarTerreno
     private val latMin = -55.0
@@ -38,6 +42,23 @@ class NuevoTerrenoViewModelTest {
             context = ApplicationProvider.getApplicationContext(),
             repository = TerrenoRepository(FakeTerrenoDao()),
             gddService = gddService
+        )
+        viewModels += viewModel
+        servicios += gddService
+    }
+
+    /**
+     * Estos tests solo validan el formulario: un terreno válido deja encolado el
+     * pedido de creación, que el fake no responde. Se cancela antes de que corra:
+     * si corriera después del test, su AssertionError haría fallar al siguiente
+     * test que use runTest.
+     */
+    @After
+    fun tearDown() {
+        cancelarCorrutinas(viewModels)
+        assertTrue(
+            "El pedido de creación no debe llegar a la red",
+            servicios.none { "createTerreno" in it.llamadas }
         )
     }
 
