@@ -385,6 +385,7 @@ fun DialogoConfirmarAccion(
 fun MarcoDialogo(
     tag: String,
     onDismissRequest: () -> Unit,
+    scrollState: androidx.compose.foundation.ScrollState = rememberScrollState(),
     contenido: @Composable ColumnScope.(rebote: Float) -> Unit
 ) {
     // Entrada: el diálogo crece apenas y la insignia rebota después, para que la atención vaya a la acción.
@@ -418,7 +419,7 @@ fun MarcoDialogo(
         ) {
             Column(
                 Modifier
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(horizontal = 22.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
