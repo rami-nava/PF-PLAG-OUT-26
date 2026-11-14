@@ -160,7 +160,7 @@ fun PlantacionesPorTerreno(
                 exit = slideOutVertically { it } + fadeOut()
             ) {
                 ExtendedFloatingActionButton(
-                    onClick = { navController.navigate("agregar_plantacion/$terrenoId") },
+                    onClick = { navController.navegarSeguro("agregar_plantacion/$terrenoId") },
                     containerColor = PlagOutColors.Forest,
                     contentColor = PlagOutColors.TextOnDark,
                     shape = CircleShape,
@@ -274,7 +274,7 @@ fun PlantacionesPorTerreno(
                         onFiltroChange = { filtro = it },
                         monitoreos = monitoreosState.monitoreos,
                         eliminandoId = eliminandoId.takeIf { plantacionesState.procesando },
-                        onPlantacionClick = { plantacionId -> navController.navigate("plantacion/$plantacionId") },
+                        onPlantacionClick = { plantacionId -> navController.navegarSeguro("plantacion/$plantacionId") },
                         onPlantacionEliminar = { plantacionAEliminar = it }
                     )
                 }

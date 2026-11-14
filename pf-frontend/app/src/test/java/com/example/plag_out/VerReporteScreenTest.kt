@@ -4,9 +4,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
+import androidx.lifecycle.viewModelScope
 import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.fakes.Fixtures
 import com.google.gson.Gson
+import kotlinx.coroutines.cancel
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,9 +21,12 @@ import retrofit2.Response
 class VerReporteScreenTest {
 
     @get:Rule val compose = createComposeRule()
+    private var activeViewModel: VerReporteViewModel? = null
 
     @org.junit.After
     fun tearDown() {
+        activeViewModel?.viewModelScope?.cancel()
+        activeViewModel = null
         org.robolectric.shadows.ShadowLooper.idleMainLooper()
     }
 
@@ -36,7 +41,7 @@ class VerReporteScreenTest {
             getTerrenosResult = { Response.success(emptyList()) }
         }
 
-        val viewModel = VerReporteViewModel(gddService)
+        val viewModel = VerReporteViewModel(gddService).also { activeViewModel = it }
         compose.setContent {
             MaterialTheme {
                 VerReporteScreen(
@@ -59,7 +64,7 @@ class VerReporteScreenTest {
             getReporteResult = { FakeGDDService.errorServidor(404) }
             getTerrenosResult = { Response.success(emptyList()) }
         }
-        val viewModel = VerReporteViewModel(gddService)
+        val viewModel = VerReporteViewModel(gddService).also { activeViewModel = it }
         val fichaDelMapa = Gson().toJson(
             ReporteNavPayload(
                 id = 79,
@@ -110,7 +115,7 @@ class VerReporteScreenTest {
             )
         )
 
-        val viewModel = VerReporteViewModel(gddService)
+        val viewModel = VerReporteViewModel(gddService).also { activeViewModel = it }
         compose.setContent {
             MaterialTheme {
                 VerReporteScreen(

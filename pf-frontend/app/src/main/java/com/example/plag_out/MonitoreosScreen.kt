@@ -162,7 +162,7 @@ fun MonitoreosScreen(
                 label = "fabScale"
             )
             ExtendedFloatingActionButton(
-                onClick = { navController.navigate("agregar_monitoreo") },
+                onClick = { navController.navegarSeguro("agregar_monitoreo") },
                 containerColor = PlagOutColors.Forest,
                 contentColor = PlagOutColors.TextOnDark,
                 shape = CircleShape,
@@ -279,7 +279,7 @@ fun MonitoreosScreen(
                                         onEliminar = { aEliminar = monitoreo }
                                     ) {
                                         MonitoreoCard(monitoreo) {
-                                            navController.navigate("monitoreo/${monitoreo.monitoreo_id}")
+                                            navController.navegarSeguro("monitoreo/${monitoreo.monitoreo_id}")
                                         }
                                     }
                                 }

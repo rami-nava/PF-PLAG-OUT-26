@@ -924,7 +924,7 @@ fun AppNavigation(
                     EditarPerfilScreen(
                         usuario = usuario,
                         viewModel = editarPerfilViewModel,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.volverSeguro() },
                         onGuardado = { actualizado ->
                             userViewModel.aplicarUsuario(actualizado)
                             navController.popBackStack()
@@ -945,7 +945,7 @@ fun AppNavigation(
                     plantacionId = plantacionId,
                     viewModel = monitoreosViewModel,
                     plantacionesViewModel = plantacionesViewModel,
-                    onBack = { navController.popBackStack() },
+                    onBack = { navController.volverSeguro() },
                     onMonitoreoClick = { monitoreoId -> navController.navigate("monitoreo/$monitoreoId") },
                     onAgregarMonitoreo = { navController.navigate("agregar_monitoreo/$plantacionId") },
                     onMonitoreoEliminado = { notificacionesViewModel.cargar() }
@@ -960,7 +960,7 @@ fun AppNavigation(
                 MonitoreoDetalleScreen(
                     monitoreoId = monitoreoId,
                     viewModel = detalleViewModel,
-                    onBack = { navController.popBackStack() },
+                    onBack = { navController.volverSeguro() },
                     onFinalizado = {
                         monitoreosViewModel.refrescar()
                         navController.popBackStack()
@@ -984,7 +984,7 @@ fun AppNavigation(
             }
             composable("ciclo/{ciclo_id}") { entry ->
                 CicloDetalleScreen(entry.arguments?.getString("ciclo_id")?.toIntOrNull() ?: 0,
-                    onBack = { navController.popBackStack() })
+                    onBack = { navController.volverSeguro() })
             }
             composable("prediccion/{prediccion_id}") { backStackEntry ->
                 val prediccionId = backStackEntry.arguments
@@ -995,7 +995,7 @@ fun AppNavigation(
                 PrediccionDetalleScreen(
                     prediccionId = prediccionId,
                     viewModel = prediccionViewModel,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.volverSeguro() }
                 )
             }
             composable("terreno/{terreno_id}") { backStackEntry ->
@@ -1016,7 +1016,7 @@ fun AppNavigation(
                 AgregarPlantacionScreen(
                     terrenoId = terrenoId,
                     viewModel = agregarPlantacionViewModel,
-                    onBack = { navController.popBackStack() },
+                    onBack = { navController.volverSeguro() },
                     onSuccess = {
                         plantacionesViewModel.getPlantaciones()
                         navController.popBackStack()
@@ -1026,7 +1026,7 @@ fun AppNavigation(
             composable("datos_terreno") {
                 DatosDelTerrenoScreen(
                     nuevoTerrenoViewModel = nuevoTerrenoViewModel,
-                    onBack = { navController.popBackStack() },
+                    onBack = { navController.volverSeguro() },
                     onContinue = { navController.navigate("seleccionar_ubicacion") }
                 )
             }
@@ -1066,7 +1066,7 @@ fun AppNavigation(
             composable("seleccionar_ubicacion") {
                 SelectLocationScreen(
                     nuevoTerrenoViewModel = nuevoTerrenoViewModel,
-                    onBack = { navController.popBackStack() },
+                    onBack = { navController.volverSeguro() },
                     onConfirm = {
                         nuevoTerrenoViewModel.resetState()
                         navController.navigate("terrenos") {
@@ -1081,7 +1081,7 @@ fun AppNavigation(
                 )
                 CrearReporteScreen(
                     viewModel = crearReporteViewModel,
-                    onBack = { navController.popBackStack() },
+                    onBack = { navController.volverSeguro() },
                     onSuccess = { reporteId, reporteJson ->
                         navController.navigate("ver_reporte/$reporteId/$reporteJson") {
                             popUpTo("crear_reporte") { inclusive = true }
@@ -1105,7 +1105,7 @@ fun AppNavigation(
                     reporteJsonFallback = null,
                     ignorarLimite = ignorarLimite,
                     viewModel = verReporteViewModel,
-                    onBack = { navController.popBackStack() },
+                    onBack = { navController.volverSeguro() },
                     onVerTerreno = { tId -> navController.navigate("terreno/$tId") }
                 )
             }
@@ -1127,7 +1127,7 @@ fun AppNavigation(
                     reporteJsonFallback = reporteJson,
                     ignorarLimite = ignorarLimite,
                     viewModel = verReporteViewModel,
-                    onBack = { navController.popBackStack() },
+                    onBack = { navController.volverSeguro() },
                     onVerTerreno = { tId -> navController.navigate("terreno/$tId") }
                 )
             }
@@ -1151,7 +1151,7 @@ fun AppNavigation(
                     PlagaFormScreen(
                         viewModel = adminPlagasViewModel,
                         plagaId = null,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.volverSeguro() },
                         onCatalogoCambiado = adminCultivosViewModel::marcarDesactualizado,
                         onGuardado = {
                             navController.popBackStack()
@@ -1166,7 +1166,7 @@ fun AppNavigation(
                     PlagaFormScreen(
                         viewModel = adminPlagasViewModel,
                         plagaId = plagaId ?: -1,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.volverSeguro() },
                         onCatalogoCambiado = adminCultivosViewModel::marcarDesactualizado,
                         onGuardado = {
                             navController.popBackStack()
@@ -1190,7 +1190,7 @@ fun AppNavigation(
                     CultivoDetalleScreen(
                         viewModel = adminCultivosViewModel,
                         cultivoId = null,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.volverSeguro() },
                         onCreado = {
                             navController.popBackStack()
                             Avisos.exito("Cultivo creado.")
@@ -1205,7 +1205,7 @@ fun AppNavigation(
                     CultivoDetalleScreen(
                         viewModel = adminCultivosViewModel,
                         cultivoId = cultivoId ?: -1,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.volverSeguro() },
                         onCreado = { navController.popBackStack() },
                         onRelacionesCambiadas = adminPlagasViewModel::marcarDesactualizado
                     )
@@ -1226,7 +1226,7 @@ fun AppNavigation(
                     AdminUsuarioDetalleScreen(
                         viewModel = adminUsuariosViewModel,
                         usuarioId = usuarioId,
-                        onBack = { navController.popBackStack() },
+                        onBack = { navController.volverSeguro() },
                         onEliminado = {
                             navController.popBackStack()
                             Avisos.exito("Cuenta eliminada.")
@@ -1258,7 +1258,7 @@ fun AppNavigation(
                             viewModel = mapa,
                             terrenosViewModel = terrenosViewModel,
                             navController = navController,
-                            onBack = { navController.popBackStack() }
+                            onBack = { navController.volverSeguro() }
                         )
                     }
                 }

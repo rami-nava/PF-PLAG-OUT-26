@@ -5,7 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -33,6 +35,17 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val FORMATO_FECHA = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("es"))
+
+private val PRINCIPIOS_ACTIVOS_COMUNES = listOf(
+    "Clorantraniliprol",
+    "Lambda-cialotrina",
+    "Imidacloprid",
+    "Tiametoxam",
+    "Spinosad",
+    "Bacillus thuringiensis",
+    "Abamectina",
+    "Deltametrina"
+)
 
 private fun hoyEnArgentina(): LocalDate = LocalDate.now(ZoneId.of("America/Argentina/Buenos_Aires"))
 
@@ -301,11 +314,24 @@ private fun DialogoTratamiento(
 ) {
     var form by remember { mutableStateOf(inicial) }
     var intento by remember { mutableStateOf(false) }
+    var avisoConteoPosterior by remember { mutableStateOf<String?>(null) }
+    val scrollState = rememberScrollState()
     val errores = remember(form) { validarTratamiento(form, inicioMonitoreo, hoy) }
     fun error(campo: CampoTratamiento) = if (intento) errores[campo] else null
     fun numero(texto: String) = texto.all { it.isDigit() || it in ".," }
 
-    MarcoDialogo(tag = "dialogTratamiento", onDismissRequest = onCancelar) { _ ->
+    LaunchedEffect(form.fechaAplicacion) {
+        if (form.fechaAplicacion != hoy) {
+            avisoConteoPosterior = null
+        }
+    }
+    LaunchedEffect(form.conDespues, avisoConteoPosterior) {
+        if (form.conDespues || avisoConteoPosterior != null) {
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+    }
+
+    MarcoDialogo(tag = "dialogTratamiento", onDismissRequest = onCancelar, scrollState = scrollState) { _ ->
         Text(
             if (esNuevo) "Registrar tratamiento" else "Tratamiento",
             fontSize = 20.sp,
@@ -321,11 +347,24 @@ private fun DialogoTratamiento(
             CampoFormularioAdmin(
                 valor = form.producto,
                 onCambio = { form = form.copy(producto = it.take(120)) },
-                etiqueta = "Producto",
-                placeholder = "Ej: Clorantraniliprole",
+                etiqueta = "Producto (principio activo)",
+                placeholder = "Ej: Clorantraniliprol",
                 error = error(CampoTratamiento.PRODUCTO),
                 tag = "txtProductoTratamiento"
             )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(PRINCIPIOS_ACTIVOS_COMUNES) { principio ->
+                    FilterChip(
+                        selected = normalizarClaveUnica(form.producto) == normalizarClaveUnica(principio),
+                        onClick = { form = form.copy(producto = principio) },
+                        label = { Text(principio, fontSize = 12.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = PlagOutColors.Forest,
+                            selectedLabelColor = PlagOutColors.TextOnDark
+                        )
+                    )
+                }
+            }
 
             Text("Cómo contaste", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -382,7 +421,7 @@ private fun DialogoTratamiento(
             FilaInterruptor(
                 titulo = "Ya tengo el conteo posterior",
                 detalle = if (aplicacionEsHoy) {
-                    "Para aplicaciones de hoy, el conteo posterior se registra en los días siguientes. Si aplicaste en días previos, ajustá la Fecha de aplicación."
+                    "Para aplicaciones de hoy, el conteo posterior se registra en los días siguientes. Si aplicaste en días previos, ajustá la Fecha de aplicación arriba."
                 } else {
                     "Si todavía no, lo cargás después desde la tarjeta del tratamiento."
                 },
@@ -390,9 +429,25 @@ private fun DialogoTratamiento(
                 tag = "swConteoPosterior"
             ) { activo ->
                 if (activo && aplicacionEsHoy) {
-                    Avisos.error("Para registrar el conteo posterior, la aplicación debe haber ocurrido antes de hoy. Si aplicaste días atrás, ajustá la fecha arriba.")
+                    avisoConteoPosterior =
+                        "Para habilitar el conteo posterior, cambiá la «Fecha de aplicación» (arriba del formulario) a un día anterior a hoy."
                 } else {
+                    avisoConteoPosterior = null
                     form = form.copy(conDespues = activo, fechaConteoDespues = if (activo) (form.fechaConteoDespues ?: hoy) else null)
+                }
+            }
+            avisoConteoPosterior?.let { aviso ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(PlagOutColors.RiskDanger.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                        .testTag("avisoConteoPosterior")
+                ) {
+                    Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = PlagOutColors.RiskDanger, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(aviso, fontSize = 12.sp, color = PlagOutColors.RiskDanger, lineHeight = 16.sp)
                 }
             }
             if (form.conDespues) {

@@ -19,7 +19,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 import org.junit.Before
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performClick
 import org.junit.Rule
 
@@ -54,7 +55,7 @@ class SeleccionUbicacionTest {
             )
         }
         // La pantalla arranca en el mapa; estas pruebas cubren la carga manual.
-        composeRule.onNodeWithText("Coordenadas").performClick()
+        composeRule.onNode(hasText("Coordenadas") and hasClickAction()).performClick()
     }
 
 

@@ -385,6 +385,7 @@ fun DialogoConfirmarAccion(
 fun MarcoDialogo(
     tag: String,
     onDismissRequest: () -> Unit,
+    scrollState: androidx.compose.foundation.ScrollState = rememberScrollState(),
     contenido: @Composable ColumnScope.(rebote: Float) -> Unit
 ) {
     // Entrada: el diálogo crece apenas y la insignia rebota después, para que la atención vaya a la acción.
@@ -400,29 +401,41 @@ fun MarcoDialogo(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = PlagOutColors.Surface,
-            shadowElevation = 12.dp,
+        Box(
             modifier = Modifier
                 .padding(horizontal = 24.dp)
                 .widthIn(max = 420.dp)
                 .fillMaxWidth()
-                .graphicsLayer {
-                    val e = entrada.value
-                    alpha = e
-                    scaleX = 0.92f + 0.08f * e
-                    scaleY = 0.92f + 0.08f * e
-                }
-                .testTag(tag)
         ) {
-            Column(
-                Modifier
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 22.dp, vertical = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = PlagOutColors.Surface,
+                shadowElevation = 12.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        val e = entrada.value
+                        alpha = e
+                        scaleX = 0.92f + 0.08f * e
+                        scaleY = 0.92f + 0.08f * e
+                    }
+                    .testTag(tag)
             ) {
-                contenido(rebote.value)
+                Column(
+                    Modifier
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 22.dp, vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    contenido(rebote.value)
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 12.dp)
+            ) {
+                AvisosEnDialogo()
             }
         }
     }

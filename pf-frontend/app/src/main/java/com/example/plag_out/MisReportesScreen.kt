@@ -153,7 +153,7 @@ fun MisReportesScreen(
                 label = "fabScaleReportes"
             )
             FloatingActionButton(
-                onClick = { navController.navigate("crear_reporte") },
+                onClick = { navController.navegarSeguro("crear_reporte") },
                 containerColor = PlagOutColors.Forest,
                 contentColor = PlagOutColors.TextOnDark,
                 shape = CircleShape,
@@ -190,7 +190,7 @@ fun MisReportesScreen(
                     conteo = state.conteo(state.ambito) ?: ConteoReportes(),
                     radioNotificacionKm = state.radioNotificacionKm,
                     onAbrirConfiguracionRadio = { viewModel.abrirConfiguracionRadio() },
-                    onVerMapa = { navController.navigate("mapa_reportes") }
+                    onVerMapa = { navController.navegarSeguro("mapa_reportes") }
                 )
                 if (state.error != null && state.reportes.isNotEmpty()) {
                     ErrorCargaReportes(
@@ -399,7 +399,7 @@ fun MisReportesScreen(
                                             timestamp_ms = reporte.timestamp_ms
                                         )
                                         val jsonEncoded = Uri.encode(Gson().toJson(payload))
-                                        navController.navigate("ver_reporte/${reporte.id}/$jsonEncoded")
+                                        navController.navegarSeguro("ver_reporte/${reporte.id}/$jsonEncoded")
                                     }
                                     // Las páginas nuevas entran escalonadas desde su propio primer ítem.
                                     StaggeredAppear(index = index % REPORTES_PAGE_SIZE) {

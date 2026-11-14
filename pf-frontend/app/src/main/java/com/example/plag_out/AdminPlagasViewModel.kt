@@ -271,6 +271,20 @@ class AdminPlagasViewModel(
 
     fun guardar(original: PlagaAdmin?, form: FormularioPlaga, onGuardado: () -> Unit) {
         if (_state.value.guardando || validarPlaga(form).isNotEmpty()) return
+        val nombreClave = normalizarClaveUnica(form.nombre)
+        val cientificoClave = normalizarClaveUnica(form.nombreCientifico)
+        val otras = _state.value.plagas.filter { it.id != original?.id }
+        val errorDuplicado = when {
+            otras.any { normalizarClaveUnica(it.nombre) == nombreClave } ->
+                "Ya existe una plaga con este nombre."
+            otras.any { normalizarClaveUnica(it.nombre_cientifico) == cientificoClave } ->
+                "Ya existe una plaga con este nombre científico."
+            else -> null
+        }
+        if (errorDuplicado != null) {
+            _state.value = _state.value.copy(errorAccion = errorDuplicado)
+            return
+        }
         val edicion = original?.let { requestDeEdicion(it, form) }
         if (original != null && edicion == null) {
             onGuardado() // Nada que guardar

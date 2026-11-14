@@ -67,6 +67,31 @@ object Avisos {
 // Muestra el último aviso abajo de la pantalla; uno nuevo reemplaza al anterior.
 @Composable
 fun AvisosHost() {
+    val separacion = with(LocalDensity.current) { 96.dp.roundToPx() }
+    // Popup: se dibuja sobre toda la pantalla y no bloquea toques fuera del aviso
+    AvisosOverlay(
+        conPopup = { contenido ->
+            Popup(
+                alignment = Alignment.BottomCenter,
+                offset = IntOffset(0, -separacion),
+                properties = PopupProperties(focusable = false),
+                content = contenido
+            )
+        }
+    )
+}
+
+/**
+ * Muestra avisos en primer plano dentro de la ventana de un diálogo, para que ningún
+ * `Avisos.error(...)` quede oculto detrás del `Dialog`.
+ */
+@Composable
+fun AvisosEnDialogo() {
+    AvisosOverlay(conPopup = { contenido -> contenido() })
+}
+
+@Composable
+private fun AvisosOverlay(conPopup: @Composable (@Composable () -> Unit) -> Unit) {
     var actual by remember { mutableStateOf<Aviso?>(null) }
     val visibilidad = remember { MutableTransitionState(false) }
 
@@ -90,53 +115,51 @@ fun AvisosHost() {
     }
 
     val aviso = actual ?: return
-    // Por encima de la barra inferior de navegación
-    val separacion = with(LocalDensity.current) { 96.dp.roundToPx() }
-    // Popup: se dibuja sobre toda la pantalla y no bloquea toques fuera del aviso
-    Popup(
-        alignment = Alignment.BottomCenter,
-        offset = IntOffset(0, -separacion),
-        properties = PopupProperties(focusable = false)
-    ) {
+    conPopup {
         AnimatedVisibility(
             visibleState = visibilidad,
             enter = fadeIn() + slideInVertically { it / 2 },
             exit = fadeOut() + slideOutVertically { it / 2 }
         ) {
-            val forma = RoundedCornerShape(14.dp)
-            Row(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .widthIn(max = 480.dp)
-                    .shadow(6.dp, forma)
-                    .clip(forma)
-                    .background(
-                        when (aviso.tipo) {
-                            TipoAviso.EXITO -> PlagOutColors.Forest
-                            TipoAviso.ERROR -> PlagOutColors.RiskDanger
-                        }
-                    )
-                    .clickable { visibilidad.targetState = false }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Icon(
-                    imageVector = when (aviso.tipo) {
-                        TipoAviso.EXITO -> Icons.Filled.CheckCircle
-                        TipoAviso.ERROR -> Icons.Filled.ErrorOutline
-                    },
-                    contentDescription = null,
-                    tint = PlagOutColors.TextOnDark,
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    text = aviso.mensaje,
-                    color = PlagOutColors.TextOnDark,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
+            PastillaAviso(aviso = aviso, onCerrar = { visibilidad.targetState = false })
         }
+    }
+}
+
+@Composable
+private fun PastillaAviso(aviso: Aviso, onCerrar: () -> Unit) {
+    val forma = RoundedCornerShape(14.dp)
+    Row(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .widthIn(max = 480.dp)
+            .shadow(6.dp, forma)
+            .clip(forma)
+            .background(
+                when (aviso.tipo) {
+                    TipoAviso.EXITO -> PlagOutColors.Forest
+                    TipoAviso.ERROR -> PlagOutColors.RiskDanger
+                }
+            )
+            .clickable { onCerrar() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Icon(
+            imageVector = when (aviso.tipo) {
+                TipoAviso.EXITO -> Icons.Filled.CheckCircle
+                TipoAviso.ERROR -> Icons.Filled.ErrorOutline
+            },
+            contentDescription = null,
+            tint = PlagOutColors.TextOnDark,
+            modifier = Modifier.size(20.dp)
+        )
+        Text(
+            text = aviso.mensaje,
+            color = PlagOutColors.TextOnDark,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
