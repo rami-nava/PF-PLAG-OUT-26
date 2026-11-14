@@ -56,6 +56,13 @@ fun AdminUsuariosScreen(
     val listState = rememberLazyListState()
 
     LaunchedEffect(Unit) { viewModel.cargar() }
+    val hayRed by rememberHayRed()
+    // Al volver la señal se reintenta solo si la última carga había fallado por falta de conexión
+    LaunchedEffect(hayRed) {
+        if (hayRed && state.error == MENSAJE_SIN_CONEXION) {
+            if (state.usuarios.isEmpty()) viewModel.cargar(forzar = true) else viewModel.refrescar()
+        }
+    }
     LaunchedEffect(state.sinPermiso) { if (state.sinPermiso) onSinPermiso() }
 
     // Scroll infinito: al acercarse al final de lo cargado se pide la página siguiente

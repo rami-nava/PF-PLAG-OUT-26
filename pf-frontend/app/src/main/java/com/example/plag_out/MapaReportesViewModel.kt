@@ -188,7 +188,8 @@ data class MapaReportesUiState(
     val catalogoPlagas: List<String> = emptyList(),
     val plagasVistas: List<String> = emptyList(),
     val cultivos: List<String> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
+    val sinConexion: Boolean = false
 )
 
 
@@ -271,7 +272,7 @@ class MapaReportesViewModel(
         pedido?.cancel()
         enCurso = consulta
         pedido = viewModelScope.launch {
-            _state.update { it.copy(actualizando = !it.cargando, error = null) }
+            _state.update { it.copy(actualizando = !it.cargando, error = null, sinConexion = false) }
             try {
                 var reintentos = 0
                 while (true) {
@@ -296,7 +297,8 @@ class MapaReportesViewModel(
                         if (reintentos++ >= REINTENTOS_MAPA) {
                             fallo(
                                 if (e.codigo == null) "Error de conexión al cargar alertas."
-                                else "No se pudieron obtener las alertas del servidor."
+                                else "No se pudieron obtener las alertas del servidor.",
+                                sinConexion = e.codigo == null
                             )
                             return@launch
                         }
@@ -315,7 +317,7 @@ class MapaReportesViewModel(
                 )
             } catch (e: Exception) {
                 Log.e("MAPA_REPORTES", "Excepción cargando el mapa: ${e.message}", e)
-                fallo("Error de conexión al cargar alertas.")
+                fallo("Error de conexión al cargar alertas.", sinConexion = esErrorDeConexion(e))
             }
         }
     }
@@ -360,11 +362,11 @@ class MapaReportesViewModel(
      * Sin respuesta no quedan en pantalla las alertas de otra zona o de otros filtros: los chips ya
      * muestran los nuevos. Y lo que estaba cargado deja de servir para no volver a pedir.
      */
-    private fun fallo(mensaje: String) {
+    private fun fallo(mensaje: String, sinConexion: Boolean = false) {
         cargado = null
         _state.update {
             it.copy(
-                cargando = false, actualizando = false, error = mensaje,
+                cargando = false, actualizando = false, error = mensaje, sinConexion = sinConexion,
                 grupos = emptyList(), reportes = emptyList(), total = 0
             )
         }

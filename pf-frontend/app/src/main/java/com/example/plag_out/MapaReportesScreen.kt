@@ -168,6 +168,12 @@ fun MapaReportesScreen(
         terrenosViewModel.getTerrenos()
     }
 
+    val hayRed by rememberHayRed()
+    // Al volver la señal se reintenta solo si la última carga había fallado por falta de conexión
+    LaunchedEffect(hayRed) {
+        if (hayRed && state.sinConexion) viewModel.refrescar()
+    }
+
     val terrenos = terrenosState.terrenos
 
     var modo by rememberSaveable { mutableStateOf(ModoMapa.PINES) }
@@ -347,6 +353,7 @@ fun MapaReportesScreen(
             ErrorCargaReportes(
                 mensaje = state.error!!,
                 onReintentar = viewModel::refrescar,
+                sinConexion = state.sinConexion,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .windowInsetsPadding(WindowInsets.statusBars)
