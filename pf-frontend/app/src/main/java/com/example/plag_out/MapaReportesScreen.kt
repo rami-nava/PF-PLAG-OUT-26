@@ -353,7 +353,6 @@ fun MapaReportesScreen(
             ErrorCargaReportes(
                 mensaje = state.error!!,
                 onReintentar = viewModel::refrescar,
-                sinConexion = state.sinConexion,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .windowInsetsPadding(WindowInsets.statusBars)

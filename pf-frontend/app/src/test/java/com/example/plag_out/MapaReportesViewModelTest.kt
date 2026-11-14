@@ -584,7 +584,17 @@ class MapaReportesViewModelTest {
     fun `sin conexion informa el error y se puede reintentar`() {
         gddService.getReportesMapaResult = { FakeGDDService.sinConexion() }
         viewModel.actualizarVista(vistaCerca)
-        assertNotNull(esperarEstado(viewModel.state) { !it.cargando }.error)
+        val sinRed = esperarEstado(viewModel.state) { !it.cargando }
+        assertNotNull(sinRed.error)
+        assertTrue(sinRed.sinConexion)
+        // Sin red no se reintenta ni se espera: el error aparece al primer intento
+        assertEquals(1, gddService.vecesLlamado("getReportesMapa"))
+        assertTrue(esperas.isEmpty())
+
+        // Moverse o tocar "Reintentar" sin red tampoco acumula esperas
+        viewModel.refrescar()
+        esperarEstado(viewModel.state) { it.sinConexion && gddService.vecesLlamado("getReportesMapa") == 2 }
+        assertTrue(esperas.isEmpty())
 
         gddService.getReportesMapaResult = { Response.success(ReportesMapaResponse(reportes = listOf(Fixtures.reporteDetalle()))) }
         viewModel.actualizarVista(vistaCerca)

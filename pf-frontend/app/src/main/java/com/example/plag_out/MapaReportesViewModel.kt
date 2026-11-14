@@ -136,7 +136,13 @@ private fun esperaPedidaPorServidor(retryAfter: String?): Long? =
     retryAfter?.trim()?.toIntOrNull()?.takeIf { it >= 0 }?.times(1_000L)
 
 /** Un intento que falló de una forma que puede andar si se espera. */
-private class FallaPasajera(val codigo: Int?, val retryAfter: String?) : Exception()
+private class FallaPasajera(val codigo: Int, val retryAfter: String?) : Exception()
+
+/**
+ * Sin red no tiene sentido esperar y reintentar: se informa enseguida y la pantalla vuelve a
+ * pedir sola cuando vuelve la señal.
+ */
+private class SinConexionMapa : Exception()
 
 /**
  * La vista a partir de la caja de osmdroid. Si el mundo entero es más bajo que el mapa, se ve todo
@@ -295,17 +301,16 @@ class MapaReportesViewModel(
                         pausaHasta = ahora() + esperaTrasFallos(fallosSeguidos, e.retryAfter)
                         pausaDelServidor = esperaPedidaPorServidor(e.retryAfter) != null
                         if (reintentos++ >= REINTENTOS_MAPA) {
-                            fallo(
-                                if (e.codigo == null) "Error de conexión al cargar alertas."
-                                else "No se pudieron obtener las alertas del servidor.",
-                                sinConexion = e.codigo == null
-                            )
+                            fallo("No se pudieron obtener las alertas del servidor.")
                             return@launch
                         }
                     }
                 }
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: SinConexionMapa) {
+                // No suma a fallosSeguidos: esa espera es para no saturar a un servidor caído.
+                fallo("Error de conexión al cargar alertas.", sinConexion = true)
             } catch (e: RespuestaInvalida) {
                 Log.w("MAPA_REPORTES", "Error al obtener reportes del mapa: ${e.codigo}")
                 fallo(
@@ -344,7 +349,7 @@ class MapaReportesViewModel(
             }
         } catch (e: IOException) {
             Log.w("MAPA_REPORTES", "Sin conexión cargando el mapa: ${e.message}")
-            throw FallaPasajera(codigo = null, retryAfter = null)
+            throw SinConexionMapa()
         }
         val body = response.body()
         if (response.isSuccessful && body != null) return body
