@@ -251,7 +251,10 @@ fun PerfilScreen(
                             ) {
                                 AvisoSinConexion(
                                     reintentando = state.isRefreshing,
-                                    onReintentar = { userViewModel.refrescar() }
+                                    onReintentar = { userViewModel.refrescar() },
+                                    tag = "avisoPerfilSinConexion",
+                                    tagBotonReintentar = "btnReintentarAvisoPerfil",
+                                    modifier = Modifier.padding(bottom = 12.dp)
                                 )
                             }
 
@@ -1521,61 +1524,6 @@ private fun ErrorPerfil(mensaje: String, sinConexion: Boolean, onReintentar: () 
             modifier = Modifier.testTag("btnReintentarPerfil")
         ) {
             Text("Reintentar", fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Composable
-private fun AvisoSinConexion(reintentando: Boolean, onReintentar: () -> Unit) {
-    Surface(
-        color = PlagOutColors.RiskWarn.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, PlagOutColors.RiskWarn.copy(alpha = 0.35f)),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 12.dp)
-            .testTag("avisoPerfilSinConexion")
-    ) {
-        Row(
-            modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                Icons.Outlined.CloudOff,
-                contentDescription = null,
-                tint = PlagOutColors.RiskWarn,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "Sin conexión",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    color = PlagOutColors.TextMain
-                )
-                Text(
-                    "Mostrando los datos guardados en tu dispositivo",
-                    fontSize = 12.sp,
-                    color = PlagOutColors.TextSecondary
-                )
-            }
-            if (reintentando) {
-                CircularProgressIndicator(
-                    color = PlagOutColors.RiskWarn,
-                    strokeWidth = 2.dp,
-                    modifier = Modifier
-                        .padding(horizontal = 14.dp)
-                        .size(18.dp)
-                )
-            } else {
-                TextButton(
-                    onClick = onReintentar,
-                    modifier = Modifier.testTag("btnReintentarAvisoPerfil")
-                ) {
-                    Text("Reintentar", color = PlagOutColors.Forest, fontWeight = FontWeight.Bold)
-                }
-            }
         }
     }
 }

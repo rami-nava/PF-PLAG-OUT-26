@@ -30,7 +30,8 @@ data class MonitoreoUIState(
     /** Se sirvió del caché porque el fetch a la red falló o no hay conexión. */
     val datosDesactualizados: Boolean = false,
     val cargandoMas: Boolean = false,
-    val eliminando: Set<Int> = emptySet()
+    val eliminando: Set<Int> = emptySet(),
+    val sinConexion: Boolean = false
 )
 
 class MonitoreosViewModel(
@@ -113,6 +114,7 @@ class MonitoreosViewModel(
                 }
                 if (error != null) {
                     cargaIncompleta(recibidos.values.toList(), conCacheRestante())
+                    _state.value = _state.value.copy(sinConexion = false)
                     if (forzar) Avisos.error(errorDeRespuesta(error).mensaje)
                     Log.e("MONITOREOS", "Error: ${error.code()}")
                     return@launch
@@ -128,7 +130,8 @@ class MonitoreosViewModel(
                     isLoading = false,
                     isRefreshing = false,
                     cargandoMas = false,
-                    datosDesactualizados = false
+                    datosDesactualizados = false,
+                    sinConexion = false
                 )
                 CacheTracker.marcarConsultado(context, CacheTracker.MONITOREOS)
             } catch (e: CancellationException) {
@@ -136,6 +139,7 @@ class MonitoreosViewModel(
             } catch (e: Exception) {
                 // Sin conexión: se queda con el caché ya mostrado más lo que se llegó a recibir
                 cargaIncompleta(recibidos.values.toList(), conCacheRestante())
+                _state.value = _state.value.copy(sinConexion = esErrorDeConexion(e))
                 if (forzar) Avisos.error(errorDeExcepcion(e).mensaje)
                 Log.e("MONITOREOS", "Error: ${e.message}")
             }

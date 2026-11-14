@@ -121,6 +121,12 @@ fun MisReportesScreen(
         viewModel.cargarReportes(forzar = true)
     }
 
+    val hayRed by rememberHayRed()
+    // Al volver la señal se reintenta solo si la última carga había fallado por falta de conexión
+    LaunchedEffect(hayRed) {
+        if (hayRed && state.sinConexion) viewModel.refrescar()
+    }
+
     // La pestaña y los filtros viven en el ViewModel: cada pestaña tiene su propia consulta paginada
     // y los filtros los resuelve el servidor.
     val tabSeleccionado = if (state.ambito == AmbitoReportes.COMUNIDAD) TAB_COMUNIDAD else TAB_PROPIOS

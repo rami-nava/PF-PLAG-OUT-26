@@ -66,5 +66,5 @@ internal fun esRutaNoDisponible(codigo: Int, cuerpo: String): Boolean =
     codigo == 404 && !cuerpo.contains("_no_encontrad")
 
 fun falloDeExcepcion(e: Exception): FalloAdmin =
-    if (e is IOException) FalloAdmin(MENSAJE_SIN_CONEXION)
+    if (esErrorDeConexion(e)) FalloAdmin(MENSAJE_SIN_CONEXION)
     else FalloAdmin("Ocurrió un error inesperado. Intentá de nuevo.")

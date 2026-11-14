@@ -210,7 +210,8 @@ data class AdminMetricasUIState(
     val metricasAlertas: MetricasAlertasResumen? = null,
     // El endpoint de alertas falló o todavía no existe: la tarjeta lo dice en vez de mostrar 0.
     val alertasNoDisponibles: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val sinConexion: Boolean = false
 )
 
 /**

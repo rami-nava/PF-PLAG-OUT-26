@@ -13,6 +13,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -115,6 +117,12 @@ fun MonitoreosScreen(
 ) {
     val state by monitoreosViewModel.state.collectAsState()
     var aEliminar by remember { mutableStateOf<MonitoreoResponse?>(null) }
+    val hayRed by rememberHayRed()
+
+    // Al volver la señal se reintenta solo lo que había fallado por falta de conexión
+    LaunchedEffect(hayRed) {
+        if (hayRed && state.sinConexion) monitoreosViewModel.refrescar()
+    }
 
     LaunchedEffect(Unit) {
         monitoreosViewModel.getMonitoreos()
@@ -179,6 +187,20 @@ fun MonitoreosScreen(
         // El panel y los filtros se van con el scroll de la lista para dejarle toda la pantalla.
         EncabezadoQueScrollea(encabezado = {
             PanelDeCampo(monitoreos = activos)
+
+            AnimatedVisibility(
+                visible = !hayRed || state.sinConexion,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                AvisoSinConexion(
+                    reintentando = state.isRefreshing,
+                    onReintentar = { monitoreosViewModel.refrescar() },
+                    tag = "avisoMonitoreosSinConexion",
+                    tagBotonReintentar = "btnReintentarAvisoMonitoreos",
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                )
+            }
 
             val opciones = remember(state.monitoreos, activos) {
                 listOf(

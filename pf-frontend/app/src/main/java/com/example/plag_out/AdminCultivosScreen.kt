@@ -61,6 +61,11 @@ fun AdminCultivosScreen(
     val state by viewModel.state.collectAsState()
 
     LaunchedEffect(Unit) { viewModel.cargar() }
+    val hayRed by rememberHayRed()
+    // Al volver la señal se reintenta solo si la última carga había fallado por falta de conexión
+    LaunchedEffect(hayRed) {
+        if (hayRed && state.error == MENSAJE_SIN_CONEXION) viewModel.refrescar()
+    }
     LaunchedEffect(state.sinPermiso) { if (state.sinPermiso) onSinPermiso() }
 
     val visibles = remember(state.cultivos, state.busqueda, state.filtro) {

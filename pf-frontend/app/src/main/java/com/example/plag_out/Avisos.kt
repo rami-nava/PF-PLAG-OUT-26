@@ -79,7 +79,7 @@ fun AvisosHost() {
     LaunchedEffect(actual?.id) {
         val aviso = actual ?: return@LaunchedEffect
         // Los errores suelen ser más largos y conviene darles más tiempo de lectura
-        delay(if (aviso.tipo == TipoAviso.ERROR) 4500 else 2500)
+        delay(if (aviso.tipo == TipoAviso.EXITO) 2500 else 4500)
         visibilidad.targetState = false
     }
     // Al terminar la salida hay que desmontar el Popup: si queda vivo con el contenido vacío, su
@@ -103,7 +103,6 @@ fun AvisosHost() {
             enter = fadeIn() + slideInVertically { it / 2 },
             exit = fadeOut() + slideOutVertically { it / 2 }
         ) {
-            val esError = aviso.tipo == TipoAviso.ERROR
             val forma = RoundedCornerShape(14.dp)
             Row(
                 modifier = Modifier
@@ -111,14 +110,22 @@ fun AvisosHost() {
                     .widthIn(max = 480.dp)
                     .shadow(6.dp, forma)
                     .clip(forma)
-                    .background(if (esError) PlagOutColors.RiskDanger else PlagOutColors.Forest)
+                    .background(
+                        when (aviso.tipo) {
+                            TipoAviso.EXITO -> PlagOutColors.Forest
+                            TipoAviso.ERROR -> PlagOutColors.RiskDanger
+                        }
+                    )
                     .clickable { visibilidad.targetState = false }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Icon(
-                    imageVector = if (esError) Icons.Filled.ErrorOutline else Icons.Filled.CheckCircle,
+                    imageVector = when (aviso.tipo) {
+                        TipoAviso.EXITO -> Icons.Filled.CheckCircle
+                        TipoAviso.ERROR -> Icons.Filled.ErrorOutline
+                    },
                     contentDescription = null,
                     tint = PlagOutColors.TextOnDark,
                     modifier = Modifier.size(20.dp)

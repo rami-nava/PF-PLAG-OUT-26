@@ -51,10 +51,13 @@ class AdminMetricasViewModel(
 
         cargaJob?.cancel()
         cargaJob = viewModelScope.launch {
+            val sinDatos = _state.value.campañas.isEmpty()
             _state.value = _state.value.copy(
-                isLoading = !forzar && _state.value.campañas.isEmpty(),
+                isLoading = !forzar && sinDatos,
                 isRefreshing = forzar,
-                error = null
+                // Reintentando sin datos: el error sigue en pantalla (con "Reintentando…") hasta
+                // saber el resultado, en vez de saltar un momento al estado vacío.
+                error = if (forzar && sinDatos) _state.value.error else null
             )
 
             if (global) {
@@ -76,7 +79,8 @@ class AdminMetricasViewModel(
                     _state.value = _state.value.copy(
                         isLoading = false,
                         isRefreshing = false,
-                        error = fallo.mensaje
+                        error = fallo.mensaje,
+                        sinConexion = false
                     )
                     return@launch
                 }
@@ -124,7 +128,8 @@ class AdminMetricasViewModel(
                     plagasPorCultivo = plagasCultivo,
                     lotesCriticos = rankingCriticos,
                     ventanasControl = ventanas,
-                    error = null
+                    error = null,
+                    sinConexion = false
                 )
 
                 cargarDatosDePestaña(forzar)
@@ -136,7 +141,8 @@ class AdminMetricasViewModel(
                 _state.value = _state.value.copy(
                     isLoading = false,
                     isRefreshing = false,
-                    error = fallo.mensaje
+                    error = fallo.mensaje,
+                    sinConexion = esErrorDeConexion(e)
                 )
             }
         }
@@ -209,9 +215,9 @@ class AdminMetricasViewModel(
             val respuesta = withContext(ioDispatcher) { gddService.adminGetMetricas() }
             val metricas = respuesta.body()
             _state.value = if (respuesta.isSuccessful && metricas != null) {
-                _state.value.conMetricasGlobales(metricas).copy(isLoading = false, isRefreshing = false, error = null)
+                _state.value.conMetricasGlobales(metricas).copy(isLoading = false, isRefreshing = false, error = null, sinConexion = false)
             } else {
-                _state.value.copy(isLoading = false, isRefreshing = false, error = falloDeRespuesta(respuesta).mensaje)
+                _state.value.copy(isLoading = false, isRefreshing = false, error = falloDeRespuesta(respuesta).mensaje, sinConexion = false)
             }
         } catch (e: CancellationException) {
             throw e
@@ -220,7 +226,8 @@ class AdminMetricasViewModel(
             _state.value = _state.value.copy(
                 isLoading = false,
                 isRefreshing = false,
-                error = falloDeExcepcion(e).mensaje
+                error = falloDeExcepcion(e).mensaje,
+                sinConexion = esErrorDeConexion(e)
             )
         }
     }

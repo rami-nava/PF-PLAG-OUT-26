@@ -136,8 +136,6 @@ import kotlin.math.sqrt
 private val RADIOS_MAPA_KM = listOf(25, 50, 100)
 private val VENTANAS_DIAS = listOf(7, 30, 90)
 
-/** Separación mínima entre pines, en dp: el ícono de grupo más común mide 45 dp y el mayor 72. */
-private const val CELDA_CLUSTER_DP = 64.0
 private const val CELDA_NUBE_PX = 120.0
 
 private val CENTRO_PAIS = GeoPoint(-38.4, -63.6)
@@ -170,6 +168,12 @@ fun MapaReportesScreen(
     LaunchedEffect(Unit) {
         viewModel.cargarCatalogoPlagas()
         terrenosViewModel.getTerrenos()
+    }
+
+    val hayRed by rememberHayRed()
+    // Al volver la señal se reintenta solo si la última carga había fallado por falta de conexión
+    LaunchedEffect(hayRed) {
+        if (hayRed && state.sinConexion) viewModel.refrescar()
     }
 
     val terrenos = terrenosState.terrenos
@@ -234,15 +238,19 @@ fun MapaReportesScreen(
         label = "elevacionControlesMapa"
     )
 
-    // osmdroid dibuja en píxeles físicos y los íconos miden en dp: la separación de los pines se
-    // pasa a píxeles con la densidad de la pantalla. Antes eran 78 px fijos, unos 30 dp en un
-    // teléfono común, y los íconos de grupo (45 a 72 dp) de celdas vecinas se encimaban.
+    // Los pines respetan lo que manda el servidor y solo se juntan los que se encimarían, según
+    // el tamaño real de cada ícono. osmdroid dibuja en píxeles físicos y los íconos miden en dp:
+    // el radio se pasa a píxeles con la densidad de la pantalla.
     val densidadPantalla = LocalDensity.current.density
     val clusters = remember(puntos, zoom, modo, densidadPantalla) {
         agruparReportes(
             puntos,
             zoom,
-            if (modo == ModoMapa.NUBES) CELDA_NUBE_PX else CELDA_CLUSTER_DP * densidadPantalla
+            radioPx = if (modo == ModoMapa.NUBES) {
+                { CELDA_NUBE_PX / 2 }
+            } else {
+                { cantidad -> radioCluster(cantidad) * densidadPantalla.toDouble() }
+            }
         )
     }
 
@@ -1388,23 +1396,22 @@ internal fun seleccionVigente(seleccion: ClusterReportes?, clusters: List<Cluste
 
 
 /**
- * Junta los puntos que en pantalla quedarían encimados. [ladoPx] es la separación mínima entre
- * dos grupos, en píxeles del mapa (osmdroid dibuja en píxeles físicos: quien llama multiplica
- * por la densidad).
+ * Junta solo los puntos cuyos íconos quedarían encimados en pantalla: dos grupos se unen si la
+ * distancia entre sus centros es menor que la suma de sus radios. [radioPx] da el radio del ícono
+ * según cuántos reportes tiene, en píxeles del mapa (osmdroid dibuja en píxeles físicos: quien
+ * llama multiplica por la densidad).
  *
- * Primero una grilla en píxeles Mercator; después se unen los grupos que quedaron a menos de
- * [ladoPx] entre sí, aunque estén en celdas distintas: dos reportes a metros de distancia, uno a
- * cada lado del borde de una celda, no pueden terminar en dos íconos superpuestos.
+ * Lo que no se toca queda como lo mandó el servidor, en su posición real: así los pines muestran
+ * lo mismo que las nubes, salvo donde no hay lugar para dos íconos.
  */
 internal fun agruparReportes(
     puntos: List<PuntoMapa>,
     zoom: Double,
-    ladoPx: Double
+    radioPx: (cantidad: Int) -> Double
 ): List<ClusterReportes> {
     if (puntos.isEmpty()) return emptyList()
 
     val mundoPx = 256.0 * 2.0.pow(zoom)
-    val lado = ladoPx.coerceAtLeast(1e-6)
     fun x(lon: Double) = (lon + 180.0) / 360.0 * mundoPx
     fun y(lat: Double): Double {
         val s = kotlin.math.sin(Math.toRadians(lat.coerceIn(-85.05112878, 85.05112878)))
@@ -1416,20 +1423,29 @@ internal fun agruparReportes(
         // Centro ponderado: un grupo de 40 pesa más que un reporte suelto al lado.
         val latitud get() = lista.sumOf { it.latitud * it.cantidad } / cantidad
         val longitud get() = lista.sumOf { it.longitud * it.cantidad } / cantidad
-        fun cerca(otro: Grupo) = hypot(x(longitud) - x(otro.longitud), y(latitud) - y(otro.latitud)) < lado
+        fun seEncimaCon(otro: Grupo) =
+            hypot(x(longitud) - x(otro.longitud), y(latitud) - y(otro.latitud)) <
+                radioPx(cantidad) + radioPx(otro.cantidad)
     }
 
-    var grupos = puntos
-        .groupBy { floor(y(it.latitud) / lado).toLong() to floor(x(it.longitud) / lado).toLong() }
-        .map { (clave, lista) -> Grupo("${clave.first}:${clave.second}", lista.toMutableList()) }
-    // Los grandes absorben a los chicos y conservan su id: la tarjeta abierta sigue en su grupo.
-    // Cada unión mueve el centro, así que se repite hasta que no quede ningún par encimado.
+    // Un id estable por punto: el reporte por su id y el grupo del servidor por su posición.
+    val idsUsados = mutableSetOf<String>()
+    var grupos = puntos.map { punto ->
+        val base = punto.reporte?.let { "r${it.id}" } ?: "g${punto.latitud}:${punto.longitud}"
+        var id = base
+        var n = 1
+        while (!idsUsados.add(id)) id = "$base#${n++}"
+        Grupo(id, mutableListOf(punto))
+    }
+    // Los grandes absorben a los chicos que tocan y conservan su id: la tarjeta abierta sigue en
+    // su grupo. Al unirse el ícono crece y el centro se corre, así que se repite hasta que no
+    // quede ningún par encimado.
     var unio = true
     while (unio) {
         unio = false
         val separados = mutableListOf<Grupo>()
         for (grupo in grupos.sortedWith(compareByDescending<Grupo> { it.cantidad }.thenBy { it.id })) {
-            val vecino = separados.firstOrNull { it.cerca(grupo) }
+            val vecino = separados.firstOrNull { it.seEncimaCon(grupo) }
             if (vecino != null) {
                 vecino.lista += grupo.lista
                 unio = true
@@ -1729,7 +1745,7 @@ private fun iconoCluster(context: Context, cantidad: Int, color: Int, resaltado:
     return BitmapDrawable(context.resources, bitmap)
 }
 
-private fun radioCluster(cantidad: Int): Float = when {
+internal fun radioCluster(cantidad: Int): Float = when {
     cantidad >= 50 -> 29f
     cantidad >= 20 -> 26f
     cantidad >= 10 -> 23f

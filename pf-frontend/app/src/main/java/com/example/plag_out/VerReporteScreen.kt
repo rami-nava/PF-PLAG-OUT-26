@@ -817,6 +817,8 @@ private fun HeaderVerReporte(onBack: () -> Unit, acciones: @Composable () -> Uni
                 shape = forma
             )
             .clip(forma)
+            // El verde se dibuja detrás de la barra de estado; el contenido arranca debajo.
+            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         // Decoración animada
         Box(

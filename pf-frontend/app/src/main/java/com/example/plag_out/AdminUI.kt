@@ -328,7 +328,12 @@ fun BannerErrorAdmin(mensaje: String?, onCerrar: (() -> Unit)? = null, modifier:
 }
 
 @Composable
-fun EstadoErrorAdmin(mensaje: String, onReintentar: () -> Unit) {
+fun EstadoErrorAdmin(
+    mensaje: String,
+    sinConexion: Boolean = mensaje == MENSAJE_SIN_CONEXION,
+    onReintentar: () -> Unit
+) {
+    val color = if (sinConexion) PlagOutColors.RiskWarn else PlagOutColors.RiskDanger
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -336,19 +341,41 @@ fun EstadoErrorAdmin(mensaje: String, onReintentar: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Surface(color = PlagOutColors.RiskDanger.copy(alpha = 0.10f), shape = CircleShape, modifier = Modifier.size(96.dp)) {
+        Surface(
+            color = color.copy(alpha = if (sinConexion) 0.12f else 0.10f),
+            shape = CircleShape,
+            modifier = Modifier.size(96.dp)
+        ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.CloudOff, contentDescription = null, tint = PlagOutColors.RiskDanger, modifier = Modifier.size(42.dp))
+                Icon(Icons.Outlined.CloudOff, contentDescription = null, tint = color, modifier = Modifier.size(42.dp))
             }
         }
         Spacer(Modifier.height(20.dp))
-        Text(
-            mensaje,
-            textAlign = TextAlign.Center,
-            color = PlagOutColors.TextMain,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.testTag("txtErrorAdmin")
-        )
+        if (sinConexion) {
+            Text(
+                "Sin conexión",
+                textAlign = TextAlign.Center,
+                color = PlagOutColors.TextMain,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.testTag("txtErrorAdmin")
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Revisá tu conexión a internet y volvé a intentar.",
+                textAlign = TextAlign.Center,
+                color = PlagOutColors.TextSecondary,
+                fontSize = 14.sp
+            )
+        } else {
+            Text(
+                mensaje,
+                textAlign = TextAlign.Center,
+                color = PlagOutColors.TextMain,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.testTag("txtErrorAdmin")
+            )
+        }
         Spacer(Modifier.height(16.dp))
         Button(
             onClick = onReintentar,

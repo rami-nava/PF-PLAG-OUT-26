@@ -1,7 +1,10 @@
 package com.example.plag_out
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -409,6 +412,30 @@ fun AppNavigation(
         esperaAgotada = true
     }
 
+    // Modo sin conexión: si hay una sesión guardada (nunca se cerró) pero no se la puede validar
+    // porque no hay red, se entra igual y las pantallas muestran lo que hay en Room. Supabase solo
+    // borra la sesión si el servidor rechaza el refresh token; mientras tanto la sigue intentando
+    // renovar sola y, cuando vuelve la red, el estado pasa a Authenticated.
+    //  - RefreshFailure: el token ya venció y el refresh falló por red.
+    //  - Initializing: el token está por vencer y el refresh se queda reintentando. Sin red se
+    //    entra al instante; con red pero sin respuesta (DNS caído), al agotarse la espera.
+    var haySesionGuardada by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        haySesionGuardada = withContext(Dispatchers.IO) {
+            runCatching { SupabaseProvider.client.auth.sessionManager.loadSession() != null }
+                .getOrDefault(false)
+        }
+    }
+    val sinRedAlArrancar = remember(context) { !hayRed(context) }
+    val sesionOffline = !forzarLogin && when (sessionStatus) {
+        is SessionStatus.RefreshFailure -> true
+        is SessionStatus.Initializing -> haySesionGuardada && (sinRedAlArrancar || esperaAgotada)
+        else -> false
+    }
+    // Hay usuario adentro de la app, validado o no. Lo que necesita el token (push, notificaciones,
+    // presencia) sigue esperando a Authenticated.
+    val sesionActiva = sessionStatus is SessionStatus.Authenticated || sesionOffline
+
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
 
@@ -416,11 +443,11 @@ fun AppNavigation(
     // admin solo ven el panel de administración.
     val startDestination = remember {
         if (deepLinkRecuperarPassword) "recuperarPassword"
-        else if (sessionStatus is SessionStatus.Authenticated) homePara(PreferenciasUsuario.rol(context))
+        else if (sesionActiva) homePara(PreferenciasUsuario.rol(context))
         else "logIn"
     }
 
-    if (sessionStatus is SessionStatus.Initializing && !forzarLogin) {
+    if (sessionStatus is SessionStatus.Initializing && !forzarLogin && !sesionOffline) {
         PantallaCargandoSesion(
             esperaAgotada = esperaAgotada,
             onIrAlLogin = { forzarLogin = true }
@@ -484,9 +511,9 @@ fun AppNavigation(
     }
 
     // Restauración de la última pantalla al arrancar la app con sesión activa o cuando
-    // la sesión pasa a Authenticated habiendo arrancado en el login:
-    LaunchedEffect(sessionStatus) {
-        if (sessionStatus is SessionStatus.Authenticated && !rutaRestaurada && !hayDeepLinkActivo) {
+    // la sesión pasa a Authenticated (o a modo sin conexión) habiendo arrancado en el login:
+    LaunchedEffect(sesionActiva) {
+        if (sesionActiva && !rutaRestaurada && !hayDeepLinkActivo) {
             val currentRoute = navBackStackEntry?.destination?.route
             val home = homePara(PreferenciasUsuario.rol(context))
             val ultima = PreferenciasUsuario.ultimaRuta(context)
@@ -642,11 +669,11 @@ fun AppNavigation(
     var cerrandoSesion by remember { mutableStateOf(false) }
 
     // Guardar la última pantalla en almacenamiento local si el usuario navega
-    val currentSessionStatus by rememberUpdatedState(sessionStatus)
+    val currentSesionActiva by rememberUpdatedState(sesionActiva)
     val isCerrandoSesion by rememberUpdatedState(cerrandoSesion)
     DisposableEffect(navController) {
         val listener = NavController.OnDestinationChangedListener { _, destination, arguments ->
-            if (currentSessionStatus is SessionStatus.Authenticated && !isCerrandoSesion) {
+            if (currentSesionActiva && !isCerrandoSesion) {
                 val rutaReal = resolverRutaDestino(destination.route, arguments)
                 if (rutaReal != null) {
                     PreferenciasUsuario.guardarUltimaRuta(context, rutaReal)
@@ -744,6 +771,25 @@ fun AppNavigation(
         }
     }
 
+    // Se entró sin conexión y, al volver la red, Supabase rechazó el refresh token (sesión revocada
+    // o cuenta eliminada) y borró la sesión: se limpian los datos locales y se vuelve al login.
+    var huboSesionOffline by remember { mutableStateOf(false) }
+    LaunchedEffect(sesionOffline) {
+        if (sesionOffline) huboSesionOffline = true
+    }
+    LaunchedEffect(sessionStatus) {
+        if (sessionStatus is SessionStatus.Authenticated) huboSesionOffline = false
+        if (sessionStatus !is SessionStatus.NotAuthenticated || !huboSesionOffline) return@LaunchedEffect
+        huboSesionOffline = false
+        val ruta = navController.currentBackStackEntry?.destination?.route
+        if (cerrandoSesion || ruta == "logIn" || ruta == "crearCuenta" || ruta == "recuperarPassword") {
+            return@LaunchedEffect
+        }
+        limpiarSesion(false) {
+            Avisos.error(MENSAJE_SESION_EXPIRADA)
+        }
+    }
+
     // Si el backend dice que la cuenta ya no es admin, se relee el usuario: el efecto que
     // observa el rol se encarga de llevarla al lado correcto.
     val onSinPermisoAdmin: () -> Unit = { userViewModel.refrescar() }
@@ -781,6 +827,8 @@ fun AppNavigation(
             // El perfil es pestaña (necesita dejar libre la barra inferior) pero dibuja su propio
             // header detrás de la status bar: sin el top del Scaffold no se duplica ese inset.
             rutaActual == "perfil" -> PaddingValues(bottom = paddingValues.calculateBottomPadding())
+            // El detalle de alerta también lleva su header verde hasta arriba de todo.
+            rutaActual?.startsWith("ver_reporte/") == true -> PaddingValues(bottom = paddingValues.calculateBottomPadding())
             else -> paddingValues
         }
 
@@ -1272,6 +1320,7 @@ private fun SoloAdmin(navController: NavController, contenido: @Composable () ->
 
 /** Cuánto esperamos a que Supabase resuelva la sesión antes de ofrecer ir al login. */
 private const val ESPERA_MAXIMA_SESION_MS = 8_000L
+
 
 @Composable
 private fun PantallaCerrandoSesion() {

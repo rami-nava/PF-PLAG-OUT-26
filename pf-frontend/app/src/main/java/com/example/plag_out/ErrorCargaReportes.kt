@@ -42,14 +42,17 @@ internal fun EstadoErrorReportes(
     sinConexion: Boolean,
     reintentando: Boolean,
     onReintentar: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    tituloError: String = "No pudimos cargar las alertas",
+    tag: String = "errorCargaReportes",
+    tagBotonReintentar: String = "reintentarCargaReportes"
 ) {
     val color = if (sinConexion) PlagOutColors.RiskWarn else PlagOutColors.RiskDanger
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 32.dp, vertical = 24.dp)
-            .testTag("errorCargaReportes"),
+            .testTag(tag),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
@@ -67,7 +70,7 @@ internal fun EstadoErrorReportes(
         }
         Spacer(Modifier.height(16.dp))
         Text(
-            if (sinConexion) "Sin conexión" else "No pudimos cargar las alertas",
+            if (sinConexion) "Sin conexión" else tituloError,
             color = PlagOutColors.TextMain,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
@@ -91,7 +94,7 @@ internal fun EstadoErrorReportes(
                 disabledContainerColor = PlagOutColors.Forest.copy(alpha = 0.6f),
                 disabledContentColor = PlagOutColors.TextOnDark
             ),
-            modifier = Modifier.testTag("reintentarCargaReportes")
+            modifier = Modifier.testTag(tagBotonReintentar)
         ) {
             if (reintentando) {
                 CircularProgressIndicator(
