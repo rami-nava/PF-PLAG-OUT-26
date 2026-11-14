@@ -826,6 +826,8 @@ fun AppNavigation(
             // El perfil es pestaña (necesita dejar libre la barra inferior) pero dibuja su propio
             // header detrás de la status bar: sin el top del Scaffold no se duplica ese inset.
             rutaActual == "perfil" -> PaddingValues(bottom = paddingValues.calculateBottomPadding())
+            // El detalle de alerta también lleva su header verde hasta arriba de todo.
+            rutaActual?.startsWith("ver_reporte/") == true -> PaddingValues(bottom = paddingValues.calculateBottomPadding())
             else -> paddingValues
         }
 
