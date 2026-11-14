@@ -53,7 +53,7 @@ class MonitoreoDetalleViewModelTest {
 
     @After
     fun teardown() {
-        viewModels.forEach { cancelarCorrutinas(it) }
+        cancelarCorrutinas(viewModels)
         CacheTracker.limpiarTodo(context)
     }
 

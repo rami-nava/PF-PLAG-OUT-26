@@ -58,9 +58,20 @@ fun esperarCorrutinas(viewModel: ViewModel, timeoutMs: Long = 10_000) {
     }
 }
 
-/** Cancela todo lo que [viewModel] tiene en curso y espera a que termine. */
-fun cancelarCorrutinas(viewModel: ViewModel, timeoutMs: Long = 10_000) {
-    val scope = viewModel.viewModelScope.coroutineContext[Job]!!
-    scope.cancel()
-    esperarQue(timeoutMs, { "la cancelación de ${viewModel::class.simpleName}" }) { scope.isCompleted }
+/**
+ * Cancela todo lo que tienen en curso los [viewModels] y espera a que termine.
+ *
+ * Cancela todos antes de esperar: la espera avanza Main, que es compartido, y
+ * arrancaría lo que todavía tengan encolado los ViewModels sin cancelar.
+ */
+fun cancelarCorrutinas(viewModels: List<ViewModel>, timeoutMs: Long = 10_000) {
+    val scopes = viewModels.map { it.viewModelScope.coroutineContext[Job]!! }
+    scopes.forEach { it.cancel() }
+    esperarQue(timeoutMs, { "la cancelación de ${viewModels.map { it::class.simpleName }}" }) {
+        scopes.all { it.isCompleted }
+    }
 }
+
+/** Cancela todo lo que [viewModel] tiene en curso y espera a que termine. */
+fun cancelarCorrutinas(viewModel: ViewModel, timeoutMs: Long = 10_000) =
+    cancelarCorrutinas(listOf(viewModel), timeoutMs)
