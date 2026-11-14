@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,8 +43,9 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.first
 
-enum class TipoAviso { EXITO, ERROR }
+enum class TipoAviso { EXITO, ERROR, SIN_CONEXION }
 
 data class Aviso(val mensaje: String, val tipo: TipoAviso, val id: Long = System.nanoTime())
 
@@ -62,6 +64,13 @@ object Avisos {
     fun error(mensaje: String) {
         _eventos.tryEmit(Aviso(mensaje, TipoAviso.ERROR))
     }
+
+    // Se avisa justo al salir del splash, en la misma composición en la que recién aparece el
+    // AvisosHost: sin esperar a que se suscriba, el SharedFlow (sin replay) descartaría el aviso.
+    suspend fun sinConexion(mensaje: String) {
+        _eventos.subscriptionCount.first { it > 0 }
+        _eventos.tryEmit(Aviso(mensaje, TipoAviso.SIN_CONEXION))
+    }
 }
 
 // Muestra el último aviso abajo de la pantalla; uno nuevo reemplaza al anterior.
@@ -79,7 +88,7 @@ fun AvisosHost() {
     LaunchedEffect(actual?.id) {
         val aviso = actual ?: return@LaunchedEffect
         // Los errores suelen ser más largos y conviene darles más tiempo de lectura
-        delay(if (aviso.tipo == TipoAviso.ERROR) 4500 else 2500)
+        delay(if (aviso.tipo == TipoAviso.EXITO) 2500 else 4500)
         visibilidad.targetState = false
     }
     // Al terminar la salida hay que desmontar el Popup: si queda vivo con el contenido vacío, su
@@ -103,7 +112,6 @@ fun AvisosHost() {
             enter = fadeIn() + slideInVertically { it / 2 },
             exit = fadeOut() + slideOutVertically { it / 2 }
         ) {
-            val esError = aviso.tipo == TipoAviso.ERROR
             val forma = RoundedCornerShape(14.dp)
             Row(
                 modifier = Modifier
@@ -111,14 +119,24 @@ fun AvisosHost() {
                     .widthIn(max = 480.dp)
                     .shadow(6.dp, forma)
                     .clip(forma)
-                    .background(if (esError) PlagOutColors.RiskDanger else PlagOutColors.Forest)
+                    .background(
+                        when (aviso.tipo) {
+                            TipoAviso.EXITO -> PlagOutColors.Forest
+                            TipoAviso.ERROR -> PlagOutColors.RiskDanger
+                            TipoAviso.SIN_CONEXION -> PlagOutColors.RiskWarn
+                        }
+                    )
                     .clickable { visibilidad.targetState = false }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Icon(
-                    imageVector = if (esError) Icons.Filled.ErrorOutline else Icons.Filled.CheckCircle,
+                    imageVector = when (aviso.tipo) {
+                        TipoAviso.EXITO -> Icons.Filled.CheckCircle
+                        TipoAviso.ERROR -> Icons.Filled.ErrorOutline
+                        TipoAviso.SIN_CONEXION -> Icons.Outlined.CloudOff
+                    },
                     contentDescription = null,
                     tint = PlagOutColors.TextOnDark,
                     modifier = Modifier.size(20.dp)
