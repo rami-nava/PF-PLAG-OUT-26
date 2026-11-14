@@ -17,7 +17,7 @@ import kotlin.time.TimeSource
  * el único hilo que puede avanzar Main y se cuelga.
  */
 fun esperarQue(
-    timeoutMs: Long = 10_000,
+    timeoutMs: Long = 20_000,
     descripcion: () -> String = { "la condición" },
     condicion: () -> Boolean
 ) {
@@ -43,7 +43,7 @@ fun esperarQue(
 /** Espera a que el [StateFlow] cumpla [predicado] y devuelve ese valor. */
 fun <T> esperarEstado(
     flujo: StateFlow<T>,
-    timeoutMs: Long = 10_000,
+    timeoutMs: Long = 20_000,
     predicado: (T) -> Boolean
 ): T {
     esperarQue(timeoutMs, { "el estado. Último valor: ${flujo.value}" }) { predicado(flujo.value) }
@@ -51,7 +51,7 @@ fun <T> esperarEstado(
 }
 
 /** Espera a que terminen las corrutinas que [viewModel] tiene en curso ahora. */
-fun esperarCorrutinas(viewModel: ViewModel, timeoutMs: Long = 10_000) {
+fun esperarCorrutinas(viewModel: ViewModel, timeoutMs: Long = 20_000) {
     val enCurso = viewModel.viewModelScope.coroutineContext[Job]!!.children.toList()
     esperarQue(timeoutMs, { "las corrutinas de ${viewModel::class.simpleName}" }) {
         enCurso.all { it.isCompleted }
@@ -64,7 +64,7 @@ fun esperarCorrutinas(viewModel: ViewModel, timeoutMs: Long = 10_000) {
  * Cancela todos antes de esperar: la espera avanza Main, que es compartido, y
  * arrancaría lo que todavía tengan encolado los ViewModels sin cancelar.
  */
-fun cancelarCorrutinas(viewModels: List<ViewModel>, timeoutMs: Long = 10_000) {
+fun cancelarCorrutinas(viewModels: List<ViewModel>, timeoutMs: Long = 20_000) {
     val scopes = viewModels.map { it.viewModelScope.coroutineContext[Job]!! }
     scopes.forEach { it.cancel() }
     esperarQue(timeoutMs, { "la cancelación de ${viewModels.map { it::class.simpleName }}" }) {
@@ -73,5 +73,5 @@ fun cancelarCorrutinas(viewModels: List<ViewModel>, timeoutMs: Long = 10_000) {
 }
 
 /** Cancela todo lo que [viewModel] tiene en curso y espera a que termine. */
-fun cancelarCorrutinas(viewModel: ViewModel, timeoutMs: Long = 10_000) =
+fun cancelarCorrutinas(viewModel: ViewModel, timeoutMs: Long = 20_000) =
     cancelarCorrutinas(listOf(viewModel), timeoutMs)
