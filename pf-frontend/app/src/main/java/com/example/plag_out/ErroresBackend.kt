@@ -89,8 +89,10 @@ val ERRORES_REPORTE = mapOf(
 fun ErrorBackend.enFormularioOAviso(): String? =
     if (campos.isNotEmpty()) mensaje else { Avisos.error(mensaje); null }
 
+fun esErrorDeConexion(e: Throwable): Boolean = e is IOException || e is HttpRequestException
+
 fun errorDeExcepcion(e: Throwable): ErrorBackend =
-    ErrorBackend(if (e is IOException || e is HttpRequestException) MENSAJE_SIN_CONEXION_USUARIO else MENSAJE_ERROR_GENERICO)
+    ErrorBackend(if (esErrorDeConexion(e)) MENSAJE_SIN_CONEXION_USUARIO else MENSAJE_ERROR_GENERICO)
 
 private fun camposInvalidos(json: JsonObject?): Map<String, String> {
     val errores = json?.get("errors")?.takeIf { it.isJsonArray }?.asJsonArray ?: return emptyMap()

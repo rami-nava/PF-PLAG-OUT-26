@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,9 +42,8 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.first
 
-enum class TipoAviso { EXITO, ERROR, SIN_CONEXION }
+enum class TipoAviso { EXITO, ERROR }
 
 data class Aviso(val mensaje: String, val tipo: TipoAviso, val id: Long = System.nanoTime())
 
@@ -63,13 +61,6 @@ object Avisos {
 
     fun error(mensaje: String) {
         _eventos.tryEmit(Aviso(mensaje, TipoAviso.ERROR))
-    }
-
-    // Se avisa justo al salir del splash, en la misma composición en la que recién aparece el
-    // AvisosHost: sin esperar a que se suscriba, el SharedFlow (sin replay) descartaría el aviso.
-    suspend fun sinConexion(mensaje: String) {
-        _eventos.subscriptionCount.first { it > 0 }
-        _eventos.tryEmit(Aviso(mensaje, TipoAviso.SIN_CONEXION))
     }
 }
 
@@ -123,7 +114,6 @@ fun AvisosHost() {
                         when (aviso.tipo) {
                             TipoAviso.EXITO -> PlagOutColors.Forest
                             TipoAviso.ERROR -> PlagOutColors.RiskDanger
-                            TipoAviso.SIN_CONEXION -> PlagOutColors.RiskWarn
                         }
                     )
                     .clickable { visibilidad.targetState = false }
@@ -135,7 +125,6 @@ fun AvisosHost() {
                     imageVector = when (aviso.tipo) {
                         TipoAviso.EXITO -> Icons.Filled.CheckCircle
                         TipoAviso.ERROR -> Icons.Filled.ErrorOutline
-                        TipoAviso.SIN_CONEXION -> Icons.Outlined.CloudOff
                     },
                     contentDescription = null,
                     tint = PlagOutColors.TextOnDark,

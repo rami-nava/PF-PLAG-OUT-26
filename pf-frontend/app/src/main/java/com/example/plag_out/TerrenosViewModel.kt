@@ -28,7 +28,8 @@ data class TerrenoUIState(
     /** Ya se muestra lo recibido, pero todavía faltan páginas de GET /terrenos. */
     val cargandoMas: Boolean = false,
     val procesando: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val sinConexion: Boolean = false
 )
 
 class TerrenosViewModel(
@@ -104,6 +105,7 @@ class TerrenosViewModel(
                 }
                 if (error != null) {
                     cargaIncompleta(recibidos.values.toList(), conCacheRestante())
+                    _state.value = _state.value.copy(sinConexion = false)
                     if (forzar) Avisos.error(errorDeRespuesta(error).mensaje)
                     Log.e("TERRENOS", "Error: ${error.code()}")
                     return@launch
@@ -114,7 +116,8 @@ class TerrenosViewModel(
                     terrenos = terrenosResponse,
                     isLoading = false,
                     isRefreshing = false,
-                    cargandoMas = false
+                    cargandoMas = false,
+                    sinConexion = false
                 )
 
                 withContext(Dispatchers.IO) {
@@ -126,6 +129,7 @@ class TerrenosViewModel(
             } catch (e: Exception) {
                 // Sin conexión: se queda con el caché ya mostrado más lo que se llegó a recibir
                 cargaIncompleta(recibidos.values.toList(), conCacheRestante())
+                _state.value = _state.value.copy(sinConexion = esErrorDeConexion(e))
                 if (forzar) Avisos.error(errorDeExcepcion(e).mensaje)
                 Log.e("TERRENOS", "Error: ${e.message}")
             }

@@ -435,9 +435,6 @@ fun AppNavigation(
     // Hay usuario adentro de la app, validado o no. Lo que necesita el token (push, notificaciones,
     // presencia) sigue esperando a Authenticated.
     val sesionActiva = sessionStatus is SessionStatus.Authenticated || sesionOffline
-    LaunchedEffect(sesionOffline) {
-        if (sesionOffline) Avisos.sinConexion(MENSAJE_MODO_SIN_CONEXION)
-    }
 
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -1321,13 +1318,6 @@ private fun SoloAdmin(navController: NavController, contenido: @Composable () ->
 /** Cuánto esperamos a que Supabase resuelva la sesión antes de ofrecer ir al login. */
 private const val ESPERA_MAXIMA_SESION_MS = 8_000L
 
-private const val MENSAJE_MODO_SIN_CONEXION = "Sin conexión: estás viendo tus datos guardados."
-
-private fun hayRed(context: Context): Boolean = runCatching {
-    val connectivity = context.getSystemService(ConnectivityManager::class.java)
-    connectivity.getNetworkCapabilities(connectivity.activeNetwork)
-        ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-}.getOrDefault(true)
 
 @Composable
 private fun PantallaCerrandoSesion() {

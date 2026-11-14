@@ -72,9 +72,17 @@ fun AdminMetricasScreen(
     global: Boolean = false
 ) {
     val state by viewModel.state.collectAsState()
+    val hayRed by rememberHayRed()
+    // Sin nada cargado no hay tableros que mostrar: el error ocupa el centro de la pantalla.
+    val errorSinDatos = state.error != null && state.campañas.isEmpty() && state.lotesCriticos.isEmpty()
 
     LaunchedEffect(global) {
         viewModel.cargar(global = global)
+    }
+
+    // Al volver la señal se reintenta solo si la última carga había fallado por falta de conexión
+    LaunchedEffect(hayRed) {
+        if (hayRed && state.sinConexion) viewModel.refrescar()
     }
 
     Column(Modifier.fillMaxSize().background(PlagOutColors.Cream)) {
@@ -131,13 +139,36 @@ fun AdminMetricasScreen(
         )
 
         BannerErrorAdmin(
-            mensaje = state.error,
+            mensaje = state.error.takeUnless { errorSinDatos },
             onCerrar = viewModel::descartarError,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
 
         when {
             state.isLoading -> SkeletonCargando(alturaTarjeta = 160.dp, cantidad = 3)
+            errorSinDatos -> PullToRefreshBox(
+                isRefreshing = state.isRefreshing,
+                onRefresh = viewModel::refrescar,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Scrolleable para que el pull to refresh también funcione sobre el error
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EstadoErrorReportes(
+                        mensaje = state.error ?: MENSAJE_ERROR_GENERICO,
+                        sinConexion = state.sinConexion,
+                        reintentando = state.isRefreshing,
+                        onReintentar = viewModel::refrescar,
+                        tituloError = "No pudimos cargar los tableros",
+                        tag = "errorCargaMetricas",
+                        tagBotonReintentar = "reintentarCargaMetricas"
+                    )
+                }
+            }
             state.campañas.isEmpty() && state.lotesCriticos.isEmpty() -> PullToRefreshBox(
                 isRefreshing = state.isRefreshing,
                 onRefresh = viewModel::refrescar,

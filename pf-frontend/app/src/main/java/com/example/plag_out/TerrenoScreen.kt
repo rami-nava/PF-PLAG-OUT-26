@@ -13,6 +13,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -100,6 +102,18 @@ fun TerrenoScreen(
     val state by terrenoViewModel.state.collectAsState()
     val monitoreosState by monitoreoViewModel.state.collectAsState()
     val plantacionesState by plantacionViewModel.state.collectAsState()
+    val hayRed by rememberHayRed()
+    val sinConexion = !hayRed || state.sinConexion || monitoreosState.sinConexion
+    val refrescarTodo = {
+        terrenoViewModel.refrescar()
+        plantacionViewModel.refrescar()
+        monitoreoViewModel.refrescar()
+    }
+
+    // Al volver la señal se reintenta solo lo que había fallado por falta de conexión
+    LaunchedEffect(hayRed) {
+        if (hayRed && (state.sinConexion || monitoreosState.sinConexion)) refrescarTodo()
+    }
 
     LaunchedEffect(Unit) {
         terrenoViewModel.getTerrenos()
@@ -167,11 +181,7 @@ fun TerrenoScreen(
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = state.isRefreshing || plantacionesState.isRefreshing || monitoreosState.isRefreshing,
-            onRefresh = {
-                terrenoViewModel.refrescar()
-                plantacionViewModel.refrescar()
-                monitoreoViewModel.refrescar()
-            },
+            onRefresh = { refrescarTodo() },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -179,6 +189,20 @@ fun TerrenoScreen(
         // El panel y los filtros se van con el scroll de la lista para dejarle toda la pantalla.
         EncabezadoQueScrollea(encabezado = {
             PanelDeCampoTerrenos(terrenos = state.terrenos, monitoreos = monitoreosState.monitoreos.filter { it.activo })
+
+            AnimatedVisibility(
+                visible = sinConexion,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                AvisoSinConexion(
+                    reintentando = state.isRefreshing || plantacionesState.isRefreshing || monitoreosState.isRefreshing,
+                    onReintentar = { refrescarTodo() },
+                    tag = "avisoTerrenosSinConexion",
+                    tagBotonReintentar = "btnReintentarAvisoTerrenos",
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                )
+            }
 
             val opciones = remember(state.terrenos, monitoreosState.monitoreos) {
                 val buckets = state.terrenos.map { bucketDeAlerta(nivelMaxDe(it)) }
