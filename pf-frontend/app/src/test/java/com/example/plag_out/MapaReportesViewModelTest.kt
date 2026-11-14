@@ -637,8 +637,8 @@ class MapaReportesViewModelTest {
         val desconocido = PuntoMapa(-34.0, -60.0, 3, SEVERIDAD_DESCONOCIDA, null)
         val bajo = PuntoMapa(-34.0, -60.0, 1, "Bajo", null)
 
-        val (solo) = agruparReportes(listOf(desconocido), zoom = 10.0, ladoPx = 78.0)
-        val (mezcla) = agruparReportes(listOf(desconocido, bajo), zoom = 10.0, ladoPx = 78.0)
+        val (solo) = agruparReportes(listOf(desconocido), zoom = 10.0, radioPx = { 39.0 })
+        val (mezcla) = agruparReportes(listOf(desconocido, bajo), zoom = 10.0, radioPx = { 39.0 })
 
         assertEquals(-1, rangoSeveridad(solo.severidadDominante))
         assertEquals("una severidad conocida manda sobre la desconocida", "Bajo", mezcla.severidadDominante)
@@ -666,7 +666,7 @@ class MapaReportesViewModelTest {
         val oeste = PuntoMapa(-34.6, bordeLon - 2 * metro, 1, "Alto", Fixtures.reporteDetalle(id = 1))
         val este = PuntoMapa(-34.6, bordeLon + 2 * metro, 1, "Bajo", Fixtures.reporteDetalle(id = 2))
 
-        val grupos = agruparReportes(listOf(oeste, este), zoom, lado)
+        val grupos = agruparReportes(listOf(oeste, este), zoom, radioPx = { lado / 2 })
 
         assertEquals("se dibujaban dos íconos encimados", 1, grupos.size)
         assertEquals(setOf(1, 2), grupos.single().reportes.map { it.id }.toSet())
@@ -682,7 +682,7 @@ class MapaReportesViewModelTest {
         }
         for (zoom in listOf(5.0, 8.3, 11.0, 14.0)) {
             val lado = 168.0
-            val grupos = agruparReportes(puntos, zoom, lado)
+            val grupos = agruparReportes(puntos, zoom, radioPx = { lado / 2 })
             for (i in grupos.indices) for (j in i + 1 until grupos.size) {
                 assertTrue("zoom $zoom: ${grupos[i].id} y ${grupos[j].id} encimados", distanciaPx(grupos[i], grupos[j], zoom) >= lado)
             }
@@ -697,7 +697,59 @@ class MapaReportesViewModelTest {
         val a = PuntoMapa(-34.0, -60.0, 1, "Alto", Fixtures.reporteDetalle(id = 1))
         val b = PuntoMapa(-34.0, -59.0, 1, "Alto", Fixtures.reporteDetalle(id = 2))
         // A zoom 12, un grado son unos 2900 px.
-        assertEquals(2, agruparReportes(listOf(a, b), zoom = 12.0, ladoPx = 168.0).size)
+        assertEquals(2, agruparReportes(listOf(a, b), zoom = 12.0, radioPx = { 84.0 }).size)
+    }
+
+    /** Radio real de los íconos con la densidad de un teléfono común (2,625). */
+    private val radioIcono: (Int) -> Double = { radioCluster(it) * 2.625 }
+
+    /** A zoom 12 un grado de longitud mide 256 · 2¹² / 360 px. */
+    private fun gradosLonParaPx(px: Double, zoom: Double = 12.0) = px / (256 * Math.pow(2.0, zoom) / 360)
+
+    @Test
+    fun `un grupo grande no absorbe un reporte que no toca su icono`() {
+        // Ícono de 33 (26 dp) y pin suelto (18 dp): se tocan a menos de 44 dp, unos 115 px.
+        // Con la separación fija de 64 dp (168 px) de antes, quedaban en un solo pin.
+        val grupo = PuntoMapa(-34.6, -60.0, 33, "Alto", null)
+        val suelto = PuntoMapa(-34.6, -60.0 + gradosLonParaPx(131.0), 1, "Bajo", Fixtures.reporteDetalle(id = 9))
+
+        val grupos = agruparReportes(listOf(grupo, suelto), zoom = 12.0, radioPx = radioIcono)
+
+        assertEquals(2, grupos.size)
+        assertEquals(listOf(33, 1), grupos.map { it.cantidad }.sortedDescending())
+        val delSuelto = grupos.single { it.cantidad == 1 }
+        assertEquals("el reporte suelto queda en su posición real", -60.0 + gradosLonParaPx(131.0), delSuelto.longitud, 1e-9)
+    }
+
+    @Test
+    fun `iconos que se encimarian se unen en uno`() {
+        val grupo = PuntoMapa(-34.6, -60.0, 33, "Medio", null)
+        val suelto = PuntoMapa(-34.6, -60.0 + gradosLonParaPx(100.0), 1, "Alto", Fixtures.reporteDetalle(id = 9))
+
+        val grupos = agruparReportes(listOf(grupo, suelto), zoom = 12.0, radioPx = radioIcono)
+
+        assertEquals(1, grupos.size)
+        assertEquals(34, grupos.single().cantidad)
+        assertEquals("Alto", grupos.single().severidadDominante)
+        assertEquals(listOf(9), grupos.single().reportes.map { it.id })
+    }
+
+    @Test
+    fun `con radios reales ningun par de iconos queda encimado`() {
+        val azar = java.util.Random(11)
+        val puntos = List(300) { i ->
+            val reporte = if (i % 2 == 0) Fixtures.reporteDetalle(id = i) else null
+            PuntoMapa(-35.0 + azar.nextDouble(), -61.0 + azar.nextDouble(), 1 + azar.nextInt(60), "Medio", reporte)
+        }
+        for (zoom in listOf(6.0, 9.5, 12.0)) {
+            val grupos = agruparReportes(puntos, zoom, radioIcono)
+            for (i in grupos.indices) for (j in i + 1 until grupos.size) {
+                val minimo = radioIcono(grupos[i].cantidad) + radioIcono(grupos[j].cantidad)
+                assertTrue("zoom $zoom: ${grupos[i].id} y ${grupos[j].id} encimados", distanciaPx(grupos[i], grupos[j], zoom) >= minimo)
+            }
+            assertEquals(puntos.sumOf { it.cantidad }, grupos.sumOf { it.cantidad })
+            assertEquals("ids únicos", grupos.size, grupos.map { it.id }.toSet().size)
+        }
     }
 
     @Test
