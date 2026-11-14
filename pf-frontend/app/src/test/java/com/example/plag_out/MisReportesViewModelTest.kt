@@ -1,20 +1,16 @@
 package com.example.plag_out
 
-import androidx.lifecycle.viewModelScope
+import com.example.plag_out.util.cancelarCorrutinas
+import com.example.plag_out.util.esperarCorrutinas
+import com.example.plag_out.util.esperarQue
 import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.fakes.Fixtures
 import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -36,7 +32,7 @@ import java.util.TimeZone
 class MisReportesViewModelTest {
 
     @get:Rule
-    val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var gddService: FakeGDDService
     private lateinit var viewModel: MisReportesViewModel
@@ -44,11 +40,9 @@ class MisReportesViewModelTest {
     private lateinit var zonaOriginal: TimeZone
 
     @After
-    fun restaurarEstado() = runBlocking {
+    fun restaurarEstado() {
         try {
-            withTimeout(5_000) {
-                viewModel.viewModelScope.coroutineContext[Job]!!.cancelAndJoin()
-            }
+            cancelarCorrutinas(viewModel)
         } finally {
             TimeZone.setDefault(zonaOriginal)
         }
@@ -61,13 +55,8 @@ class MisReportesViewModelTest {
         gddService = FakeGDDService()
         gddService.getUsuarioActualResult = { Response.success(Fixtures.usuario()) }
         viewModel = MisReportesViewModel(gddService, reportesDispatcher = mainDispatcherRule.testDispatcher)
-        // La precarga del perfil debe terminar antes de editar el radio; con Main
-        // unconfined sus respuestas pueden reanudarse en otro hilo de Dispatchers.IO.
-        runBlocking {
-            withTimeout(5_000) {
-                viewModel.viewModelScope.coroutineContext[Job]!!.children.toList().joinAll()
-            }
-        }
+        // La precarga del perfil debe terminar antes de editar el radio.
+        esperarCorrutinas(viewModel)
     }
 
     @Test
@@ -402,7 +391,7 @@ class MisReportesViewModelTest {
             Response.success(Pagina(listOf(ajeno(444)), 1))
         }
         viewModel.actualizarFechas(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 10))
-        runBlocking { withTimeout(3000) { iniciado.await() } }
+        esperarQue { iniciado.isCompleted }
         assertTrue(viewModel.state.value.reportes.isEmpty())
         assertEquals(false, viewModel.state.value.propios.cargado)
 
@@ -535,7 +524,7 @@ class MisReportesViewModelTest {
             Response.success(Pagina(listOf(propio(444)), 1))
         }
         viewModel.cargarReportes()
-        runBlocking { withTimeout(3000) { iniciado.await() } }
+        esperarQue { iniciado.isCompleted }
         viewModel.limpiar()
         liberado.complete(Unit)
         assertTrue(viewModel.state.value.reportes.isEmpty())

@@ -1,6 +1,7 @@
 package com.example.plag_out.fakes
 
 import com.example.plag_out.AccountDeletionResponse
+import java.util.concurrent.CopyOnWriteArrayList
 import com.example.plag_out.CargoResponse
 import com.example.plag_out.CreatePlantacionRequest
 import com.example.plag_out.CreateTerrenoRequest
@@ -58,18 +59,18 @@ import java.io.IOException
  */
 class FakeGDDService : GDDService {
 
-    val llamadas = mutableListOf<String>()
+    val llamadas = CopyOnWriteArrayList<String>()
 
     fun vecesLlamado(endpoint: String): Int = llamadas.count { it == endpoint }
 
     var getMonitoreosResult: () -> Response<List<MonitoreoResponse>> = { noDeclarado("getMonitoreos") }
     var getMonitoreosPaginaResult: (limit: Int, offset: Int) -> Response<Pagina<MonitoreoResponse>> =
         { limit, offset -> paginar(getMonitoreosResult(), limit, offset) }
-    val paginasMonitoreos = mutableListOf<Pair<Int, Int>>()
+    val paginasMonitoreos = CopyOnWriteArrayList<Pair<Int, Int>>()
     var getTerrenosResult: () -> Response<List<TerrenoResponse>> = { noDeclarado("getTerrenos") }
     var getTerrenosPaginaResult: (limit: Int, offset: Int) -> Response<Pagina<TerrenoResponse>> =
         { limit, offset -> paginar(getTerrenosResult(), limit, offset) }
-    val paginasTerrenos = mutableListOf<Pair<Int, Int>>()
+    val paginasTerrenos = CopyOnWriteArrayList<Pair<Int, Int>>()
 
     private fun <T> paginar(r: Response<List<T>>, limit: Int, offset: Int): Response<Pagina<T>> =
         if (r.isSuccessful) {
@@ -79,7 +80,7 @@ class FakeGDDService : GDDService {
     var getPlantacionesResult: () -> Response<List<PlantacionesResponse>> = { noDeclarado("getPlantaciones") }
     var getPlantacionesPaginaResult: (limit: Int, offset: Int) -> Response<Pagina<PlantacionesResponse>> =
         { limit, offset -> paginar(getPlantacionesResult(), limit, offset) }
-    val paginasPlantaciones = mutableListOf<Pair<Int, Int>>()
+    val paginasPlantaciones = CopyOnWriteArrayList<Pair<Int, Int>>()
     var createTerrenoResult: () -> Response<TerrenoCreateResponse> = { noDeclarado("createTerreno") }
     var actualizarTerrenoResult: () -> Response<TerrenoResponse> = { noDeclarado("actualizarTerreno") }
     var eliminarTerrenoResult: () -> Response<Unit> = { noDeclarado("eliminarTerreno") }
@@ -119,9 +120,9 @@ class FakeGDDService : GDDService {
         val terrenoId: Int? = null,
         val plagaId: Int? = null
     )
-    val consultasReportes = mutableListOf<ConsultaReportes>()
+    val consultasReportes = CopyOnWriteArrayList<ConsultaReportes>()
     var getResumenReportesResult: ((ConsultaReportes) -> Response<ConteoReportes>)? = null
-    val consultasResumen = mutableListOf<ConsultaReportes>()
+    val consultasResumen = CopyOnWriteArrayList<ConsultaReportes>()
 
     private fun filtrarServidor(consulta: ConsultaReportes) = reportesServidor.filter {
         it.es_propio == (consulta.ambito == "propios") &&
@@ -301,7 +302,7 @@ class FakeGDDService : GDDService {
         return getResumenReportesResult?.invoke(consulta) ?: Response.success(conteoServidor(consulta))
     }
 
-    val consultasMapa = mutableListOf<Map<String, Any?>>()
+    val consultasMapa = CopyOnWriteArrayList<Map<String, Any?>>()
 
     override suspend fun getReportesMapa(
         sur: Double, oeste: Double, norte: Double, este: Double,
@@ -378,9 +379,9 @@ class FakeGDDService : GDDService {
         { noDeclarado("registrarTratamiento") }
     var actualizarTratamientoResult: () -> Response<com.example.plag_out.TratamientoResponse> = { noDeclarado("actualizarTratamiento") }
     var eliminarTratamientoResult: () -> Response<Unit> = { noDeclarado("eliminarTratamiento") }
-    val tratamientosEnviados = mutableListOf<com.example.plag_out.TratamientoRequest>()
+    val tratamientosEnviados = CopyOnWriteArrayList<com.example.plag_out.TratamientoRequest>()
     // El JSON exacto de cada PATCH, con los null explícitos.
-    val edicionesDeTratamiento = mutableListOf<Pair<Int, com.google.gson.JsonObject>>()
+    val edicionesDeTratamiento = CopyOnWriteArrayList<Pair<Int, com.google.gson.JsonObject>>()
 
     override suspend fun getTratamientos(monitoreoId: Int): Response<List<com.example.plag_out.TratamientoResponse>> {
         llamadas += "getTratamientos"

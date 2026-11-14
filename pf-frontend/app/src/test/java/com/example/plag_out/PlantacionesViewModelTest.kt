@@ -1,6 +1,7 @@
 package com.example.plag_out
 
 import android.content.Context
+import com.example.plag_out.util.esperarCorrutinas
 import androidx.test.core.app.ApplicationProvider
 import com.example.plag_out.AlmacenamientoLocal.CacheTracker
 import com.example.plag_out.AlmacenamientoLocal.PlantacionRepository
@@ -11,7 +12,6 @@ import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -29,7 +29,7 @@ import retrofit2.Response
 class PlantacionesViewModelTest {
 
     @get:Rule
-    val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var context: Context
     private lateinit var gddService: FakeGDDService
@@ -54,6 +54,8 @@ class PlantacionesViewModelTest {
         vm.getPlantaciones(forzar = true)
 
         val estado = esperarEstado(vm.state) { !it.isRefreshing && !it.cargandoMas && it.plantaciones.size == 45 }
+        // El caché se reemplaza después de publicar el estado: esperar a que termine la carga.
+        esperarCorrutinas(vm)
         assertEquals(listOf(20 to 0, 100 to 20), gddService.paginasPlantaciones)
         assertEquals((1..45).toList(), estado.plantaciones.map { it.plantacion_id })
         assertEquals((1..45).toList(), runBlocking { dao.getAll() }.map { it.plantacion_id }.sorted())

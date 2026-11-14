@@ -1,6 +1,7 @@
 package com.example.plag_out
 
 import android.content.Context
+import com.example.plag_out.util.esperarQue
 import androidx.test.core.app.ApplicationProvider
 import com.example.plag_out.AlmacenamientoLocal.BiofixPendiente
 import com.example.plag_out.AlmacenamientoLocal.CacheTracker
@@ -13,7 +14,6 @@ import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -35,7 +35,7 @@ import org.robolectric.annotation.Config
 class MonitoreosViewModelTest {
 
     @get:Rule
-    val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var context: Context
     private lateinit var gddService: FakeGDDService
@@ -183,11 +183,7 @@ class MonitoreosViewModelTest {
         assertEquals(listOf(4), biofix.filas.map { it.monitoreo_id })
     }
 
-    private fun esperarCondicion(condicion: () -> Boolean) {
-        val limite = System.currentTimeMillis() + 2_000
-        while (!condicion() && System.currentTimeMillis() < limite) Thread.sleep(10)
-        assertTrue(condicion())
-    }
+    private fun esperarCondicion(condicion: () -> Boolean) = esperarQue(condicion = condicion)
     @Test
     fun `cierre confirmado archiva ciclos activos en memoria y cache conservando otros estados`() {
         val first = Fixtures.monitoreo(id = 1, plantacionId = 11, ciclos = listOf(

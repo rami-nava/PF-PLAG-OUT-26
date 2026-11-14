@@ -1,6 +1,7 @@
 package com.example.plag_out
 
 import androidx.compose.material3.MaterialTheme
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -13,7 +14,6 @@ import com.example.plag_out.util.esperarEstado
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
@@ -35,6 +35,9 @@ import java.time.LocalDate
 class AdminMetricasGlobalesTest {
 
     @get:Rule
+    // Unconfined es seguro acá: el ViewModel recibe este mismo dispatcher como IO,
+    // así que no hay hilos reales y todo corre en el hilo del test, al instante.
+    // Las pruebas de pantalla lo necesitan porque Compose no avanza un StandardTestDispatcher.
     val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
 
     @get:Rule

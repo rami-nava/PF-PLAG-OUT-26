@@ -1,13 +1,13 @@
 package com.example.plag_out
 
 import android.content.Context
+import com.example.plag_out.util.esperarQue
 import androidx.test.core.app.ApplicationProvider
 import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.fakes.Fixtures
 import com.example.plag_out.util.MainDispatcherRule
 import com.example.plag_out.util.esperarEstado
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit
 class CrearReporteViewModelTest {
 
     @get:Rule
-    val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var context: Context
     private lateinit var gddService: FakeGDDService
@@ -168,7 +168,7 @@ class CrearReporteViewModelTest {
         }
         try {
             viewModel.guardarReporte {}
-            assertTrue(iniciado.await(5, TimeUnit.SECONDS))
+            esperarQue { iniciado.count == 0L }
             viewModel.guardarReporte {}
             assertEquals(1, gddService.vecesLlamado("createReporte"))
         } finally { liberar.countDown() }

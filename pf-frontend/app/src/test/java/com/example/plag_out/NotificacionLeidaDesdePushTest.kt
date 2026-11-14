@@ -1,11 +1,11 @@
 package com.example.plag_out
 
 import android.app.Application
+import com.example.plag_out.util.esperarQue
 import com.example.plag_out.fakes.FakeGDDService
 import com.example.plag_out.fakes.Fixtures
 import com.example.plag_out.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -19,7 +19,7 @@ import retrofit2.Response
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], application = Application::class)
 class NotificacionLeidaDesdePushTest {
-    @get:Rule val mainDispatcherRule = MainDispatcherRule(UnconfinedTestDispatcher())
+    @get:Rule val mainDispatcherRule = MainDispatcherRule()
 
     private val alerta = Fixtures.notificacion(id = 140, tipo = "ALERTA_ML_RIESGO", entidadId = 53)
     private val otra = Fixtures.notificacion(id = 141, tipo = "ALERTA_GDD_CICLO", entidadId = 225)
@@ -56,23 +56,15 @@ class NotificacionLeidaDesdePushTest {
         assertEquals(listOf(otra.id), viewModel.state.value.notificaciones.map { it.id })
     }
 
-    /** El view model hace la llamada en Dispatchers.IO: esperar el resultado, con límite generoso para suites completas. */
     private fun esperarHasta(
         service: FakeGDDService? = null,
         viewModel: NotificacionesViewModel? = null,
         condicion: () -> Boolean
-    ) {
-        val limite = System.currentTimeMillis() + 30_000
-        while (!condicion()) {
-            com.example.plag_out.util.MainDispatcherRule.advanceUntilIdle()
-            try {
-                org.robolectric.shadows.ShadowLooper.idleMainLooper()
-            } catch (_: Throwable) {}
-            if (condicion()) return
-            check(System.currentTimeMillis() < limite) {
-                "La condición no se cumplió en 30 s. service.ultimaNotificacionLeida=${service?.ultimaNotificacionLeida}, state=${viewModel?.state?.value}, llamadas=${service?.llamadas}"
-            }
-            Thread.sleep(5)
-        }
-    }
+    ) = esperarQue(
+        descripcion = {
+            "la condición. ultimaNotificacionLeida=${service?.ultimaNotificacionLeida}, " +
+                "state=${viewModel?.state?.value}, llamadas=${service?.llamadas}"
+        },
+        condicion = condicion
+    )
 }
