@@ -495,7 +495,7 @@ fun MapaReportesScreen(
                     distancia_km = reporte.distancia_km
                 )
                 val json = Uri.encode(Gson().toJson(payload))
-                navController.navigate("ver_reporte/${reporte.id}/$json?ignorar_limite=true")
+                navController.navegarSeguro("ver_reporte/${reporte.id}/$json?ignorar_limite=true")
             },
             modifier = Modifier
                 .align(Alignment.BottomCenter)

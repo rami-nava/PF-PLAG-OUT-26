@@ -239,6 +239,23 @@ class AdminCultivosViewModel(
 
     fun guardar(original: CultivoAdmin?, form: FormularioCultivo, onGuardado: () -> Unit) {
         if (_state.value.guardando || validarCultivo(form).isNotEmpty()) return
+        val nombreClave = normalizarClaveUnica(form.nombre)
+        val cientificoClave = normalizarClaveUnica(form.nombreCientifico)
+        val duplicados = mutableMapOf<CampoCultivo, String>()
+        _state.value.cultivos
+            .filter { it.id != original?.id }
+            .forEach { existente ->
+                if (normalizarClaveUnica(existente.nombre) == nombreClave) {
+                    duplicados[CampoCultivo.NOMBRE] = "Ya existe un cultivo con este nombre"
+                }
+                if (normalizarClaveUnica(existente.nombre_cientifico) == cientificoClave) {
+                    duplicados[CampoCultivo.NOMBRE_CIENTIFICO] = "Ya existe un cultivo con este nombre científico"
+                }
+            }
+        if (duplicados.isNotEmpty()) {
+            _state.value = _state.value.copy(erroresCampo = duplicados, errorAccion = null)
+            return
+        }
         val edicion = original?.let { requestDeEdicionCultivo(it, form) }
         if (original != null && edicion == null) {
             onGuardado() // Nada que guardar

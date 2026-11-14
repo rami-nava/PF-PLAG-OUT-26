@@ -168,6 +168,11 @@ class TerrenosViewModel(
             _state.value = _state.value.copy(error = it)
             return
         }
+        val nombreClave = normalizarClaveUnica(nombreLimpio)
+        if (_state.value.terrenos.any { it.terreno_id != terrenoId && normalizarClaveUnica(it.terreno_nombre) == nombreClave }) {
+            _state.value = _state.value.copy(error = "Ya tenés un terreno con ese nombre")
+            return
+        }
         area!!
 
         _state.value = _state.value.copy(procesando = true, error = null)

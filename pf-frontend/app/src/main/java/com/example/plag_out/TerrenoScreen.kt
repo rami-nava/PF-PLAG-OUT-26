@@ -164,7 +164,7 @@ fun TerrenoScreen(
             ExtendedFloatingActionButton(
                 onClick = {
                     nuevoTerrenoViewModel.resetState()
-                    navController.navigate("datos_terreno")
+                    navController.navegarSeguro("datos_terreno")
                 },
                 containerColor = PlagOutColors.Forest,
                 contentColor = PlagOutColors.TextOnDark,
@@ -288,7 +288,7 @@ fun TerrenoScreen(
                                             terreno = terreno,
                                             monitoreos = monitoreosDelTerreno,
                                             plantacionesActivas = plantacionesActivas.size,
-                                            onClick = { navController.navigate("terreno/${terreno.terreno_id}") }
+                                            onClick = { navController.navegarSeguro("terreno/${terreno.terreno_id}") }
                                         )
                                     }
                                 }

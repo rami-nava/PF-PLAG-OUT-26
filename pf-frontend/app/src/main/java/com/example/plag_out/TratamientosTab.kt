@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,6 +34,17 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val FORMATO_FECHA = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("es"))
+
+private val PRINCIPIOS_ACTIVOS_COMUNES = listOf(
+    "Clorantraniliprol",
+    "Lambda-cialotrina",
+    "Imidacloprid",
+    "Tiametoxam",
+    "Spinosad",
+    "Bacillus thuringiensis",
+    "Abamectina",
+    "Deltametrina"
+)
 
 private fun hoyEnArgentina(): LocalDate = LocalDate.now(ZoneId.of("America/Argentina/Buenos_Aires"))
 
@@ -321,11 +333,24 @@ private fun DialogoTratamiento(
             CampoFormularioAdmin(
                 valor = form.producto,
                 onCambio = { form = form.copy(producto = it.take(120)) },
-                etiqueta = "Producto",
-                placeholder = "Ej: Clorantraniliprole",
+                etiqueta = "Producto (principio activo)",
+                placeholder = "Ej: Clorantraniliprol",
                 error = error(CampoTratamiento.PRODUCTO),
                 tag = "txtProductoTratamiento"
             )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(PRINCIPIOS_ACTIVOS_COMUNES) { principio ->
+                    FilterChip(
+                        selected = normalizarClaveUnica(form.producto) == normalizarClaveUnica(principio),
+                        onClick = { form = form.copy(producto = principio) },
+                        label = { Text(principio, fontSize = 12.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = PlagOutColors.Forest,
+                            selectedLabelColor = PlagOutColors.TextOnDark
+                        )
+                    )
+                }
+            }
 
             Text("Cómo contaste", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

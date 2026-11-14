@@ -6,7 +6,10 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.waitUntilDoesNotExist
+import androidx.compose.ui.test.waitUntilExactlyOneExists
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.plag_out.fakes.FakeGDDService
 import org.junit.Assert.assertEquals
@@ -56,10 +59,11 @@ class CreacionCultivoTest {
     }
 
     private fun agregarPlagaDesdeBuscador(id: Int) {
-        composeRule.onNodeWithTag("btnAgregarPlaga").performClick()
-        composeRule.waitUntilExactlyOneExists(hasTestTag("itemPlagaBuscador_$id"))
+        composeRule.onNodeWithTag("btnAgregarPlaga").performScrollTo().performClick()
+        composeRule.waitUntilExactlyOneExists(hasTestTag("itemPlagaBuscador_$id"), timeoutMillis = 5_000L)
         composeRule.onNodeWithTag("itemPlagaBuscador_$id").performClick()
-        composeRule.waitUntilExactlyOneExists(hasTestTag("filaPlagaCultivo_$id"))
+        composeRule.waitUntilExactlyOneExists(hasTestTag("filaPlagaCultivo_$id"), timeoutMillis = 5_000L)
+        composeRule.waitUntilDoesNotExist(hasTestTag("txtBuscarPlagaCultivo"), timeoutMillis = 5_000L)
     }
 
     @Test
@@ -71,8 +75,8 @@ class CreacionCultivoTest {
         agregarPlagaDesdeBuscador(2)
 
         // Las dos activas ya están vinculadas y la dada de baja no se ofrece: el buscador queda vacío
-        composeRule.onNodeWithTag("btnAgregarPlaga").performClick()
-        composeRule.waitUntilExactlyOneExists(hasTestTag("txtBuscarPlagaCultivo"))
+        composeRule.onNodeWithTag("btnAgregarPlaga").performScrollTo().performClick()
+        composeRule.waitUntilExactlyOneExists(hasTestTag("txtBuscarPlagaCultivo"), timeoutMillis = 5_000L)
         composeRule.onNodeWithText("Todas las plagas activas ya afectan a este cultivo.").assertExists()
         composeRule.onNodeWithTag("itemPlagaBuscador_3").assertDoesNotExist()
     }
