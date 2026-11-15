@@ -527,7 +527,7 @@ private fun GrupoFiltroSeveridad(
 }
 
 @Composable
-private fun PanelHeaderReportes(
+internal fun PanelHeaderReportes(
     tabSeleccionado: Int,
     onTabChange: (Int) -> Unit,
     conteo: ConteoReportes,
@@ -670,7 +670,9 @@ private fun PanelHeaderReportes(
                             if (totalReportes == 1) "alerta" else "alertas",
                             color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
@@ -778,6 +780,8 @@ private fun LeyendaSeveridad(estilo: NivelEstilo, etiqueta: String, cantidad: In
             color = PlagOutColors.TextOnDark.copy(alpha = 0.85f),
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            softWrap = false,
             modifier = Modifier.width(80.dp)
         )
         Spacer(Modifier.width(12.dp))

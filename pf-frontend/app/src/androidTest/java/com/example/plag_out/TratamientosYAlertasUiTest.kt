@@ -173,4 +173,32 @@ class TratamientosYAlertasUiTest {
         assertTrue("Eclosión cerca se partió en varios renglones ($hEclosion)", hEclosion <= 34.dp)
         assertTrue("monitoreos\\nactivos se partió en 3 renglones ($hAnillo)", hAnillo <= 30.dp)
     }
+
+    @Test
+    fun misReportesScreen_responsiveEnPantallaChicaNoCortaLeyendaNiAnillo() {
+        compose.setContent {
+            val baseDensity = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(baseDensity.density, fontScale = 1.15f)
+            ) {
+                MaterialTheme {
+                    Box(Modifier.width(320.dp)) {
+                        PanelHeaderReportes(
+                            tabSeleccionado = 0,
+                            onTabChange = {},
+                            conteo = ConteoReportes(total = 5, alto = 2, medio = 2, bajo = 1),
+                            radioNotificacionKm = 10.0,
+                            onAbrirConfiguracionRadio = {},
+                            onVerMapa = {}
+                        )
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        val hAlertasAnillo = compose.onNodeWithText("alertas", useUnmergedTree = true).assertIsDisplayed().getUnclippedBoundsInRoot().height
+        val hMedio = compose.onNodeWithText("Medio", useUnmergedTree = true).assertIsDisplayed().getUnclippedBoundsInRoot().height
+        assertTrue("alertas en anillo se partió en varios renglones ($hAlertasAnillo)", hAlertasAnillo <= 34.dp)
+        assertTrue("Medio en leyenda se partió en varios renglones ($hMedio)", hMedio <= 34.dp)
+    }
 }
