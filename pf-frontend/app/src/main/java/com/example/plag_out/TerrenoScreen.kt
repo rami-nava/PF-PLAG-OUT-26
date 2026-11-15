@@ -318,7 +318,7 @@ fun TerrenoScreen(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-private fun PanelDeCampoTerrenos(terrenos: List<TerrenoResponse>, monitoreos: List<MonitoreoResponse>) {
+internal fun PanelDeCampoTerrenos(terrenos: List<TerrenoResponse>, monitoreos: List<MonitoreoResponse>) {
     val total = terrenos.size
     val nivelesMax = terrenos.map { t ->
         monitoreos.filter { it.terreno_id == t.terreno_id && it.activo }.maxOfOrNull { nivelAlertaEfectivo(it) } ?: -1
@@ -436,7 +436,9 @@ private fun LeyendaEstadoTerreno(estilo: NivelEstilo, cantidad: Int) {
             color = PlagOutColors.TextOnDark.copy(alpha = 0.85f),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(90.dp)
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.width(120.dp)
         )
         Spacer(Modifier.width(12.dp))
         Text("$valor", color = PlagOutColors.TextOnDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
@@ -521,16 +523,18 @@ fun TerrenoCard(
                             esperando to estiloEsperandoBiofix().color.copy(alpha = 0.45f)
                         ),
                         total = activos.size,
-                        modifier = Modifier.size(66.dp),
-                        grosor = 7.dp
+                        modifier = Modifier.size(72.dp),
+                        grosor = 6.dp
                     ) {
                         // El total (con finalizados) queda abajo, en la fila de estadísticas.
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("${activos.size}", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
+                            Text("${activos.size}", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
                             Text(
                                 if (activos.size == 1) "monitoreo\nactivo" else "monitoreos\nactivos",
-                                fontSize = 8.sp,
-                                lineHeight = 9.sp,
+                                fontSize = 7.5.sp,
+                                lineHeight = 8.5.sp,
+                                maxLines = 2,
+                                softWrap = false,
                                 textAlign = TextAlign.Center,
                                 color = PlagOutColors.TextSecondary
                             )

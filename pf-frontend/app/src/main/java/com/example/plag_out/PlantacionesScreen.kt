@@ -370,6 +370,8 @@ private fun InformacionTerrenoTab(
                         if (monitoreosActivos.size == 1) "monitoreo\nactivo" else "monitoreos\nactivos",
                         fontSize = 10.sp,
                         lineHeight = 11.sp,
+                        maxLines = 2,
+                        softWrap = false,
                         textAlign = TextAlign.Center,
                         color = PlagOutColors.TextSecondary,
                         fontWeight = FontWeight.Medium
@@ -602,7 +604,8 @@ private fun LeyendaEstadoTerreno(estilo: NivelEstilo, cantidad: Int) {
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
-            modifier = Modifier.width(104.dp)
+            softWrap = false,
+            modifier = Modifier.width(120.dp)
         )
         Text("$valor", color = PlagOutColors.TextMain, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }

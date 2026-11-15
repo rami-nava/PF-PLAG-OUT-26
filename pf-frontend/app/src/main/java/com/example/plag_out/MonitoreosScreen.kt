@@ -402,6 +402,8 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
                             color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
                             fontSize = 11.sp,
                             lineHeight = 12.sp,
+                            maxLines = 2,
+                            softWrap = false,
                             textAlign = TextAlign.Center,
                             fontWeight = FontWeight.Medium
                         )
@@ -438,7 +440,8 @@ private fun LeyendaEstado(estilo: NivelEstilo, cantidad: Int) {
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
-            modifier = Modifier.width(112.dp)
+            softWrap = false,
+            modifier = Modifier.width(120.dp)
         )
         Spacer(Modifier.width(12.dp))
         Text("$valor", color = PlagOutColors.TextOnDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -934,6 +937,8 @@ private fun InformacionPlantacionTab(
                         if (activos.size == 1) "monitoreo\nactivo" else "monitoreos\nactivos",
                         fontSize = 10.sp,
                         lineHeight = 11.sp,
+                        maxLines = 2,
+                        softWrap = false,
                         textAlign = TextAlign.Center,
                         color = PlagOutColors.TextSecondary,
                         fontWeight = FontWeight.Medium
@@ -1004,7 +1009,8 @@ private fun LeyendaEstadoTerrenoClaro(estilo: NivelEstilo, cantidad: Int) {
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
-            modifier = Modifier.width(104.dp)
+            softWrap = false,
+            modifier = Modifier.width(120.dp)
         )
         Spacer(Modifier.width(12.dp))
         Text("$valor", color = PlagOutColors.TextMain, fontSize = 14.sp, fontWeight = FontWeight.Bold)
