@@ -54,6 +54,7 @@ class VerReporteScreenTest {
             }
         }
 
+        compose.waitUntil(timeoutMillis = 15000) { viewModel.state.value !is VerReporteUiState.Cargando }
         compose.onNodeWithText("Maíz").performScrollTo().assertExists()
         compose.onNodeWithText("Huevo").performScrollTo().assertExists()
     }
@@ -129,6 +130,7 @@ class VerReporteScreenTest {
             }
         }
 
+        compose.waitUntil(timeoutMillis = 15000) { viewModel.state.value !is VerReporteUiState.Cargando }
         compose.onNodeWithText("Nivel de severidad").performScrollTo().assertExists()
         compose.onNodeWithText("Tus terrenos cercanos").performScrollTo().assertExists()
         compose.onNodeWithText("Lote La Esperanza", substring = true).performScrollTo().assertExists()

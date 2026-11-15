@@ -109,20 +109,21 @@ class UserExperienceAndModulesExhaustiveTest {
 
     @Test
     fun `captura manual de fecha de reporte preserva el instante seleccionado`() {
-        val timestampInicial = System.currentTimeMillis()
         val context: Context = ApplicationProvider.getApplicationContext()
         val fakeGDD = FakeGDDService().apply {
             getTerrenosResult = { retrofit2.Response.success(emptyList()) }
             getPlantacionesResult = { retrofit2.Response.success(emptyList()) }
             getPlagasResult = { retrofit2.Response.success(emptyList()) }
         }
+        val timestampInicial = System.currentTimeMillis()
         val viewModel = CrearReporteViewModel(
             context = context,
             gddService = fakeGDD,
             currentOwner = { "test-owner" }
         )
+        com.example.plag_out.util.esperarCorrutinas(viewModel)
 
-        assertEquals(timestampInicial / 1000, viewModel.state.value.timestampMs / 1000)
+        assertTrue(kotlin.math.abs(viewModel.state.value.timestampMs - timestampInicial) < 5_000)
 
         // El usuario selecciona fecha de hace 2 días (ej. reporte de campo del jueves)
         val haceDosDias = LocalDate.now().minusDays(2).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
@@ -133,6 +134,7 @@ class UserExperienceAndModulesExhaustiveTest {
         // Al pulsar "Actualizar a hora actual", debe retornar a tiempo presente
         viewModel.actualizarTimestamp()
         assertTrue(viewModel.state.value.timestampMs >= timestampInicial)
+        com.example.plag_out.util.cancelarCorrutinas(viewModel)
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

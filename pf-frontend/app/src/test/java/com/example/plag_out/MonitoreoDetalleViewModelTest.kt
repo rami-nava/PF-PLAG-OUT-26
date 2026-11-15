@@ -411,7 +411,7 @@ class MonitoreoDetalleViewModelTest {
     private fun cargado(): Pair<MonitoreoDetalleViewModel, FakeMonitoreoDao> {
         val (vm, dao) = viewModelCon(cache = listOf(Fixtures.monitoreo(id = 1), Fixtures.monitoreo(id = 2)))
         gddService.getMonitoreoResult = { Response.success(Fixtures.monitoreo(id = 1)) }
-        vm.cargar(1)
+        cargarYEsperar(vm, 1)
         esperarEstado(vm.state) { it.monitoreo != null && !it.isLoading }
         return vm to dao
     }
