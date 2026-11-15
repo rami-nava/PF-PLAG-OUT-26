@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.plag_out.ui.theme.AnilloSegmentado
+import com.example.plag_out.ui.theme.EscalaFuenteCompacta
 import com.example.plag_out.ui.theme.EstadoSinResultados
 import com.example.plag_out.ui.theme.EstadoVacioFlotante
 import com.example.plag_out.ui.theme.EncabezadoGrupoFiltro
@@ -653,34 +654,36 @@ internal fun PanelHeaderReportes(
             val estiloMedio = estiloDeNivel(1)
             val estiloBajo = estiloDeNivel(0)
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val totalAnimado = contadorAnimado(totalReportes)
-                AnilloSegmentado(
-                    segmentos = listOf(
-                        conteoAlto to estiloAlto.colorSobreOscuro,
-                        conteoMedio to estiloMedio.colorSobreOscuro,
-                        conteoBajo to estiloBajo.colorSobreOscuro
-                    ),
-                    total = totalReportes,
-                    modifier = Modifier.size(110.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("$totalAnimado", color = PlagOutColors.TextOnDark, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            if (totalReportes == 1) "alerta" else "alertas",
-                            color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+            EscalaFuenteCompacta(maxFontScale = 1.0f) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val totalAnimado = contadorAnimado(totalReportes)
+                    AnilloSegmentado(
+                        segmentos = listOf(
+                            conteoAlto to estiloAlto.colorSobreOscuro,
+                            conteoMedio to estiloMedio.colorSobreOscuro,
+                            conteoBajo to estiloBajo.colorSobreOscuro
+                        ),
+                        total = totalReportes,
+                        modifier = Modifier.size(110.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("$totalAnimado", color = PlagOutColors.TextOnDark, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(
+                                if (totalReportes == 1) "alerta" else "alertas",
+                                color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                     }
-                }
-                Spacer(Modifier.width(24.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    LeyendaSeveridad(estiloAlto, "Alto", conteoAlto)
-                    LeyendaSeveridad(estiloMedio, "Medio", conteoMedio)
-                    LeyendaSeveridad(estiloBajo, "Bajo", conteoBajo)
+                    Spacer(Modifier.width(24.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        LeyendaSeveridad(estiloAlto, "Alto", conteoAlto)
+                        LeyendaSeveridad(estiloMedio, "Medio", conteoMedio)
+                        LeyendaSeveridad(estiloBajo, "Bajo", conteoBajo)
+                    }
                 }
             }
 

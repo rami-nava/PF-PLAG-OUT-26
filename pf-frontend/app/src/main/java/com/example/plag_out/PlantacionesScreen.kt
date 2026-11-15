@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.plag_out.ui.theme.AnilloProgreso
 import com.example.plag_out.ui.theme.AnilloSegmentado
+import com.example.plag_out.ui.theme.EscalaFuenteCompacta
 import com.example.plag_out.ui.theme.EstadisticaCompacta
 import com.example.plag_out.ui.theme.EstadoSinResultados
 import com.example.plag_out.ui.theme.EstadoVacioFlotante
@@ -353,41 +354,49 @@ private fun InformacionTerrenoTab(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 18.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AnilloSegmentado(
-                segmentos = listOf(
-                    sanos to estiloDeNivel(0).color,
-                    atencion to estiloDeNivel(1).color,
-                    criticos to estiloDeNivel(2).color,
-                    esperando to estiloEsperandoBiofix().color.copy(alpha = 0.45f)
-                ),
-                total = monitoreosActivos.size,
-                modifier = Modifier.size(104.dp)
+        EscalaFuenteCompacta(maxFontScale = 1.0f) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("$activosAnimado", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
-                    Text(
-                        if (monitoreosActivos.size == 1) "monitoreo\nactivo" else "monitoreos\nactivos",
-                        fontSize = 10.sp,
-                        lineHeight = 11.sp,
-                        maxLines = 2,
-                        softWrap = false,
-                        textAlign = TextAlign.Center,
-                        color = PlagOutColors.TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
+                AnilloSegmentado(
+                    segmentos = listOf(
+                        sanos to estiloDeNivel(0).color,
+                        atencion to estiloDeNivel(1).color,
+                        criticos to estiloDeNivel(2).color,
+                        esperando to estiloEsperandoBiofix().color.copy(alpha = 0.45f)
+                    ),
+                    total = monitoreosActivos.size,
+                    modifier = Modifier.size(104.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("$activosAnimado", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
+                        Text(
+                            if (monitoreosActivos.size == 1) "monitoreo\nactivo" else "monitoreos\nactivos",
+                            fontSize = 10.sp,
+                            lineHeight = 11.sp,
+                            maxLines = 2,
+                            softWrap = false,
+                            textAlign = TextAlign.Center,
+                            color = PlagOutColors.TextSecondary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
-            }
-            Spacer(Modifier.width(20.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                LeyendaEstadoTerreno(estiloDeNivelPara(0, monitoreosActivos), sanos)
-                LeyendaEstadoTerreno(estiloDeNivelPara(1, monitoreosActivos), atencion)
-                LeyendaEstadoTerreno(estiloDeNivelPara(2, monitoreosActivos), criticos)
-                LeyendaEstadoTerreno(estiloEsperandoBiofix(), esperando)
-                // Fuera del anillo a propósito: son historial, no estado actual.
-                if (finalizados > 0) {
-                    HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.width(150.dp))
-                    LeyendaEstadoTerreno(estiloFinalizado(), finalizados)
+                Spacer(Modifier.width(16.dp))
+                Column(
+                    modifier = Modifier.weight(1f).widthIn(max = 190.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    LeyendaEstadoTerreno(estiloDeNivelPara(0, monitoreosActivos), sanos)
+                    LeyendaEstadoTerreno(estiloDeNivelPara(1, monitoreosActivos), atencion)
+                    LeyendaEstadoTerreno(estiloDeNivelPara(2, monitoreosActivos), criticos)
+                    LeyendaEstadoTerreno(estiloEsperandoBiofix(), esperando)
+                    // Fuera del anillo a propósito: son historial, no estado actual.
+                    if (finalizados > 0) {
+                        HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.fillMaxWidth())
+                        LeyendaEstadoTerreno(estiloFinalizado(), finalizados)
+                    }
                 }
             }
         }
@@ -595,9 +604,12 @@ private fun formatearHectareas(area: Float): String =
 @Composable
 private fun LeyendaEstadoTerreno(estilo: NivelEstilo, cantidad: Int) {
     val valor = contadorAnimado(cantidad)
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Icon(estilo.icono, contentDescription = null, tint = estilo.color, modifier = Modifier.size(15.dp))
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(8.dp))
         Text(
             estilo.etiqueta,
             color = PlagOutColors.TextSecondary,
@@ -605,8 +617,9 @@ private fun LeyendaEstadoTerreno(estilo: NivelEstilo, cantidad: Int) {
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             softWrap = false,
-            modifier = Modifier.width(120.dp)
+            modifier = Modifier.weight(1f)
         )
+        Spacer(Modifier.width(8.dp))
         Text("$valor", color = PlagOutColors.TextMain, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }

@@ -59,6 +59,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -76,6 +78,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -268,6 +271,21 @@ fun SelloDeNivel(
 
 // ── Anillos ──────────────────────────────────────────────────────────────────
 
+/**
+ * Limita la escala de fuente del sistema en paneles compactos (anillos, leyendas y estadísticas)
+ * para que las etiquetas largas ("En desarrollo", "Esperando biofix") no se corten ni desborden
+ * cuando el teléfono tiene configurada una fuente grande de accesibilidad.
+ */
+@Composable
+fun EscalaFuenteCompacta(maxFontScale: Float = 1.0f, content: @Composable () -> Unit) {
+    val density = LocalDensity.current
+    val escalaSegura = density.fontScale.coerceAtMost(maxFontScale)
+    CompositionLocalProvider(
+        LocalDensity provides Density(density.density, fontScale = escalaSegura),
+        content = content
+    )
+}
+
 /** Anillo segmentado (tipo donut) con barrido animado; el centro es libre. */
 @Composable
 fun AnilloSegmentado(
@@ -324,7 +342,9 @@ fun AnilloSegmentado(
                 }
             }
         }
-        contenidoCentral()
+        EscalaFuenteCompacta(maxFontScale = 1.0f) {
+            contenidoCentral()
+        }
     }
 }
 
@@ -363,14 +383,16 @@ fun AnilloProgreso(progreso: Float, color: Color, tamano: Dp, grosor: Dp = 7.dp)
             )
         }
         val pct = progreso.toInt()
-        Text(
-            "$pct%",
-            fontSize = if (pct >= 100) 11.5.sp else 13.5.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = PlagOutColors.TextMain,
-            maxLines = 1,
-            softWrap = false
-        )
+        EscalaFuenteCompacta(maxFontScale = 1.0f) {
+            Text(
+                "$pct%",
+                fontSize = if (pct >= 100) 11.5.sp else 13.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PlagOutColors.TextMain,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
     }
 }
 
@@ -406,15 +428,19 @@ fun EstadisticaCompacta(
     modifier: Modifier = Modifier,
     colorValor: Color = PlagOutColors.TextMain
 ) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(valor, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = colorValor)
-        Text(
-            etiqueta,
-            fontSize = 10.sp,
-            color = PlagOutColors.TextSecondary,
-            fontWeight = FontWeight.Medium,
-            letterSpacing = 0.3.sp
-        )
+    EscalaFuenteCompacta(maxFontScale = 1.0f) {
+        Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(valor, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = colorValor, maxLines = 1, softWrap = false)
+            Text(
+                etiqueta,
+                fontSize = 10.sp,
+                color = PlagOutColors.TextSecondary,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.3.sp,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
     }
 }
 

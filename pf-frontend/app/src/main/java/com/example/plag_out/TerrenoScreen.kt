@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.plag_out.ui.theme.AnilloSegmentado
+import com.example.plag_out.ui.theme.EscalaFuenteCompacta
 import com.example.plag_out.ui.theme.EstadisticaCompacta
 import com.example.plag_out.ui.theme.EstadoSinResultados
 import com.example.plag_out.ui.theme.EstadoVacioFlotante
@@ -376,34 +377,42 @@ internal fun PanelDeCampoTerrenos(terrenos: List<TerrenoResponse>, monitoreos: L
 
             Spacer(Modifier.height(10.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val totalAnimado = contadorAnimado(total)
-                AnilloSegmentado(
-                    segmentos = listOf(
-                        sanos to estiloDeNivel(0).colorSobreOscuro,
-                        atencion to estiloDeNivel(1).colorSobreOscuro,
-                        criticos to estiloDeNivel(2).colorSobreOscuro,
-                        sinDatos to estiloDeNivel(-1).colorSobreOscuro
-                    ),
-                    total = total,
-                    modifier = Modifier.size(110.dp)
+            EscalaFuenteCompacta(maxFontScale = 1.0f) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("$totalAnimado", color = PlagOutColors.TextOnDark, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            if (total == 1) "lote" else "lotes",
-                            color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                    val totalAnimado = contadorAnimado(total)
+                    AnilloSegmentado(
+                        segmentos = listOf(
+                            sanos to estiloDeNivel(0).colorSobreOscuro,
+                            atencion to estiloDeNivel(1).colorSobreOscuro,
+                            criticos to estiloDeNivel(2).colorSobreOscuro,
+                            sinDatos to estiloDeNivel(-1).colorSobreOscuro
+                        ),
+                        total = total,
+                        modifier = Modifier.size(110.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("$totalAnimado", color = PlagOutColors.TextOnDark, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(
+                                if (total == 1) "lote" else "lotes",
+                                color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
-                }
-                Spacer(Modifier.width(20.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    LeyendaEstadoTerreno(estiloDeNivelPara(0, definen), sanos)
-                    LeyendaEstadoTerreno(estiloDeNivelPara(1, definen), atencion)
-                    LeyendaEstadoTerreno(estiloDeNivelPara(2, definen), criticos)
-                    LeyendaEstadoTerreno(estiloDeNivel(-1), sinDatos)
+                    Spacer(Modifier.width(16.dp))
+                    Column(
+                        modifier = Modifier.weight(1f).widthIn(max = 190.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        LeyendaEstadoTerreno(estiloDeNivelPara(0, definen), sanos)
+                        LeyendaEstadoTerreno(estiloDeNivelPara(1, definen), atencion)
+                        LeyendaEstadoTerreno(estiloDeNivelPara(2, definen), criticos)
+                        LeyendaEstadoTerreno(estiloDeNivel(-1), sinDatos)
+                    }
                 }
             }
 
@@ -428,7 +437,10 @@ internal fun PanelDeCampoTerrenos(terrenos: List<TerrenoResponse>, monitoreos: L
 @Composable
 private fun LeyendaEstadoTerreno(estilo: NivelEstilo, cantidad: Int) {
     val valor = contadorAnimado(cantidad)
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Icon(estilo.icono, contentDescription = null, tint = estilo.colorSobreOscuro, modifier = Modifier.size(15.dp))
         Spacer(Modifier.width(8.dp))
         Text(
@@ -438,9 +450,9 @@ private fun LeyendaEstadoTerreno(estilo: NivelEstilo, cantidad: Int) {
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             softWrap = false,
-            modifier = Modifier.width(120.dp)
+            modifier = Modifier.weight(1f)
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(8.dp))
         Text("$valor", color = PlagOutColors.TextOnDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }

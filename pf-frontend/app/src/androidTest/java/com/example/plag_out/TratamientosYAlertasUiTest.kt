@@ -143,7 +143,7 @@ class TratamientosYAlertasUiTest {
         compose.setContent {
             val baseDensity = LocalDensity.current
             CompositionLocalProvider(
-                LocalDensity provides Density(baseDensity.density, fontScale = 1.15f)
+                LocalDensity provides Density(baseDensity.density, fontScale = 1.35f)
             ) {
                 MaterialTheme {
                     Box(Modifier.width(320.dp)) {
@@ -164,14 +164,15 @@ class TratamientosYAlertasUiTest {
             }
         }
         compose.waitForIdle()
-        // "En desarrollo" y "Eclosión cerca" no deben partirse en múltiples renglones
-        // (1 renglón con fontScale=1.15f mide ~27.7.dp; 2 renglones superarían ~50.dp)
-        val hDesarrollo = compose.onNodeWithText("En desarrollo", useUnmergedTree = true).assertIsDisplayed().getUnclippedBoundsInRoot().height
-        val hEclosion = compose.onNodeWithText("Eclosión cerca", useUnmergedTree = true).assertIsDisplayed().getUnclippedBoundsInRoot().height
-        val hAnillo = compose.onNodeWithText("monitoreos\nactivos", useUnmergedTree = true).assertIsDisplayed().getUnclippedBoundsInRoot().height
-        assertTrue("En desarrollo se partió en varios renglones ($hDesarrollo)", hDesarrollo <= 34.dp)
-        assertTrue("Eclosión cerca se partió en varios renglones ($hEclosion)", hEclosion <= 34.dp)
-        assertTrue("monitoreos\\nactivos se partió en 3 renglones ($hAnillo)", hAnillo <= 30.dp)
+        // "En desarrollo" y "Eclosión cerca" no deben partirse ni desbordar con fontScale=1.35f
+        val boundsDesarrollo = compose.onNodeWithText("En desarrollo", useUnmergedTree = true).assertIsDisplayed().getUnclippedBoundsInRoot()
+        val boundsEclosion = compose.onNodeWithText("Eclosión cerca", useUnmergedTree = true).assertIsDisplayed().getUnclippedBoundsInRoot()
+        val boundsAnillo = compose.onNodeWithText("monitoreos\nactivos", useUnmergedTree = true).assertIsDisplayed().getUnclippedBoundsInRoot()
+        val anchoAnillo = boundsAnillo.right - boundsAnillo.left
+        assertTrue("En desarrollo se partió en varios renglones (${boundsDesarrollo.height})", boundsDesarrollo.height <= 30.dp)
+        assertTrue("Eclosión cerca se partió en varios renglones (${boundsEclosion.height})", boundsEclosion.height <= 30.dp)
+        assertTrue("monitoreos\\nactivos se partió en 3 renglones (${boundsAnillo.height})", boundsAnillo.height <= 26.dp)
+        assertTrue("monitoreos\\nactivos toca el borde del anillo de 72.dp ($anchoAnillo)", anchoAnillo <= 58.dp)
     }
 
     @Test

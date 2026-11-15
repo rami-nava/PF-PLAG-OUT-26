@@ -73,6 +73,7 @@ import androidx.navigation.NavHostController
 import com.example.plag_out.ui.theme.AnilloProgreso
 import com.example.plag_out.ui.theme.AnilloSegmentado
 import com.example.plag_out.ui.theme.CargandoCentrado
+import com.example.plag_out.ui.theme.EscalaFuenteCompacta
 import com.example.plag_out.ui.theme.EstadisticaCompacta
 import com.example.plag_out.ui.theme.EstadoSinResultados
 import com.example.plag_out.ui.theme.EstadoVacioFlotante
@@ -383,45 +384,53 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
 
             Spacer(Modifier.height(18.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val totalAnimado = contadorAnimado(total)
-                AnilloSegmentado(
-                    segmentos = listOf(
-                        bajo to estiloDeNivel(0).colorSobreOscuro,
-                        moderado to estiloDeNivel(1).colorSobreOscuro,
-                        alto to estiloDeNivel(2).colorSobreOscuro,
-                        esperando to estiloEsperandoBiofix().colorSobreOscuro.copy(alpha = 0.55f)
-                    ),
-                    total = total,
-                    modifier = Modifier.size(110.dp)
+            EscalaFuenteCompacta(maxFontScale = 1.0f) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("$totalAnimado", color = PlagOutColors.TextOnDark, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            if (total == 1) "monitoreo\nactivo" else "monitoreos\nactivos",
-                            color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
-                            fontSize = 11.sp,
-                            lineHeight = 12.sp,
-                            maxLines = 2,
-                            softWrap = false,
-                            textAlign = TextAlign.Center,
-                            fontWeight = FontWeight.Medium
-                        )
+                    val totalAnimado = contadorAnimado(total)
+                    AnilloSegmentado(
+                        segmentos = listOf(
+                            bajo to estiloDeNivel(0).colorSobreOscuro,
+                            moderado to estiloDeNivel(1).colorSobreOscuro,
+                            alto to estiloDeNivel(2).colorSobreOscuro,
+                            esperando to estiloEsperandoBiofix().colorSobreOscuro.copy(alpha = 0.55f)
+                        ),
+                        total = total,
+                        modifier = Modifier.size(110.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("$totalAnimado", color = PlagOutColors.TextOnDark, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(
+                                if (total == 1) "monitoreo\nactivo" else "monitoreos\nactivos",
+                                color = PlagOutColors.TextOnDark.copy(alpha = 0.75f),
+                                fontSize = 11.sp,
+                                lineHeight = 12.sp,
+                                maxLines = 2,
+                                softWrap = false,
+                                textAlign = TextAlign.Center,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
-                }
-                Spacer(Modifier.width(24.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        "NIVEL DE ALERTA",
-                        color = PlagOutColors.TextOnDark.copy(alpha = 0.6f),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp
-                    )
-                    LeyendaEstado(estiloDeNivelPara(0, monitoreos), bajo)
-                    LeyendaEstado(estiloDeNivelPara(1, monitoreos), moderado)
-                    LeyendaEstado(estiloDeNivelPara(2, monitoreos), alto)
-                    LeyendaEstado(estiloEsperandoBiofix(), esperando)
+                    Spacer(Modifier.width(16.dp))
+                    Column(
+                        modifier = Modifier.weight(1f).widthIn(max = 195.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            "NIVEL DE ALERTA",
+                            color = PlagOutColors.TextOnDark.copy(alpha = 0.6f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp
+                        )
+                        LeyendaEstado(estiloDeNivelPara(0, monitoreos), bajo)
+                        LeyendaEstado(estiloDeNivelPara(1, monitoreos), moderado)
+                        LeyendaEstado(estiloDeNivelPara(2, monitoreos), alto)
+                        LeyendaEstado(estiloEsperandoBiofix(), esperando)
+                    }
                 }
             }
         }
@@ -431,7 +440,10 @@ private fun PanelDeCampo(monitoreos: List<MonitoreoResponse>) {
 @Composable
 private fun LeyendaEstado(estilo: NivelEstilo, cantidad: Int) {
     val valor = contadorAnimado(cantidad)
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Icon(estilo.icono, contentDescription = null, tint = estilo.colorSobreOscuro, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(8.dp))
         Text(
@@ -441,9 +453,9 @@ private fun LeyendaEstado(estilo: NivelEstilo, cantidad: Int) {
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             softWrap = false,
-            modifier = Modifier.width(120.dp)
+            modifier = Modifier.weight(1f)
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(8.dp))
         Text("$valor", color = PlagOutColors.TextOnDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     }
 }
@@ -920,41 +932,49 @@ private fun InformacionPlantacionTab(
 
         Spacer(Modifier.height(18.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AnilloSegmentado(
-                segmentos = listOf(
-                    sanos to estiloDeNivel(0).color,
-                    atencion to estiloDeNivel(1).color,
-                    criticos to estiloDeNivel(2).color,
-                    esperando to estiloEsperandoBiofix().color.copy(alpha = 0.45f)
-                ),
-                total = activos.size,
-                modifier = Modifier.size(104.dp)
+        EscalaFuenteCompacta(maxFontScale = 1.0f) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("$activosAnimado", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
-                    Text(
-                        if (activos.size == 1) "monitoreo\nactivo" else "monitoreos\nactivos",
-                        fontSize = 10.sp,
-                        lineHeight = 11.sp,
-                        maxLines = 2,
-                        softWrap = false,
-                        textAlign = TextAlign.Center,
-                        color = PlagOutColors.TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
+                AnilloSegmentado(
+                    segmentos = listOf(
+                        sanos to estiloDeNivel(0).color,
+                        atencion to estiloDeNivel(1).color,
+                        criticos to estiloDeNivel(2).color,
+                        esperando to estiloEsperandoBiofix().color.copy(alpha = 0.45f)
+                    ),
+                    total = activos.size,
+                    modifier = Modifier.size(104.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("$activosAnimado", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = PlagOutColors.TextMain)
+                        Text(
+                            if (activos.size == 1) "monitoreo\nactivo" else "monitoreos\nactivos",
+                            fontSize = 10.sp,
+                            lineHeight = 11.sp,
+                            maxLines = 2,
+                            softWrap = false,
+                            textAlign = TextAlign.Center,
+                            color = PlagOutColors.TextSecondary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
-            }
-            Spacer(Modifier.width(20.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                LeyendaEstadoTerrenoClaro(estiloDeNivelPara(0, activos), sanos)
-                LeyendaEstadoTerrenoClaro(estiloDeNivelPara(1, activos), atencion)
-                LeyendaEstadoTerrenoClaro(estiloDeNivelPara(2, activos), criticos)
-                LeyendaEstadoTerrenoClaro(estiloEsperandoBiofix(), esperando)
-                // Fuera del anillo a propósito: son historial, no estado actual.
-                if (finalizados > 0) {
-                    HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.width(140.dp))
-                    LeyendaEstadoTerrenoClaro(estiloFinalizado(), finalizados)
+                Spacer(Modifier.width(16.dp))
+                Column(
+                    modifier = Modifier.weight(1f).widthIn(max = 190.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    LeyendaEstadoTerrenoClaro(estiloDeNivelPara(0, activos), sanos)
+                    LeyendaEstadoTerrenoClaro(estiloDeNivelPara(1, activos), atencion)
+                    LeyendaEstadoTerrenoClaro(estiloDeNivelPara(2, activos), criticos)
+                    LeyendaEstadoTerrenoClaro(estiloEsperandoBiofix(), esperando)
+                    // Fuera del anillo a propósito: son historial, no estado actual.
+                    if (finalizados > 0) {
+                        HorizontalDivider(color = PlagOutColors.Divider, modifier = Modifier.fillMaxWidth())
+                        LeyendaEstadoTerrenoClaro(estiloFinalizado(), finalizados)
+                    }
                 }
             }
         }
@@ -1000,7 +1020,10 @@ private fun InformacionPlantacionTab(
 @Composable
 private fun LeyendaEstadoTerrenoClaro(estilo: NivelEstilo, cantidad: Int) {
     val valor = contadorAnimado(cantidad)
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Icon(estilo.icono, contentDescription = null, tint = estilo.color, modifier = Modifier.size(15.dp))
         Spacer(Modifier.width(8.dp))
         Text(
@@ -1010,9 +1033,9 @@ private fun LeyendaEstadoTerrenoClaro(estilo: NivelEstilo, cantidad: Int) {
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             softWrap = false,
-            modifier = Modifier.width(120.dp)
+            modifier = Modifier.weight(1f)
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(8.dp))
         Text("$valor", color = PlagOutColors.TextMain, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }
