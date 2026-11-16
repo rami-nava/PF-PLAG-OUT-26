@@ -37,7 +37,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.outlined.BugReport
@@ -735,7 +735,7 @@ fun CrearReporteScreen(
                             }
 
                             IconButton(onClick = { viewModel.actualizarTimestamp() }) {
-                                Icon(Icons.Filled.AccessTime, contentDescription = "Actualizar a la hora actual", tint = PlagOutColors.Forest)
+                                Icon(Icons.Filled.Refresh, contentDescription = "Actualizar a la hora actual", tint = PlagOutColors.Forest)
                             }
                         }
                     }
