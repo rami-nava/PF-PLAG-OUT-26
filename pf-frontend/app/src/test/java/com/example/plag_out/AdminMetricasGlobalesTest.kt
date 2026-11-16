@@ -127,7 +127,7 @@ class AdminMetricasGlobalesTest {
         assertEquals(75f, semaforo.porcentajeRojo, 0.01f)
 
         val (critico, inminente) = estado.lotesCriticos
-        assertEquals("Lote anónimo 1", critico.terrenoNombre)
+        assertEquals("Monitoreo 1", critico.terrenoNombre)
         assertEquals(2, critico.nivelAlerta)
         assertEquals(82f, inminente.progresoGdd, 0.01f)
         assertTrue(estado.lotesCriticos.all { it.monitoreoId < 0 })

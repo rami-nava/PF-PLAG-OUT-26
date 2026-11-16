@@ -259,11 +259,17 @@ fun agruparPorCampaña(
             .mapNotNull { terrenosMap[it]?.terreno_area }
             .sum()
 
-        val porPlaga = listaMonitoreos.groupBy { it.plaga_nombre.trim() }
+        // Las plagas de la campaña (predominante, prevalencia y desglose por cultivo) salen solo de
+        // los monitoreos que registraron la plaga: con al menos un ciclo, activo o finalizado. Los
+        // que siguen esperando el biofix cuentan en los totales de la campaña, pero no acá.
+        val conCiclos = listaMonitoreos.filter { it.ciclos.orEmpty().isNotEmpty() }
+        val totalConCiclos = conCiclos.size
+
+        val porPlaga = conCiclos.groupBy { it.plaga_nombre.trim() }
 
         val resumenPlagas = porPlaga.map { (nombrePlaga, items) ->
             val totalPlaga = items.size
-            val incidencia = if (totalCampaña > 0) (totalPlaga * 100f / totalCampaña) else 0f
+            val incidencia = if (totalConCiclos > 0) (totalPlaga * 100f / totalConCiclos) else 0f
             val enAlto = items.count { (nivelAlertaResuelto(it) ?: -1) >= 2 }
             val pctAlto = if (totalPlaga > 0) (enAlto * 100f / totalPlaga) else 0f
             val niveles = items.mapNotNull { nivelAlertaResuelto(it) }
@@ -290,7 +296,7 @@ fun agruparPorCampaña(
             )
         }.sortedWith(compareByDescending<ResumenPlagaCampaña> { it.totalMonitoreos }.thenBy { it.plagaNombre })
 
-        val resumenCultivos = listaMonitoreos
+        val resumenCultivos = conCiclos
             .filter { it.cultivo_nombre.isNotBlank() }
             .groupBy { it.cultivo_nombre.trim() }
             .map { (nombreCultivo, msCultivo) ->
@@ -430,13 +436,14 @@ fun calcularPlagasPorCultivo(
     plantaciones: List<PlantacionesResponse> = emptyList(),
     fechaReferencia: LocalDate = LocalDate.now()
 ): List<ResumenCultivoPlagas> {
-    if (monitoreos.isEmpty()) return emptyList()
+    // Solo monitoreos activos con al menos un ciclo activo: los que esperan el biofix o tienen
+    // todos sus ciclos finalizados no suman lotes a la incidencia.
+    val monitoreosParaAnalisis = monitoreos.filter { it.activo && ciclosActivos(it).isNotEmpty() }
+    if (monitoreosParaAnalisis.isEmpty()) return emptyList()
 
     val terrenosMap = terrenos.associateBy { it.terreno_id }
     val plantacionesPorCultivo = plantaciones.groupBy { it.cultivo_nombre.trim() }
 
-    // Preferir monitoreos activos de la campaña en curso
-    val monitoreosParaAnalisis = monitoreos.filter { it.activo }.ifEmpty { monitoreos }
     val porCultivo = monitoreosParaAnalisis.groupBy { it.cultivo_nombre.trim() }
 
     return porCultivo.map { (cultivo, lista) ->
@@ -631,7 +638,7 @@ private fun recomendacionConHuevo(estado: EstadoVentanaControl): String = when (
         "Recorrer el lote: las larvas chicas son las más sensibles al control y la aplicación se decide con el umbral de daño del cultivo."
 }
 
-private fun nombreLoteAnonimo(posicion: Int) = "Lote anónimo ${posicion + 1}"
+private fun nombreLoteAnonimo(posicion: Int) = "Monitoreo ${posicion + 1}"
 
 fun AdminMetricasUIState.conMetricasGlobales(metricas: MetricasAdmin): AdminMetricasUIState {
     val campañas = metricas.campanias.map { campaña ->
