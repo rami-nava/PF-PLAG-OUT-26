@@ -278,7 +278,7 @@ private fun HeaderAgregarPlantacion(onBack: () -> Unit) {
             Modifier
                 .align(Alignment.TopEnd)
                 .offset(x = 50.dp, y = (-40).dp)
-                .size(150.dp)
+                .size(50.dp)
                 .graphicsLayer { scaleX = escalaDecorativa; scaleY = escalaDecorativa }
                 .background(PlagOutColors.TextOnDark.copy(alpha = 0.06f), CircleShape)
         )
