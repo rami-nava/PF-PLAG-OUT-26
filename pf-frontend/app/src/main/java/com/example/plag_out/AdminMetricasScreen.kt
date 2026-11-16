@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -606,6 +607,8 @@ private fun ItemDesgloseSemaforo(
     }
 }
 
+private const val PAGINA_MONITOREOS_ETAPA = 5
+
 @Composable
 private fun TarjetaRankingLotesCriticos(lotes: List<LoteEnRiesgoCritico>) {
     Surface(
@@ -619,7 +622,7 @@ private fun TarjetaRankingLotesCriticos(lotes: List<LoteEnRiesgoCritico>) {
                 Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = PlagOutColors.Terracotta, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Lotes por etapa", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
+                    Text("Monitoreos por etapa", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
                     Text("Del más avanzado al menos avanzado según la etapa y el avance hacia la eclosión", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
@@ -629,12 +632,30 @@ private fun TarjetaRankingLotesCriticos(lotes: List<LoteEnRiesgoCritico>) {
             if (lotes.isEmpty()) {
                 Text("No hay monitoreos activos con mediciones.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
             } else {
-                lotes.take(5).forEachIndexed { index, lote ->
+                // Se muestran de a PAGINA_MONITOREOS_ETAPA; "Ver más" suma la página siguiente.
+                var visibles by rememberSaveable { mutableIntStateOf(PAGINA_MONITOREOS_ETAPA) }
+                val mostrados = lotes.take(visibles)
+                mostrados.forEachIndexed { index, lote ->
                     ItemFilaLoteCritico(lote = lote)
-                    if (index < lotes.take(5).size - 1) {
+                    if (index < mostrados.size - 1) {
                         Spacer(Modifier.height(10.dp))
                         HorizontalDivider(color = PlagOutColors.Divider.copy(alpha = 0.5f))
                         Spacer(Modifier.height(10.dp))
+                    }
+                }
+                val restantes = lotes.size - mostrados.size
+                if (restantes > 0) {
+                    Spacer(Modifier.height(6.dp))
+                    TextButton(
+                        onClick = { visibles += PAGINA_MONITOREOS_ETAPA },
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Text(
+                            "Ver más ($restantes ${if (restantes == 1) "restante" else "restantes"})",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = PlagOutColors.Leaf
+                        )
                     }
                 }
             }
@@ -754,14 +775,14 @@ private fun TarjetaPlagasPorCultivo(cultivos: List<ResumenCultivoPlagas>) {
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text("Plagas Incidentes por Cultivo", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
-                    Text("Prevalencia de plagas en los lotes monitoreados", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
+                    Text("Prevalencia de plagas en los lotes con ciclos activos", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
 
             Spacer(Modifier.height(16.dp))
 
             if (cultivos.isEmpty()) {
-                Text("No hay cultivos registrados con monitoreos.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
+                Text("No hay cultivos con ciclos activos.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
             } else {
                 cultivos.forEachIndexed { index, cultivo ->
                     BloqueCultivoPlagas(cultivo = cultivo)
@@ -1654,14 +1675,14 @@ private fun TarjetaMonitoreosPorCultivoCampaña(campaña: CampañaHistorica) {
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text("Monitoreos por Cultivo y Plaga", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = PlagOutColors.TextMain)
-                    Text("Total de monitoreos registrados en la campaña (activos y finalizados)", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
+                    Text("Monitoreos de la campaña que registraron la plaga (con ciclos activos o finalizados)", fontSize = 12.sp, color = PlagOutColors.TextSecondary)
                 }
             }
 
             Spacer(Modifier.height(16.dp))
 
             if (campaña.cultivos.isEmpty()) {
-                Text("No hay cultivos con monitoreos en esta campaña.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
+                Text("No hay cultivos con plagas registradas en esta campaña.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
             } else {
                 campaña.cultivos.forEachIndexed { index, cultivo ->
                     BloqueCultivoCampaña(cultivo = cultivo)

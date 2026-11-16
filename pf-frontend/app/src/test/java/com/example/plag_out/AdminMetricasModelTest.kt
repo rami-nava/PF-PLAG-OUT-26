@@ -296,6 +296,73 @@ class AdminMetricasModelTest {
     }
 
     @Test
+    fun `calcularPlagasPorCultivo solo cuenta lotes con al menos un ciclo activo`() {
+        val terrenos = listOf(
+            TerrenoResponse(1, "Lote 1", -31.4f, -64.1f, 10f),
+            TerrenoResponse(2, "Lote 2", -31.5f, -64.2f, 20f),
+            TerrenoResponse(3, "Lote 3", -31.6f, -64.3f, 30f)
+        )
+        val finalizado = GddCicloResponse(
+            id = 900, monitoreo_id = 2, fecha_biofix = "2026-10-01", estado = "finalizado",
+            fecha_actualizacion = "2026-10-10", gdd_acumulado = 100f, gdd_diario = 0f,
+            gdd_eclosion = 100f, gdd_generacion = 300f, progreso = 100f,
+            estadio_biologico = "", nivel_alerta = 2, dias_pendientes = 0
+        )
+        val monitoreos = listOf(
+            monitoreoDePrueba(1, 1, 1, "Lote 1", "Maíz", "Cogollero"),
+            monitoreoDePrueba(2, 2, 2, "Lote 2", "Maíz", "Cogollero", ciclos = listOf(finalizado)),
+            monitoreoDePrueba(3, 3, 3, "Lote 3", "Maíz", "Barrenador", ciclos = emptyList())
+        )
+
+        val maiz = calcularPlagasPorCultivo(monitoreos, terrenos).single()
+
+        assertEquals(1, maiz.totalLotes)
+        assertEquals(10f, maiz.totalHectareas, 0.01f)
+        assertEquals(listOf("Cogollero"), maiz.plagas.map { it.plagaNombre })
+        assertEquals(100f, maiz.plagas.single().porcentaje, 0.01f)
+    }
+
+    @Test
+    fun `calcularPlagasPorCultivo sin ciclos activos no muestra cultivos`() {
+        val monitoreos = listOf(
+            monitoreoDePrueba(1, 1, 1, "Lote 1", "Maíz", "Cogollero", ciclos = emptyList()),
+            monitoreoDePrueba(2, 2, 2, "Lote 2", "Maíz", "Cogollero", activo = false)
+        )
+
+        assertTrue(calcularPlagasPorCultivo(monitoreos).isEmpty())
+    }
+
+    @Test
+    fun `agruparPorCampaña en plagas y cultivos solo cuenta los que registraron la plaga`() {
+        val finalizado = GddCicloResponse(
+            id = 900, monitoreo_id = 2, fecha_biofix = "2025-11-01", estado = "finalizado",
+            fecha_actualizacion = "2025-11-20", gdd_acumulado = 100f, gdd_diario = 0f,
+            gdd_eclosion = 100f, gdd_generacion = 300f, progreso = 100f,
+            estadio_biologico = "", nivel_alerta = 2, dias_pendientes = 0
+        )
+        val fecha = LocalDate.of(2025, 11, 10)
+        val monitoreos = listOf(
+            monitoreoDePrueba(1, 1, 1, "Lote 1", "Maíz", "Cogollero", fecha_actualizacion = fecha),
+            monitoreoDePrueba(2, 1, 1, "Lote 1", "Maíz", "Cogollero", fecha_actualizacion = fecha, activo = false, ciclos = listOf(finalizado)),
+            monitoreoDePrueba(3, 2, 2, "Lote 2", "Maíz", "Barrenador", fecha_actualizacion = fecha, ciclos = emptyList()),
+            monitoreoDePrueba(4, 3, 3, "Lote 3", "Soja", "Chinche", fecha_actualizacion = fecha, ciclos = emptyList())
+        )
+
+        val camp = agruparPorCampaña(monitoreos).single()
+
+        // La campaña sigue contando todos; plagas y desglose por cultivo, solo los que tienen ciclos.
+        assertEquals(4, camp.totalMonitoreos)
+        assertEquals(listOf("Cogollero"), camp.plagas.map { it.plagaNombre })
+        assertEquals("Cogollero", camp.plagaPredominante?.plagaNombre)
+        assertEquals(100f, camp.plagaPredominante?.porcentajeIncidencia ?: 0f, 0.01f)
+        assertEquals(1, camp.cantidadPlagasDistintas)
+        val maiz = camp.cultivos.single()
+        assertEquals("Maíz", maiz.cultivoNombre)
+        assertEquals(2, maiz.totalMonitoreos)
+        assertEquals(listOf("Cogollero"), maiz.plagas.map { it.plagaNombre })
+    }
+
+    @Test
     fun `calcularVentanasControlAgronomo muestra la etapa termica del ciclo y no ventanas por porcentaje`() {
         val monitoreos = listOf(
             monitoreoDePrueba(
