@@ -1817,6 +1817,11 @@ private fun TarjetaPrevalenciaPlagas(campaña: CampañaHistorica) {
 
             Spacer(Modifier.height(14.dp))
 
+            // Pasa cuando todos los monitoreos de la campaña esperan el biofix.
+            if (campaña.plagas.isEmpty()) {
+                Text("Ningún monitoreo registró la plaga en esta campaña.", fontSize = 13.sp, color = PlagOutColors.TextSecondary)
+            }
+
             campaña.plagas.forEachIndexed { index, plaga ->
                 FilaPlagaPrevalencia(posicion = index + 1, plaga = plaga, totalMonitoreosCampaña = campaña.totalMonitoreos)
                 if (index < campaña.plagas.size - 1) {
