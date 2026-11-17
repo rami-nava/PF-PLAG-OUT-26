@@ -363,6 +363,26 @@ class AdminMetricasModelTest {
     }
 
     @Test
+    fun `plagaLiderHistorica coincide con la predominante de la campaña`() {
+        val fecha = LocalDate.of(2025, 11, 10)
+        val monitoreos = listOf(
+            // Barrenador tiene más monitoreos, pero dos esperan el biofix: no cuentan.
+            monitoreoDePrueba(1, 1, 1, "Lote 1", "Maíz", "Barrenador", fecha_actualizacion = fecha, ciclos = emptyList()),
+            monitoreoDePrueba(2, 1, 1, "Lote 1", "Maíz", "Barrenador", fecha_actualizacion = fecha, ciclos = emptyList()),
+            monitoreoDePrueba(3, 1, 1, "Lote 1", "Maíz", "Barrenador", fecha_actualizacion = fecha),
+            monitoreoDePrueba(4, 2, 2, "Lote 2", "Maíz", "Cogollero", fecha_actualizacion = fecha),
+            // Empate 1 a 1 entre Barrenador y Cogollero con ciclos: gana el primero por nombre.
+        )
+
+        assertEquals("Barrenador", plagaLiderHistorica(monitoreos))
+        assertEquals(agruparPorCampaña(monitoreos).single().plagaPredominante?.plagaNombre, plagaLiderHistorica(monitoreos))
+
+        val sinBarrenadorMedido = monitoreos.filter { it.monitoreo_id != 3 }
+        assertEquals("Cogollero", plagaLiderHistorica(sinBarrenadorMedido))
+        assertNull(plagaLiderHistorica(monitoreos.filter { it.ciclos.isNullOrEmpty() }))
+    }
+
+    @Test
     fun `calcularVentanasControlAgronomo muestra la etapa termica del ciclo y no ventanas por porcentaje`() {
         val monitoreos = listOf(
             monitoreoDePrueba(

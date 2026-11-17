@@ -103,10 +103,7 @@ class AdminMetricasViewModel(
                     .mapNotNull { terrenosMap[it]?.terreno_area }
                     .sum()
 
-                val plagaLider = monitoreos
-                    .groupBy { it.plaga_nombre.trim() }
-                    .maxByOrNull { it.value.size }
-                    ?.key
+                val plagaLider = plagaLiderHistorica(monitoreos)
 
                 // 2. Perspectiva Productor (Operativa & Campo)
                 val semaforoHa = calcularSemaforoHectareas(monitoreos, terrenos)

@@ -345,6 +345,21 @@ fun agruparPorCampaña(
 }
 
 /**
+ * Plaga con más monitoreos en todo el histórico, con el mismo criterio que la predominante de cada
+ * campaña: solo monitoreos que registraron la plaga (al menos un ciclo, activo o finalizado) y, si
+ * empatan, la primera por nombre.
+ */
+fun plagaLiderHistorica(monitoreos: List<MonitoreoResponse>): String? =
+    monitoreos
+        .filter { it.ciclos.orEmpty().isNotEmpty() }
+        .groupingBy { it.plaga_nombre.trim() }
+        .eachCount()
+        .entries
+        .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+        .firstOrNull()
+        ?.key
+
+/**
  * Calcula el semáforo de superficie de hectáreas en riesgo agrupando lotes por su peor nivel de alerta.
  */
 fun calcularSemaforoHectareas(
